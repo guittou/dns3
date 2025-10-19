@@ -1,5 +1,5 @@
-/* Global Styles */
 :root{
+    /* branding / palette — adapte si tu veux les couleurs exactes du logo */
     --brand-color: #2c3e50;
     --brand-dark: #34495e;
     --accent: #3498db;
@@ -7,55 +7,61 @@
     --danger: #e74c3c;
     --danger-dark: #c0392b;
     --text-on-brand: #ffffff;
+
+    /* variables pour onglets (inspirées du bandeau) */
+    --tab-line: #e5ebef;
+    --tab-underline: #B88E22;
+    --tab-accent: #333;
+    --tab-text: #1F2E3B;
 }
 
 /* Reset */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* Body padding-top must match header height so content is not hidden under fixed header */
+/* Body padding-top must match header height so content is visible below fixed header */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     line-height: 1.6;
     color: #333;
-    background-color: #f5f5f5;
-    padding-top: 124px; /* header height (see below) */
+    background-color: #fafafa;
+    padding-top: 180px; /* adjust to header height below (≈ 180px) */
 }
 
-/* Fixed header full-width */
+/* Fixed Header */
 .fixed-header {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    background-color: var(--brand-color);
+    background: var(--brand-color);
     color: var(--text-on-brand);
     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
     z-index: 1000;
 }
 
-/* Grid: left | center | right, with two rows (title+nav stacked in center).
-   Add small horizontal padding so logo/button aren't glued to viewport edge. */
+/* Grid layout: left | center | right.
+   Add a small horizontal padding (12px) so logo/button aren't glued to viewport edge. */
 .header-grid {
     display: grid;
-    grid-template-columns: auto 1fr auto; /* left | center | right */
-    grid-template-rows: auto auto;         /* row1: title, row2: nav */
+    grid-template-columns: auto 1fr auto;
+    grid-template-rows: auto auto; /* title + tabs (stacked center) */
     align-items: center;
     column-gap: 16px;
-    padding: 0 12px;        /* small padding from edges as requested */
+    padding: 0 12px;       /* léger padding demandé */
     width: 100%;
-    height: 124px;          /* header total height; adjust if needed */
+    height: 180px;         /* header total height */
 }
 
-/* LEFT: logo near left, but with header-grid padding so not flush to viewport edge */
+/* LEFT: logo area, flush to the left but kept away from viewport edge by header-grid padding */
 .header-left {
     grid-column: 1;
-    grid-row: 1 / span 2; /* span both rows vertically */
-    justify-self: start;  /* left edge of grid cell (plus padding) */
+    grid-row: 1 / span 2;
+    justify-self: start;
     display: flex;
     align-items: center;
 }
 
-/* CENTER: title (row 1) and nav (row 2) stacked, centered */
+/* CENTER: title (row 1) and nav (row 2) stacked and centered */
 .header-center {
     grid-column: 2;
     grid-row: 1 / span 2;
@@ -65,72 +71,90 @@ body {
     justify-content: center;
 }
 
-/* Constrain nav width so tabs remain centered under title within max width */
+/* Constrain nav width so tabs remain centered under title */
 .nav-inner {
     width: 100%;
-    max-width: 1000px;
+    max-width: 1100px;
     display: flex;
     justify-content: center;
+    border-bottom: 3px solid var(--tab-line); /* trait de séparation comme dans le bandeau */
+    padding-bottom: 8px;
+    margin-top: 8px;
 }
 
 /* RIGHT: auth button area */
 .header-right {
     grid-column: 3;
     grid-row: 1 / span 2;
-    justify-self: end;     /* right edge of grid cell (minus padding) */
+    justify-self: end;
     display: flex;
     align-items: center;
     gap: 12px;
 }
 
-/* Logo */
-.logo {
-    display:flex;
-    align-items:center;
-    text-decoration:none;
-    color:var(--text-on-brand);
-    font-weight:700;
-}
-
+/* Logo sizing: 150px as requested */
 .logo-img {
-    height: 96px;   /* adjust if you want larger/smaller */
+    height: 150px;    /* <-- taille demandée */
     display: inline-block;
     object-fit: contain;
     margin-right: 12px;
 }
 
-/* Site title centered in banner */
+/* Site title centered in banner (stacked above nav) */
 .site-title {
     color: var(--text-on-brand);
     font-size: 1.6rem;
     font-weight: 700;
-    margin-bottom: 6px;
+    margin: 0;
     text-align: center;
 }
 
-/* Navigation Tabs */
+/* Tabs styling (inspired from bandeau.php) */
 .nav-tabs {
-    display:flex;
-    list-style:none;
-    gap:8px;
+    display: flex;
+    list-style: none;
+    gap: 16px;
     margin: 0;
     padding: 0;
 }
 
-.nav-tabs li { margin:0; }
+.nav-tabs li { margin: 0; }
 
-.nav-tabs a {
-    display:block;
-    padding: 10px 14px; /* smaller vertical padding because header already tall */
-    color: rgba(255,255,255,0.95);
-    text-decoration:none;
-    border-bottom:3px solid transparent;
-    transition: background-color .15s ease;
+.nav-tab {
+    display: inline-block;
+    padding: 8px 14px;
+    color: rgba(255,255,255,0.92);
+    text-decoration: none;
+    font-weight: 600;
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: color .15s ease;
     border-radius: 6px;
 }
 
-.nav-tabs a:hover { background-color: var(--brand-dark); color: var(--text-on-brand); }
-.nav-tabs a.active { background-color: var(--brand-dark); border-bottom:3px solid var(--accent); color: var(--text-on-brand); }
+.nav-tab:hover {
+    color: var(--tab-accent);
+    background: rgba(255,255,255,0.02);
+}
+
+/* Active tab: text color and underline bar (full width) */
+.nav-tab.active {
+    color: var(--tab-text);
+}
+
+/* Active underline: use ::after to display the colored underline like in bandeau */
+.nav-tab.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -12px; /* place under the nav-inner border */
+    height: 6px;
+    background: var(--tab-underline);
+    border-radius: 3px;
+}
 
 /* Buttons */
 .btn {
@@ -148,24 +172,30 @@ body {
 
 /* Main content area */
 .main-content {
-    max-width:1400px;
-    margin:20px auto;
-    padding:20px;
-    background:#fff;
-    border-radius:8px;
-    box-shadow:0 2px 4px rgba(0,0,0,0.08);
-    min-height: calc(100vh - 180px);
+    max-width: 1400px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    min-height: calc(100vh - 260px);
 }
 
 /* Footer */
-.footer { background: var(--brand-color); color: var(--text-on-brand); padding:20px 0; text-align:center; margin-top:20px; }
+.footer {
+    background: var(--brand-color);
+    color: var(--text-on-brand);
+    padding: 20px 0;
+    text-align: center;
+    margin-top: 20px;
+}
 
-/* Responsive behavior: stack elements on small screens */
+/* Responsive: stack on small screens */
 @media (max-width: 880px) {
-    body { padding-top: 180px; }
+    body { padding-top: 220px; }
     .header-grid {
         grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto; /* left, title, nav, right stacked */
+        grid-template-rows: auto auto auto;
         row-gap: 8px;
         height: auto;
         padding: 10px 12px;
@@ -173,7 +203,8 @@ body {
     .header-left { justify-self: center; grid-row: 1; }
     .header-center { grid-row: 2; }
     .header-right { justify-self: center; grid-row: 3; }
-    .logo-img { height: 64px; margin-right: 8px; }
-    .site-title { font-size: 1.25rem; }
-    .nav-tabs a { padding: 10px 12px; }
+    .logo-img { height: 96px; }
+    .site-title { font-size: 1.2rem; margin-bottom: 4px; }
+    .nav-inner { border-bottom: 2px solid var(--tab-line); padding-bottom: 6px; }
+    .nav-tab { padding: 8px 10px; }
 }
