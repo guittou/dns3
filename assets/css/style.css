@@ -1,210 +1,198 @@
 :root{
-    /* branding / palette — adapte si tu veux les couleurs exactes du logo */
-    --brand-color: #2c3e50;
-    --brand-dark: #34495e;
-    --accent: #3498db;
-    --accent-dark: #2980b9;
-    --danger: #e74c3c;
-    --danger-dark: #c0392b;
-    --text-on-brand: #ffffff;
+  /* layout + palette */
+  --content-max-width: 1100px;   /* largeur du contenu alignée avec la nav */
+  --header-padding-x: 12px;      /* léger padding côté viewport */
+  --logo-height: 70px;           /* demandé */
+  --header-height: 120px;        /* hauteur totale approximative du header */
+  --brand-color: #2c3e50;
+  --brand-dark: #34495e;
+  --accent: #3498db;
+  --accent-dark: #2980b9;
+  --danger: #e74c3c;
+  --danger-dark: #c0392b;
+  --text-on-brand: #ffffff;
 
-    /* variables pour onglets (inspirées du bandeau) */
-    --tab-line: #e5ebef;
-    --tab-underline: #B88E22;
-    --tab-accent: #333;
-    --tab-text: #1F2E3B;
+  /* onglets (inspiré bandeau.php) */
+  --tab-line: #e5ebef;
+  --tab-underline: #B88E22;
+  --tab-accent: #333;
+  --tab-text: #1F2E3B;
 }
 
 /* Reset */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* Body padding-top must match header height so content is visible below fixed header */
+/* Assure que le contenu n'est pas masqué sous le header fixe */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    line-height: 1.6;
-    color: #333;
-    background-color: #fafafa;
-    padding-top: 180px; /* adjust to header height below (≈ 180px) */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: #fafafa;
+  color: #333;
+  padding-top: calc(var(--header-height)); /* espace pour le header fixe */
 }
 
-/* Fixed Header */
-.fixed-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: var(--brand-color);
-    color: var(--text-on-brand);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-    z-index: 1000;
+/* Header full-width */
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--brand-color);
+  color: var(--text-on-brand);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  z-index: 1000;
 }
 
-/* Grid layout: left | center | right.
-   Add a small horizontal padding (12px) so logo/button aren't glued to viewport edge. */
-.header-grid {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    grid-template-rows: auto auto; /* title + tabs (stacked center) */
-    align-items: center;
-    column-gap: 16px;
-    padding: 0 12px;       /* léger padding demandé */
-    width: 100%;
-    height: 180px;         /* header total height */
+/* Inner container centered (alignement des limites) */
+.header-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 10px var(--header-padding-x); /* padding pour ne pas coller au bord */
+  display: grid;
+  grid-template-columns: auto 1fr auto; /* left | center | right */
+  align-items: center;
+  column-gap: 16px;
+  height: var(--header-height);
 }
 
-/* LEFT: logo area, flush to the left but kept away from viewport edge by header-grid padding */
+/* LEFT: logo zone (gauche, mais inset by padding) */
 .header-left {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    justify-self: start;
-    display: flex;
-    align-items: center;
+  justify-self: start;
+  display: flex;
+  align-items: center;
 }
 
-/* CENTER: title (row 1) and nav (row 2) stacked and centered */
-.header-center {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-
-/* Constrain nav width so tabs remain centered under title */
-.nav-inner {
-    width: 100%;
-    max-width: 1100px;
-    display: flex;
-    justify-content: center;
-    border-bottom: 3px solid var(--tab-line); /* trait de séparation comme dans le bandeau */
-    padding-bottom: 8px;
-    margin-top: 8px;
-}
-
-/* RIGHT: auth button area */
-.header-right {
-    grid-column: 3;
-    grid-row: 1 / span 2;
-    justify-self: end;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-/* Logo sizing: 150px as requested */
+/* Logo size requested */
 .logo-img {
-    height: 150px;    /* <-- taille demandée */
-    display: inline-block;
-    object-fit: contain;
-    margin-right: 12px;
+  height: var(--logo-height);    /* 70px */
+  display: block;
+  object-fit: contain;
+  margin-right: 12px;
 }
 
-/* Site title centered in banner (stacked above nav) */
+/* CENTER: title + nav stacked and centered */
+.header-center {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Title */
 .site-title {
-    color: var(--text-on-brand);
-    font-size: 1.6rem;
-    font-weight: 700;
-    margin: 0;
-    text-align: center;
+  color: var(--text-on-brand);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1;
+  padding-bottom: 6px;
 }
 
-/* Tabs styling (inspired from bandeau.php) */
+/* Navigation inner constrained to the same content max-width so the bottom line aligns with the page */
+.nav-inner {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  border-bottom: 3px solid var(--tab-line); /* ligne de séparation alignée */
+  padding-bottom: 6px;
+}
+
+/* Tabs */
+.header-nav { width: 100%; }
 .nav-tabs {
-    display: flex;
-    list-style: none;
-    gap: 16px;
-    margin: 0;
-    padding: 0;
+  display: flex;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
-
-.nav-tabs li { margin: 0; }
-
 .nav-tab {
-    display: inline-block;
-    padding: 8px 14px;
-    color: rgba(255,255,255,0.92);
-    text-decoration: none;
-    font-weight: 600;
-    background: none;
-    border: none;
-    cursor: pointer;
-    position: relative;
-    transition: color .15s ease;
-    border-radius: 6px;
+  display: inline-block;
+  padding: 6px 12px;
+  color: rgba(255,255,255,0.92);
+  font-weight: 600;
+  text-decoration: none;
+  position: relative;
+  border-radius: 6px;
+  transition: color .15s ease, background .15s ease;
 }
-
 .nav-tab:hover {
-    color: var(--tab-accent);
-    background: rgba(255,255,255,0.02);
+  color: var(--tab-accent);
+  background: rgba(255,255,255,0.02);
 }
 
-/* Active tab: text color and underline bar (full width) */
-.nav-tab.active {
-    color: var(--tab-text);
-}
-
-/* Active underline: use ::after to display the colored underline like in bandeau */
+/* Active underline under the tab, placed inside the nav-inner so visually aligned */
+.nav-tab.active { color: var(--tab-text); }
 .nav-tab.active::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -12px; /* place under the nav-inner border */
-    height: 6px;
-    background: var(--tab-underline);
-    border-radius: 3px;
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -12px; /* positioned below tab but above page; adjust if needed */
+  height: 6px;
+  background: var(--tab-underline);
+  border-radius: 3px;
+}
+
+/* RIGHT: auth area */
+.header-right {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 /* Buttons */
 .btn {
-    padding: 10px 18px;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+  text-decoration: none;
+  color: #fff;
+  border: none;
 }
-.btn-login { background: var(--accent); color: #fff; }
+.btn-login { background: var(--accent); }
 .btn-login:hover { background: var(--accent-dark); }
-.btn-logout { background: var(--danger); color: #fff; }
+.btn-logout { background: var(--danger); }
 .btn-logout:hover { background: var(--danger-dark); }
 
-/* Main content area */
+/* Main content container: kept to same max-width so visual alignment is consistent */
 .main-content {
-    max-width: 1400px;
-    margin: 20px auto;
-    padding: 20px;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    min-height: calc(100vh - 260px);
+  max-width: var(--content-max-width);
+  margin: 20px auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
 }
 
 /* Footer */
 .footer {
-    background: var(--brand-color);
-    color: var(--text-on-brand);
-    padding: 20px 0;
-    text-align: center;
-    margin-top: 20px;
+  background: var(--brand-color);
+  color: var(--text-on-brand);
+  padding: 20px 0;
+  text-align: center;
+  margin-top: 20px;
 }
 
-/* Responsive: stack on small screens */
+/* Responsive: stack center elements on smaller screens */
 @media (max-width: 880px) {
-    body { padding-top: 220px; }
-    .header-grid {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto auto;
-        row-gap: 8px;
-        height: auto;
-        padding: 10px 12px;
-    }
-    .header-left { justify-self: center; grid-row: 1; }
-    .header-center { grid-row: 2; }
-    .header-right { justify-self: center; grid-row: 3; }
-    .logo-img { height: 96px; }
-    .site-title { font-size: 1.2rem; margin-bottom: 4px; }
-    .nav-inner { border-bottom: 2px solid var(--tab-line); padding-bottom: 6px; }
-    .nav-tab { padding: 8px 10px; }
+  :root { --header-height: 180px; }
+  body { padding-top: calc(var(--header-height)); }
+  .header-inner {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    height: auto;
+    padding: 12px;
+    row-gap: 8px;
+  }
+  .header-left { justify-self: center; }
+  .header-center { grid-row: 2; }
+  .header-right { justify-self: center; grid-row: 3; }
+  .logo-img { height: 56px; }
+  .nav-inner { border-bottom-width: 2px; padding-bottom: 4px; }
+  .nav-tab { padding: 8px 10px; }
 }
