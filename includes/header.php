@@ -1,5 +1,5 @@
 <?php
-// Header : logo à l'extrême gauche, bouton à droite, titre centré,
+// Header : logo à l'extrême gauche, bouton à droite, titre centré en haut du bandeau,
 // onglets en bas et underline positionnée dynamiquement par JS pour coïncider avec la separator
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/auth.php';
@@ -25,7 +25,7 @@ $user = $auth->getCurrentUser();
         </a>
       </div>
 
-      <!-- CONTENU CENTRÉ : titre au milieu du bandeau -->
+      <!-- CONTENU CENTRÉ : titre au sommet (top) de la zone du bandeau -->
       <div class="bandeau_content" role="region" aria-label="Bandeau centre">
         <div class="bandeau_center">
           <div class="bandeau_title_wrap">
