@@ -1,6 +1,6 @@
 <?php
-// Header : logo à l'extrême gauche, bouton à l'extrême droite,
-// titre centré et onglets positionnés en bas du bandeau (sélection alignée sur la separator full-width)
+// Header : logo à l'extrême gauche, bouton à droite, titre centré,
+// onglets en bas et underline positionnée dynamiquement par JS pour coïncider avec la separator
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/auth.php';
 
@@ -18,14 +18,14 @@ $user = $auth->getCurrentUser();
 <body>
   <header class="entete_fixee" role="banner" aria-label="Bandeau principal">
     <div class="bandeau_full" role="presentation">
-      <!-- logo collé à l'extrême gauche du viewport (avec offset contrôlable via --edge-offset) -->
+      <!-- LOGO: collé à l'extrême gauche du viewport (avec offset via CSS --edge-offset) -->
       <div class="bandeau_logo" aria-hidden="false">
         <a href="<?php echo BASE_URL; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
           <img src="<?php echo BASE_URL; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
         </a>
       </div>
 
-      <!-- contenu centré : titre (au centre, milieu du bandeau) -->
+      <!-- CONTENU CENTRÉ : titre au milieu du bandeau -->
       <div class="bandeau_content" role="region" aria-label="Bandeau centre">
         <div class="bandeau_center">
           <div class="bandeau_title_wrap">
@@ -34,7 +34,7 @@ $user = $auth->getCurrentUser();
         </div>
       </div>
 
-      <!-- bouton / utilisateur collé à l'extrême droite du viewport -->
+      <!-- BOUTON / UTILISATEUR: collé à l'extrême droite du viewport -->
       <div class="bandeau_droite" aria-hidden="false">
         <?php if ($auth->isLoggedIn() && $user): ?>
           <span class="bandeau_user"><?php echo htmlspecialchars($user['username']); ?></span>
@@ -44,7 +44,7 @@ $user = $auth->getCurrentUser();
         <?php endif; ?>
       </div>
 
-      <!-- onglets positionnés en bas du bandeau ; full-width container for separator is below -->
+      <!-- ONGLETS: positionnés en bas du bandeau (centrés par rapport à la largeur du contenu) -->
       <div class="bandeau_onglets_row" role="navigation" aria-label="Navigation principale">
         <ul class="bandeau_onglets">
           <li><a href="<?php echo BASE_URL; ?>index.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='index.php') ? ' active' : ''; ?>">Accueil</a></li>
@@ -53,8 +53,11 @@ $user = $auth->getCurrentUser();
         </ul>
       </div>
 
-      <!-- ligne de séparation full-width (couvre l'ensemble du bandeau) -->
+      <!-- SEPARATOR: ligne de séparation full-width (en bas du bandeau) -->
       <div class="bandeau_separator" aria-hidden="true"></div>
+
+      <!-- UNDERLINE DYNAMIQUE : positionnée par JS pour coïncider parfaitement avec la separator -->
+      <div class="bandeau_active_underline" aria-hidden="true"></div>
     </div><!-- .bandeau_full -->
   </header>
 
