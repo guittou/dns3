@@ -24,13 +24,13 @@ html, body { height: 100%; }
 body {
   margin: 0;
   height: 100vh;
-  overflow: hidden;
+  overflow: hidden; /* scroll only in .page-body */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #fafafa;
   color: #222;
 }
 
-/* header */
+/* Header fixed: no shadow */
 .entete_fixee {
   position: fixed;
   top: 0;
@@ -42,10 +42,10 @@ body {
   z-index: 1000;
 }
 
-/* full header container */
+/* Header container */
 .bandeau_full { position: relative; width: 100%; height: 100%; }
 
-/* logo and right area */
+/* Logo at viewport edge */
 .bandeau_logo {
   position: absolute;
   left: 0;
@@ -56,6 +56,7 @@ body {
 }
 .bandeau_logo_img { height: var(--logo-height); display: block; object-fit: contain; }
 
+/* Actions at viewport edge (right) */
 .bandeau_droite {
   position: absolute;
   right: 0;
@@ -68,7 +69,7 @@ body {
   z-index: 1010;
 }
 
-/* center content */
+/* Center container defines content width (title) */
 .bandeau_content {
   max-width: var(--content-max-width);
   margin: 0 auto;
@@ -80,11 +81,25 @@ body {
 .bandeau_center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
 .bandeau_title { color: var(--text-on-brand); font-size: 1.25rem; font-weight:700; margin:0; padding-bottom:6px; }
 
-/* -----------------------
-   Tabs + Separator fix
-   ----------------------- */
+/* ------------------------------------------------------------------
+   Correct alignment: separator full width + tabs bottom aligned
+   ------------------------------------------------------------------ */
 
-/* Center the row and give it the exact same centered width as content */
+/* Separator: full-width across viewport, sits at bottom of header */
+.bandeau_separator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--separator-height);
+  background: var(--separator-color);
+  z-index: 1005;
+  box-sizing: border-box;
+}
+
+/* Tabs row centered horizontally and positioned at bottom of header.
+   Width of the tab row is constrained to the content width so tabs are centered visually,
+   but the separator runs full-viewport width underneath. */
 .bandeau_onglets_row {
   position: absolute;
   left: 50%;
@@ -92,19 +107,32 @@ body {
   bottom: 0;
   width: var(--content-max-width);
   max-width: calc(100% - (var(--edge-offset) * 2));
-  height: calc(var(--separator-height) + 32px);
+  height: calc(var(--separator-height) + 36px); /* clickable area above separator */
   display: flex;
   justify-content: center;
   align-items: flex-end;
   z-index: 1015;
-  padding: 0 12px;
+  padding: 0; /* avoid shifting */
+  box-sizing: border-box;
 }
 
-/* Tabs list */
-.bandeau_onglets { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; align-items: center; }
+/* Tabs list inside centered row */
+.bandeau_onglets {
+  display: flex;
+  gap: 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0 6px; /* small symmetric padding */
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* Individual tab: push its bottom up by the separator height so tab bottom == separator top.
+   That way bottom:0 for the underline will overlay the separator exactly. */
 .bandeau_onglet {
   display: inline-block;
   padding: 8px 12px;
+  margin-bottom: var(--separator-height); /* key: aligns tab bottom to separator top */
   color: rgba(31,46,59,0.95);
   text-decoration: none;
   font-weight: 600;
@@ -115,36 +143,22 @@ body {
 .bandeau_onglet:hover { color: var(--tab-accent); background: rgba(0,0,0,0.03); }
 .bandeau_onglet.active { color: var(--tab-text); }
 
-/* Important: underline should sit exactly on top of the separator.
-   Use bottom: calc(-1 * var(--separator-height)) so its bottom edge overlays the separator top.
-   z-index ensures the underline is above the separator. */
+/* Active underline: same height as separator and bottom:0 to sit exactly on separator.
+   z-index above separator ensures visible overlap. */
 .bandeau_onglet.active::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(-1 * var(--separator-height));
+  bottom: 0; /* sits on the separator top because tab has margin-bottom: separator-height */
   height: var(--separator-height);
   background: var(--tab-underline);
   border-radius: 3px;
   z-index: 1020;
-  /* Micro-adjust if necessary: bottom: calc(-1 * var(--separator-height) + 1px); */
+  box-sizing: border-box;
 }
 
-/* separator now covers the full width visually but is centered to the same content width */
-.bandeau_separator {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 0;
-  width: var(--content-max-width);
-  max-width: calc(100% - (var(--edge-offset) * 2));
-  height: var(--separator-height);
-  background: var(--separator-color);
-  z-index: 1005;
-}
-
-/* page body and footer */
+/* Page body & main content */
 .page-body {
   position: absolute;
   top: var(--header-height);
@@ -163,6 +177,8 @@ body {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
 }
+
+/* Footer fixed at bottom */
 .footer {
   position: fixed;
   left: 0;
@@ -177,12 +193,18 @@ body {
   z-index: 1000;
 }
 
-/* responsive */
+/* Buttons */
+.btn { padding: 8px 14px; border-radius: 6px; color: #fff; text-decoration: none; font-weight: 600; display:inline-block; }
+.btn-login { background: #3498db; }
+.btn-logout { background: #e74c3c; }
+
+/* Responsive adjustments */
 @media (max-width: 880px) {
   :root { --header-height: 180px; --logo-height: 56px; --content-max-width: calc(100% - 24px); }
   .page-body { top: var(--header-height); }
   .bandeau_logo, .bandeau_droite { position: static; transform: none; padding: 0; display: flex; justify-content: center; margin: 8px 0; z-index: 1010; }
   .bandeau_onglets_row { position: relative; left: 0; transform: none; width: 100%; height: auto; align-items: center; bottom: auto; padding: 8px 12px; }
   .bandeau_separator { position: relative; left: 0; transform: none; width: 100%; bottom: auto; height: var(--separator-height); }
+  .bandeau_onglet { margin-bottom: 0; }
   .main-content { margin: 12px; }
 }
