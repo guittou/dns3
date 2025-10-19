@@ -13,9 +13,12 @@
   --tab-accent: #333;
   --tab-text: #1F2E3B;
 
-  /* bandeau title sizing */
-  --bandeau-title-size: 1.8rem;    /* desktop */
-  --bandeau-title-size-sm: 1.25rem;/* mobile */
+  /* bandeau title sizing (ajusté) */
+  --bandeau-title-size: 2.2rem;    /* desktop — augmenté comme demandé */
+  --bandeau-title-size-sm: 1.6rem; /* mobile */
+
+  /* top padding for title inside bandeau_content (soit ajustable) */
+  --bandeau-content-padding-top: 10px;
 
   /* palette */
   --brand-color: #e5ebef;        /* couleur du bandeau (claire) */
@@ -86,18 +89,19 @@ body {
   z-index: 1010;
 }
 
-/* CENTRE (contenu aligné and centered) - width constrained to content max width */
+/* CENTRE (contenu aligné and centered) - width constrained to content max width
+   now aligned to top so .bandeau_center sits at the top of the content area */
 .bandeau_content {
   max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: 10px 0; /* vertical padding only */
+  padding: var(--bandeau-content-padding-top) 0 0 0; /* top padding, no horizontal padding */
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* place bandeau_center at top of this area */
   justify-content: center;
   min-height: var(--header-height);
 }
 
-/* centre stacking: title above (title vertically centered in header area) */
+/* centre stacking: keep title horizontally centered but at the top */
 .bandeau_center {
   display: flex;
   flex-direction: column;
