@@ -1,5 +1,5 @@
 <?php
-// Header adapté — structure en DIVs similaire à ton bandeau.php
+// Header : logo à l'extrême gauche du viewport et bouton à l'extrême droite
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/auth.php';
 
@@ -16,16 +16,16 @@ $user = $auth->getCurrentUser();
 </head>
 <body>
   <header class="entete_fixee" role="banner">
-    <div class="bandeau_bothrows">
-      <div class="bandeau_content"> <!-- conteneur centré qui définit la largeur du site -->
-        <!-- logo: positionné à l'extrême gauche via CSS (voir .bandeau_logo) -->
-        <div class="bandeau_logo" aria-hidden="false">
-          <a href="<?php echo BASE_URL; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
-            <img src="<?php echo BASE_URL; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
-          </a>
-        </div>
+    <div class="bandeau_full">
+      <!-- logo collé à l'extrême gauche du VIEWPORT -->
+      <div class="bandeau_logo">
+        <a href="<?php echo BASE_URL; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
+          <img src="<?php echo BASE_URL; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
+        </a>
+      </div>
 
-        <!-- centre : titre + onglets (title en haut, onglets en dessous) -->
+      <!-- zone centrale (centrée) : titre + onglets -->
+      <div class="bandeau_content">
         <div class="bandeau_center">
           <div class="bandeau_title_wrap">
             <h1 class="bandeau_title">Gestion du DNS</h1>
@@ -41,18 +41,18 @@ $user = $auth->getCurrentUser();
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- zone droite : boutons / utilisateur (positionnée à l'extrême droite via CSS) -->
-        <div class="bandeau_droite" aria-hidden="false">
-          <?php if ($auth->isLoggedIn() && $user): ?>
-            <span class="bandeau_user"><?php echo htmlspecialchars($user['username']); ?></span>
-            <a href="<?php echo BASE_URL; ?>logout.php" class="btn btn-logout">Déconnexion</a>
-          <?php else: ?>
-            <a href="<?php echo BASE_URL; ?>login.php" class="btn btn-login">Se connecter</a>
-          <?php endif; ?>
-        </div>
-      </div> <!-- .bandeau_content -->
-    </div> <!-- .bandeau_bothrows -->
+      <!-- bouton collé à l'extrême droite du VIEWPORT -->
+      <div class="bandeau_droite">
+        <?php if ($auth->isLoggedIn() && $user): ?>
+          <span class="bandeau_user"><?php echo htmlspecialchars($user['username']); ?></span>
+          <a href="<?php echo BASE_URL; ?>logout.php" class="btn btn-logout">Déconnexion</a>
+        <?php else: ?>
+          <a href="<?php echo BASE_URL; ?>login.php" class="btn btn-login">Se connecter</a>
+        <?php endif; ?>
+      </div>
+    </div><!-- .bandeau_full -->
   </header>
 
   <main class="main-content">
