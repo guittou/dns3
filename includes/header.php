@@ -21,7 +21,7 @@ $user = $auth->getCurrentUser();
             <div class="header-left">
                 <a href="<?php echo BASE_URL; ?>" class="logo" aria-label="<?php echo SITE_NAME; ?>">
                     <img src="<?php echo BASE_URL; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-                    <span class="logo-text"><?php echo SITE_NAME; ?></span>
+                    <span class="logo-text" style="display:none;"><?php echo SITE_NAME; ?></span>
                 </a>
             </div>
 
@@ -31,9 +31,9 @@ $user = $auth->getCurrentUser();
                 <nav class="header-nav" role="navigation" aria-label="Navigation principale">
                     <div class="nav-inner">
                         <ul class="nav-tabs">
-                            <li><a href="<?php echo BASE_URL; ?>" class="<?php echo basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : ''; ?>">Accueil</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>services.php" class="<?php echo basename($_SERVER['PHP_SELF']) === 'services.php' ? 'active' : ''; ?>">Services</a></li>
-                            <li><a href="<?php echo BASE_URL; ?>about.php" class="<?php echo basename($_SERVER['PHP_SELF']) === 'about.php' ? 'active' : ''; ?>">À propos</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>index.php" class="nav-tab<?php echo (basename($_SERVER['PHP_SELF']) === 'index.php') ? ' active' : ''; ?>">Accueil</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>services.php" class="nav-tab<?php echo (basename($_SERVER['PHP_SELF']) === 'services.php') ? ' active' : ''; ?>">Services</a></li>
+                            <li><a href="<?php echo BASE_URL; ?>about.php" class="nav-tab<?php echo (basename($_SERVER['PHP_SELF']) === 'about.php') ? ' active' : ''; ?>">À propos</a></li>
                         </ul>
                     </div>
                 </nav>
