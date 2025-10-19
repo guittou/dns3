@@ -1,11 +1,14 @@
 <?php
 // Footer : ferme la zone scrollable ouverte dans header, et affiche le footer fixe.
+// Ajout : separator en haut du footer identique à celui du header.
 ?>
     </main>
   </div> <!-- .page-body -->
 
   <footer class="footer" role="contentinfo">
-    <div class="footer-container" style="max-width:var(--content-max-width); width:100%; margin:0 auto; text-align:center;">
+    <div class="footer_separator" aria-hidden="true"></div>
+
+    <div class="footer-container">
       &copy; <?php echo date('Y'); ?> <?php echo SITE_NAME; ?>. Tous droits réservés.
     </div>
   </footer>
