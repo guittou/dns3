@@ -12,125 +12,168 @@
 /* Reset */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* Body: padding-top must match header height */
+/* Body padding-top must match header height so content is not hidden under fixed header */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     line-height: 1.6;
     color: #333;
     background-color: #f5f5f5;
-    padding-top: 110px; /* header height (see below) */
+    padding-top: 124px; /* header height (see below) */
 }
 
-/* Fixed Header full-width */
+/* Fixed header full-width */
 .fixed-header {
     position: fixed;
-    inset: 0 0 auto 0; /* top:0, left:0, right:0 */
+    top: 0;
+    left: 0;
+    right: 0;
     background-color: var(--brand-color);
     color: var(--text-on-brand);
     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
     z-index: 1000;
 }
 
-/* Grid with 3 columns: left | center | right.
-   No side padding so left/right items can be flush to viewport edges. */
+/* Grid: left | center | right, with two rows (title+nav stacked in center).
+   Add small horizontal padding so logo/button aren't glued to viewport edge. */
 .header-grid {
     display: grid;
     grid-template-columns: auto 1fr auto; /* left | center | right */
+    grid-template-rows: auto auto;         /* row1: title, row2: nav */
     align-items: center;
     column-gap: 16px;
+    padding: 0 12px;        /* small padding from edges as requested */
     width: 100%;
-    height: 110px; /* header height */
+    height: 124px;          /* header total height; adjust if needed */
 }
 
-/* LEFT: logo flush to the very left of the page */
+/* LEFT: logo near left, but with header-grid padding so not flush to viewport edge */
 .header-left {
-    justify-self: start;    /* at the extreme left */
+    grid-column: 1;
+    grid-row: 1 / span 2; /* span both rows vertically */
+    justify-self: start;  /* left edge of grid cell (plus padding) */
     display: flex;
     align-items: center;
-    padding-left: 0;        /* no padding so it's flush */
 }
 
-/* CENTER: nav centered in a constrained inner container */
+/* CENTER: title (row 1) and nav (row 2) stacked, centered */
 .header-center {
-    justify-self: center;
-    width: 100%;
+    grid-column: 2;
+    grid-row: 1 / span 2;
     display: flex;
+    flex-direction: column;
     align-items: center;
+    justify-content: center;
 }
 
-/* .nav-inner constrains the nav width and keeps it centered */
+/* Constrain nav width so tabs remain centered under title within max width */
 .nav-inner {
     width: 100%;
-    max-width: 1400px; /* nav stays centered within this max width */
-    margin: 0 auto;
+    max-width: 1000px;
     display: flex;
     justify-content: center;
 }
 
-/* RIGHT: auth button flush to the very right of the page */
+/* RIGHT: auth button area */
 .header-right {
-    justify-self: end;     /* at the extreme right */
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    justify-self: end;     /* right edge of grid cell (minus padding) */
     display: flex;
     align-items: center;
-    padding-right: 0;      /* no padding so it's flush */
     gap: 12px;
 }
 
 /* Logo */
-.logo { display:flex; align-items:center; text-decoration:none; color:var(--text-on-brand); font-weight:700; }
-
-/* Make the logo larger and visible */
-.logo-img {
-    height: 96px;   /* grande taille : change si tu veux 80/120/etc. */
-    display: inline-block;
-    object-fit: contain;
-    margin-right: 12px; /* small gap before text */
+.logo {
+    display:flex;
+    align-items:center;
+    text-decoration:none;
+    color:var(--text-on-brand);
+    font-weight:700;
 }
 
-/* If you want the image absolutely flush to the viewport edge (no tiny gap),
-   set img { display:block } and ensure no parent padding; above removes padding. */
+.logo-img {
+    height: 96px;   /* adjust if you want larger/smaller */
+    display: inline-block;
+    object-fit: contain;
+    margin-right: 12px;
+}
 
-/* Nav tabs */
-.nav-tabs { display:flex; list-style:none; gap:8px; }
+/* Site title centered in banner */
+.site-title {
+    color: var(--text-on-brand);
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-align: center;
+}
+
+/* Navigation Tabs */
+.nav-tabs {
+    display:flex;
+    list-style:none;
+    gap:8px;
+    margin: 0;
+    padding: 0;
+}
+
 .nav-tabs li { margin:0; }
 
 .nav-tabs a {
     display:block;
-    padding: 32px 14px; /* vertical padding to vertically center in header */
+    padding: 10px 14px; /* smaller vertical padding because header already tall */
     color: rgba(255,255,255,0.95);
     text-decoration:none;
     border-bottom:3px solid transparent;
     transition: background-color .15s ease;
+    border-radius: 6px;
 }
 
 .nav-tabs a:hover { background-color: var(--brand-dark); color: var(--text-on-brand); }
 .nav-tabs a.active { background-color: var(--brand-dark); border-bottom:3px solid var(--accent); color: var(--text-on-brand); }
 
 /* Buttons */
-.btn { padding:10px 18px; border-radius:6px; font-weight:600; cursor:pointer; border:none; text-decoration:none; }
-.btn-login { background:var(--accent); color:#fff; }
-.btn-login:hover { background:var(--accent-dark); }
-.btn-logout { background:var(--danger); color:#fff; }
-.btn-logout:hover { background:var(--danger-dark); }
+.btn {
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+}
+.btn-login { background: var(--accent); color: #fff; }
+.btn-login:hover { background: var(--accent-dark); }
+.btn-logout { background: var(--danger); color: #fff; }
+.btn-logout:hover { background: var(--danger-dark); }
 
 /* Main content area */
-.main-content { max-width:1400px; margin:20px auto; padding:20px; background:#fff; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.08); min-height:calc(100vh - 160px); }
+.main-content {
+    max-width:1400px;
+    margin:20px auto;
+    padding:20px;
+    background:#fff;
+    border-radius:8px;
+    box-shadow:0 2px 4px rgba(0,0,0,0.08);
+    min-height: calc(100vh - 180px);
+}
 
 /* Footer */
-.footer { background:var(--brand-color); color:var(--text-on-brand); padding:20px 0; text-align:center; margin-top:20px; }
+.footer { background: var(--brand-color); color: var(--text-on-brand); padding:20px 0; text-align:center; margin-top:20px; }
 
-/* Responsive: stack on small screens; keep logo left when possible */
+/* Responsive behavior: stack elements on small screens */
 @media (max-width: 880px) {
-    body { padding-top: 160px; }
+    body { padding-top: 180px; }
     .header-grid {
         grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto; /* left, title, nav, right stacked */
         row-gap: 8px;
         height: auto;
-        padding: 12px 8px;
+        padding: 10px 12px;
     }
-    .header-left { justify-self: center; padding-left:0; }
-    .header-center { order: 3; }
-    .header-right { justify-self: center; order: 2; }
-    .logo-img { height: 64px; }
-    .nav-tabs a { padding:12px 10px; }
+    .header-left { justify-self: center; grid-row: 1; }
+    .header-center { grid-row: 2; }
+    .header-right { justify-self: center; grid-row: 3; }
+    .logo-img { height: 64px; margin-right: 8px; }
+    .site-title { font-size: 1.25rem; }
+    .nav-tabs a { padding: 10px 12px; }
 }
