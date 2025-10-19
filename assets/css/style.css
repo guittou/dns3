@@ -13,9 +13,13 @@
   --tab-accent: #333;
   --tab-text: #1F2E3B;
 
-  /* bandeau title sizing (ajusté) */
-  --bandeau-title-size: 2.2rem;    /* desktop — augmenté comme demandé */
+  /* bandeau title sizing */
+  --bandeau-title-size: 2.2rem;    /* desktop */
   --bandeau-title-size-sm: 1.6rem; /* mobile */
+
+  /* tab font sizing (nouvelle variable) */
+  --bandeau-tab-font-size: 1.05rem;    /* desktop - augmenté */
+  --bandeau-tab-font-size-sm: 0.95rem; /* mobile */
 
   /* top padding for title inside bandeau_content (soit ajustable) */
   --bandeau-content-padding-top: 10px;
@@ -181,6 +185,10 @@ body {
   position: relative;
   border-radius: 6px;
   background: transparent;
+
+  /* Tab font size (new) */
+  font-size: var(--bandeau-tab-font-size);
+  line-height: 1;
 }
 .bandeau_onglet:hover {
   color: var(--tab-accent);
@@ -264,6 +272,6 @@ body {
   .bandeau_logo, .bandeau_droite { position: static; transform: none; padding: 0; display: flex; justify-content: center; margin: 8px 0; z-index: 1010; }
   .bandeau_onglets_row { position: relative; left: 0; transform: none; width: 100%; height: auto; align-items: center; bottom: auto; padding: 8px 12px; }
   .bandeau_separator { position: relative; left: 0; transform: none; width: 100%; bottom: auto; height: var(--separator-height); }
-  .bandeau_onglet { margin-bottom: 0; }
+  .bandeau_onglet { margin-bottom: 0; font-size: var(--bandeau-tab-font-size-sm); }
   .main-content { margin: 12px; }
 }
