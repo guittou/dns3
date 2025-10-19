@@ -38,3 +38,6 @@ uploads/
 .env
 .env.local
 .env.*.local
+
+# Preview/demo files
+preview*.html
