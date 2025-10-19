@@ -1,14 +1,15 @@
-/* Variables principales */
 :root{
-  --content-max-width: 1100px;   /* largeur alignée avec le reste du site (ajuste si nécessaire) */
-  --edge-padding: 0px;           /* 0 = logo/bouton collés au bord ; mettre 12px si tu veux léger padding */
-  --logo-height: 70px;           /* demandé */
-  --header-total-height: 120px;  /* hauteur totale approximative du bandeau (ajuster si besoin) */
+  /* layout */
+  --content-max-width: 1100px;   /* largeur du contenu centré (ajuste si nécessaire) */
+  --edge-offset: 0px;           /* 0 = collé au bord; change à 12px pour petit padding */
+  --logo-height: 70px;          /* demandé */
+  --header-total-height: 120px; /* ajuster si tu veux plus d'espace */
 
+  /* couleurs */
   --brand-color: #2c3e50;
   --text-on-brand: #ffffff;
 
-  /* onglets (inspiré planning_palette) */
+  /* onglets */
   --tab-line: #e5ebef;
   --tab-underline: #B88E22;
   --tab-accent: #333;
@@ -18,7 +19,7 @@
 /* Reset minimal */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Empêche le contenu d'être caché sous le header fixe */
+/* Evite que le contenu soit caché sous le header fixe */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #fafafa;
@@ -26,7 +27,7 @@ body {
   padding-top: var(--header-total-height);
 }
 
-/* Header full-width */
+/* Header fixed full width, no horizontal padding so edges line up exactly with viewport */
 .entete_fixee {
   position: fixed;
   top: 0;
@@ -36,63 +37,61 @@ body {
   color: var(--text-on-brand);
   box-shadow: 0 2px 6px rgba(0,0,0,0.12);
   z-index: 1000;
+  padding: 0; /* important: no side padding here */
 }
 
-/* zone centrale qui aligne la largeur du contenu */
-.bandeau_bothrows {
-  width: 100%;
-}
-
-/* Contenu centré: définit la largeur de la zone "page" et sert d'ancre pour aligner la ligne des onglets */
-.bandeau_content {
+/* Full container: relative so absolute children are inside header (which spans viewport) */
+.bandeau_full {
   position: relative;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  padding: 8px calc(var(--edge-padding));
-  display: block;
+  width: 100%;
   min-height: var(--header-total-height);
 }
 
-/* LOGO: position absolute pour le coller à l'extrême gauche du viewport (via negative margin),
-   mais nous utilisons --edge-padding to move it in if desired. */
+/* LOGO: position absolute with left:0 -> extreme left of viewport (header spans viewport) */
 .bandeau_logo {
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  padding-left: var(--edge-padding);
-  display: flex;
-  align-items: center;
+  padding-left: var(--edge-offset); /* 0 by default; set to 12px if you want gap from edge */
+  z-index: 1010;
 }
-
-/* Image logo, taille demandée */
 .bandeau_logo_img {
   height: var(--logo-height);
   display: block;
   object-fit: contain;
 }
 
-/* DROITE: zone auth utilisateur, position absolute côté droit du viewport */
+/* RIGHT: auth area absolute right:0 -> extreme right of viewport */
 .bandeau_droite {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  padding-right: var(--edge-padding);
+  padding-right: var(--edge-offset); /* 0 by default */
   display: flex;
   align-items: center;
   gap: 12px;
+  z-index: 1010;
 }
 
-/* CENTRE : titre + onglets centrés dans la .bandeau_content
-   On centre le bloc centre en laissant le logo et la droite en absolu */
+/* CENTRE (contenu aligné et centré) - width constrained to content max width */
+.bandeau_content {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 10px 0; /* vertical padding only */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--header-total-height);
+}
+
+/* centre stacking: title above tabs */
 .bandeau_center {
-  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 18px 0 0 0;
+  width: 100%;
 }
 
 /* Title */
@@ -101,19 +100,12 @@ body {
   font-size: 1.25rem;
   font-weight: 700;
   margin: 0;
-  padding: 6px 0;
+  padding-bottom: 6px;
   text-align: center;
 }
 
-/* Nav inner: a la même max-width que la page => la ligne (border-bottom) s'aligne exactement
-   avec la limite du contenu et du reste de la page (comme sur ton bandeau). */
-.bandeau_ongletswrap {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-top: 8px;
-}
-
+/* Onglets: border-bottom on .bandeau_onglets_row with same max-width as content -> aligns with page limits */
+.bandeau_ongletswrap { width: 100%; display:flex; justify-content:center; }
 .bandeau_onglets_row {
   width: 100%;
   max-width: var(--content-max-width);
@@ -121,18 +113,11 @@ body {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  border-bottom: 3px solid var(--tab-line); /* trait aligné sur la largeur du contenu */
+  border-bottom: 3px solid var(--tab-line);
   padding-bottom: 8px;
 }
 
-/* Onglets */
-.bandeau_onglets {
-  display: flex;
-  gap: 18px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
+.bandeau_onglets { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; }
 .bandeau_onglet {
   display: inline-block;
   padding: 6px 10px;
@@ -142,63 +127,39 @@ body {
   position: relative;
   border-radius: 6px;
 }
-.bandeau_onglet:hover {
-  color: var(--tab-accent);
-  background: rgba(255,255,255,0.02);
-}
-.bandeau_onglet.active {
-  color: var(--tab-text);
-}
+.bandeau_onglet:hover { color: var(--tab-accent); background: rgba(255,255,255,0.02); }
+.bandeau_onglet.active { color: var(--tab-text); }
 .bandeau_onglet.active::after {
   content: '';
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -10px; /* placé visuellement légèrement sous la ligne de séparation */
+  left: 0; right: 0;
+  bottom: -10px; /* slightly under the border */
   height: 6px;
   background: var(--tab-underline);
   border-radius: 3px;
 }
 
-/* Boutons */
-.btn {
-  padding: 8px 14px;
-  border-radius: 6px;
-  text-decoration: none;
-  color: #fff;
-  font-weight: 600;
-  display: inline-block;
-}
+/* Buttons */
+.btn { padding: 8px 14px; border-radius: 6px; color: #fff; text-decoration: none; font-weight: 600; }
 .btn-login { background: #3498db; }
 .btn-logout { background: #e74c3c; }
 
-/* MAIN content aligned to same max-width for visual consistency */
-.main-content {
-  max-width: var(--content-max-width);
-  margin: 20px auto;
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-}
+/* Main area aligned with content width for visual alignment */
+.main-content { max-width: var(--content-max-width); margin: 20px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.06); }
 
 /* Footer */
-.footer {
-  background: var(--brand-color);
-  color: var(--text-on-brand);
-  padding: 20px 0;
-  text-align: center;
-  margin-top: 20px;
-}
+.footer { background: var(--brand-color); color: var(--text-on-brand); padding: 20px 0; text-align: center; margin-top: 20px; }
 
-/* Responsive: sur petits écrans on empile, et on centre logo/bouton */
+/* Responsive: stack and center logo/button on narrow screens */
 @media (max-width: 880px) {
   :root { --header-total-height: 180px; --logo-height: 56px; }
   body { padding-top: var(--header-total-height); }
-  .bandeau_content { padding: 12px; min-height: var(--header-total-height); }
-  .bandeau_logo { position: static; transform: none; padding-left: 0; justify-self: center; margin-bottom: 8px; }
-  .bandeau_droite { position: static; transform: none; padding-right: 0; justify-self: center; margin-top: 8px; }
+  .bandeau_logo, .bandeau_droite { position: static; transform: none; padding: 0; margin: 0; }
+  .bandeau_full { min-height: var(--header-total-height); }
+  .bandeau_content { padding: 12px; }
   .bandeau_center { order: 2; }
+  .bandeau_logo { order: 1; display:flex; justify-content:center; margin-bottom:8px; }
+  .bandeau_droite { order: 3; display:flex; justify-content:center; margin-top:8px; }
   .bandeau_onglets_row { border-bottom-width: 2px; padding-bottom: 6px; }
   .bandeau_onglet { padding: 8px 10px; }
 }
