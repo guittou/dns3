@@ -9,5 +9,8 @@
       &copy; <?php echo date('Y'); ?> <?php echo SITE_NAME; ?>. Tous droits réservés.
     </div>
   </footer>
+
+  <!-- Include the underline script (deferred by DOMContentLoaded handler above) -->
+  <script src="<?php echo BASE_URL; ?>assets/js/header-underline.js"></script>
 </body>
 </html>
