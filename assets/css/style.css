@@ -1,37 +1,33 @@
+/* Variables principales */
 :root{
-  /* layout + palette */
-  --content-max-width: 1100px;   /* largeur du contenu alignée avec la nav */
-  --header-padding-x: 12px;      /* léger padding côté viewport */
+  --content-max-width: 1100px;   /* largeur alignée avec le reste du site (ajuste si nécessaire) */
+  --edge-padding: 0px;           /* 0 = logo/bouton collés au bord ; mettre 12px si tu veux léger padding */
   --logo-height: 70px;           /* demandé */
-  --header-height: 120px;        /* hauteur totale approximative du header */
+  --header-total-height: 120px;  /* hauteur totale approximative du bandeau (ajuster si besoin) */
+
   --brand-color: #2c3e50;
-  --brand-dark: #34495e;
-  --accent: #3498db;
-  --accent-dark: #2980b9;
-  --danger: #e74c3c;
-  --danger-dark: #c0392b;
   --text-on-brand: #ffffff;
 
-  /* onglets (inspiré bandeau.php) */
+  /* onglets (inspiré planning_palette) */
   --tab-line: #e5ebef;
   --tab-underline: #B88E22;
   --tab-accent: #333;
   --tab-text: #1F2E3B;
 }
 
-/* Reset */
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* Reset minimal */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Assure que le contenu n'est pas masqué sous le header fixe */
+/* Empêche le contenu d'être caché sous le header fixe */
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #fafafa;
-  color: #333;
-  padding-top: calc(var(--header-height)); /* espace pour le header fixe */
+  color: #222;
+  padding-top: var(--header-total-height);
 }
 
 /* Header full-width */
-.site-header {
+.entete_fixee {
   position: fixed;
   top: 0;
   left: 0;
@@ -42,131 +38,148 @@ body {
   z-index: 1000;
 }
 
-/* Inner container centered (alignement des limites) */
-.header-inner {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-  padding: 10px var(--header-padding-x); /* padding pour ne pas coller au bord */
-  display: grid;
-  grid-template-columns: auto 1fr auto; /* left | center | right */
-  align-items: center;
-  column-gap: 16px;
-  height: var(--header-height);
-}
-
-/* LEFT: logo zone (gauche, mais inset by padding) */
-.header-left {
-  justify-self: start;
-  display: flex;
-  align-items: center;
-}
-
-/* Logo size requested */
-.logo-img {
-  height: var(--logo-height);    /* 70px */
-  display: block;
-  object-fit: contain;
-  margin-right: 12px;
-}
-
-/* CENTER: title + nav stacked and centered */
-.header-center {
-  grid-column: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-/* Title */
-.site-title {
-  color: var(--text-on-brand);
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
-  line-height: 1;
-  padding-bottom: 6px;
-}
-
-/* Navigation inner constrained to the same content max-width so the bottom line aligns with the page */
-.nav-inner {
+/* zone centrale qui aligne la largeur du contenu */
+.bandeau_bothrows {
   width: 100%;
+}
+
+/* Contenu centré: définit la largeur de la zone "page" et sert d'ancre pour aligner la ligne des onglets */
+.bandeau_content {
+  position: relative;
   max-width: var(--content-max-width);
   margin: 0 auto;
-  display: flex;
-  justify-content: center;
-  border-bottom: 3px solid var(--tab-line); /* ligne de séparation alignée */
-  padding-bottom: 6px;
+  padding: 8px calc(var(--edge-padding));
+  display: block;
+  min-height: var(--header-total-height);
 }
 
-/* Tabs */
-.header-nav { width: 100%; }
-.nav-tabs {
-  display: flex;
-  gap: 16px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.nav-tab {
-  display: inline-block;
-  padding: 6px 12px;
-  color: rgba(255,255,255,0.92);
-  font-weight: 600;
-  text-decoration: none;
-  position: relative;
-  border-radius: 6px;
-  transition: color .15s ease, background .15s ease;
-}
-.nav-tab:hover {
-  color: var(--tab-accent);
-  background: rgba(255,255,255,0.02);
-}
-
-/* Active underline under the tab, placed inside the nav-inner so visually aligned */
-.nav-tab.active { color: var(--tab-text); }
-.nav-tab.active::after {
-  content: '';
+/* LOGO: position absolute pour le coller à l'extrême gauche du viewport (via negative margin),
+   mais nous utilisons --edge-padding to move it in if desired. */
+.bandeau_logo {
   position: absolute;
   left: 0;
-  right: 0;
-  bottom: -12px; /* positioned below tab but above page; adjust if needed */
-  height: 6px;
-  background: var(--tab-underline);
-  border-radius: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-left: var(--edge-padding);
+  display: flex;
+  align-items: center;
 }
 
-/* RIGHT: auth area */
-.header-right {
-  justify-self: end;
+/* Image logo, taille demandée */
+.bandeau_logo_img {
+  height: var(--logo-height);
+  display: block;
+  object-fit: contain;
+}
+
+/* DROITE: zone auth utilisateur, position absolute côté droit du viewport */
+.bandeau_droite {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-right: var(--edge-padding);
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-/* Buttons */
+/* CENTRE : titre + onglets centrés dans la .bandeau_content
+   On centre le bloc centre en laissant le logo et la droite en absolu */
+.bandeau_center {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 0 0 0;
+}
+
+/* Title */
+.bandeau_title {
+  color: var(--text-on-brand);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  padding: 6px 0;
+  text-align: center;
+}
+
+/* Nav inner: a la même max-width que la page => la ligne (border-bottom) s'aligne exactement
+   avec la limite du contenu et du reste de la page (comme sur ton bandeau). */
+.bandeau_ongletswrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.bandeau_onglets_row {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  border-bottom: 3px solid var(--tab-line); /* trait aligné sur la largeur du contenu */
+  padding-bottom: 8px;
+}
+
+/* Onglets */
+.bandeau_onglets {
+  display: flex;
+  gap: 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.bandeau_onglet {
+  display: inline-block;
+  padding: 6px 10px;
+  color: rgba(255,255,255,0.95);
+  text-decoration: none;
+  font-weight: 600;
+  position: relative;
+  border-radius: 6px;
+}
+.bandeau_onglet:hover {
+  color: var(--tab-accent);
+  background: rgba(255,255,255,0.02);
+}
+.bandeau_onglet.active {
+  color: var(--tab-text);
+}
+.bandeau_onglet.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px; /* placé visuellement légèrement sous la ligne de séparation */
+  height: 6px;
+  background: var(--tab-underline);
+  border-radius: 3px;
+}
+
+/* Boutons */
 .btn {
   padding: 8px 14px;
   border-radius: 6px;
-  font-weight: 600;
   text-decoration: none;
   color: #fff;
-  border: none;
+  font-weight: 600;
+  display: inline-block;
 }
-.btn-login { background: var(--accent); }
-.btn-login:hover { background: var(--accent-dark); }
-.btn-logout { background: var(--danger); }
-.btn-logout:hover { background: var(--danger-dark); }
+.btn-login { background: #3498db; }
+.btn-logout { background: #e74c3c; }
 
-/* Main content container: kept to same max-width so visual alignment is consistent */
+/* MAIN content aligned to same max-width for visual consistency */
 .main-content {
   max-width: var(--content-max-width);
   margin: 20px auto;
   padding: 20px;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.06);
 }
 
 /* Footer */
@@ -178,21 +191,14 @@ body {
   margin-top: 20px;
 }
 
-/* Responsive: stack center elements on smaller screens */
+/* Responsive: sur petits écrans on empile, et on centre logo/bouton */
 @media (max-width: 880px) {
-  :root { --header-height: 180px; }
-  body { padding-top: calc(var(--header-height)); }
-  .header-inner {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto;
-    height: auto;
-    padding: 12px;
-    row-gap: 8px;
-  }
-  .header-left { justify-self: center; }
-  .header-center { grid-row: 2; }
-  .header-right { justify-self: center; grid-row: 3; }
-  .logo-img { height: 56px; }
-  .nav-inner { border-bottom-width: 2px; padding-bottom: 4px; }
-  .nav-tab { padding: 8px 10px; }
+  :root { --header-total-height: 180px; --logo-height: 56px; }
+  body { padding-top: var(--header-total-height); }
+  .bandeau_content { padding: 12px; min-height: var(--header-total-height); }
+  .bandeau_logo { position: static; transform: none; padding-left: 0; justify-self: center; margin-bottom: 8px; }
+  .bandeau_droite { position: static; transform: none; padding-right: 0; justify-self: center; margin-top: 8px; }
+  .bandeau_center { order: 2; }
+  .bandeau_onglets_row { border-bottom-width: 2px; padding-bottom: 6px; }
+  .bandeau_onglet { padding: 8px 10px; }
 }
