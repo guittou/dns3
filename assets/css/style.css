@@ -17,8 +17,8 @@
   --bandeau-title-size: 2.2rem;    /* desktop */
   --bandeau-title-size-sm: 1.6rem; /* mobile */
 
-  /* tab font sizing (ajusté : augmenté un peu de plus) */
-  --bandeau-tab-font-size: 1.15rem;    /* desktop - augmenté */
+  /* tab font sizing */
+  --bandeau-tab-font-size: 1.15rem;    /* desktop */
   --bandeau-tab-font-size-sm: 1.05rem; /* mobile */
 
   /* top padding for title inside bandeau_content (soit ajustable) */
@@ -32,7 +32,7 @@
 /* Reset minimal + box-model */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Assure que HTML / Body remplissent la fenêtre et disable global scroll */
+/* Assure que HTML / Body remplissent la fenêtre and disable global scroll */
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -186,7 +186,7 @@ body {
   border-radius: 6px;
   background: transparent;
 
-  /* Tab font size (updated) */
+  /* Tab font size */
   font-size: var(--bandeau-tab-font-size);
   line-height: 1;
 }
@@ -251,6 +251,28 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  box-shadow: 0 -1px 3px rgba(0,0,0,0.08);
+}
+
+/* Footer separator: same trait as header separator (placed at top of the footer) */
+.footer_separator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--separator-height);
+  background: var(--separator-color);
+  z-index: 1005;
+  box-sizing: border-box;
+}
+
+/* Footer container */
+.footer-container {
+  max-width: var(--content-max-width);
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
+  padding-top: 6px; /* give a little space under the separator */
 }
 
 /* Buttons */
@@ -272,6 +294,7 @@ body {
   .bandeau_logo, .bandeau_droite { position: static; transform: none; padding: 0; display: flex; justify-content: center; margin: 8px 0; z-index: 1010; }
   .bandeau_onglets_row { position: relative; left: 0; transform: none; width: 100%; height: auto; align-items: center; bottom: auto; padding: 8px 12px; }
   .bandeau_separator { position: relative; left: 0; transform: none; width: 100%; bottom: auto; height: var(--separator-height); }
+  .footer_separator { position: relative; top: 0; height: var(--separator-height); width: 100%; }
   .bandeau_onglet { margin-bottom: 0; font-size: var(--bandeau-tab-font-size-sm); }
   .main-content { margin: 12px; }
 }
