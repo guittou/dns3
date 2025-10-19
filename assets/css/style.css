@@ -8,14 +8,14 @@
 
   /* separator / tabs */
   --separator-height: 6px;       /* épaisseur du trait de séparation (idem pour underline) */
-  --separator-color: #e5ebef;    /* couleur du trait de séparation */
-  --tab-underline: #B88E22;      /* couleur de la sélection active (au-dessus de separator) */
+  --separator-color: #2c3e50;    /* ← ancienne couleur principale du bandeau (maintenant separator) */
+  --tab-underline: #B88E22;      /* couleur de la sélection active */
   --tab-accent: #333;
   --tab-text: #1F2E3B;
 
-  /* palette */
-  --brand-color: #2c3e50;
-  --text-on-brand: #ffffff;
+  /* palette - BRAND and text on brand have been swapped so brand is lighter */
+  --brand-color: #e5ebef;        /* ← ancienne couleur du trait de séparation (maintenant couleur principale du bandeau) */
+  --text-on-brand: #1F2E3B;      /* texte foncé sur fond clair du bandeau */
 }
 
 /* Reset minimal */
@@ -30,6 +30,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #fafafa;
   color: #222;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Header fixed in top, no side padding so elements at edges are true edges */
@@ -39,58 +41,78 @@ body {
   left: 0;
   right: 0;
   height: var(--header-height);
-  background: var(--brand-color);
-  color: var(--text-on-brand);
+  background: var(--brand-color);     /* now light */
+  color: var(--text-on-brand);        /* now dark */
   z-index: 1000;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  /* box-shadow removed as requested */
 }
 
-/* Full header container */
+/* Full container: relative so absolute children are inside header (which spans viewport) */
 .bandeau_full {
   position: relative;
   width: 100%;
-  height: 100%;
+  min-height: var(--header-height);
 }
 
-/* Logo at viewport edge (left:0) with small offset */
+/* LOGO: position absolute with left:0 -> extreme left of viewport (header spans viewport) */
 .bandeau_logo {
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  padding-left: var(--edge-offset);
+  padding-left: var(--edge-offset); /* léger retrait demandé */
   z-index: 1010;
 }
-.bandeau_logo_img { height: var(--logo-height); display: block; object-fit: contain; }
+.bandeau_logo_img {
+  height: var(--logo-height);
+  display: block;
+  object-fit: contain;
+}
 
-/* Right actions at viewport edge (right:0) with offset */
+/* RIGHT: auth area absolute right:0 -> extreme right of viewport */
 .bandeau_droite {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
-  padding-right: var(--edge-offset);
+  padding-right: var(--edge-offset); /* léger retrait demandé */
   display: flex;
   align-items: center;
   gap: 12px;
   z-index: 1010;
 }
 
-/* Center container defines content width (title) */
+/* CENTRE (contenu aligné and centered) - width constrained to content max width */
 .bandeau_content {
   max-width: var(--content-max-width);
   margin: 0 auto;
-  height: 100%;
+  padding: 10px 0; /* vertical padding only */
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: var(--header-height);
 }
 
-/* Title centered vertically inside header */
-.bandeau_center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
-.bandeau_title { color: var(--text-on-brand); font-size: 1.25rem; font-weight:700; margin:0; padding-bottom:6px; }
+/* centre stacking: title above tabs */
+.bandeau_center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
 
-/* Onglets row: positioned at bottom of the header, full width; tabs centered inside */
+/* Title */
+.bandeau_title {
+  color: var(--text-on-brand);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  padding-bottom: 6px;
+  text-align: center;
+}
+
+/* Onglets container */
+.bandeau_ongletswrap { width: 100%; display:flex; justify-content:center; }
 .bandeau_onglets_row {
   position: absolute;
   left: 0;
@@ -102,7 +124,6 @@ body {
   align-items: flex-end;
   z-index: 1015;
   pointer-events: auto;
-  /* no local border: separator is handled by .bandeau_separator */
 }
 .bandeau_onglets {
   display: flex;
@@ -111,22 +132,20 @@ body {
   margin: 0;
   padding: 0 12px; /* small side padding for tabs group */
   align-items: center;
-  /* keep the tabs visually limited to content width if you want:
-     you can wrap them in an inner container with max-width: var(--content-max-width) */
 }
 
 /* individual tab */
 .bandeau_onglet {
   display: inline-block;
   padding: 8px 12px; /* clickable area */
-  color: rgba(255,255,255,0.95);
+  color: rgba(31,46,59,0.95);
   text-decoration: none;
   font-weight: 600;
   position: relative;
   border-radius: 6px;
   background: transparent;
 }
-.bandeau_onglet:hover { color: var(--tab-accent); background: rgba(255,255,255,0.02); }
+.bandeau_onglet:hover { color: var(--tab-accent); background: rgba(0,0,0,0.03); }
 .bandeau_onglet.active { color: var(--tab-text); }
 
 /* Active underline that exactly matches separator thickness and sits on top of it */
@@ -142,15 +161,14 @@ body {
   z-index: 1020; /* above separator */
 }
 
-/* Separator: full-width across the banner, centered on viewport,
-   but limit its visual width to viewport width minus edge offsets if needed */
+/* Separator: full-width across the banner (now dark) */
 .bandeau_separator {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   height: var(--separator-height);
-  background: var(--separator-color);
+  background: var(--separator-color); /* now dark (old brand) */
   z-index: 1005; /* below tab underline (which has z-index:1020) */
 }
 
@@ -161,7 +179,7 @@ body {
   left: 0;
   right: 0;
   bottom: var(--footer-height);
-  overflow: auto;
+  overflow: auto; /* scroll vertical & horizontal only here if necessary */
   -webkit-overflow-scrolling: touch;
   background: transparent;
 }
@@ -176,7 +194,7 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
 }
 
-/* Footer fixed at bottom */
+/* Footer fixed at bottom (uses brand-color background which is now light) */
 .footer {
   position: fixed;
   left: 0;
