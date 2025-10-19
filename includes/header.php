@@ -1,6 +1,6 @@
 <?php
-// Header : logo à l'extrême gauche du viewport, bouton à l'extrême droite,
-// titre + onglets centrés. Ouvre la zone scrollable (.page-body).
+// Header : logo à l'extrême gauche, bouton à l'extrême droite,
+// titre centré et onglets positionnés en bas du bandeau (sélection alignée sur la separator full-width)
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/auth.php';
 
@@ -25,21 +25,11 @@ $user = $auth->getCurrentUser();
         </a>
       </div>
 
-      <!-- contenu centré : titre + onglets -->
+      <!-- contenu centré : titre (au centre, milieu du bandeau) -->
       <div class="bandeau_content" role="region" aria-label="Bandeau centre">
         <div class="bandeau_center">
           <div class="bandeau_title_wrap">
             <h1 class="bandeau_title">Gestion du DNS</h1>
-          </div>
-
-          <div class="bandeau_ongletswrap" role="navigation" aria-label="Navigation principale">
-            <div class="bandeau_onglets_row">
-              <ul class="bandeau_onglets">
-                <li><a href="<?php echo BASE_URL; ?>index.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='index.php') ? ' active' : ''; ?>">Accueil</a></li>
-                <li><a href="<?php echo BASE_URL; ?>services.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='services.php') ? ' active' : ''; ?>">Services</a></li>
-                <li><a href="<?php echo BASE_URL; ?>about.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='about.php') ? ' active' : ''; ?>">À propos</a></li>
-              </ul>
-            </div>
           </div>
         </div>
       </div>
@@ -54,7 +44,16 @@ $user = $auth->getCurrentUser();
         <?php endif; ?>
       </div>
 
-      <!-- ligne de séparation exacte, positionnée en bas du header et limitée à la largeur du contenu -->
+      <!-- onglets positionnés en bas du bandeau ; full-width container for separator is below -->
+      <div class="bandeau_onglets_row" role="navigation" aria-label="Navigation principale">
+        <ul class="bandeau_onglets">
+          <li><a href="<?php echo BASE_URL; ?>index.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='index.php') ? ' active' : ''; ?>">Accueil</a></li>
+          <li><a href="<?php echo BASE_URL; ?>services.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='services.php') ? ' active' : ''; ?>">Services</a></li>
+          <li><a href="<?php echo BASE_URL; ?>about.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='about.php') ? ' active' : ''; ?>">À propos</a></li>
+        </ul>
+      </div>
+
+      <!-- ligne de séparation full-width (couvre l'ensemble du bandeau) -->
       <div class="bandeau_separator" aria-hidden="true"></div>
     </div><!-- .bandeau_full -->
   </header>
