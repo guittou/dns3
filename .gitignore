@@ -1,0 +1,43 @@
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# PHP
+vendor/
+composer.phar
+composer.lock
+
+# Configuration files with sensitive data
+config.local.php
+
+# Logs
+*.log
+logs/
+error_log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Cache
+cache/
+*.cache
+
+# Session files
+sessions/
+
+# Uploads
+uploads/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Preview/demo files
+preview*.html
