@@ -1,39 +1,38 @@
 :root{
   /* layout */
-  --content-max-width: 1100px;   /* largeur du contenu centré (change si tu veux 1400px ou 100%) */
-  --edge-offset: 12px;           /* léger padding pour logo & bouton aux bords (12px recommandé) */
+  --content-max-width: 1100px;   /* largeur du contenu centré si souhaitée */
+  --edge-offset: 12px;           /* léger padding pour logo & bouton aux bords */
   --logo-height: 70px;           /* hauteur du logo demandée */
-  --header-height: 120px;        /* hauteur totale du header (doit correspondre visuellement) */
+  --header-height: 120px;        /* hauteur totale du header (doit inclure l'espace pour les onglets en bas) */
   --footer-height: 56px;         /* hauteur du footer */
 
-  /* couleurs */
-  --brand-color: #2c3e50;
-  --text-on-brand: #ffffff;
-
-  /* onglets (inspiré planning_palette) */
-  --tab-line: #e5ebef;
-  --tab-underline: #B88E22;
+  /* separator / tabs */
+  --separator-height: 6px;       /* épaisseur du trait de séparation (idem pour underline) */
+  --separator-color: #e5ebef;    /* couleur du trait de séparation */
+  --tab-underline: #B88E22;      /* couleur de la sélection active (au-dessus de separator) */
   --tab-accent: #333;
   --tab-text: #1F2E3B;
+
+  /* palette */
+  --brand-color: #2c3e50;
+  --text-on-brand: #ffffff;
 }
 
 /* Reset minimal */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Assure que le HTML/Body remplissent la fenêtre */
+/* Assure que HTML / Body remplissent la fenêtre et disable global scroll */
 html, body { height: 100%; }
 body {
   margin: 0;
   height: 100vh;
-  overflow: hidden; /* empêche le scroll global ; le scroll se produit dans .page-body */
+  overflow: hidden; /* IMPORTANT: scroll only in .page-body */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #fafafa;
   color: #222;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Header fixe en haut, sans padding horizontal pour que left:0/right:0 soit aux bords vrais */
+/* Header fixed in top, no side padding so elements at edges are true edges */
 .entete_fixee {
   position: fixed;
   top: 0;
@@ -44,28 +43,27 @@ body {
   color: var(--text-on-brand);
   z-index: 1000;
   box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-  padding: 0;
 }
 
-/* Conteneur complet header */
+/* Full header container */
 .bandeau_full {
   position: relative;
   width: 100%;
   height: 100%;
 }
 
-/* Logo : absolute left:0 (edge), with a small offset controlled by --edge-offset */
+/* Logo at viewport edge (left:0) with small offset */
 .bandeau_logo {
   position: absolute;
   left: 0;
   top: 50%;
   transform: translateY(-50%);
-  padding-left: var(--edge-offset); /* léger retrait demandé */
+  padding-left: var(--edge-offset);
   z-index: 1010;
 }
 .bandeau_logo_img { height: var(--logo-height); display: block; object-fit: contain; }
 
-/* Zone droite : absolute right:0 (edge), with offset */
+/* Right actions at viewport edge (right:0) with offset */
 .bandeau_droite {
   position: absolute;
   right: 0;
@@ -78,7 +76,7 @@ body {
   z-index: 1010;
 }
 
-/* Contenu centré : définit la largeur du site et contient titre + onglets */
+/* Center container defines content width (title) */
 .bandeau_content {
   max-width: var(--content-max-width);
   margin: 0 auto;
@@ -86,90 +84,89 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 0; /* aucun padding horizontal pour ne pas décaler la ligne */
 }
 
-/* Le centre empile le titre puis les onglets */
-.bandeau_center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
+/* Title centered vertically inside header */
+.bandeau_center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.bandeau_title { color: var(--text-on-brand); font-size: 1.25rem; font-weight:700; margin:0; padding-bottom:6px; }
 
-/* Titre */
-.bandeau_title {
-  color: var(--text-on-brand);
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
-  padding-bottom: 6px;
-}
-
-/* Onglets : la bordure de séparation est gérée par .bandeau_separator (en bas du header) */
-.bandeau_ongletswrap { width: 100%; display:flex; justify-content:center; }
+/* Onglets row: positioned at bottom of the header, full width; tabs centered inside */
 .bandeau_onglets_row {
-  width: 100%;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--separator-height) + 32px); /* separator + clickable area */
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  padding-bottom: 8px;
-  border-bottom: none; /* neutralisé: la vraie ligne est .bandeau_separator */
+  z-index: 1015;
+  pointer-events: auto;
+  /* no local border: separator is handled by .bandeau_separator */
+}
+.bandeau_onglets {
+  display: flex;
+  gap: 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0 12px; /* small side padding for tabs group */
+  align-items: center;
+  /* keep the tabs visually limited to content width if you want:
+     you can wrap them in an inner container with max-width: var(--content-max-width) */
 }
 
-/* Liste d'onglets */
-.bandeau_onglets { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; }
+/* individual tab */
 .bandeau_onglet {
   display: inline-block;
-  padding: 6px 10px;
+  padding: 8px 12px; /* clickable area */
   color: rgba(255,255,255,0.95);
   text-decoration: none;
   font-weight: 600;
   position: relative;
   border-radius: 6px;
+  background: transparent;
 }
 .bandeau_onglet:hover { color: var(--tab-accent); background: rgba(255,255,255,0.02); }
 .bandeau_onglet.active { color: var(--tab-text); }
-/* underline for active tab; positioned visually below the main separator */
+
+/* Active underline that exactly matches separator thickness and sits on top of it */
 .bandeau_onglet.active::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -12px;
-  height: 6px;
+  bottom: calc(-1 * var(--separator-height)); /* position so it sits on top of the separator */
+  height: var(--separator-height);
   background: var(--tab-underline);
   border-radius: 3px;
+  z-index: 1020; /* above separator */
 }
 
-/* Vraie ligne de séparation alignée avec le contenu : bottom du header */
+/* Separator: full-width across the banner, centered on viewport,
+   but limit its visual width to viewport width minus edge offsets if needed */
 .bandeau_separator {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   bottom: 0;
-  width: var(--content-max-width);
-  max-width: calc(100% - (var(--edge-offset) * 2));
-  height: 3px;
-  background: var(--tab-line);
-  z-index: 1005;
+  height: var(--separator-height);
+  background: var(--separator-color);
+  z-index: 1005; /* below tab underline (which has z-index:1020) */
 }
 
-/* Zone scrollable (entre header et footer) */
+/* Page-body (scrollable area) between header and footer */
 .page-body {
   position: absolute;
   top: var(--header-height);
   left: 0;
   right: 0;
   bottom: var(--footer-height);
-  overflow: auto; /* scroll vertical & horizontal uniquement ici si nécessaire */
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
   background: transparent;
 }
 
-/* Contenu principal centré à l'intérieur de la zone scrollable */
+/* Main content centered inside page-body */
 .main-content {
   max-width: var(--content-max-width);
   margin: 20px auto;
@@ -179,7 +176,7 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
 }
 
-/* Footer fixé en bas */
+/* Footer fixed at bottom */
 .footer {
   position: fixed;
   left: 0;
@@ -195,17 +192,17 @@ body {
   box-shadow: 0 -1px 3px rgba(0,0,0,0.08);
 }
 
-/* Boutons */
+/* Buttons */
 .btn { padding: 8px 14px; border-radius: 6px; color: #fff; text-decoration: none; font-weight: 600; display:inline-block; }
 .btn-login { background: #3498db; }
 .btn-logout { background: #e74c3c; }
 
-/* Responsive: stacking on small screens */
+/* Responsive: on small screens stack and center elements */
 @media (max-width: 880px) {
   :root { --header-height: 180px; --logo-height: 56px; }
   .page-body { top: var(--header-height); }
-  .bandeau_logo, .bandeau_droite { position: static; transform: none; padding: 0; display: flex; justify-content: center; margin: 8px 0; }
-  .bandeau_separator { width: calc(100% - 24px); left: 50%; transform: translateX(-50%); bottom: calc(var(--footer-height) + 100%); /* will be repositioned visually */ }
-  .bandeau_onglet { padding: 8px 10px; }
+  .bandeau_logo, .bandeau_droite { position: static; transform: none; padding: 0; display: flex; justify-content: center; margin: 8px 0; z-index: 1010; }
+  .bandeau_onglets_row { position: relative; height: auto; align-items: center; bottom: auto; padding: 8px 0; }
+  .bandeau_separator { position: relative; width: 100%; bottom: auto; height: var(--separator-height); }
   .main-content { margin: 12px; }
 }
