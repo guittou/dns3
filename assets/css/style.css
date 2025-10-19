@@ -5,6 +5,7 @@
     --accent: #3498db;
     --accent-dark: #2980b9;
     --danger: #e74c3c;
+    --danger-dark: #c0392b;
     --text-on-brand: #ecf0f1;
 }
 
@@ -152,7 +153,7 @@ body {
 }
 
 .btn-logout:hover {
-    background-color: #c0392b;
+    background-color: var(--danger-dark);
 }
 
 /* Main Content */
