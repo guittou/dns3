@@ -16,7 +16,7 @@ $user = $auth->getCurrentUser();
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
 </head>
 <body>
-    <header class="fixed-header">
+    <header class="fixed-header" role="banner">
         <div class="header-grid">
             <div class="header-left">
                 <a href="<?php echo BASE_URL; ?>" class="logo" aria-label="<?php echo SITE_NAME; ?>">
@@ -26,7 +26,9 @@ $user = $auth->getCurrentUser();
             </div>
 
             <div class="header-center">
-                <nav class="header-nav" role="navigation" aria-label="Main navigation">
+                <h1 class="site-title">Gestion du DNS</h1>
+
+                <nav class="header-nav" role="navigation" aria-label="Navigation principale">
                     <div class="nav-inner">
                         <ul class="nav-tabs">
                             <li><a href="<?php echo BASE_URL; ?>" class="<?php echo basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : ''; ?>">Accueil</a></li>
