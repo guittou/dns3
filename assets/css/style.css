@@ -1,38 +1,36 @@
 :root{
-  /* layout */
-  --content-max-width: 1100px;   /* largeur du contenu centré */
-  --edge-offset: 12px;           /* léger padding pour logo & bouton aux bords */
-  --logo-height: 70px;           /* hauteur du logo demandée */
-  --header-height: 120px;        /* hauteur totale du header (doit inclure l'espace pour les onglets en bas) */
-  --footer-height: 56px;         /* hauteur du footer */
+  --content-max-width: 1100px;
+  --edge-offset: 12px;
+  --logo-height: 70px;
+  --header-height: 120px;
+  --footer-height: 56px;
 
   /* separator / tabs */
-  --separator-height: 6px;       /* épaisseur du trait de séparation (idem pour underline) */
-  --separator-color: #2c3e50;    /* couleur du trait de séparation */
-  --tab-underline: #B88E22;      /* couleur de la sélection active */
+  --separator-height: 6px;
+  --separator-color: #2c3e50;
+  --tab-underline: #B88E22;
   --tab-accent: #333;
   --tab-text: #1F2E3B;
 
   /* palette */
-  --brand-color: #e5ebef;        /* couleur du bandeau (claire si tu as inversé) */
-  --text-on-brand: #1F2E3B;      /* texte foncé sur bandeau clair */
+  --brand-color: #e5ebef;
+  --text-on-brand: #1F2E3B;
 }
 
-/* Reset minimal */
+/* Reset */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* Assure que HTML / Body remplissent la fenêtre et disable global scroll */
 html, body { height: 100%; }
 body {
   margin: 0;
   height: 100vh;
-  overflow: hidden; /* scroll only in .page-body */
+  overflow: hidden;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   background: #fafafa;
   color: #222;
 }
 
-/* Header fixed in top, no side padding so elements at edges are true edges */
+/* header */
 .entete_fixee {
   position: fixed;
   top: 0;
@@ -42,17 +40,12 @@ body {
   background: var(--brand-color);
   color: var(--text-on-brand);
   z-index: 1000;
-  /* shadow removed as requested */
 }
 
-/* Full container: relative so absolute children are inside header (which spans viewport) */
-.bandeau_full {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
+/* full header container */
+.bandeau_full { position: relative; width: 100%; height: 100%; }
 
-/* Logo at viewport edge (left:0) with small offset */
+/* logo and right area */
 .bandeau_logo {
   position: absolute;
   left: 0;
@@ -63,7 +56,6 @@ body {
 }
 .bandeau_logo_img { height: var(--logo-height); display: block; object-fit: contain; }
 
-/* Right actions at viewport edge (right:0) with offset */
 .bandeau_droite {
   position: absolute;
   right: 0;
@@ -76,7 +68,7 @@ body {
   z-index: 1010;
 }
 
-/* Center container defines content width (title) */
+/* center content */
 .bandeau_content {
   max-width: var(--content-max-width);
   margin: 0 auto;
@@ -85,48 +77,34 @@ body {
   align-items: center;
   justify-content: center;
 }
-
-/* Title centered vertically inside header */
 .bandeau_center { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
 .bandeau_title { color: var(--text-on-brand); font-size: 1.25rem; font-weight:700; margin:0; padding-bottom:6px; }
 
-/* ------------------------------------------------------------------
-   Fix alignement : tabs and separator must share the same centered width
-   ------------------------------------------------------------------ */
+/* -----------------------
+   Tabs + Separator fix
+   ----------------------- */
 
-/* Onglets row: positioned at bottom of the header and centered to the same max-width
-   as the content so the separator and the tabs are perfectly aligned. */
+/* Center the row and give it the exact same centered width as content */
 .bandeau_onglets_row {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   bottom: 0;
-  /* Use the same content width as the centered content */
   width: var(--content-max-width);
-  max-width: calc(100% - (var(--edge-offset) * 2)); /* adapt on small viewports */
-  height: calc(var(--separator-height) + 32px); /* separator + clickable area */
+  max-width: calc(100% - (var(--edge-offset) * 2));
+  height: calc(var(--separator-height) + 32px);
   display: flex;
   justify-content: center;
   align-items: flex-end;
   z-index: 1015;
-  pointer-events: auto;
-  padding: 0 12px; /* small padding inside the centered area */
+  padding: 0 12px;
 }
 
-/* Tabs inside the centered row */
-.bandeau_onglets {
-  display: flex;
-  gap: 18px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  align-items: center;
-}
-
-/* individual tab */
+/* Tabs list */
+.bandeau_onglets { display: flex; gap: 18px; list-style: none; margin: 0; padding: 0; align-items: center; }
 .bandeau_onglet {
   display: inline-block;
-  padding: 8px 12px; /* clickable area */
+  padding: 8px 12px;
   color: rgba(31,46,59,0.95);
   text-decoration: none;
   font-weight: 600;
@@ -137,20 +115,23 @@ body {
 .bandeau_onglet:hover { color: var(--tab-accent); background: rgba(0,0,0,0.03); }
 .bandeau_onglet.active { color: var(--tab-text); }
 
-/* Active underline: same height as separator and placed to overlap it precisely */
+/* Important: underline should sit exactly on top of the separator.
+   Use bottom: calc(-1 * var(--separator-height)) so its bottom edge overlays the separator top.
+   z-index ensures the underline is above the separator. */
 .bandeau_onglet.active::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(-1 * var(--separator-height)); /* sits on top of separator */
+  bottom: calc(-1 * var(--separator-height));
   height: var(--separator-height);
   background: var(--tab-underline);
   border-radius: 3px;
-  z-index: 1020; /* above separator */
+  z-index: 1020;
+  /* Micro-adjust if necessary: bottom: calc(-1 * var(--separator-height) + 1px); */
 }
 
-/* Separator: full-width across the banner, but visually constrained to same centered width */
+/* separator now covers the full width visually but is centered to the same content width */
 .bandeau_separator {
   position: absolute;
   left: 50%;
@@ -160,10 +141,10 @@ body {
   max-width: calc(100% - (var(--edge-offset) * 2));
   height: var(--separator-height);
   background: var(--separator-color);
-  z-index: 1005; /* below the active underline */
+  z-index: 1005;
 }
 
-/* Page-body (scrollable area) between header and footer */
+/* page body and footer */
 .page-body {
   position: absolute;
   top: var(--header-height);
@@ -174,8 +155,6 @@ body {
   -webkit-overflow-scrolling: touch;
   background: transparent;
 }
-
-/* Main content centered inside page-body */
 .main-content {
   max-width: var(--content-max-width);
   margin: 20px auto;
@@ -184,8 +163,6 @@ body {
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
 }
-
-/* Footer fixed at bottom */
 .footer {
   position: fixed;
   left: 0;
@@ -198,15 +175,9 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  box-shadow: 0 -1px 3px rgba(0,0,0,0.08);
 }
 
-/* Buttons */
-.btn { padding: 8px 14px; border-radius: 6px; color: #fff; text-decoration: none; font-weight: 600; display:inline-block; }
-.btn-login { background: #3498db; }
-.btn-logout { background: #e74c3c; }
-
-/* Responsive: on small screens stack and center elements */
+/* responsive */
 @media (max-width: 880px) {
   :root { --header-height: 180px; --logo-height: 56px; --content-max-width: calc(100% - 24px); }
   .page-body { top: var(--header-height); }
