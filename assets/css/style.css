@@ -13,6 +13,10 @@
   --tab-accent: #333;
   --tab-text: #1F2E3B;
 
+  /* bandeau title sizing */
+  --bandeau-title-size: 1.8rem;    /* desktop */
+  --bandeau-title-size-sm: 1.25rem;/* mobile */
+
   /* palette */
   --brand-color: #e5ebef;        /* couleur du bandeau (claire) */
   --text-on-brand: #1F2E3B;      /* texte foncé sur bandeau clair */
@@ -102,11 +106,18 @@ body {
 }
 .bandeau_title {
   color: var(--text-on-brand);
-  font-size: 1.25rem;
+  font-size: var(--bandeau-title-size);
   font-weight: 700;
   margin: 0;
   padding-bottom: 6px;
   text-align: center;
+}
+
+/* Responsive title size */
+@media (max-width: 880px) {
+  .bandeau_title {
+    font-size: var(--bandeau-title-size-sm);
+  }
 }
 
 /* ---------------------------------------------------------
