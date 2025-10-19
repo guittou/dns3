@@ -1,6 +1,6 @@
 /* Global Styles */
 :root{
-    /* Remplace ces valeurs par les couleurs exactes extraites du logo si tu veux un rendu précis */
+    /* Valeurs par défaut — je peux extraire les couleurs exactes depuis logo_cnd_transparent.png si tu veux */
     --brand-color: #2c3e50;       /* couleur principale du bandeau et du footer */
     --brand-dark: #34495e;        /* couleur foncée pour hover / active */
     --accent: #3498db;            /* couleur accent (bouton connexion / bordure active) */
@@ -68,12 +68,12 @@ body {
     object-fit: contain;
 }
 
-/* si le logo est très grand, adapte la hauteur */
+/* responsive logo */
 @media (max-width: 768px) {
-    .logo-img { height: 48px; }
+    .logo-img { height: 44px; }
 }
 
-/* Texte du logo (visible si l'image n'est pas chargée) */
+/* Texte du logo (fallback) */
 .logo-text {
     display: inline;
     color: var(--text-on-brand);
@@ -189,4 +189,4 @@ body {
     padding: 0 20px;
 }
 
-/* (Le reste du fichier reste inchangé) */
+/* (le reste du fichier inchangé) */
