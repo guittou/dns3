@@ -20,8 +20,8 @@ $user = $auth->getCurrentUser();
         <div class="header-container">
             <div class="header-left">
                 <a href="<?php echo BASE_URL; ?>" class="logo">
-                    <!-- Utiliser le logo demandé -->
-                    <img src="<?php echo BASE_URL; ?>assets/images/log_cnd_titre.PNG" alt="<?php echo SITE_NAME; ?>" class="logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+                    <!-- Utiliser le logo demandé (present dans assets/images/) -->
+                    <img src="<?php echo BASE_URL; ?>assets/images/logo_cnd.PNG" alt="<?php echo SITE_NAME; ?>" class="logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
                     <span class="logo-text"><?php echo SITE_NAME; ?></span>
                 </a>
             </div>
