@@ -17,9 +17,9 @@
   --bandeau-title-size: 2.2rem;    /* desktop */
   --bandeau-title-size-sm: 1.6rem; /* mobile */
 
-  /* tab font sizing (nouvelle variable) */
-  --bandeau-tab-font-size: 1.05rem;    /* desktop - augmenté */
-  --bandeau-tab-font-size-sm: 0.95rem; /* mobile */
+  /* tab font sizing (ajusté : augmenté un peu de plus) */
+  --bandeau-tab-font-size: 1.15rem;    /* desktop - augmenté */
+  --bandeau-tab-font-size-sm: 1.05rem; /* mobile */
 
   /* top padding for title inside bandeau_content (soit ajustable) */
   --bandeau-content-padding-top: 10px;
@@ -186,7 +186,7 @@ body {
   border-radius: 6px;
   background: transparent;
 
-  /* Tab font size (new) */
+  /* Tab font size (updated) */
   font-size: var(--bandeau-tab-font-size);
   line-height: 1;
 }
