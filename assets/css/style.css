@@ -222,16 +222,18 @@ body {
   background: transparent;
 }
 
-/* Main content centered inside page-body */
-
-
+/* Make .main-content size to the content (table) but never exceed viewport */
 .main-content {
-  max-width: var(--content-max-width);
+  display: block;
+  width: max-content;              /* size to content (table) */
+  max-width: calc(100vw - 40px);   /* but never exceed viewport minus page paddings */
   margin: 20px auto;
   padding: 20px;
+  box-sizing: border-box;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+  overflow-x: auto;                /* allow horizontal scroll when table > viewport */
 }
 
 
@@ -645,11 +647,12 @@ body {
   overflow-x: auto;
 }
 
-/* Tables: full width, auto layout for better content distribution */
-.content-section table,
-.admin-container table {
-  width: 100%;
-  table-layout: auto;
+/* NEW: permettre au tableau d'avoir une largeur intrinsèque quand il y a beaucoup de colonnes */
+.content-section .dns-table,
+.content-section table {
+  width: auto;          /* ne pas forcer 100% : laisse la table grandir si besoin */
+  min-width: 100%;      /* mais au moins remplir l'espace quand le contenu est petit */
+  table-layout: auto;   /* colonnes dimensionnées naturellement selon le contenu */
 }
 
 /* Table cells: prevent overflow, allow word wrapping on desktop */
