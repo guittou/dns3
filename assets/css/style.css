@@ -224,9 +224,11 @@ body {
 
 /* Main content centered inside page-body */
 .main-content {
-  max-width: var(--content-max-width);
+  max-width: 100% !important; /* allow full width */
+  width: calc(100% - 40px);    /* keep small page padding */
   margin: 20px auto;
   padding: 20px;
+  box-sizing: border-box;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
