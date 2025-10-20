@@ -226,5 +226,30 @@ class Auth {
         }
         return null;
     }
+
+    /**
+     * Check if current user is an administrator
+     */
+    public function isAdmin() {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as is_admin
+                FROM user_roles ur
+                INNER JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = ? AND r.name = 'admin'
+            ");
+            $stmt->execute([$_SESSION['user_id']]);
+            $result = $stmt->fetch();
+            
+            return $result && $result['is_admin'] > 0;
+        } catch (Exception $e) {
+            error_log("isAdmin check error: " . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>
