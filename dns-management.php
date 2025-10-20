@@ -38,10 +38,10 @@ if (!$auth->isAdmin()) {
                 <option value="PTR">PTR</option>
                 <option value="TXT">TXT</option>
             </select>
-            <select id="dns-status-filter">
-                <option value="">Tous les statuts</option>
+            <select id="dns-status-filter">                
                 <option value="active">Actif seulement</option>
                 <option value="deleted">Supprimé seulement</option>
+                <option value="">Tous les statuts</option>
             </select>
         </div>
         <button id="dns-create-btn" class="btn-create">+ Créer un enregistrement</button>
