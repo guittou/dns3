@@ -61,13 +61,16 @@ if (!$auth->isAdmin()) {
                     <th>Nom</th>
                     <th>Valeur</th>
                     <th>TTL</th>
+                    <th>Demandeur</th>
+                    <th>Expire</th>
+                    <th>Vu le</th>
                     <th>Statut</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="dns-table-body">
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 20px;">Chargement...</td>
+                    <td colspan="10" style="text-align: center; padding: 20px;">Chargement...</td>
                 </tr>
             </tbody>
         </table>
@@ -116,6 +119,31 @@ if (!$auth->isAdmin()) {
                 <div class="form-group">
                     <label for="record-priority">Priorité (pour MX, SRV)</label>
                     <input type="number" id="record-priority" name="priority" min="0" placeholder="10">
+                </div>
+
+                <div class="form-group">
+                    <label for="record-requester">Demandeur</label>
+                    <input type="text" id="record-requester" name="requester" placeholder="Nom de la personne ou du système">
+                </div>
+
+                <div class="form-group">
+                    <label for="record-expires-at">Date d'expiration</label>
+                    <input type="datetime-local" id="record-expires-at" name="expires_at">
+                </div>
+
+                <div class="form-group">
+                    <label for="record-ticket-ref">Référence ticket</label>
+                    <input type="text" id="record-ticket-ref" name="ticket_ref" placeholder="JIRA-123 ou REF-456">
+                </div>
+
+                <div class="form-group">
+                    <label for="record-comment">Commentaire</label>
+                    <textarea id="record-comment" name="comment" rows="3" placeholder="Notes additionnelles..."></textarea>
+                </div>
+
+                <div class="form-group" id="record-last-seen-group" style="display: none;">
+                    <label for="record-last-seen">Vu pour la dernière fois</label>
+                    <input type="text" id="record-last-seen" name="last_seen" disabled readonly placeholder="Non encore consulté">
                 </div>
 
                 <div class="dns-modal-footer">
