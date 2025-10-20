@@ -46,8 +46,8 @@ class DnsRecord {
             $sql .= " AND dr.status = ?";
             $params[] = $filters['status'];
         } else {
-            // Default: only show active and disabled records, not deleted
-            $sql .= " AND dr.status IN ('active', 'disabled')";
+            // Default: only show active records, not deleted
+            $sql .= " AND dr.status = 'active'";
         }
         
         $sql .= " ORDER BY dr.created_at DESC LIMIT ? OFFSET ?";
@@ -192,15 +192,15 @@ class DnsRecord {
     }
 
     /**
-     * Set record status (soft delete, disable, enable)
+     * Set record status (soft delete or enable)
      * 
      * @param int $id Record ID
-     * @param string $status New status (active, disabled, deleted)
+     * @param string $status New status (active, deleted)
      * @param int $user_id User changing the status
      * @return bool Success status
      */
     public function setStatus($id, $status, $user_id) {
-        $valid_statuses = ['active', 'disabled', 'deleted'];
+        $valid_statuses = ['active', 'deleted'];
         if (!in_array($status, $valid_statuses)) {
             return false;
         }

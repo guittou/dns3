@@ -141,21 +141,18 @@ Expected response:
 ### 5. Change Record Status (Admin Only)
 
 ```bash
-# Disable a record
-curl -b cookies.txt 'http://localhost:8000/api/dns_api.php?action=set_status&id=1&status=disabled'
-
-# Re-enable a record
-curl -b cookies.txt 'http://localhost:8000/api/dns_api.php?action=set_status&id=1&status=active'
-
 # Soft delete a record
 curl -b cookies.txt 'http://localhost:8000/api/dns_api.php?action=set_status&id=1&status=deleted'
+
+# Restore a deleted record
+curl -b cookies.txt 'http://localhost:8000/api/dns_api.php?action=set_status&id=1&status=active'
 ```
 
 Expected response:
 ```json
 {
   "success": true,
-  "message": "DNS record status changed to disabled"
+  "message": "DNS record status changed to deleted"
 }
 ```
 
@@ -194,10 +191,11 @@ Expected response:
 4. Verify changes are reflected in the table
 
 #### Change Status
-1. Click "Désactiver" to disable an active record
-2. Verify the status badge changes to "disabled"
-3. Click "Activer" to re-enable
-4. Verify the status badge changes back to "active"
+1. Click "Supprimer" to soft-delete a record
+2. Verify the status badge changes to "deleted"
+3. Use the status filter to show deleted records
+4. Click "Restaurer" to restore the record
+5. Verify the status badge changes back to "active"
 
 #### Delete Record
 1. Click "Supprimer" button
@@ -286,8 +284,7 @@ SELECT * FROM acl_history ORDER BY changed_at DESC;
 ### Status Values
 
 - `active` - Record is active and in use
-- `disabled` - Record is temporarily disabled
-- `deleted` - Record is soft-deleted (not shown by default)
+- `deleted` - Record is soft-deleted (shown only when filtering by deleted status)
 
 ## Next Steps
 

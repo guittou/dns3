@@ -19,7 +19,7 @@ This PR adds complete DNS record management functionality to the DNS3 applicatio
 - `getById($id)`: Get specific record
 - `create($data, $user_id)`: Create new record
 - `update($id, $data, $user_id)`: Update existing record
-- `setStatus($id, $status, $user_id)`: Change status (active/disabled/deleted)
+- `setStatus($id, $status, $user_id)`: Change status (active/deleted)
 - `writeHistory($record_id, $action, $old_status, $new_status, $user_id, $notes)`: Automatic history logging
 
 #### `includes/models/AclEntry.php`
@@ -40,8 +40,7 @@ All endpoints return JSON and require authentication:
 ### 4. Frontend JavaScript (`assets/js/dns-records.js`)
 - Real-time search and filtering
 - Modal-based create/edit forms
-- Status toggle (active/disabled)
-- Soft delete functionality
+- Soft delete and restore functionality
 - Error handling and user feedback
 - XSS protection
 

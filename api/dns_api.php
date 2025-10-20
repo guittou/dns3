@@ -279,10 +279,10 @@ try {
                 exit;
             }
             
-            $valid_statuses = ['active', 'disabled', 'deleted'];
+            $valid_statuses = ['active', 'deleted'];
             if (!in_array($status, $valid_statuses)) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid status. Must be: active, disabled, or deleted']);
+                echo json_encode(['error' => 'Invalid status. Must be: active or deleted']);
                 exit;
             }
             

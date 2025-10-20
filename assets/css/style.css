@@ -448,11 +448,6 @@ body {
   color: #1a7f3b;
 }
 
-.status-disabled {
-  background: #fff3e0;
-  color: #e65100;
-}
-
 .status-deleted {
   background: #ffecec;
   color: #b00020;
