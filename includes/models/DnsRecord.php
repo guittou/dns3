@@ -117,8 +117,10 @@ class DnsRecord {
         try {
             $this->db->beginTransaction();
             
-            // Explicitly remove last_seen if provided by client (security)
+            // Explicitly remove last_seen, created_at, and updated_at if provided by client (security)
             unset($data['last_seen']);
+            unset($data['created_at']);
+            unset($data['updated_at']);
             
             // Map 'value' alias to dedicated field if provided
             if (isset($data['value']) && !empty($data['value'])) {
@@ -131,8 +133,8 @@ class DnsRecord {
             // Also set 'value' for backward compatibility
             $valueField = $this->getValueFromDedicatedFieldData($data);
             
-            $sql = "INSERT INTO dns_records (record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)";
+            $sql = "INSERT INTO dns_records (record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
@@ -179,8 +181,10 @@ class DnsRecord {
         try {
             $this->db->beginTransaction();
             
-            // Explicitly remove last_seen if provided by client (security)
+            // Explicitly remove last_seen, created_at, and updated_at if provided by client (security)
             unset($data['last_seen']);
+            unset($data['created_at']);
+            unset($data['updated_at']);
             
             // Get current record for history
             $current = $this->getById($id);

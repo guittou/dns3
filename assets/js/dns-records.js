@@ -180,7 +180,7 @@
             tbody.innerHTML = '';
 
             if (currentRecords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="13" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
                 return;
             }
 
@@ -196,6 +196,8 @@
                     <td class="col-requester">${escapeHtml(record.requester || '-')}</td>
                     <td class="col-expires">${record.expires_at ? formatDateTime(record.expires_at) : '-'}</td>
                     <td class="col-lastseen">${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
+                    <td class="col-created">${record.created_at ? formatDateTime(record.created_at) : '-'}</td>
+                    <td class="col-updated">${record.updated_at ? formatDateTime(record.updated_at) : '-'}</td>
                     <td class="col-status"><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
                     <td class="col-id">${escapeHtml(record.id)}</td>
                     <td class="col-actions">
@@ -279,6 +281,8 @@
         const form = document.getElementById('dns-form');
         const title = document.getElementById('dns-modal-title');
         const lastSeenGroup = document.getElementById('record-last-seen-group');
+        const createdAtGroup = document.getElementById('record-created-at-group');
+        const updatedAtGroup = document.getElementById('record-updated-at-group');
         
         if (!modal || !form || !title) return;
 
@@ -287,9 +291,15 @@
         form.dataset.mode = 'create';
         delete form.dataset.recordId;
         
-        // Hide last_seen field for new records
+        // Hide last_seen, created_at, and updated_at fields for new records
         if (lastSeenGroup) {
             lastSeenGroup.style.display = 'none';
+        }
+        if (createdAtGroup) {
+            createdAtGroup.style.display = 'none';
+        }
+        if (updatedAtGroup) {
+            updatedAtGroup.style.display = 'none';
         }
 
         // Update field visibility based on default record type
@@ -310,6 +320,8 @@
             const form = document.getElementById('dns-form');
             const title = document.getElementById('dns-modal-title');
             const lastSeenGroup = document.getElementById('record-last-seen-group');
+            const createdAtGroup = document.getElementById('record-created-at-group');
+            const updatedAtGroup = document.getElementById('record-updated-at-group');
             
             if (!modal || !form || !title) return;
 
@@ -370,6 +382,22 @@
                 lastSeenGroup.style.display = 'block';
             } else if (lastSeenGroup) {
                 lastSeenGroup.style.display = 'none';
+            }
+
+            // Show and populate created_at field (read-only)
+            if (record.created_at && createdAtGroup) {
+                document.getElementById('record-created-at').value = formatDateTime(record.created_at);
+                createdAtGroup.style.display = 'block';
+            } else if (createdAtGroup) {
+                createdAtGroup.style.display = 'none';
+            }
+
+            // Show and populate updated_at field (read-only)
+            if (record.updated_at && updatedAtGroup) {
+                document.getElementById('record-updated-at').value = formatDateTime(record.updated_at);
+                updatedAtGroup.style.display = 'block';
+            } else if (updatedAtGroup) {
+                updatedAtGroup.style.display = 'none';
             }
 
             // Update field visibility based on record type
