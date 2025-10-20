@@ -45,10 +45,8 @@ class DnsRecord {
         if (isset($filters['status']) && $filters['status'] !== '') {
             $sql .= " AND dr.status = ?";
             $params[] = $filters['status'];
-        } else {
-            // Default: only show active records (deleted hidden by default)
-            $sql .= " AND dr.status = 'active'";
         }
+        // If no status filter provided, do not force a default: return all statuses
         
         $sql .= " ORDER BY dr.created_at DESC LIMIT ? OFFSET ?";
         $params[] = $limit;
