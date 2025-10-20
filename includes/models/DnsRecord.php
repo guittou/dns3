@@ -46,7 +46,7 @@ class DnsRecord {
             $sql .= " AND dr.status = ?";
             $params[] = $filters['status'];
         } else {
-            // Default: only show active records, not deleted
+            // Default: only show active records (deleted hidden by default)
             $sql .= " AND dr.status = 'active'";
         }
         
@@ -68,9 +68,10 @@ class DnsRecord {
      * Get a DNS record by ID
      * 
      * @param int $id Record ID
+     * @param bool $includeDeleted If true, include records with status='deleted'
      * @return array|null Record data or null if not found
      */
-    public function getById($id) {
+    public function getById($id, $includeDeleted = false) {
         try {
             $sql = "SELECT dr.*, 
                            u1.username as created_by_username,
@@ -78,7 +79,11 @@ class DnsRecord {
                     FROM dns_records dr
                     LEFT JOIN users u1 ON dr.created_by = u1.id
                     LEFT JOIN users u2 ON dr.updated_by = u2.id
-                    WHERE dr.id = ? AND dr.status != 'deleted'";
+                    WHERE dr.id = ?";
+            
+            if (!$includeDeleted) {
+                $sql .= " AND dr.status != 'deleted'";
+            }
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
@@ -192,7 +197,7 @@ class DnsRecord {
     }
 
     /**
-     * Set record status (soft delete or enable)
+     * Set record status (soft delete, enable)
      * 
      * @param int $id Record ID
      * @param string $status New status (active, deleted)
@@ -208,8 +213,8 @@ class DnsRecord {
         try {
             $this->db->beginTransaction();
             
-            // Get current record
-            $current = $this->getById($id);
+            // Get current record INCLUDING deleted so we can restore it
+            $current = $this->getById($id, true);
             if (!$current) {
                 $this->db->rollBack();
                 return false;
