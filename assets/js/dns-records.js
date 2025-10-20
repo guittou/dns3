@@ -6,20 +6,28 @@
 (function() {
     'use strict';
 
-    const API_BASE = '/api/dns_api.php';
     let currentRecords = [];
+
+    /**
+     * Construct API URL using window.API_BASE
+     */
+    function getApiUrl(action, params = {}) {
+        const url = new URL(window.API_BASE + 'dns_api.php', window.location.origin);
+        url.searchParams.append('action', action);
+        
+        Object.keys(params).forEach(key => {
+            url.searchParams.append(key, params[key]);
+        });
+
+        return url.toString();
+    }
 
     /**
      * Make an API call
      */
     async function apiCall(action, params = {}, method = 'GET', body = null) {
         try {
-            const url = new URL(API_BASE, window.location.origin);
-            url.searchParams.append('action', action);
-            
-            Object.keys(params).forEach(key => {
-                url.searchParams.append(key, params[key]);
-            });
+            const url = getApiUrl(action, params);
 
             const options = {
                 method: method,
@@ -33,8 +41,18 @@
                 options.body = JSON.stringify(body);
             }
 
-            const response = await fetch(url.toString(), options);
-            const data = await response.json();
+            const response = await fetch(url, options);
+            
+            // Try to parse JSON, fallback to text for debugging
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                const text = await response.text();
+                console.error('Failed to parse JSON response:', jsonError);
+                console.error('Response body:', text);
+                throw new Error('Invalid JSON response from API');
+            }
 
             if (!response.ok) {
                 throw new Error(data.error || 'API request failed');
