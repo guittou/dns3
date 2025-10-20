@@ -43,9 +43,8 @@ if (!$auth->isAdmin()) {
                 <option value="SRV">SRV</option>
             </select>
             <select id="dns-status-filter">
-                <option value="">Actif & Désactivé</option>
+                <option value="">Actif seulement</option>
                 <option value="active">Actif seulement</option>
-                <option value="disabled">Désactivé seulement</option>
                 <option value="deleted">Supprimé seulement</option>
             </select>
         </div>

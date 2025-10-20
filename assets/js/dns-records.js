@@ -112,10 +112,8 @@
                     <td><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
                     <td>
                         <button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Modifier</button>
-                        <button class="btn-small btn-status" onclick="dnsRecords.toggleStatus(${record.id}, '${record.status}')">
-                            ${record.status === 'active' ? 'Désactiver' : 'Activer'}
-                        </button>
                         ${record.status !== 'deleted' ? `<button class="btn-small btn-delete" onclick="dnsRecords.deleteRecord(${record.id})">Supprimer</button>` : ''}
+                        ${record.status === 'deleted' ? `<button class="btn-small btn-restore" onclick="dnsRecords.restoreRecord(${record.id})">Restaurer</button>` : ''}
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -260,22 +258,6 @@
     }
 
     /**
-     * Toggle record status (active/disabled)
-     */
-    async function toggleStatus(recordId, currentStatus) {
-        const newStatus = currentStatus === 'active' ? 'disabled' : 'active';
-        
-        try {
-            await apiCall('set_status', { id: recordId, status: newStatus });
-            showMessage(`Statut changé à ${newStatus}`, 'success');
-            await loadDnsTable();
-        } catch (error) {
-            console.error('Error changing status:', error);
-            showMessage('Erreur lors du changement de statut: ' + error.message, 'error');
-        }
-    }
-
-    /**
      * Delete record (soft delete)
      */
     async function deleteRecord(recordId) {
@@ -290,6 +272,24 @@
         } catch (error) {
             console.error('Error deleting record:', error);
             showMessage('Erreur lors de la suppression: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Restore a deleted record
+     */
+    async function restoreRecord(recordId) {
+        if (!confirm('Êtes-vous sûr de vouloir restaurer cet enregistrement ?')) {
+            return;
+        }
+
+        try {
+            await apiCall('set_status', { id: recordId, status: 'active' });
+            showMessage('Enregistrement restauré', 'success');
+            await loadDnsTable();
+        } catch (error) {
+            console.error('Error restoring record:', error);
+            showMessage('Erreur lors de la restauration: ' + error.message, 'error');
         }
     }
 
@@ -448,8 +448,8 @@
         openEditModal,
         closeModal,
         submitDnsForm,
-        toggleStatus,
-        deleteRecord
+        deleteRecord,
+        restoreRecord
     };
 
     // Initialize on DOM ready
