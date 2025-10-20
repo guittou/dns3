@@ -90,6 +90,33 @@ All requirements from the problem statement have been successfully implemented:
 - [x] Lists all changes made
 - [x] Documents design decisions
 
+## Responsive Table Layout Implementation ✅
+
+### 7. Global CSS for Responsive Tables ✅
+**File**: `assets/css/style.css`
+- [x] Added global rules for `.content-section table` and `.content-section .dns-table-container`
+- [x] Table containers: `width: 100%`, `max-width: 100%`, `overflow-x: auto`
+- [x] Tables: `width: 100%`, `table-layout: auto`
+- [x] Cells: `word-break: break-word`, `white-space: nowrap` (desktop)
+- [x] Media query `@media (max-width: 900px)`:
+  - Hides columns: `.col-id`, `.col-actions`, `.col-status`, `.col-requester`
+  - Allows text wrapping: `white-space: normal`
+
+### 8. DNS Template with Semantic Classes ✅
+**File**: `dns-management.php`
+- [x] Added semantic classes to all `<th>` elements:
+  - `col-name`, `col-ttl`, `col-class`, `col-type`, `col-value`
+  - `col-requester`, `col-expires`, `col-lastseen`, `col-status`
+  - `col-id`, `col-actions`
+- [x] Reordered columns: zone fields first (Name, TTL, Class, Type, Value), then admin fields (Requester, Expires, LastSeen, Status, ID, Actions)
+
+### 9. JavaScript Dynamic Table Generation ✅
+**File**: `assets/js/dns-records.js`
+- [x] Added semantic classes to all dynamically generated `<td>` elements
+- [x] Classes match header classes exactly
+- [x] Maintains use of `record.value` computed field
+- [x] Edit/Delete/Restore actions continue to work properly
+
 ## Syntax Validation ✅
 - [x] PHP syntax check: All files pass
 - [x] JavaScript syntax check: All files pass
@@ -143,6 +170,51 @@ pt-online-schema-change \
 ```
 
 ## Manual Testing Checklist
+
+### Responsive Table Layout Testing
+
+#### Desktop Testing (> 900px)
+- [ ] DNS Management page (`dns-management.php`):
+  - [ ] Table extends to full width of `.content-section`
+  - [ ] All columns are visible (Name, TTL, Class, Type, Value, Requester, Expires, LastSeen, Status, ID, Actions)
+  - [ ] No inappropriate horizontal scrolling
+  - [ ] Text doesn't overflow cells
+  - [ ] Edit/Delete/Restore buttons are visible and functional
+- [ ] Admin page (`admin.php`):
+  - [ ] User table extends to full width
+  - [ ] Role table extends to full width
+  - [ ] No layout issues
+
+#### Mobile Testing (<= 900px)
+- [ ] DNS Management page:
+  - [ ] Columns hidden: ID, Actions, Status, Requester
+  - [ ] Columns visible: Name, TTL, Class, Type, Value, Expires, LastSeen
+  - [ ] Text wraps properly in visible cells
+  - [ ] Table remains usable and readable
+  - [ ] Horizontal scroll appears only if necessary for content
+- [ ] Admin page:
+  - [ ] Similar behavior (admin columns hidden on tables)
+  - [ ] No layout breakage
+
+#### Functional Testing (All Screen Sizes)
+- [ ] DNS Management:
+  - [ ] Create new record button works
+  - [ ] Search filter works
+  - [ ] Type filter works
+  - [ ] Status filter works
+  - [ ] Edit button opens modal with correct data (even if hidden on mobile, functionality should work)
+  - [ ] Delete button works (soft delete)
+  - [ ] Restore button works for deleted records
+  - [ ] Form validation works
+- [ ] Other pages with tables:
+  - [ ] Admin page tables render correctly
+  - [ ] No CSS conflicts or broken layouts
+
+#### Cross-Browser Testing
+- [ ] Chrome/Edge (Chromium)
+- [ ] Firefox
+- [ ] Safari (if available)
+- [ ] Mobile browsers (Chrome Mobile, Safari Mobile)
 
 ### API Testing (with curl)
 ```bash
@@ -239,21 +311,30 @@ All items in this checklist should be verified:
 - [x] Dedicated fields validated per type
 - [x] UI shows appropriate fields per type
 - [x] Documentation updated
+- [x] Global responsive CSS rules added
+- [x] Semantic classes added to DNS table headers
+- [x] Semantic classes added to dynamically generated table cells
 - [ ] Migration tested in development environment
 - [ ] API tests pass (manual curl tests)
 - [ ] UI tests pass (browser testing)
+- [ ] Desktop responsive layout verified (> 900px)
+- [ ] Mobile responsive layout verified (<= 900px)
+- [ ] Edit/Delete/Restore buttons functional on all screen sizes
+- [ ] Other pages with tables (admin.php) verified
 
 ## Branch and PR Information
-- **Branch**: copilot/restrict-supported-types-and-migrate
+- **Branch**: copilot/apply-responsive-table-layout
 - **Base**: main (or default branch)
 - **Status**: Implementation complete, ready for testing and PR
 
 ## Next Steps
-1. Apply migration in development/staging environment
-2. Run manual API tests
-3. Run manual UI tests
-4. Create pull request with this checklist
-5. Code review
-6. Deploy to staging
-7. Final testing in staging
-8. Deploy to production
+1. Validate syntax (PHP and JavaScript)
+2. Apply migration in development/staging environment (if not already done)
+3. Run manual responsive layout tests (desktop and mobile)
+4. Run manual API tests
+5. Test other pages with tables
+6. Create/update pull request with this checklist
+7. Code review
+8. Deploy to staging
+9. Final testing in staging
+10. Deploy to production

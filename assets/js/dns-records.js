@@ -180,27 +180,25 @@
             tbody.innerHTML = '';
 
             if (currentRecords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
                 return;
             }
 
-            // Remplace la génération de la ligne (row.innerHTML = `...`) par ceci :
+            // Generate table rows with semantic classes matching the header
             currentRecords.forEach(record => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${escapeHtml(record.id)}</td>
-                    <td>${escapeHtml(record.name)}</td>
-                    <td>${escapeHtml(record.ttl)}</td>
-                    <td>${escapeHtml(record.class || 'IN')}</td>
-                    <td>${escapeHtml(record.record_type)}</td>
-                    <td>${escapeHtml(record.value)}</td>
-
-                    <td>${escapeHtml(record.requester || '-')}</td>
-                    <td>${record.expires_at ? formatDateTime(record.expires_at) : '-'}</td>
-                    <td>${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
-                    <td><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
-                    
-                    <td>
+                    <td class="col-name">${escapeHtml(record.name)}</td>
+                    <td class="col-ttl">${escapeHtml(record.ttl)}</td>
+                    <td class="col-class">${escapeHtml(record.class || 'IN')}</td>
+                    <td class="col-type">${escapeHtml(record.record_type)}</td>
+                    <td class="col-value">${escapeHtml(record.value)}</td>
+                    <td class="col-requester">${escapeHtml(record.requester || '-')}</td>
+                    <td class="col-expires">${record.expires_at ? formatDateTime(record.expires_at) : '-'}</td>
+                    <td class="col-lastseen">${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
+                    <td class="col-status"><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
+                    <td class="col-id">${escapeHtml(record.id)}</td>
+                    <td class="col-actions">
                         <button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Modifier</button>
                         ${record.status !== 'deleted' ? `<button class="btn-small btn-delete" onclick="dnsRecords.deleteRecord(${record.id})">Supprimer</button>` : ''}
                         ${record.status === 'deleted' ? `<button class="btn-small btn-restore" onclick="dnsRecords.restoreRecord(${record.id})">Restaurer</button>` : ''}
