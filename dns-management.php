@@ -39,7 +39,7 @@ if (!$auth->isAdmin()) {
                 <option value="TXT">TXT</option>
             </select>
             <select id="dns-status-filter">
-                <option value="">Actif seulement</option>
+                <option value="">Tous les statuts</option>
                 <option value="active">Actif seulement</option>
                 <option value="deleted">Supprimé seulement</option>
             </select>
