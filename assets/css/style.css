@@ -226,7 +226,7 @@ body {
 .main-content {
   display: block;
   /* allow the container to size to content but not shrink below the previous "max" */
-  min-width: min(var(--content-max-width), calc(100vw - 40px)); /* use previous max (1100px) as minimum, but never exceed viewport */
+  min-width: min(var(--content-max-width); /* use previous max (1100px) as minimum, but never exceed viewport */
   max-width: calc(100vw - 40px);    /* never exceed viewport minus side paddings */
   width: auto;                      /* natural sizing between min and max */
   margin: 20px auto;
