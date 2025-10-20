@@ -285,6 +285,9 @@
         document.getElementById('password-required-indicator').style.display = 'inline';
         document.getElementById('user-password').required = true;
         
+        // Hide auth_method field for new users (always database)
+        document.getElementById('auth-method-group').style.display = 'none';
+        
         // Populate roles checkboxes
         populateRolesCheckboxes([]);
         
@@ -319,8 +322,19 @@
             document.getElementById('password-hint').style.display = 'block';
             document.getElementById('password-required-indicator').style.display = 'none';
             
-            // Update password field visibility based on auth method
-            updatePasswordFieldVisibility(user.auth_method);
+            // Show auth_method field for existing users (read-only display)
+            const authMethodGroup = document.getElementById('auth-method-group');
+            authMethodGroup.style.display = 'block';
+            // Make auth_method read-only to prevent changes
+            document.getElementById('user-auth-method').disabled = true;
+            
+            // Password field visibility based on auth method
+            if (user.auth_method === 'database') {
+                document.getElementById('password-group').style.display = 'block';
+            } else {
+                // Hide password field for AD/LDAP users
+                document.getElementById('password-group').style.display = 'none';
+            }
             
             // Populate roles checkboxes with current user roles
             const userRoleIds = user.roles.map(role => role.id);
@@ -358,25 +372,6 @@
     }
 
     /**
-     * Update password field visibility based on auth method
-     */
-    function updatePasswordFieldVisibility(authMethod) {
-        const passwordGroup = document.getElementById('password-group');
-        const passwordField = document.getElementById('user-password');
-        
-        if (authMethod === 'database') {
-            passwordGroup.style.display = 'block';
-            if (!currentEditUserId) {
-                passwordField.required = true;
-                document.getElementById('password-required-indicator').style.display = 'inline';
-            }
-        } else {
-            passwordGroup.style.display = 'none';
-            passwordField.required = false;
-        }
-    }
-
-    /**
      * Save user (create or update)
      */
     async function saveUser(event) {
@@ -386,9 +381,14 @@
         const userData = {
             username: formData.get('username'),
             email: formData.get('email'),
-            auth_method: formData.get('auth_method'),
             is_active: formData.get('is_active')
         };
+        
+        // ENFORCE: All admin-created users use database authentication
+        // AD/LDAP users are created automatically during their first login
+        if (!currentEditUserId) {
+            userData.auth_method = 'database';
+        }
         
         const password = formData.get('password');
         if (password) {
@@ -566,11 +566,6 @@
         // Form submissions
         document.getElementById('form-user').addEventListener('submit', saveUser);
         document.getElementById('form-mapping').addEventListener('submit', saveMapping);
-        
-        // Auth method change handler
-        document.getElementById('user-auth-method').addEventListener('change', (e) => {
-            updatePasswordFieldVisibility(e.target.value);
-        });
         
         // Close modals on outside click
         window.addEventListener('click', (e) => {

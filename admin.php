@@ -21,7 +21,6 @@ if (!$auth->isAdmin()) {
         <button class="admin-tab-button active" data-tab="users">Utilisateurs</button>
         <button class="admin-tab-button" data-tab="roles">Rôles</button>
         <button class="admin-tab-button" data-tab="mappings">Mappings AD/LDAP</button>
-        <button class="admin-tab-button" data-tab="acl">ACL</button>
     </div>
     
     <!-- Tab Content: Users -->
@@ -136,18 +135,6 @@ if (!$auth->isAdmin()) {
             </table>
         </div>
     </div>
-    
-    <!-- Tab Content: ACL -->
-    <div class="admin-tab-content" id="tab-acl">
-        <div class="tab-header">
-            <h2>Liste de Contrôle d'Accès (ACL)</h2>
-        </div>
-        
-        <div class="info-box">
-            <p><strong>ACL</strong> permet de définir des permissions granulaires sur les ressources DNS.</p>
-            <p>Cette fonctionnalité sera implémentée dans une version future.</p>
-        </div>
-    </div>
 </div>
 
 <!-- Modal: Create/Edit User -->
@@ -171,13 +158,14 @@ if (!$auth->isAdmin()) {
                     <input type="email" id="user-email" name="email" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="user-auth-method">Méthode d'authentification *</label>
-                    <select id="user-auth-method" name="auth_method" required>
+                <div class="form-group" id="auth-method-group" style="display: none;">
+                    <label for="user-auth-method">Méthode d'authentification</label>
+                    <select id="user-auth-method" name="auth_method" disabled>
                         <option value="database">Base de données</option>
                         <option value="ad">Active Directory</option>
                         <option value="ldap">LDAP</option>
                     </select>
+                    <small class="form-hint">Les utilisateurs créés via l'admin utilisent l'authentification par base de données. Les utilisateurs AD/LDAP sont créés automatiquement lors de leur première connexion.</small>
                 </div>
                 
                 <div class="form-group" id="password-group">

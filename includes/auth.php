@@ -77,14 +77,25 @@ class Auth {
 
             $bind_username = AD_DOMAIN . '\\' . $username;
             if (@ldap_bind($ldap, $bind_username, $password)) {
-                // Search for user details
+                // Search for user details and groups
                 $filter = "(sAMAccountName=" . ldap_escape($username, '', LDAP_ESCAPE_FILTER) . ")";
-                $result = ldap_search($ldap, AD_BASE_DN, $filter, ['mail', 'cn']);
+                $result = ldap_search($ldap, AD_BASE_DN, $filter, ['mail', 'cn', 'memberOf']);
                 $entries = ldap_get_entries($ldap, $result);
 
                 if ($entries['count'] > 0) {
                     $email = $entries[0]['mail'][0] ?? $username . '@' . AD_DOMAIN;
-                    $this->createOrUpdateUser($username, $email, 'ad');
+                    $user_dn = $entries[0]['dn'] ?? '';
+                    
+                    // Get user groups
+                    $groups = [];
+                    if (isset($entries[0]['memberof'])) {
+                        for ($i = 0; $i < $entries[0]['memberof']['count']; $i++) {
+                            $groups[] = $entries[0]['memberof'][$i];
+                        }
+                    }
+                    
+                    // Create or update user and apply role mappings
+                    $this->createOrUpdateUserWithMappings($username, $email, 'ad', $groups, $user_dn);
                     ldap_close($ldap);
                     return true;
                 }
@@ -124,7 +135,9 @@ class Auth {
 
                     // Try to bind with user credentials
                     if (@ldap_bind($ldap, $user_dn, $password)) {
-                        $this->createOrUpdateUser($username, $email, 'ldap');
+                        // User authenticated successfully
+                        // Create or update user and apply role mappings
+                        $this->createOrUpdateUserWithMappings($username, $email, 'ldap', [], $user_dn);
                         ldap_close($ldap);
                         return true;
                     }
@@ -139,8 +152,9 @@ class Auth {
 
     /**
      * Create or update user in database for LDAP/AD users
+     * Apply role mappings based on groups/DN
      */
-    private function createOrUpdateUser($username, $email, $auth_method) {
+    private function createOrUpdateUserWithMappings($username, $email, $auth_method, $groups = [], $user_dn = '') {
         try {
             $stmt = $this->db->prepare("SELECT id, username, email FROM users WHERE username = ?");
             $stmt->execute([$username]);
@@ -150,22 +164,72 @@ class Auth {
                 // Update existing user
                 $stmt = $this->db->prepare("UPDATE users SET email = ?, auth_method = ?, last_login = NOW() WHERE id = ?");
                 $stmt->execute([$email, $auth_method, $user['id']]);
-                $this->createSession($user);
+                $user_id = $user['id'];
             } else {
-                // Create new user
-                $stmt = $this->db->prepare("INSERT INTO users (username, email, password, auth_method) VALUES (?, ?, '', ?)");
+                // Create new user with minimal required fields
+                $stmt = $this->db->prepare("INSERT INTO users (username, email, password, auth_method, is_active, created_at) VALUES (?, ?, '', ?, 1, NOW())");
                 $stmt->execute([$username, $email, $auth_method]);
+                $user_id = $this->db->lastInsertId();
                 $user = [
-                    'id' => $this->db->lastInsertId(),
+                    'id' => $user_id,
                     'username' => $username,
                     'email' => $email,
                     'auth_method' => $auth_method
                 ];
-                $this->createSession($user);
-                $this->updateLastLogin($user['id']);
+            }
+            
+            // Apply role mappings from auth_mappings table
+            $this->applyRoleMappings($user_id, $auth_method, $groups, $user_dn);
+            
+            // Create session after user is created/updated
+            $this->createSession($user);
+            $this->updateLastLogin($user_id);
+        } catch (Exception $e) {
+            error_log("Create/update user with mappings error: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Apply role mappings based on AD groups or LDAP DN
+     */
+    private function applyRoleMappings($user_id, $auth_method, $groups = [], $user_dn = '') {
+        try {
+            // Get all mappings for this auth source
+            $stmt = $this->db->prepare("SELECT id, dn_or_group, role_id FROM auth_mappings WHERE source = ?");
+            $stmt->execute([$auth_method]);
+            $mappings = $stmt->fetchAll();
+            
+            foreach ($mappings as $mapping) {
+                $matches = false;
+                
+                if ($auth_method === 'ad') {
+                    // For AD: check if user is member of the mapped group
+                    foreach ($groups as $group_dn) {
+                        if (strcasecmp($group_dn, $mapping['dn_or_group']) === 0) {
+                            $matches = true;
+                            break;
+                        }
+                    }
+                } elseif ($auth_method === 'ldap') {
+                    // For LDAP: check if user DN contains the mapped DN/OU path
+                    // Case-insensitive containment check
+                    if ($user_dn && stripos($user_dn, $mapping['dn_or_group']) !== false) {
+                        $matches = true;
+                    }
+                }
+                
+                if ($matches) {
+                    // Assign role to user (INSERT IGNORE / ON DUPLICATE KEY UPDATE)
+                    $stmt = $this->db->prepare(
+                        "INSERT INTO user_roles (user_id, role_id, assigned_at) 
+                         VALUES (?, ?, NOW()) 
+                         ON DUPLICATE KEY UPDATE assigned_at = NOW()"
+                    );
+                    $stmt->execute([$user_id, $mapping['role_id']]);
+                }
             }
         } catch (Exception $e) {
-            error_log("Create/update user error: " . $e->getMessage());
+            error_log("Apply role mappings error: " . $e->getMessage());
         }
     }
 

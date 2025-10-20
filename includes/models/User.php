@@ -112,14 +112,16 @@ class User {
                 return false;
             }
             
+            // ENFORCE: Server-side auth_method validation
+            // Force database authentication for all admin-created users
+            $auth_method = 'database';
+            
             // For database auth, password is required
             $password = '';
-            if (isset($data['auth_method']) && $data['auth_method'] === 'database') {
-                if (!isset($data['password']) || $data['password'] === '') {
-                    return false;
-                }
-                $password = password_hash($data['password'], PASSWORD_DEFAULT);
+            if (!isset($data['password']) || $data['password'] === '') {
+                return false;
             }
+            $password = password_hash($data['password'], PASSWORD_DEFAULT);
             
             $sql = "INSERT INTO users (username, email, password, auth_method, is_active, created_at)
                     VALUES (?, ?, ?, ?, ?, NOW())";
@@ -129,7 +131,7 @@ class User {
                 $data['username'],
                 $data['email'],
                 $password,
-                $data['auth_method'] ?? 'database',
+                $auth_method,
                 isset($data['is_active']) ? (int)$data['is_active'] : 1
             ]);
             
@@ -173,10 +175,9 @@ class User {
                 $params[] = password_hash($data['password'], PASSWORD_DEFAULT);
             }
             
-            if (isset($data['auth_method'])) {
-                $updates[] = "auth_method = ?";
-                $params[] = $data['auth_method'];
-            }
+            // ENFORCE: Do not allow changing auth_method
+            // auth_method is set at user creation and should not be modified
+            // AD/LDAP users are managed through their authentication source
             
             if (isset($data['is_active'])) {
                 $updates[] = "is_active = ?";
