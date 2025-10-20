@@ -195,6 +195,7 @@ body {
 .bandeau_onglet::after { display: none !important; }
 
 /* Dynamic underline element (positioned by JS) */
+/* Transition removed to disable left->right animation */
 .bandeau_active_underline {
   position: absolute;
   bottom: 0;
@@ -204,8 +205,8 @@ body {
   background: var(--tab-underline);
   z-index: 1025;
   pointer-events: none;
-  transition: left 150ms ease, width 150ms ease;
-  will-change: left, width;
+  /* transition: left 150ms ease, width 150ms ease;  <-- removed */
+  /* will-change: left, width;                              <-- removed */
   box-sizing: border-box;
 }
 
@@ -244,7 +245,6 @@ body {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  /* keep a subtle top shadow if you want, currently none requested */
 }
 
 /* Footer separator: same trait as header separator (placed at top of the footer) */
