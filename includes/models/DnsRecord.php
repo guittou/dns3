@@ -94,7 +94,7 @@ class DnsRecord {
     /**
      * Create a new DNS record
      * 
-     * @param array $data Record data (record_type, name, value, ttl, priority)
+     * @param array $data Record data (record_type, name, value, ttl, priority, requester, expires_at, ticket_ref, comment)
      * @param int $user_id User creating the record
      * @return int|bool New record ID or false on failure
      */
@@ -102,8 +102,11 @@ class DnsRecord {
         try {
             $this->db->beginTransaction();
             
-            $sql = "INSERT INTO dns_records (record_type, name, value, ttl, priority, status, created_by)
-                    VALUES (?, ?, ?, ?, ?, 'active', ?)";
+            // Explicitly remove last_seen if provided by client (security)
+            unset($data['last_seen']);
+            
+            $sql = "INSERT INTO dns_records (record_type, name, value, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
@@ -112,6 +115,10 @@ class DnsRecord {
                 $data['value'],
                 $data['ttl'] ?? 3600,
                 $data['priority'] ?? null,
+                $data['requester'] ?? null,
+                $data['expires_at'] ?? null,
+                $data['ticket_ref'] ?? null,
+                $data['comment'] ?? null,
                 $user_id
             ]);
             
@@ -141,6 +148,9 @@ class DnsRecord {
         try {
             $this->db->beginTransaction();
             
+            // Explicitly remove last_seen if provided by client (security)
+            unset($data['last_seen']);
+            
             // Get current record for history
             $current = $this->getById($id);
             if (!$current) {
@@ -149,7 +159,9 @@ class DnsRecord {
             }
             
             $sql = "UPDATE dns_records 
-                    SET record_type = ?, name = ?, value = ?, ttl = ?, priority = ?, updated_by = ?, updated_at = NOW()
+                    SET record_type = ?, name = ?, value = ?, ttl = ?, priority = ?, 
+                        requester = ?, expires_at = ?, ticket_ref = ?, comment = ?,
+                        updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
             
             $stmt = $this->db->prepare($sql);
@@ -159,6 +171,10 @@ class DnsRecord {
                 $data['value'] ?? $current['value'],
                 $data['ttl'] ?? $current['ttl'],
                 $data['priority'] ?? $current['priority'],
+                isset($data['requester']) ? $data['requester'] : $current['requester'],
+                isset($data['expires_at']) ? $data['expires_at'] : $current['expires_at'],
+                isset($data['ticket_ref']) ? $data['ticket_ref'] : $current['ticket_ref'],
+                isset($data['comment']) ? $data['comment'] : $current['comment'],
                 $user_id,
                 $id
             ]);
@@ -287,6 +303,30 @@ class DnsRecord {
         } catch (Exception $e) {
             error_log("DNS Record getHistory error: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Mark a record as seen (update last_seen timestamp)
+     * This method is called when a record is viewed/retrieved
+     * 
+     * @param int $id Record ID
+     * @param int|null $user_id Optional user ID who viewed the record
+     * @return bool Success status
+     */
+    public function markSeen($id, $user_id = null) {
+        try {
+            $sql = "UPDATE dns_records 
+                    SET last_seen = NOW()
+                    WHERE id = ? AND status != 'deleted'";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("DNS Record markSeen error: " . $e->getMessage());
+            return false;
         }
     }
 }

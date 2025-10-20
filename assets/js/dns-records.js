@@ -94,7 +94,7 @@
             tbody.innerHTML = '';
 
             if (currentRecords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
                 return;
             }
 
@@ -106,6 +106,9 @@
                     <td>${escapeHtml(record.name)}</td>
                     <td>${escapeHtml(record.value)}</td>
                     <td>${escapeHtml(record.ttl)}</td>
+                    <td>${escapeHtml(record.requester || '-')}</td>
+                    <td>${record.expires_at ? formatDateTime(record.expires_at) : '-'}</td>
+                    <td>${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
                     <td><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
                     <td>
                         <button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Modifier</button>
@@ -130,6 +133,7 @@
         const modal = document.getElementById('dns-modal');
         const form = document.getElementById('dns-form');
         const title = document.getElementById('dns-modal-title');
+        const lastSeenGroup = document.getElementById('record-last-seen-group');
         
         if (!modal || !form || !title) return;
 
@@ -137,6 +141,11 @@
         form.reset();
         form.dataset.mode = 'create';
         delete form.dataset.recordId;
+        
+        // Hide last_seen field for new records
+        if (lastSeenGroup) {
+            lastSeenGroup.style.display = 'none';
+        }
 
         modal.style.display = 'block';
     }
@@ -152,6 +161,7 @@
             const modal = document.getElementById('dns-modal');
             const form = document.getElementById('dns-form');
             const title = document.getElementById('dns-modal-title');
+            const lastSeenGroup = document.getElementById('record-last-seen-group');
             
             if (!modal || !form || !title) return;
 
@@ -164,6 +174,24 @@
             document.getElementById('record-value').value = record.value;
             document.getElementById('record-ttl').value = record.ttl;
             document.getElementById('record-priority').value = record.priority || '';
+            document.getElementById('record-requester').value = record.requester || '';
+            document.getElementById('record-ticket-ref').value = record.ticket_ref || '';
+            document.getElementById('record-comment').value = record.comment || '';
+            
+            // Convert SQL datetime to datetime-local format
+            if (record.expires_at) {
+                document.getElementById('record-expires-at').value = sqlToDatetimeLocal(record.expires_at);
+            } else {
+                document.getElementById('record-expires-at').value = '';
+            }
+            
+            // Show last_seen field (read-only) if it has a value
+            if (record.last_seen && lastSeenGroup) {
+                document.getElementById('record-last-seen').value = formatDateTime(record.last_seen);
+                lastSeenGroup.style.display = 'block';
+            } else if (lastSeenGroup) {
+                lastSeenGroup.style.display = 'none';
+            }
 
             modal.style.display = 'block';
         } catch (error) {
@@ -197,8 +225,22 @@
             name: document.getElementById('record-name').value,
             value: document.getElementById('record-value').value,
             ttl: parseInt(document.getElementById('record-ttl').value),
-            priority: document.getElementById('record-priority').value ? parseInt(document.getElementById('record-priority').value) : null
+            priority: document.getElementById('record-priority').value ? parseInt(document.getElementById('record-priority').value) : null,
+            requester: document.getElementById('record-requester').value || null,
+            ticket_ref: document.getElementById('record-ticket-ref').value || null,
+            comment: document.getElementById('record-comment').value || null
         };
+        
+        // Convert datetime-local to SQL format for expires_at
+        const expiresAtValue = document.getElementById('record-expires-at').value;
+        if (expiresAtValue) {
+            data.expires_at = datetimeLocalToSql(expiresAtValue);
+        } else {
+            data.expires_at = null;
+        }
+        
+        // IMPORTANT: Never send last_seen from client - it's server-managed only
+        // (already handled by not including it in data object)
 
         try {
             if (mode === 'create') {
@@ -283,6 +325,46 @@
             "'": '&#039;'
         };
         return String(text).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    /**
+     * Convert SQL datetime format to datetime-local input format
+     * SQL: "2024-10-20 14:30:00" -> HTML5: "2024-10-20T14:30"
+     */
+    function sqlToDatetimeLocal(sqlDatetime) {
+        if (!sqlDatetime) return '';
+        // Remove seconds if present and replace space with T
+        return sqlDatetime.substring(0, 16).replace(' ', 'T');
+    }
+
+    /**
+     * Convert datetime-local input format to SQL datetime format
+     * HTML5: "2024-10-20T14:30" -> SQL: "2024-10-20 14:30:00"
+     */
+    function datetimeLocalToSql(datetimeLocal) {
+        if (!datetimeLocal) return null;
+        // Replace T with space and add :00 for seconds
+        return datetimeLocal.replace('T', ' ') + ':00';
+    }
+
+    /**
+     * Format datetime for display
+     * Converts "2024-10-20 14:30:00" or "2024-10-20T14:30:00" to localized format
+     */
+    function formatDateTime(datetime) {
+        if (!datetime) return '';
+        try {
+            const date = new Date(datetime.replace(' ', 'T'));
+            return date.toLocaleString('fr-FR', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch (e) {
+            return datetime;
+        }
     }
 
     /**

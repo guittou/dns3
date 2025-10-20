@@ -99,6 +99,14 @@ try {
                 exit;
             }
             
+            // Mark record as seen (server-side only, when authenticated user views it)
+            $user = $auth->getCurrentUser();
+            if ($user) {
+                $dnsRecord->markSeen($id, $user['id']);
+                // Refresh record to get updated last_seen
+                $record = $dnsRecord->getById($id);
+            }
+            
             // Also get history
             $history = $dnsRecord->getHistory($id);
             
@@ -119,6 +127,9 @@ try {
                 $input = $_POST;
             }
             
+            // Explicitly remove last_seen if provided by client (security)
+            unset($input['last_seen']);
+            
             // Validate required fields
             $required = ['record_type', 'name', 'value'];
             foreach ($required as $field) {
@@ -135,6 +146,35 @@ try {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid record type']);
                 exit;
+            }
+            
+            // Validate field lengths
+            if (isset($input['requester']) && strlen($input['requester']) > 255) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Requester field too long (max 255 characters)']);
+                exit;
+            }
+            if (isset($input['ticket_ref']) && strlen($input['ticket_ref']) > 255) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Ticket reference too long (max 255 characters)']);
+                exit;
+            }
+            
+            // Validate expires_at date format if provided
+            if (isset($input['expires_at']) && $input['expires_at'] !== '' && $input['expires_at'] !== null) {
+                $date = DateTime::createFromFormat('Y-m-d H:i:s', $input['expires_at']);
+                if (!$date || $date->format('Y-m-d H:i:s') !== $input['expires_at']) {
+                    // Try alternative format
+                    $date = DateTime::createFromFormat('Y-m-d\TH:i', $input['expires_at']);
+                    if ($date) {
+                        // Convert to SQL format
+                        $input['expires_at'] = $date->format('Y-m-d H:i:s');
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Invalid expires_at date format. Use YYYY-MM-DD HH:MM:SS or YYYY-MM-DDTHH:MM']);
+                        exit;
+                    }
+                }
             }
             
             $user = $auth->getCurrentUser();
@@ -170,6 +210,9 @@ try {
                 $input = $_POST;
             }
             
+            // Explicitly remove last_seen if provided by client (security)
+            unset($input['last_seen']);
+            
             // Validate record type if provided
             if (isset($input['record_type'])) {
                 $valid_types = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SOA', 'PTR', 'SRV'];
@@ -177,6 +220,35 @@ try {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid record type']);
                     exit;
+                }
+            }
+            
+            // Validate field lengths
+            if (isset($input['requester']) && strlen($input['requester']) > 255) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Requester field too long (max 255 characters)']);
+                exit;
+            }
+            if (isset($input['ticket_ref']) && strlen($input['ticket_ref']) > 255) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Ticket reference too long (max 255 characters)']);
+                exit;
+            }
+            
+            // Validate expires_at date format if provided
+            if (isset($input['expires_at']) && $input['expires_at'] !== '' && $input['expires_at'] !== null) {
+                $date = DateTime::createFromFormat('Y-m-d H:i:s', $input['expires_at']);
+                if (!$date || $date->format('Y-m-d H:i:s') !== $input['expires_at']) {
+                    // Try alternative format
+                    $date = DateTime::createFromFormat('Y-m-d\TH:i', $input['expires_at']);
+                    if ($date) {
+                        // Convert to SQL format
+                        $input['expires_at'] = $date->format('Y-m-d H:i:s');
+                    } else {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Invalid expires_at date format. Use YYYY-MM-DD HH:MM:SS or YYYY-MM-DDTHH:MM']);
+                        exit;
+                    }
                 }
             }
             
