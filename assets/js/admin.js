@@ -137,6 +137,7 @@
                     case 'mappings':
                         loadMappings();
                         break;
+                    // ACL tab removed - only database users supported
                 }
             });
         });
@@ -280,6 +281,10 @@
         document.getElementById('modal-user-title').textContent = 'Créer un utilisateur';
         document.getElementById('user-id').value = '';
         document.getElementById('form-user').reset();
+        
+        // Force database authentication method
+        document.getElementById('user-auth-method').value = 'Base de données';
+        
         document.getElementById('password-group').style.display = 'block';
         document.getElementById('password-hint').style.display = 'none';
         document.getElementById('password-required-indicator').style.display = 'inline';
@@ -312,15 +317,18 @@
             document.getElementById('user-id').value = user.id;
             document.getElementById('user-username').value = user.username;
             document.getElementById('user-email').value = user.email;
-            document.getElementById('user-auth-method').value = user.auth_method;
+            
+            // Display auth method but don't allow changes (always show as database)
+            document.getElementById('user-auth-method').value = 'Base de données';
+            
             document.getElementById('user-is-active').value = user.is_active;
             document.getElementById('user-password').value = '';
             document.getElementById('user-password').required = false;
             document.getElementById('password-hint').style.display = 'block';
             document.getElementById('password-required-indicator').style.display = 'none';
             
-            // Update password field visibility based on auth method
-            updatePasswordFieldVisibility(user.auth_method);
+            // Password field is always visible for database users
+            document.getElementById('password-group').style.display = 'block';
             
             // Populate roles checkboxes with current user roles
             const userRoleIds = user.roles.map(role => role.id);
@@ -357,24 +365,7 @@
         }).join('');
     }
 
-    /**
-     * Update password field visibility based on auth method
-     */
-    function updatePasswordFieldVisibility(authMethod) {
-        const passwordGroup = document.getElementById('password-group');
-        const passwordField = document.getElementById('user-password');
-        
-        if (authMethod === 'database') {
-            passwordGroup.style.display = 'block';
-            if (!currentEditUserId) {
-                passwordField.required = true;
-                document.getElementById('password-required-indicator').style.display = 'inline';
-            }
-        } else {
-            passwordGroup.style.display = 'none';
-            passwordField.required = false;
-        }
-    }
+
 
     /**
      * Save user (create or update)
@@ -386,7 +377,7 @@
         const userData = {
             username: formData.get('username'),
             email: formData.get('email'),
-            auth_method: formData.get('auth_method'),
+            auth_method: 'database', // ENFORCE: Always set to database
             is_active: formData.get('is_active')
         };
         
@@ -566,11 +557,6 @@
         // Form submissions
         document.getElementById('form-user').addEventListener('submit', saveUser);
         document.getElementById('form-mapping').addEventListener('submit', saveMapping);
-        
-        // Auth method change handler
-        document.getElementById('user-auth-method').addEventListener('change', (e) => {
-            updatePasswordFieldVisibility(e.target.value);
-        });
         
         // Close modals on outside click
         window.addEventListener('click', (e) => {
