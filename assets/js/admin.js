@@ -1,609 +1,158 @@
-/**
- * Admin Interface JavaScript
- * Handles client-side interactions for administrative operations
- */
+// assets/js/admin.js - minimal admin UI logic (DB-only user creation)
+(function(){
+  if (!window.BASE_URL) window.BASE_URL = '/';
+  const API = (window.API_BASE || (window.BASE_URL + 'api/')) + 'admin_api.php';
 
-(function() {
-    'use strict';
-
-    let allRoles = [];
-    let currentEditUserId = null;
-
-    /**
-     * Construct API URL using window.API_BASE
-     */
-    function getApiUrl(action, params = {}) {
-        const url = new URL(window.API_BASE + 'admin_api.php', window.location.origin);
-        url.searchParams.append('action', action);
-        
-        Object.keys(params).forEach(key => {
-            url.searchParams.append(key, params[key]);
-        });
-
-        return url.toString();
+  function apiCall(action, data = {}, method = 'GET') {
+    const url = new URL(API, location.origin);
+    url.searchParams.append('action', action);
+    if (method === 'GET') {
+      Object.keys(data).forEach(k => url.searchParams.append(k, data[k]));
+      return fetch(url.toString(), { credentials: 'same-origin' }).then(r => r.json());
+    } else {
+      return fetch(url.toString(), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(data)
+      }).then(r => r.json());
     }
+  }
 
-    /**
-     * Make an API call
-     */
-    async function apiCall(action, params = {}, method = 'GET', body = null) {
-        try {
-            const url = getApiUrl(action, params);
-
-            const options = {
-                method: method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'same-origin'
-            };
-
-            if (body && method !== 'GET') {
-                options.body = JSON.stringify(body);
-            }
-
-            const response = await fetch(url, options);
-            
-            let data;
-            try {
-                data = await response.json();
-            } catch (jsonError) {
-                const text = await response.text();
-                console.error('Failed to parse JSON response:', text);
-                throw new Error('Invalid JSON response from server');
-            }
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Request failed');
-            }
-
-            return data;
-        } catch (error) {
-            console.error('API call error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Format date for display
-     */
-    function formatDate(dateString) {
-        if (!dateString) return 'Jamais';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('fr-FR', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    /**
-     * Show alert message
-     */
-    function showAlert(message, type = 'info') {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type}`;
-        alertDiv.textContent = message;
-        alertDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            background-color: ${type === 'success' ? '#27ae60' : type === 'error' ? '#e74c3c' : '#3498db'};
-            color: white;
-            border-radius: 4px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            z-index: 10000;
-            animation: slideIn 0.3s ease-out;
-        `;
-        
-        document.body.appendChild(alertDiv);
-        
-        setTimeout(() => {
-            alertDiv.style.animation = 'slideOut 0.3s ease-out';
-            setTimeout(() => alertDiv.remove(), 300);
-        }, 3000);
-    }
-
-    /**
-     * Tab switching
-     */
-    function initTabs() {
-        const tabButtons = document.querySelectorAll('.admin-tab-button');
-        const tabContents = document.querySelectorAll('.admin-tab-content');
-
-        tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const tabName = button.getAttribute('data-tab');
-                
-                // Update active tab button
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                
-                // Update active tab content
-                tabContents.forEach(content => content.classList.remove('active'));
-                document.getElementById(`tab-${tabName}`).classList.add('active');
-                
-                // Load data for the active tab
-                switch(tabName) {
-                    case 'users':
-                        loadUsers();
-                        break;
-                    case 'roles':
-                        loadRoles();
-                        break;
-                    case 'mappings':
-                        loadMappings();
-                        break;
-                }
-            });
-        });
-    }
-
-    /**
-     * Load users list
-     */
-    async function loadUsers(filters = {}) {
-        const tbody = document.getElementById('users-tbody');
-        tbody.innerHTML = '<tr><td colspan="9" class="loading">Chargement des utilisateurs...</td></tr>';
-
-        try {
-            const data = await apiCall('list_users', filters);
-            
-            if (data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Aucun utilisateur trouvé</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.data.map(user => {
-                const roles = user.roles.map(role => 
-                    `<span class="badge badge-${role.name}">${role.name}</span>`
-                ).join(' ');
-                
-                const statusBadge = user.is_active === 1 || user.is_active === '1'
-                    ? '<span class="badge badge-active">Actif</span>'
-                    : '<span class="badge badge-inactive">Inactif</span>';
-                
-                const authBadge = `<span class="badge badge-${user.auth_method}">${user.auth_method}</span>`;
-
-                return `
-                    <tr>
-                        <td>${user.id}</td>
-                        <td>${escapeHtml(user.username)}</td>
-                        <td>${escapeHtml(user.email)}</td>
-                        <td>${authBadge}</td>
-                        <td>${roles || '<em>Aucun rôle</em>'}</td>
-                        <td>${statusBadge}</td>
-                        <td>${formatDate(user.created_at)}</td>
-                        <td>${formatDate(user.last_login)}</td>
-                        <td>
-                            <button class="btn btn-edit" onclick="editUser(${user.id})">Modifier</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
-            showAlert('Erreur lors du chargement des utilisateurs: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Load roles list
-     */
-    async function loadRoles() {
-        const tbody = document.getElementById('roles-tbody');
-        tbody.innerHTML = '<tr><td colspan="4" class="loading">Chargement des rôles...</td></tr>';
-
-        try {
-            const data = await apiCall('list_roles');
-            allRoles = data.data; // Store for use in other forms
-            
-            if (data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Aucun rôle trouvé</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.data.map(role => `
-                <tr>
-                    <td>${role.id}</td>
-                    <td><span class="badge badge-${role.name}">${escapeHtml(role.name)}</span></td>
-                    <td>${escapeHtml(role.description || '')}</td>
-                    <td>${formatDate(role.created_at)}</td>
-                </tr>
-            `).join('');
-        } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
-            showAlert('Erreur lors du chargement des rôles: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Load mappings list
-     */
-    async function loadMappings() {
-        const tbody = document.getElementById('mappings-tbody');
-        tbody.innerHTML = '<tr><td colspan="8" class="loading">Chargement des mappings...</td></tr>';
-
-        try {
-            const data = await apiCall('list_mappings');
-            
-            if (data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Aucun mapping trouvé</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = data.data.map(mapping => {
-                const sourceBadge = `<span class="badge badge-${mapping.source}">${mapping.source.toUpperCase()}</span>`;
-                const roleBadge = `<span class="badge badge-${mapping.role_name}">${escapeHtml(mapping.role_name)}</span>`;
-                
-                return `
-                    <tr>
-                        <td>${mapping.id}</td>
-                        <td>${sourceBadge}</td>
-                        <td><code style="font-size: 11px;">${escapeHtml(mapping.dn_or_group)}</code></td>
-                        <td>${roleBadge}</td>
-                        <td>${escapeHtml(mapping.created_by_username || 'N/A')}</td>
-                        <td>${formatDate(mapping.created_at)}</td>
-                        <td>${escapeHtml(mapping.notes || '')}</td>
-                        <td>
-                            <button class="btn btn-danger" onclick="deleteMapping(${mapping.id})">Supprimer</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
-        } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
-            showAlert('Erreur lors du chargement des mappings: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Open create user modal
-     */
-    window.openCreateUserModal = async function() {
-        currentEditUserId = null;
-        
-        // Load roles if not already loaded
-        if (allRoles.length === 0) {
-            try {
-                const data = await apiCall('list_roles');
-                allRoles = data.data;
-            } catch (error) {
-                showAlert('Erreur lors du chargement des rôles', 'error');
-                return;
-            }
-        }
-        
-        document.getElementById('modal-user-title').textContent = 'Créer un utilisateur';
-        document.getElementById('user-id').value = '';
-        document.getElementById('form-user').reset();
-        document.getElementById('password-group').style.display = 'block';
-        document.getElementById('password-hint').style.display = 'none';
-        document.getElementById('password-required-indicator').style.display = 'inline';
-        document.getElementById('user-password').required = true;
-        
-        // Populate roles checkboxes
-        populateRolesCheckboxes([]);
-        
-        document.getElementById('modal-user').classList.add('show');
-    };
-
-    /**
-     * Edit user
-     */
-    window.editUser = async function(userId) {
-        currentEditUserId = userId;
-        
-        try {
-            // Load roles if not already loaded
-            if (allRoles.length === 0) {
-                const rolesData = await apiCall('list_roles');
-                allRoles = rolesData.data;
-            }
-            
-            // Load user data
-            const data = await apiCall('get_user', { id: userId });
-            const user = data.data;
-            
-            document.getElementById('modal-user-title').textContent = 'Modifier un utilisateur';
-            document.getElementById('user-id').value = user.id;
-            document.getElementById('user-username').value = user.username;
-            document.getElementById('user-email').value = user.email;
-            document.getElementById('user-auth-method').value = user.auth_method;
-            document.getElementById('user-is-active').value = user.is_active;
-            document.getElementById('user-password').value = '';
-            document.getElementById('user-password').required = false;
-            document.getElementById('password-hint').style.display = 'block';
-            document.getElementById('password-required-indicator').style.display = 'none';
-            
-            // Update password field visibility based on auth method
-            updatePasswordFieldVisibility(user.auth_method);
-            
-            // Populate roles checkboxes with current user roles
-            const userRoleIds = user.roles.map(role => role.id);
-            populateRolesCheckboxes(userRoleIds);
-            
-            document.getElementById('modal-user').classList.add('show');
-        } catch (error) {
-            showAlert('Erreur lors du chargement de l\'utilisateur: ' + error.message, 'error');
-        }
-    };
-
-    /**
-     * Close user modal
-     */
-    window.closeUserModal = function() {
-        document.getElementById('modal-user').classList.remove('show');
-        document.getElementById('form-user').reset();
-        currentEditUserId = null;
-    };
-
-    /**
-     * Populate roles checkboxes
-     */
-    function populateRolesCheckboxes(selectedRoleIds) {
-        const container = document.getElementById('user-roles-checkboxes');
-        container.innerHTML = allRoles.map(role => {
-            const checked = selectedRoleIds.includes(role.id) ? 'checked' : '';
-            return `
-                <label>
-                    <input type="checkbox" name="role_ids[]" value="${role.id}" ${checked}>
-                    ${escapeHtml(role.name)} - ${escapeHtml(role.description || '')}
-                </label>
-            `;
-        }).join('');
-    }
-
-    /**
-     * Update password field visibility based on auth method
-     */
-    function updatePasswordFieldVisibility(authMethod) {
-        const passwordGroup = document.getElementById('password-group');
-        const passwordField = document.getElementById('user-password');
-        
-        if (authMethod === 'database') {
-            passwordGroup.style.display = 'block';
-            if (!currentEditUserId) {
-                passwordField.required = true;
-                document.getElementById('password-required-indicator').style.display = 'inline';
-            }
-        } else {
-            passwordGroup.style.display = 'none';
-            passwordField.required = false;
-        }
-    }
-
-    /**
-     * Save user (create or update)
-     */
-    async function saveUser(event) {
-        event.preventDefault();
-        
-        const formData = new FormData(event.target);
-        const userData = {
-            username: formData.get('username'),
-            email: formData.get('email'),
-            auth_method: formData.get('auth_method'),
-            is_active: formData.get('is_active')
-        };
-        
-        const password = formData.get('password');
-        if (password) {
-            userData.password = password;
-        }
-        
-        // Get selected role IDs
-        const roleCheckboxes = document.querySelectorAll('input[name="role_ids[]"]:checked');
-        const selectedRoleIds = Array.from(roleCheckboxes).map(cb => parseInt(cb.value));
-        
-        try {
-            if (currentEditUserId) {
-                // Update existing user
-                await apiCall('update_user', { id: currentEditUserId }, 'POST', userData);
-                
-                // Update roles: get current roles and add/remove as needed
-                const userResponse = await apiCall('get_user', { id: currentEditUserId });
-                const currentRoleIds = userResponse.data.roles.map(r => r.id);
-                
-                // Add new roles
-                for (const roleId of selectedRoleIds) {
-                    if (!currentRoleIds.includes(roleId)) {
-                        await apiCall('assign_role', { user_id: currentEditUserId, role_id: roleId }, 'POST');
-                    }
-                }
-                
-                // Remove old roles
-                for (const roleId of currentRoleIds) {
-                    if (!selectedRoleIds.includes(roleId)) {
-                        await apiCall('remove_role', { user_id: currentEditUserId, role_id: roleId }, 'POST');
-                    }
-                }
-                
-                showAlert('Utilisateur mis à jour avec succès', 'success');
-            } else {
-                // Create new user
-                userData.role_ids = selectedRoleIds;
-                await apiCall('create_user', {}, 'POST', userData);
-                showAlert('Utilisateur créé avec succès', 'success');
-            }
-            
-            closeUserModal();
-            loadUsers();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Open create mapping modal
-     */
-    window.openCreateMappingModal = async function() {
-        // Load roles if not already loaded
-        if (allRoles.length === 0) {
-            try {
-                const data = await apiCall('list_roles');
-                allRoles = data.data;
-            } catch (error) {
-                showAlert('Erreur lors du chargement des rôles', 'error');
-                return;
-            }
-        }
-        
-        // Populate roles dropdown
-        const roleSelect = document.getElementById('mapping-role');
-        roleSelect.innerHTML = allRoles.map(role => 
-            `<option value="${role.id}">${escapeHtml(role.name)} - ${escapeHtml(role.description || '')}</option>`
-        ).join('');
-        
-        document.getElementById('form-mapping').reset();
-        document.getElementById('modal-mapping').classList.add('show');
-    };
-
-    /**
-     * Close mapping modal
-     */
-    window.closeMappingModal = function() {
-        document.getElementById('modal-mapping').classList.remove('show');
-        document.getElementById('form-mapping').reset();
-    };
-
-    /**
-     * Save mapping
-     */
-    async function saveMapping(event) {
-        event.preventDefault();
-        
-        const formData = new FormData(event.target);
-        const mappingData = {
-            source: formData.get('source'),
-            dn_or_group: formData.get('dn_or_group'),
-            role_id: parseInt(formData.get('role_id')),
-            notes: formData.get('notes')
-        };
-        
-        try {
-            await apiCall('create_mapping', {}, 'POST', mappingData);
-            showAlert('Mapping créé avec succès', 'success');
-            closeMappingModal();
-            loadMappings();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
-    }
-
-    /**
-     * Delete mapping
-     */
-    window.deleteMapping = async function(mappingId) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce mapping ?')) {
-            return;
-        }
-        
-        try {
-            await apiCall('delete_mapping', { id: mappingId }, 'POST');
-            showAlert('Mapping supprimé avec succès', 'success');
-            loadMappings();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
-    };
-
-    /**
-     * Escape HTML to prevent XSS
-     */
-    function escapeHtml(text) {
-        if (text === null || text === undefined) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    /**
-     * Initialize filter buttons
-     */
-    function initFilters() {
-        document.getElementById('btn-filter-users').addEventListener('click', () => {
-            const filters = {};
-            
-            const username = document.getElementById('filter-username').value.trim();
-            if (username) filters.username = username;
-            
-            const authMethod = document.getElementById('filter-auth-method').value;
-            if (authMethod) filters.auth_method = authMethod;
-            
-            const isActive = document.getElementById('filter-is-active').value;
-            if (isActive !== '') filters.is_active = isActive;
-            
-            loadUsers(filters);
-        });
-        
-        document.getElementById('btn-reset-filters').addEventListener('click', () => {
-            document.getElementById('filter-username').value = '';
-            document.getElementById('filter-auth-method').value = '';
-            document.getElementById('filter-is-active').value = '';
-            loadUsers();
-        });
-    }
-
-    /**
-     * Initialize on page load
-     */
-    document.addEventListener('DOMContentLoaded', () => {
-        initTabs();
-        initFilters();
-        
-        // Load initial data
-        loadUsers();
-        loadRoles(); // Pre-load roles for dropdowns
-        
-        // Button event listeners
-        document.getElementById('btn-create-user').addEventListener('click', openCreateUserModal);
-        document.getElementById('btn-create-mapping').addEventListener('click', openCreateMappingModal);
-        
-        // Form submissions
-        document.getElementById('form-user').addEventListener('submit', saveUser);
-        document.getElementById('form-mapping').addEventListener('submit', saveMapping);
-        
-        // Auth method change handler
-        document.getElementById('user-auth-method').addEventListener('change', (e) => {
-            updatePasswordFieldVisibility(e.target.value);
-        });
-        
-        // Close modals on outside click
-        window.addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal')) {
-                e.target.classList.remove('show');
-            }
-        });
-        
-        // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            
-            @keyframes slideOut {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(style);
+  document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.admin-tab-button').forEach(btn=>{
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.admin-tab-button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.getAttribute('data-tab');
+        document.querySelectorAll('.admin-tab').forEach(sec => sec.style.display = 'none');
+        document.getElementById('tab-' + tab).style.display = 'block';
+      });
     });
+
+    // load users & roles & mappings
+    loadUsers();
+    loadRoles();
+    loadMappings();
+
+    document.getElementById('admin-create-user').addEventListener('click', openCreateUserModal);
+    document.getElementById('admin-user-modal-close').addEventListener('click', closeUserModal);
+    document.getElementById('admin-user-form').addEventListener('submit', submitUserForm);
+    document.getElementById('admin-create-mapping').addEventListener('click', openCreateMappingModal);
+  });
+
+  async function loadUsers() {
+    const res = await apiCall('list_users');
+    const body = document.getElementById('admin-users-body');
+    body.innerHTML = '';
+    (res.data || []).forEach(u=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${u.id}</td>
+                      <td>${escape(u.username)}</td>
+                      <td>${escape(u.email)}</td>
+                      <td>${escape(u.roles||'')}</td>
+                      <td>${u.is_active ? 'Oui' : 'Non'}</td>
+                      <td>
+                        <button class="btn-small" data-id="${u.id}" data-action="edit">Éditer</button>
+                      </td>`;
+      body.appendChild(tr);
+    });
+    body.querySelectorAll('button[data-action="edit"]').forEach(b=>{
+      b.addEventListener('click', async () => {
+        const id = b.getAttribute('data-id');
+        const r = await apiCall('get_user', {id});
+        openEditUserModal(r.data);
+      });
+    });
+  }
+
+  async function loadRoles() {
+    const res = await apiCall('list_roles');
+    const sel = document.getElementById('admin-roles-select');
+    if (sel) {
+      sel.innerHTML = '';
+      (res.data || []).forEach(r=>{
+        const opt = document.createElement('option');
+        opt.value = r.id; opt.textContent = r.name;
+        sel.appendChild(opt);
+      });
+    }
+    const rolesList = document.getElementById('admin-roles-list');
+    if (rolesList) {
+      rolesList.innerHTML = '<ul>' + (res.data || []).map(r => `<li>${escape(r.name)} - ${escape(r.description||'')}</li>`).join('') + '</ul>';
+    }
+  }
+
+  async function loadMappings() {
+    const res = await apiCall('list_mappings');
+    const body = document.getElementById('admin-mappings-body');
+    body.innerHTML = '';
+    (res.data || []).forEach(m=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${m.id}</td><td>${escape(m.source)}</td><td>${escape(m.dn_or_group)}</td><td>${escape(m.role_name)}</td><td>${m.created_at}</td>
+                      <td><button class="btn-small" data-id="${m.id}" data-action="del-map">Supprimer</button></td>`;
+      body.appendChild(tr);
+    });
+    body.querySelectorAll('button[data-action="del-map"]').forEach(b=>{
+      b.addEventListener('click', async ()=>{
+        if (!confirm('Supprimer ce mapping ?')) return;
+        await apiCall('delete_mapping', {id: b.getAttribute('data-id')}, 'POST');
+        await loadMappings();
+      });
+    });
+  }
+
+  function openCreateUserModal() {
+    document.getElementById('admin-user-form').reset();
+    document.getElementById('admin-user-id').value = '';
+    document.getElementById('admin-user-modal').style.display = 'block';
+  }
+  function openEditUserModal(user) {
+    document.getElementById('admin-user-id').value = user.id;
+    document.getElementById('admin-username').value = user.username;
+    document.getElementById('admin-email').value = user.email;
+    const sel = document.getElementById('admin-roles-select');
+    Array.from(sel.options).forEach(o => o.selected = (user.roles||[]).includes(o.text));
+    document.getElementById('admin-user-modal').style.display = 'block';
+  }
+  function closeUserModal(){ document.getElementById('admin-user-modal').style.display = 'none'; }
+
+  async function submitUserForm(ev) {
+    ev.preventDefault();
+    const id = document.getElementById('admin-user-id').value;
+    const payload = {
+      username: document.getElementById('admin-username').value,
+      email: document.getElementById('admin-email').value,
+      password: document.getElementById('admin-password').value,
+      roles: Array.from(document.getElementById('admin-roles-select').selectedOptions).map(o => o.value),
+      is_active: 1,
+      // force DB-only at client-side as well (server enforces too)
+      auth_method: 'database'
+    };
+    if (id) {
+      await apiCall('update_user', Object.assign({id}, payload), 'POST');
+    } else {
+      await apiCall('create_user', payload, 'POST');
+    }
+    closeUserModal();
+    await loadUsers();
+  }
+
+  function escape(s){ if (!s && s!==0) return ''; return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c])); }
+
+  // mapping modal (simplified) - open prompt
+  function openCreateMappingModal() {
+    const source = prompt('Source (ad or ldap)', 'ad');
+    if (!source) return;
+    const dn = prompt('DN / Group name (ex: CN=Group,OU=Groups,DC=example,DC=com)');
+    if (!dn) return;
+    apiCall('list_roles').then(res=>{
+      const roles = res.data || [];
+      const roleNames = roles.map(r=>`${r.id}:${r.name}`).join(', ');
+      const roleChoice = prompt('Role id to assign. Available: ' + roleNames);
+      if (!roleChoice) return;
+      apiCall('create_mapping', {source, dn_or_group: dn, role_id: parseInt(roleChoice)}, 'POST').then(()=>loadMappings());
+    });
+  }
+
 })();
