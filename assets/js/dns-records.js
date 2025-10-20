@@ -187,6 +187,8 @@
             // Generate table rows with semantic classes matching the header
             currentRecords.forEach(record => {
                 const row = document.createElement('tr');
+                // Store record ID in dataset for use by actions
+                row.dataset.recordId = record.id;
                 row.innerHTML = `
                     <td class="col-name">${escapeHtml(record.name)}</td>
                     <td class="col-ttl">${escapeHtml(record.ttl)}</td>
@@ -281,8 +283,6 @@
         const form = document.getElementById('dns-form');
         const title = document.getElementById('dns-modal-title');
         const lastSeenGroup = document.getElementById('record-last-seen-group');
-        const createdAtGroup = document.getElementById('record-created-at-group');
-        const updatedAtGroup = document.getElementById('record-updated-at-group');
         
         if (!modal || !form || !title) return;
 
@@ -291,15 +291,9 @@
         form.dataset.mode = 'create';
         delete form.dataset.recordId;
         
-        // Hide last_seen, created_at, and updated_at fields for new records
+        // Hide last_seen field for new records (server-managed)
         if (lastSeenGroup) {
             lastSeenGroup.style.display = 'none';
-        }
-        if (createdAtGroup) {
-            createdAtGroup.style.display = 'none';
-        }
-        if (updatedAtGroup) {
-            updatedAtGroup.style.display = 'none';
         }
 
         // Update field visibility based on default record type
@@ -320,8 +314,6 @@
             const form = document.getElementById('dns-form');
             const title = document.getElementById('dns-modal-title');
             const lastSeenGroup = document.getElementById('record-last-seen-group');
-            const createdAtGroup = document.getElementById('record-created-at-group');
-            const updatedAtGroup = document.getElementById('record-updated-at-group');
             
             if (!modal || !form || !title) return;
 
@@ -382,22 +374,6 @@
                 lastSeenGroup.style.display = 'block';
             } else if (lastSeenGroup) {
                 lastSeenGroup.style.display = 'none';
-            }
-
-            // Show and populate created_at field (read-only)
-            if (record.created_at && createdAtGroup) {
-                document.getElementById('record-created-at').value = formatDateTime(record.created_at);
-                createdAtGroup.style.display = 'block';
-            } else if (createdAtGroup) {
-                createdAtGroup.style.display = 'none';
-            }
-
-            // Show and populate updated_at field (read-only)
-            if (record.updated_at && updatedAtGroup) {
-                document.getElementById('record-updated-at').value = formatDateTime(record.updated_at);
-                updatedAtGroup.style.display = 'block';
-            } else if (updatedAtGroup) {
-                updatedAtGroup.style.display = 'none';
             }
 
             // Update field visibility based on record type

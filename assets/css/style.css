@@ -458,6 +458,11 @@ body {
   color: #b00020;
 }
 
+/* Hide ID column (still accessible via data attribute) */
+.col-id {
+  display: none !important;
+}
+
 /* Buttons */
 .btn-small {
   padding: 6px 10px;

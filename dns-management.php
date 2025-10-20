@@ -85,6 +85,17 @@ if (!$auth->isAdmin()) {
         </div>
         <div class="dns-modal-body">
             <form id="dns-form">
+                <!-- Zone fields first: Name, TTL, Class (implicit IN), Type, Value -->
+                <div class="form-group">
+                    <label for="record-name">Nom *</label>
+                    <input type="text" id="record-name" name="name" required placeholder="example.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="record-ttl">TTL (secondes)</label>
+                    <input type="number" id="record-ttl" name="ttl" value="3600" min="60">
+                </div>
+
                 <div class="form-group">
                     <label for="record-type">Type d'enregistrement *</label>
                     <select id="record-type" name="record_type" required>
@@ -96,11 +107,7 @@ if (!$auth->isAdmin()) {
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="record-name">Nom *</label>
-                    <input type="text" id="record-name" name="name" required placeholder="example.com">
-                </div>
-
+                <!-- Type-specific value fields -->
                 <div class="form-group" id="record-address-ipv4-group" style="display: none;">
                     <label for="record-address-ipv4">Adresse IPv4 *</label>
                     <input type="text" id="record-address-ipv4" name="address_ipv4" placeholder="192.168.1.1">
@@ -126,11 +133,7 @@ if (!$auth->isAdmin()) {
                     <textarea id="record-txt" name="txt" rows="3" placeholder="Contenu du champ TXT..."></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label for="record-ttl">TTL (secondes)</label>
-                    <input type="number" id="record-ttl" name="ttl" value="3600" min="60">
-                </div>
-
+                <!-- Metadata fields -->
                 <div class="form-group">
                     <label for="record-requester">Demandeur</label>
                     <input type="text" id="record-requester" name="requester" placeholder="Nom de la personne ou du système">
@@ -151,19 +154,10 @@ if (!$auth->isAdmin()) {
                     <textarea id="record-comment" name="comment" rows="3" placeholder="Notes additionnelles..."></textarea>
                 </div>
 
+                <!-- Server-managed field (hidden) -->
                 <div class="form-group" id="record-last-seen-group" style="display: none;">
                     <label for="record-last-seen">Vu pour la dernière fois</label>
                     <input type="text" id="record-last-seen" name="last_seen" disabled readonly placeholder="Non encore consulté">
-                </div>
-
-                <div class="form-group" id="record-created-at-group" style="display: none;">
-                    <label for="record-created-at">Créé le</label>
-                    <input type="text" id="record-created-at" name="created_at" disabled readonly>
-                </div>
-
-                <div class="form-group" id="record-updated-at-group" style="display: none;">
-                    <label for="record-updated-at">Modifié le</label>
-                    <input type="text" id="record-updated-at" name="updated_at" disabled readonly>
                 </div>
 
                 <div class="dns-modal-footer">
