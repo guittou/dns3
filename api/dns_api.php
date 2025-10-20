@@ -228,6 +228,13 @@ try {
 
             // Explicitly remove last_seen if provided by client (security)
             unset($input['last_seen']);
+            
+            // Validate zone_file_id is required
+            if (!isset($input['zone_file_id']) || empty($input['zone_file_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing required field: zone_file_id']);
+                exit;
+            }
 
             // Validate record_type field
             if (!isset($input['record_type']) || trim($input['record_type']) === '') {
@@ -282,18 +289,18 @@ try {
             }
 
             $user = $auth->getCurrentUser();
-            $record_id = $dnsRecord->create($input, $user['id']);
-
-            if ($record_id) {
+            
+            try {
+                $record_id = $dnsRecord->create($input, $user['id']);
                 http_response_code(201);
                 echo json_encode([
                     'success' => true,
                     'message' => 'DNS record created successfully',
                     'id' => $record_id
                 ]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Failed to create DNS record']);
+            } catch (Exception $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
             }
             break;
 
@@ -365,16 +372,21 @@ try {
             }
 
             $user = $auth->getCurrentUser();
-            $success = $dnsRecord->update($id, $input, $user['id']);
-
-            if ($success) {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'DNS record updated successfully'
-                ]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Failed to update DNS record']);
+            
+            try {
+                $success = $dnsRecord->update($id, $input, $user['id']);
+                if ($success) {
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'DNS record updated successfully'
+                    ]);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Failed to update DNS record']);
+                }
+            } catch (Exception $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
             }
             break;
 

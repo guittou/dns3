@@ -24,10 +24,12 @@ class DnsRecord {
     public function search($filters = [], $limit = 100, $offset = 0) {
         $sql = "SELECT dr.*, 
                        u1.username as created_by_username,
-                       u2.username as updated_by_username
+                       u2.username as updated_by_username,
+                       zf.name as zone_name
                 FROM dns_records dr
                 LEFT JOIN users u1 ON dr.created_by = u1.id
                 LEFT JOIN users u2 ON dr.updated_by = u2.id
+                LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id
                 WHERE 1=1";
         
         $params = [];
@@ -80,10 +82,12 @@ class DnsRecord {
         try {
             $sql = "SELECT dr.*, 
                            u1.username as created_by_username,
-                           u2.username as updated_by_username
+                           u2.username as updated_by_username,
+                           zf.name as zone_name
                     FROM dns_records dr
                     LEFT JOIN users u1 ON dr.created_by = u1.id
                     LEFT JOIN users u2 ON dr.updated_by = u2.id
+                    LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id
                     WHERE dr.id = ?";
             
             if (!$includeDeleted) {
@@ -117,6 +121,19 @@ class DnsRecord {
         try {
             $this->db->beginTransaction();
             
+            // Validate zone_file_id is required
+            if (!isset($data['zone_file_id']) || empty($data['zone_file_id'])) {
+                throw new Exception("zone_file_id is required");
+            }
+            
+            // Validate that the zone file exists and is active
+            $sql = "SELECT id FROM zone_files WHERE id = ? AND status = 'active'";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$data['zone_file_id']]);
+            if (!$stmt->fetch()) {
+                throw new Exception("Invalid or inactive zone_file_id");
+            }
+            
             // Explicitly remove last_seen, created_at, and updated_at if provided by client (security)
             unset($data['last_seen']);
             unset($data['created_at']);
@@ -133,11 +150,12 @@ class DnsRecord {
             // Also set 'value' for backward compatibility
             $valueField = $this->getValueFromDedicatedFieldData($data);
             
-            $sql = "INSERT INTO dns_records (record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO dns_records (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
+                $data['zone_file_id'],
                 $data['record_type'],
                 $data['name'],
                 $valueField,
@@ -165,7 +183,7 @@ class DnsRecord {
         } catch (Exception $e) {
             $this->db->rollBack();
             error_log("DNS Record create error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
@@ -180,6 +198,16 @@ class DnsRecord {
     public function update($id, $data, $user_id) {
         try {
             $this->db->beginTransaction();
+            
+            // Validate zone_file_id if provided
+            if (isset($data['zone_file_id']) && !empty($data['zone_file_id'])) {
+                $sql = "SELECT id FROM zone_files WHERE id = ? AND status = 'active'";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$data['zone_file_id']]);
+                if (!$stmt->fetch()) {
+                    throw new Exception("Invalid or inactive zone_file_id");
+                }
+            }
             
             // Explicitly remove last_seen, created_at, and updated_at if provided by client (security)
             unset($data['last_seen']);
@@ -205,7 +233,7 @@ class DnsRecord {
             $valueField = $this->getValueFromDedicatedFieldData($data, $current);
             
             $sql = "UPDATE dns_records 
-                    SET record_type = ?, name = ?, value = ?, 
+                    SET zone_file_id = ?, record_type = ?, name = ?, value = ?, 
                         address_ipv4 = ?, address_ipv6 = ?, cname_target = ?, ptrdname = ?, txt = ?,
                         ttl = ?, priority = ?, 
                         requester = ?, expires_at = ?, ticket_ref = ?, comment = ?,
@@ -214,6 +242,7 @@ class DnsRecord {
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
+                $data['zone_file_id'] ?? $current['zone_file_id'],
                 $data['record_type'] ?? $current['record_type'],
                 $data['name'] ?? $current['name'],
                 $valueField,
@@ -240,7 +269,7 @@ class DnsRecord {
         } catch (Exception $e) {
             $this->db->rollBack();
             error_log("DNS Record update error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
@@ -301,7 +330,7 @@ class DnsRecord {
     public function writeHistory($record_id, $action, $old_status, $new_status, $user_id, $notes = null) {
         try {
             // Get current record data including dedicated fields
-            $sql = "SELECT record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority FROM dns_records WHERE id = ?";
+            $sql = "SELECT record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, zone_file_id FROM dns_records WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$record_id]);
             $record = $stmt->fetch();
@@ -311,12 +340,13 @@ class DnsRecord {
             }
             
             $sql = "INSERT INTO dns_record_history 
-                    (record_id, action, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, old_status, new_status, changed_by, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    (record_id, zone_file_id, action, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, old_status, new_status, changed_by, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $record_id,
+                $record['zone_file_id'],
                 $action,
                 $record['record_type'],
                 $record['name'],
