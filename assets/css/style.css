@@ -1,3 +1,4 @@
+
 :root{
   /* layout */
   --content-max-width: 1100px;
@@ -222,20 +223,18 @@ body {
   background: transparent;
 }
 
-/* .main-content: keep a sensible minimum (previous max), but remain responsive */
+/* Make .main-content size to the content (table) but never exceed viewport */
 .main-content {
   display: block;
-  /* allow the container to size to content but not shrink below the previous "max" */
-  min-width: min(var(--content-max-width); /* use previous max (1100px) as minimum, but never exceed viewport */
-  max-width: calc(100vw - 40px);    /* never exceed viewport minus side paddings */
-  width: auto;                      /* natural sizing between min and max */
+  width: max-content;              /* size to content (table) */
+  max-width: calc(100vw - 40px);   /* but never exceed viewport minus page paddings */
   margin: 20px auto;
   padding: 20px;
   box-sizing: border-box;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-  overflow-x: auto;                 /* horizontal scroll if content > viewport */
+  overflow-x: auto;                /* allow horizontal scroll when table > viewport */
 }
 
 
