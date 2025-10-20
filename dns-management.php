@@ -52,14 +52,18 @@ if (!$auth->isAdmin()) {
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Type</th>
+                    <!-- Ordre changé pour correspondre à l'écriture d'une ligne de zone -->
                     <th>Nom</th>
-                    <th>Valeur</th>
                     <th>TTL</th>
+                    <th>Classe</th>
+                    <th>Type</th>
+                    <th>Valeur</th>
+
+                    <!-- Champs non présents dans le fichier de zone -->
                     <th>Demandeur</th>
                     <th>Expire</th>
                     <th>Vu le</th>
-                    <th>Statut</th>
+                    <th>Statut</th>                    
                     <th>Actions</th>
                 </tr>
             </thead>
