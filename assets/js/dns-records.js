@@ -109,6 +109,20 @@
     }
 
     /**
+     * Construct Zone API URL
+     */
+    function getZoneApiUrl(action, params = {}) {
+        const url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
+        url.searchParams.append('action', action);
+        
+        Object.keys(params).forEach(key => {
+            url.searchParams.append(key, params[key]);
+        });
+
+        return url.toString();
+    }
+
+    /**
      * Make an API call
      */
     async function apiCall(action, params = {}, method = 'GET', body = null) {
@@ -152,6 +166,77 @@
     }
 
     /**
+     * Make a Zone API call
+     */
+    async function zoneApiCall(action, params = {}, method = 'GET', body = null) {
+        try {
+            const url = getZoneApiUrl(action, params);
+
+            const options = {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'same-origin'
+            };
+
+            if (body && method !== 'GET') {
+                options.body = JSON.stringify(body);
+            }
+
+            const response = await fetch(url, options);
+            
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                const text = await response.text();
+                console.error('Failed to parse JSON response:', jsonError);
+                console.error('Response body:', text);
+                throw new Error('Invalid JSON response from API');
+            }
+
+            if (!response.ok) {
+                throw new Error(data.error || 'API request failed');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Zone API call error:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load available zone files for selector
+     */
+    async function loadZoneFiles() {
+        try {
+            // List only active master and include zones
+            const result = await zoneApiCall('list_zones', { status: 'active' });
+            const zones = result.data || [];
+            
+            const selector = document.getElementById('record-zone-file');
+            if (!selector) return;
+            
+            // Clear existing options except the first placeholder
+            selector.innerHTML = '<option value="">-- Sélectionner une zone --</option>';
+            
+            // Filter to show only master and include types, add to selector
+            zones.filter(z => z.file_type === 'master' || z.file_type === 'include')
+                .forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone.id;
+                    option.textContent = `${zone.name} (${zone.file_type})`;
+                    selector.appendChild(option);
+                });
+        } catch (error) {
+            console.error('Error loading zone files:', error);
+            // Don't show message to user, just log it
+        }
+    }
+
+    /**
      * Load and display DNS records table
      */
     async function loadDnsTable(filters = {}) {
@@ -180,7 +265,7 @@
             tbody.innerHTML = '';
 
             if (currentRecords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="13" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="14" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
                 return;
             }
 
@@ -190,6 +275,7 @@
                 // Store record ID in dataset for use by actions
                 row.dataset.recordId = record.id;
                 row.innerHTML = `
+                    <td class="col-zone">${escapeHtml(record.zone_name || '-')}</td>
                     <td class="col-name">${escapeHtml(record.name)}</td>
                     <td class="col-ttl">${escapeHtml(record.ttl)}</td>
                     <td class="col-class">${escapeHtml(record.class || 'IN')}</td>
@@ -295,6 +381,9 @@
         if (lastSeenGroup) {
             lastSeenGroup.style.display = 'none';
         }
+        
+        // Load zone files for selector
+        loadZoneFiles();
 
         // Update field visibility based on default record type
         updateFieldVisibility();
@@ -320,6 +409,15 @@
             title.textContent = 'Modifier l\'enregistrement DNS';
             form.dataset.mode = 'edit';
             form.dataset.recordId = recordId;
+            
+            // Load zone files for selector
+            await loadZoneFiles();
+            
+            // Set zone_file_id
+            const zoneFileSelector = document.getElementById('record-zone-file');
+            if (zoneFileSelector && record.zone_file_id) {
+                zoneFileSelector.value = record.zone_file_id;
+            }
 
             document.getElementById('record-type').value = record.record_type;
             document.getElementById('record-name').value = record.name;
@@ -407,8 +505,16 @@
         const recordId = form.dataset.recordId;
 
         const recordType = document.getElementById('record-type').value;
+        const zoneFileId = document.getElementById('record-zone-file').value;
+        
+        // Validate zone_file_id is selected
+        if (!zoneFileId || zoneFileId === '') {
+            showMessage('Veuillez sélectionner un fichier de zone', 'error');
+            return;
+        }
 
         const data = {
+            zone_file_id: parseInt(zoneFileId),
             record_type: recordType,
             name: document.getElementById('record-name').value,
             ttl: parseInt(document.getElementById('record-ttl').value),

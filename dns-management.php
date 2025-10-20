@@ -51,7 +51,8 @@ if (!$auth->isAdmin()) {
         <table class="dns-table">
             <thead>
                 <tr>
-                    <!-- Ordre: colonnes zone d'abord, puis colonnes admin -->
+                    <!-- Zone column as first column -->
+                    <th class="col-zone">Zone</th>
                     <th class="col-name">Nom</th>
                     <th class="col-ttl">TTL</th>
                     <th class="col-class">Classe</th>
@@ -69,7 +70,7 @@ if (!$auth->isAdmin()) {
             </thead>
             <tbody id="dns-table-body">
                 <tr>
-                    <td colspan="13" style="text-align: center; padding: 20px;">Chargement...</td>
+                    <td colspan="14" style="text-align: center; padding: 20px;">Chargement...</td>
                 </tr>
             </tbody>
         </table>
@@ -85,7 +86,15 @@ if (!$auth->isAdmin()) {
         </div>
         <div class="dns-modal-body">
             <form id="dns-form">
-                <!-- Zone fields first: Name, TTL, Class (implicit IN), Type, Value -->
+                <!-- Zone selector - first field -->
+                <div class="form-group">
+                    <label for="record-zone-file">Fichier de zone *</label>
+                    <select id="record-zone-file" name="zone_file_id" required>
+                        <option value="">-- Sélectionner une zone --</option>
+                    </select>
+                </div>
+
+                <!-- Zone fields: Name, TTL, Class (implicit IN), Type, Value -->
                 <div class="form-group">
                     <label for="record-name">Nom *</label>
                     <input type="text" id="record-name" name="name" required placeholder="example.com">
