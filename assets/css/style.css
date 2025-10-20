@@ -630,26 +630,30 @@ body {
 
 /* ---------------------------------------------------------
    Global Responsive Table Styles
-   Applied to all tables in .content-section
+   Applied to all tables in .content-section and .admin-container
    --------------------------------------------------------- */
 
 /* Table container: full width with horizontal scroll if needed */
 .content-section .dns-table-container,
-.content-section .table-container {
+.content-section .table-container,
+.admin-container .table-container {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
 }
 
 /* Tables: full width, auto layout for better content distribution */
-.content-section table {
+.content-section table,
+.admin-container table {
   width: 100%;
   table-layout: auto;
 }
 
 /* Table cells: prevent overflow, allow word wrapping on desktop */
 .content-section table th,
-.content-section table td {
+.content-section table td,
+.admin-container table th,
+.admin-container table td {
   word-break: break-word;
   white-space: nowrap;
 }
@@ -664,13 +668,23 @@ body {
   .content-section table th.col-status,
   .content-section table td.col-status,
   .content-section table th.col-requester,
-  .content-section table td.col-requester {
+  .content-section table td.col-requester,
+  .admin-container table th.col-id,
+  .admin-container table td.col-id,
+  .admin-container table th.col-actions,
+  .admin-container table td.col-actions,
+  .admin-container table th.col-status,
+  .admin-container table td.col-status,
+  .admin-container table th.col-requester,
+  .admin-container table td.col-requester {
     display: none;
   }
   
   /* Allow text wrapping in remaining cells on mobile */
   .content-section table th,
-  .content-section table td {
+  .content-section table td,
+  .admin-container table th,
+  .admin-container table td {
     white-space: normal;
   }
 }
