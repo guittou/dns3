@@ -115,7 +115,7 @@ if (!$auth->isAdmin()) {
                     <input type="number" id="record-ttl" name="ttl" value="3600" min="60">
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="record-priority-group">
                     <label for="record-priority">Priorité (pour MX, SRV)</label>
                     <input type="number" id="record-priority" name="priority" min="0" placeholder="10">
                 </div>

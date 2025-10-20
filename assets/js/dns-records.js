@@ -125,6 +125,23 @@
     }
 
     /**
+     * Update form field visibility based on record type
+     */
+    function updateFieldVisibility() {
+        const recordType = document.getElementById('record-type').value;
+        const priorityGroup = document.getElementById('record-priority-group');
+        
+        if (priorityGroup) {
+            // Show priority only for MX and SRV records
+            if (recordType === 'MX' || recordType === 'SRV') {
+                priorityGroup.style.display = 'block';
+            } else {
+                priorityGroup.style.display = 'none';
+            }
+        }
+    }
+
+    /**
      * Open modal to create a new record
      */
     function openCreateModal() {
@@ -144,6 +161,9 @@
         if (lastSeenGroup) {
             lastSeenGroup.style.display = 'none';
         }
+
+        // Update field visibility based on default record type
+        updateFieldVisibility();
 
         modal.style.display = 'block';
     }
@@ -191,6 +211,9 @@
                 lastSeenGroup.style.display = 'none';
             }
 
+            // Update field visibility based on record type
+            updateFieldVisibility();
+
             modal.style.display = 'block';
         } catch (error) {
             console.error('Error opening edit modal:', error);
@@ -218,16 +241,23 @@
         const mode = form.dataset.mode;
         const recordId = form.dataset.recordId;
 
+        const recordType = document.getElementById('record-type').value;
+
         const data = {
-            record_type: document.getElementById('record-type').value,
+            record_type: recordType,
             name: document.getElementById('record-name').value,
             value: document.getElementById('record-value').value,
             ttl: parseInt(document.getElementById('record-ttl').value),
-            priority: document.getElementById('record-priority').value ? parseInt(document.getElementById('record-priority').value) : null,
             requester: document.getElementById('record-requester').value || null,
             ticket_ref: document.getElementById('record-ticket-ref').value || null,
             comment: document.getElementById('record-comment').value || null
         };
+        
+        // Only include priority for MX and SRV records
+        if (recordType === 'MX' || recordType === 'SRV') {
+            const priorityValue = document.getElementById('record-priority').value;
+            data.priority = priorityValue ? parseInt(priorityValue) : null;
+        }
         
         // Convert datetime-local to SQL format for expires_at
         const expiresAtValue = document.getElementById('record-expires-at').value;
@@ -401,6 +431,12 @@
         const form = document.getElementById('dns-form');
         if (form) {
             form.addEventListener('submit', submitDnsForm);
+        }
+
+        // Record type change listener
+        const recordTypeSelect = document.getElementById('record-type');
+        if (recordTypeSelect) {
+            recordTypeSelect.addEventListener('change', updateFieldVisibility);
         }
 
         // Modal close button

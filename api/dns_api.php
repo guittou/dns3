@@ -107,14 +107,6 @@ try {
                 exit;
             }
 
-            // Mark record as seen (server-side only, when authenticated user views it)
-            $user = $auth->getCurrentUser();
-            if ($user) {
-                $dnsRecord->markSeen($id, $user['id']);
-                // Refresh record to get updated last_seen
-                $record = $dnsRecord->getById($id);
-            }
-
             // Also get history
             $history = $dnsRecord->getHistory($id);
 
