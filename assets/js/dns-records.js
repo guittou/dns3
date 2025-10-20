@@ -184,18 +184,22 @@
                 return;
             }
 
+            // Remplace la génération de la ligne (row.innerHTML = `...`) par ceci :
             currentRecords.forEach(record => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${escapeHtml(record.id)}</td>
-                    <td>${escapeHtml(record.record_type)}</td>
                     <td>${escapeHtml(record.name)}</td>
-                    <td>${escapeHtml(record.value)}</td>
                     <td>${escapeHtml(record.ttl)}</td>
+                    <td>${escapeHtml(record.class || 'IN')}</td>
+                    <td>${escapeHtml(record.record_type)}</td>
+                    <td>${escapeHtml(record.value)}</td>
+
                     <td>${escapeHtml(record.requester || '-')}</td>
                     <td>${record.expires_at ? formatDateTime(record.expires_at) : '-'}</td>
                     <td>${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
                     <td><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
+                    
                     <td>
                         <button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Modifier</button>
                         ${record.status !== 'deleted' ? `<button class="btn-small btn-delete" onclick="dnsRecords.deleteRecord(${record.id})">Supprimer</button>` : ''}
