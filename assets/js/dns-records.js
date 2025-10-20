@@ -12,15 +12,11 @@
      * Required fields by DNS record type
      */
     const REQUIRED_BY_TYPE = {
-        'A': ['name', 'value'],
-        'AAAA': ['name', 'value'],
-        'CNAME': ['name', 'value'],
-        'MX': ['name', 'value', 'priority'],
-        'TXT': ['name', 'value'],
-        'NS': ['name', 'value'],
-        'SOA': ['name', 'value'],
-        'PTR': ['name', 'value'],
-        'SRV': ['name', 'value', 'priority']
+        'A': ['name', 'address_ipv4'],
+        'AAAA': ['name', 'address_ipv6'],
+        'CNAME': ['name', 'cname_target'],
+        'PTR': ['name', 'ptrdname'],
+        'TXT': ['name', 'txt']
     };
 
     /**
@@ -47,7 +43,7 @@
      * @returns {Object} { valid: boolean, error: string|null }
      */
     function validatePayloadForType(recordType, data) {
-        const requiredFields = REQUIRED_BY_TYPE[recordType] || ['name', 'value'];
+        const requiredFields = REQUIRED_BY_TYPE[recordType] || ['name'];
         
         // Check required fields
         for (const field of requiredFields) {
@@ -59,32 +55,38 @@
         // Type-specific semantic validation
         switch(recordType) {
             case 'A':
-                if (!isIPv4(data.value)) {
-                    return { valid: false, error: 'La valeur doit être une adresse IPv4 valide pour le type A' };
+                if (!isIPv4(data.address_ipv4)) {
+                    return { valid: false, error: 'L\'adresse doit être une adresse IPv4 valide pour le type A' };
                 }
                 break;
                 
             case 'AAAA':
-                if (!isIPv6(data.value)) {
-                    return { valid: false, error: 'La valeur doit être une adresse IPv6 valide pour le type AAAA' };
+                if (!isIPv6(data.address_ipv6)) {
+                    return { valid: false, error: 'L\'adresse doit être une adresse IPv6 valide pour le type AAAA' };
                 }
                 break;
                 
             case 'CNAME':
                 // CNAME should not be an IP address
-                if (isIPv4(data.value) || isIPv6(data.value)) {
-                    return { valid: false, error: 'La valeur ne peut pas être une adresse IP pour le type CNAME (doit être un nom d\'hôte)' };
+                if (isIPv4(data.cname_target) || isIPv6(data.cname_target)) {
+                    return { valid: false, error: 'La cible CNAME ne peut pas être une adresse IP (doit être un nom d\'hôte)' };
+                }
+                // Basic FQDN validation
+                if (!data.cname_target.match(/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/)) {
+                    return { valid: false, error: 'La cible CNAME doit être un nom d\'hôte valide' };
                 }
                 break;
                 
-            case 'MX':
-            case 'SRV':
-                // Priority must be an integer
-                if (data.priority !== null && data.priority !== undefined) {
-                    const priority = parseInt(data.priority);
-                    if (isNaN(priority) || priority < 0) {
-                        return { valid: false, error: `La priorité doit être un nombre entier positif pour le type ${recordType}` };
-                    }
+            case 'PTR':
+                // PTR requires reverse DNS name from user
+                if (!data.ptrdname.match(/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/)) {
+                    return { valid: false, error: 'Le nom PTR doit être un nom d\'hôte valide (nom DNS inversé requis)' };
+                }
+                break;
+                
+            case 'TXT':
+                if (data.txt.trim().length === 0) {
+                    return { valid: false, error: 'Le contenu du champ TXT ne peut pas être vide' };
                 }
                 break;
         }
@@ -213,22 +215,57 @@
      */
     function updateFieldVisibility() {
         const recordType = document.getElementById('record-type').value;
-        const priorityGroup = document.getElementById('record-priority-group');
-        const priorityInput = document.getElementById('record-priority');
         
-        if (priorityGroup) {
-            // Show priority only for MX and SRV records
-            if (recordType === 'MX' || recordType === 'SRV') {
-                priorityGroup.style.display = 'block';
-                if (priorityInput) {
-                    priorityInput.setAttribute('required', 'required');
-                }
-            } else {
-                priorityGroup.style.display = 'none';
-                if (priorityInput) {
-                    priorityInput.removeAttribute('required');
-                }
-            }
+        // Get all dedicated field groups
+        const ipv4Group = document.getElementById('record-address-ipv4-group');
+        const ipv6Group = document.getElementById('record-address-ipv6-group');
+        const cnameGroup = document.getElementById('record-cname-target-group');
+        const ptrGroup = document.getElementById('record-ptrdname-group');
+        const txtGroup = document.getElementById('record-txt-group');
+        
+        // Get all dedicated field inputs
+        const ipv4Input = document.getElementById('record-address-ipv4');
+        const ipv6Input = document.getElementById('record-address-ipv6');
+        const cnameInput = document.getElementById('record-cname-target');
+        const ptrInput = document.getElementById('record-ptrdname');
+        const txtInput = document.getElementById('record-txt');
+        
+        // Hide all dedicated fields first
+        if (ipv4Group) ipv4Group.style.display = 'none';
+        if (ipv6Group) ipv6Group.style.display = 'none';
+        if (cnameGroup) cnameGroup.style.display = 'none';
+        if (ptrGroup) ptrGroup.style.display = 'none';
+        if (txtGroup) txtGroup.style.display = 'none';
+        
+        // Remove required attribute from all
+        if (ipv4Input) ipv4Input.removeAttribute('required');
+        if (ipv6Input) ipv6Input.removeAttribute('required');
+        if (cnameInput) cnameInput.removeAttribute('required');
+        if (ptrInput) ptrInput.removeAttribute('required');
+        if (txtInput) txtInput.removeAttribute('required');
+        
+        // Show and set required for the appropriate field based on record type
+        switch(recordType) {
+            case 'A':
+                if (ipv4Group) ipv4Group.style.display = 'block';
+                if (ipv4Input) ipv4Input.setAttribute('required', 'required');
+                break;
+            case 'AAAA':
+                if (ipv6Group) ipv6Group.style.display = 'block';
+                if (ipv6Input) ipv6Input.setAttribute('required', 'required');
+                break;
+            case 'CNAME':
+                if (cnameGroup) cnameGroup.style.display = 'block';
+                if (cnameInput) cnameInput.setAttribute('required', 'required');
+                break;
+            case 'PTR':
+                if (ptrGroup) ptrGroup.style.display = 'block';
+                if (ptrInput) ptrInput.setAttribute('required', 'required');
+                break;
+            case 'TXT':
+                if (txtGroup) txtGroup.style.display = 'block';
+                if (txtInput) txtInput.setAttribute('required', 'required');
+                break;
         }
     }
 
@@ -280,12 +317,43 @@
 
             document.getElementById('record-type').value = record.record_type;
             document.getElementById('record-name').value = record.name;
-            document.getElementById('record-value').value = record.value;
             document.getElementById('record-ttl').value = record.ttl;
-            document.getElementById('record-priority').value = record.priority || '';
             document.getElementById('record-requester').value = record.requester || '';
             document.getElementById('record-ticket-ref').value = record.ticket_ref || '';
             document.getElementById('record-comment').value = record.comment || '';
+            
+            // Set dedicated field values based on record type
+            const ipv4Input = document.getElementById('record-address-ipv4');
+            const ipv6Input = document.getElementById('record-address-ipv6');
+            const cnameInput = document.getElementById('record-cname-target');
+            const ptrInput = document.getElementById('record-ptrdname');
+            const txtInput = document.getElementById('record-txt');
+            
+            // Clear all dedicated fields first
+            if (ipv4Input) ipv4Input.value = '';
+            if (ipv6Input) ipv6Input.value = '';
+            if (cnameInput) cnameInput.value = '';
+            if (ptrInput) ptrInput.value = '';
+            if (txtInput) txtInput.value = '';
+            
+            // Set the appropriate dedicated field
+            switch(record.record_type) {
+                case 'A':
+                    if (ipv4Input) ipv4Input.value = record.address_ipv4 || record.value || '';
+                    break;
+                case 'AAAA':
+                    if (ipv6Input) ipv6Input.value = record.address_ipv6 || record.value || '';
+                    break;
+                case 'CNAME':
+                    if (cnameInput) cnameInput.value = record.cname_target || record.value || '';
+                    break;
+                case 'PTR':
+                    if (ptrInput) ptrInput.value = record.ptrdname || record.value || '';
+                    break;
+                case 'TXT':
+                    if (txtInput) txtInput.value = record.txt || record.value || '';
+                    break;
+            }
             
             // Convert SQL datetime to datetime-local format
             if (record.expires_at) {
@@ -337,18 +405,39 @@
         const data = {
             record_type: recordType,
             name: document.getElementById('record-name').value,
-            value: document.getElementById('record-value').value,
             ttl: parseInt(document.getElementById('record-ttl').value),
             requester: document.getElementById('record-requester').value || null,
             ticket_ref: document.getElementById('record-ticket-ref').value || null,
             comment: document.getElementById('record-comment').value || null
         };
         
-        // Only include priority for MX and SRV records
-        if (recordType === 'MX' || recordType === 'SRV') {
-            const priorityValue = document.getElementById('record-priority').value;
-            data.priority = priorityValue ? parseInt(priorityValue) : null;
+        // Add the appropriate dedicated field based on record type
+        let dedicatedValue = null;
+        switch(recordType) {
+            case 'A':
+                dedicatedValue = document.getElementById('record-address-ipv4').value;
+                data.address_ipv4 = dedicatedValue;
+                break;
+            case 'AAAA':
+                dedicatedValue = document.getElementById('record-address-ipv6').value;
+                data.address_ipv6 = dedicatedValue;
+                break;
+            case 'CNAME':
+                dedicatedValue = document.getElementById('record-cname-target').value;
+                data.cname_target = dedicatedValue;
+                break;
+            case 'PTR':
+                dedicatedValue = document.getElementById('record-ptrdname').value;
+                data.ptrdname = dedicatedValue;
+                break;
+            case 'TXT':
+                dedicatedValue = document.getElementById('record-txt').value;
+                data.txt = dedicatedValue;
+                break;
         }
+        
+        // Also include 'value' as alias for backward compatibility
+        data.value = dedicatedValue;
         
         // Convert datetime-local to SQL format for expires_at
         const expiresAtValue = document.getElementById('record-expires-at').value;
