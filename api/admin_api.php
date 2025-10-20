@@ -116,17 +116,12 @@ try {
                 exit;
             }
             
-            // Validate auth_method
-            $valid_auth_methods = ['database', 'ad', 'ldap'];
-            $auth_method = $input['auth_method'] ?? 'database';
-            if (!in_array($auth_method, $valid_auth_methods)) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Invalid auth_method. Must be: database, ad, or ldap']);
-                exit;
-            }
+            // ENFORCE: All user creation via admin interface must use database authentication
+            // AD/LDAP users are created automatically during their first login
+            $input['auth_method'] = 'database';
             
             // For database auth, password is required
-            if ($auth_method === 'database' && (!isset($input['password']) || $input['password'] === '')) {
+            if (!isset($input['password']) || $input['password'] === '') {
                 http_response_code(400);
                 echo json_encode(['error' => 'Password is required for database authentication']);
                 exit;
@@ -172,15 +167,17 @@ try {
                 exit;
             }
             
-            // Validate auth_method if provided
-            if (isset($input['auth_method'])) {
-                $valid_auth_methods = ['database', 'ad', 'ldap'];
-                if (!in_array($input['auth_method'], $valid_auth_methods)) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Invalid auth_method. Must be: database, ad, or ldap']);
-                    exit;
-                }
+            // ENFORCE: Cannot change auth_method to AD or LDAP via admin interface
+            // AD/LDAP users are managed through their authentication source
+            if (isset($input['auth_method']) && in_array($input['auth_method'], ['ad', 'ldap'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Cannot change auth_method to AD or LDAP. AD/LDAP users are created automatically during authentication.']);
+                exit;
             }
+            
+            // Remove auth_method from input to prevent any changes
+            // Only database auth_method is allowed and it's set during user creation
+            unset($input['auth_method']);
             
             $result = $userModel->update($id, $input, $currentUser['id']);
             
