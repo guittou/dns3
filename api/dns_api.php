@@ -46,6 +46,84 @@ function requireAdmin() {
     }
 }
 
+/**
+ * Validate IPv4 address
+ */
+function isValidIPv4($ip) {
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+}
+
+/**
+ * Validate IPv6 address
+ */
+function isValidIPv6($ip) {
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+}
+
+/**
+ * Validate DNS record data based on type
+ * @param string $recordType DNS record type
+ * @param array $data Record data to validate
+ * @return array ['valid' => bool, 'error' => string|null]
+ */
+function validateRecordByType($recordType, $data) {
+    // Define required fields per type
+    $requiredFields = [
+        'A' => ['name', 'value'],
+        'AAAA' => ['name', 'value'],
+        'CNAME' => ['name', 'value'],
+        'MX' => ['name', 'value', 'priority'],
+        'TXT' => ['name', 'value'],
+        'NS' => ['name', 'value'],
+        'SOA' => ['name', 'value'],
+        'PTR' => ['name', 'value'],
+        'SRV' => ['name', 'value', 'priority']
+    ];
+    
+    $required = $requiredFields[$recordType] ?? ['name', 'value'];
+    
+    // Check required fields
+    foreach ($required as $field) {
+        if (!isset($data[$field]) || trim($data[$field]) === '') {
+            return ['valid' => false, 'error' => "Missing required field: $field for type $recordType"];
+        }
+    }
+    
+    // Type-specific semantic validation
+    switch($recordType) {
+        case 'A':
+            if (!isValidIPv4($data['value'])) {
+                return ['valid' => false, 'error' => 'Value must be a valid IPv4 address for type A'];
+            }
+            break;
+            
+        case 'AAAA':
+            if (!isValidIPv6($data['value'])) {
+                return ['valid' => false, 'error' => 'Value must be a valid IPv6 address for type AAAA'];
+            }
+            break;
+            
+        case 'CNAME':
+            // CNAME should not be an IP address
+            if (isValidIPv4($data['value']) || isValidIPv6($data['value'])) {
+                return ['valid' => false, 'error' => 'Value cannot be an IP address for type CNAME (must be a hostname)'];
+            }
+            break;
+            
+        case 'MX':
+        case 'SRV':
+            // Priority must be an integer
+            if (isset($data['priority']) && $data['priority'] !== null) {
+                if (!is_numeric($data['priority']) || intval($data['priority']) < 0) {
+                    return ['valid' => false, 'error' => "Priority must be a non-negative integer for type $recordType"];
+                }
+            }
+            break;
+    }
+    
+    return ['valid' => true, 'error' => null];
+}
+
 // Get action from request
 $action = $_GET['action'] ?? '';
 
@@ -130,14 +208,11 @@ try {
             // Explicitly remove last_seen if provided by client (security)
             unset($input['last_seen']);
 
-            // Validate required fields
-            $required = ['record_type', 'name', 'value'];
-            foreach ($required as $field) {
-                if (!isset($input[$field]) || trim($input[$field]) === '') {
-                    http_response_code(400);
-                    echo json_encode(['error' => "Missing required field: $field"]);
-                    exit;
-                }
+            // Validate record_type field
+            if (!isset($input['record_type']) || trim($input['record_type']) === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing required field: record_type']);
+                exit;
             }
 
             // Validate record type
@@ -145,6 +220,14 @@ try {
             if (!in_array($input['record_type'], $valid_types)) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid record type']);
+                exit;
+            }
+
+            // Type-dependent validation
+            $validation = validateRecordByType($input['record_type'], $input);
+            if (!$validation['valid']) {
+                http_response_code(400);
+                echo json_encode(['error' => $validation['error']]);
                 exit;
             }
 
@@ -219,6 +302,14 @@ try {
                 if (!in_array($input['record_type'], $valid_types)) {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid record type']);
+                    exit;
+                }
+                
+                // Type-dependent validation if record_type is being updated
+                $validation = validateRecordByType($input['record_type'], $input);
+                if (!$validation['valid']) {
+                    http_response_code(400);
+                    echo json_encode(['error' => $validation['error']]);
                     exit;
                 }
             }
