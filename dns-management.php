@@ -51,25 +51,23 @@ if (!$auth->isAdmin()) {
         <table class="dns-table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <!-- Ordre changé pour correspondre à l'écriture d'une ligne de zone -->
-                    <th>Nom</th>
-                    <th>TTL</th>
-                    <th>Classe</th>
-                    <th>Type</th>
-                    <th>Valeur</th>
-
-                    <!-- Champs non présents dans le fichier de zone -->
-                    <th>Demandeur</th>
-                    <th>Expire</th>
-                    <th>Vu le</th>
-                    <th>Statut</th>                    
-                    <th>Actions</th>
+                    <!-- Ordre: colonnes zone d'abord, puis colonnes admin -->
+                    <th class="col-name">Nom</th>
+                    <th class="col-ttl">TTL</th>
+                    <th class="col-class">Classe</th>
+                    <th class="col-type">Type</th>
+                    <th class="col-value">Valeur</th>
+                    <th class="col-requester">Demandeur</th>
+                    <th class="col-expires">Expire</th>
+                    <th class="col-lastseen">Vu le</th>
+                    <th class="col-status">Statut</th>
+                    <th class="col-id">ID</th>
+                    <th class="col-actions">Actions</th>
                 </tr>
             </thead>
             <tbody id="dns-table-body">
                 <tr>
-                    <td colspan="10" style="text-align: center; padding: 20px;">Chargement...</td>
+                    <td colspan="11" style="text-align: center; padding: 20px;">Chargement...</td>
                 </tr>
             </tbody>
         </table>
