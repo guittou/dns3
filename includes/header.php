@@ -14,6 +14,11 @@ $user = $auth->getCurrentUser();
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?php echo SITE_NAME; ?></title>
   <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
+  <script>
+    // Expose BASE_URL for JavaScript to construct proper URLs
+    window.BASE_URL = '<?php echo rtrim(BASE_URL, '/') . '/'; ?>';
+    window.API_BASE = window.BASE_URL + 'api/';
+  </script>
 </head>
 <body>
   <header class="entete_fixee" role="banner" aria-label="Bandeau principal">

@@ -181,6 +181,8 @@ L'application supporte plusieurs configurations d'URL :
 
 Ajustez la variable `BASE_URL` dans `config.php` selon votre configuration.
 
+**Important** : Les scripts JavaScript utilisent `window.BASE_URL` pour construire les URLs dynamiquement. Cette variable est automatiquement exposée par `includes/header.php` en fonction de la configuration `BASE_URL` dans `config.php`. Assurez-vous que `BASE_URL` est correctement configuré pour que les appels API et les liens vers les assets fonctionnent correctement.
+
 ## Développement
 
 ### Sans framework
