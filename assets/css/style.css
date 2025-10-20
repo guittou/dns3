@@ -225,15 +225,15 @@ body {
 /* Make .main-content size to the content (table) but never exceed viewport */
 .main-content {
   display: block;
-  width: max-content;              /* size to content (table) */
-  max-width: calc(100vw - 40px);   /* but never exceed viewport minus page paddings */
+  max-width: 100%;              /* allow full width */
+  width: calc(100% - 40px);     /* keep small page padding */
   margin: 20px auto;
   padding: 20px;
   box-sizing: border-box;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.06);
-  overflow-x: auto;                /* allow horizontal scroll when table > viewport */
+  overflow-x: auto;            /* allow horizontal scroll when content overflows */
 }
 
 
