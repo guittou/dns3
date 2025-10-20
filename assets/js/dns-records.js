@@ -9,6 +9,90 @@
     let currentRecords = [];
 
     /**
+     * Required fields by DNS record type
+     */
+    const REQUIRED_BY_TYPE = {
+        'A': ['name', 'value'],
+        'AAAA': ['name', 'value'],
+        'CNAME': ['name', 'value'],
+        'MX': ['name', 'value', 'priority'],
+        'TXT': ['name', 'value'],
+        'NS': ['name', 'value'],
+        'SOA': ['name', 'value'],
+        'PTR': ['name', 'value'],
+        'SRV': ['name', 'value', 'priority']
+    };
+
+    /**
+     * Check if a string is a valid IPv4 address
+     */
+    function isIPv4(str) {
+        const ipv4Regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+        return ipv4Regex.test(str);
+    }
+
+    /**
+     * Check if a string is a valid IPv6 address
+     */
+    function isIPv6(str) {
+        // Simplified IPv6 regex - covers most common cases
+        const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$/;
+        return ipv6Regex.test(str);
+    }
+
+    /**
+     * Validate payload data for a specific record type
+     * @param {string} recordType - The DNS record type
+     * @param {Object} data - The payload data to validate
+     * @returns {Object} { valid: boolean, error: string|null }
+     */
+    function validatePayloadForType(recordType, data) {
+        const requiredFields = REQUIRED_BY_TYPE[recordType] || ['name', 'value'];
+        
+        // Check required fields
+        for (const field of requiredFields) {
+            if (!data[field] || String(data[field]).trim() === '') {
+                return { valid: false, error: `Le champ "${field}" est requis pour le type ${recordType}` };
+            }
+        }
+        
+        // Type-specific semantic validation
+        switch(recordType) {
+            case 'A':
+                if (!isIPv4(data.value)) {
+                    return { valid: false, error: 'La valeur doit être une adresse IPv4 valide pour le type A' };
+                }
+                break;
+                
+            case 'AAAA':
+                if (!isIPv6(data.value)) {
+                    return { valid: false, error: 'La valeur doit être une adresse IPv6 valide pour le type AAAA' };
+                }
+                break;
+                
+            case 'CNAME':
+                // CNAME should not be an IP address
+                if (isIPv4(data.value) || isIPv6(data.value)) {
+                    return { valid: false, error: 'La valeur ne peut pas être une adresse IP pour le type CNAME (doit être un nom d\'hôte)' };
+                }
+                break;
+                
+            case 'MX':
+            case 'SRV':
+                // Priority must be an integer
+                if (data.priority !== null && data.priority !== undefined) {
+                    const priority = parseInt(data.priority);
+                    if (isNaN(priority) || priority < 0) {
+                        return { valid: false, error: `La priorité doit être un nombre entier positif pour le type ${recordType}` };
+                    }
+                }
+                break;
+        }
+        
+        return { valid: true, error: null };
+    }
+
+    /**
      * Construct API URL using window.API_BASE
      */
     function getApiUrl(action, params = {}) {
@@ -125,18 +209,25 @@
     }
 
     /**
-     * Update form field visibility based on record type
+     * Update form field visibility and required attributes based on record type
      */
     function updateFieldVisibility() {
         const recordType = document.getElementById('record-type').value;
         const priorityGroup = document.getElementById('record-priority-group');
+        const priorityInput = document.getElementById('record-priority');
         
         if (priorityGroup) {
             // Show priority only for MX and SRV records
             if (recordType === 'MX' || recordType === 'SRV') {
                 priorityGroup.style.display = 'block';
+                if (priorityInput) {
+                    priorityInput.setAttribute('required', 'required');
+                }
             } else {
                 priorityGroup.style.display = 'none';
+                if (priorityInput) {
+                    priorityInput.removeAttribute('required');
+                }
             }
         }
     }
@@ -269,6 +360,13 @@
         
         // IMPORTANT: Never send last_seen from client - it's server-managed only
         // (already handled by not including it in data object)
+
+        // Validate payload before sending
+        const validation = validatePayloadForType(recordType, data);
+        if (!validation.valid) {
+            showMessage(validation.error, 'error');
+            return;
+        }
 
         try {
             if (mode === 'create') {
