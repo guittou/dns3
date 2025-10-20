@@ -3,6 +3,8 @@
 ## Overview
 This document describes the changes made to enforce database-only user creation via the admin interface and implement AD/LDAP role mapping during authentication.
 
+**Branch:** feature/fix-admin-db-only
+
 ## Changes Made
 
 ### 1. Database-Only User Creation (Server-Side Enforcement)
