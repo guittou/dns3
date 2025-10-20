@@ -8,14 +8,20 @@
     url.searchParams.append('action', action);
     if (method === 'GET') {
       Object.keys(data).forEach(k => url.searchParams.append(k, data[k]));
-      return fetch(url.toString(), { credentials: 'same-origin' }).then(r => r.json());
+      return fetch(url.toString(), { credentials: 'same-origin' }).then(async r => {
+        const text = await r.text();
+        try { return JSON.parse(text); } catch (e) { console.error('Invalid JSON from API:', text); throw e; }
+      });
     } else {
       return fetch(url.toString(), {
         method: 'POST',
         credentials: 'same-origin',
         headers: {'Content-Type':'application/json'},
         body: JSON.stringify(data)
-      }).then(r => r.json());
+      }).then(async r => {
+        const text = await r.text();
+        try { return JSON.parse(text); } catch (e) { console.error('Invalid JSON from API:', text); throw e; }
+      });
     }
   }
 
