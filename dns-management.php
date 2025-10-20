@@ -60,6 +60,8 @@ if (!$auth->isAdmin()) {
                     <th class="col-requester">Demandeur</th>
                     <th class="col-expires">Expire</th>
                     <th class="col-lastseen">Vu le</th>
+                    <th class="col-created">Créé le</th>
+                    <th class="col-updated">Modifié le</th>
                     <th class="col-status">Statut</th>
                     <th class="col-id">ID</th>
                     <th class="col-actions">Actions</th>
@@ -67,7 +69,7 @@ if (!$auth->isAdmin()) {
             </thead>
             <tbody id="dns-table-body">
                 <tr>
-                    <td colspan="11" style="text-align: center; padding: 20px;">Chargement...</td>
+                    <td colspan="13" style="text-align: center; padding: 20px;">Chargement...</td>
                 </tr>
             </tbody>
         </table>
@@ -152,6 +154,16 @@ if (!$auth->isAdmin()) {
                 <div class="form-group" id="record-last-seen-group" style="display: none;">
                     <label for="record-last-seen">Vu pour la dernière fois</label>
                     <input type="text" id="record-last-seen" name="last_seen" disabled readonly placeholder="Non encore consulté">
+                </div>
+
+                <div class="form-group" id="record-created-at-group" style="display: none;">
+                    <label for="record-created-at">Créé le</label>
+                    <input type="text" id="record-created-at" name="created_at" disabled readonly>
+                </div>
+
+                <div class="form-group" id="record-updated-at-group" style="display: none;">
+                    <label for="record-updated-at">Modifié le</label>
+                    <input type="text" id="record-updated-at" name="updated_at" disabled readonly>
                 </div>
 
                 <div class="dns-modal-footer">
