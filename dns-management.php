@@ -35,12 +35,8 @@ if (!$auth->isAdmin()) {
                 <option value="A">A</option>
                 <option value="AAAA">AAAA</option>
                 <option value="CNAME">CNAME</option>
-                <option value="MX">MX</option>
-                <option value="TXT">TXT</option>
-                <option value="NS">NS</option>
-                <option value="SOA">SOA</option>
                 <option value="PTR">PTR</option>
-                <option value="SRV">SRV</option>
+                <option value="TXT">TXT</option>
             </select>
             <select id="dns-status-filter">
                 <option value="">Actif seulement</option>
@@ -91,12 +87,8 @@ if (!$auth->isAdmin()) {
                         <option value="A">A - Adresse IPv4</option>
                         <option value="AAAA">AAAA - Adresse IPv6</option>
                         <option value="CNAME">CNAME - Alias canonique</option>
-                        <option value="MX">MX - Serveur de messagerie</option>
-                        <option value="TXT">TXT - Texte</option>
-                        <option value="NS">NS - Serveur de noms</option>
-                        <option value="SOA">SOA - Start of Authority</option>
                         <option value="PTR">PTR - Pointeur</option>
-                        <option value="SRV">SRV - Service</option>
+                        <option value="TXT">TXT - Texte</option>
                     </select>
                 </div>
 
@@ -105,19 +97,34 @@ if (!$auth->isAdmin()) {
                     <input type="text" id="record-name" name="name" required placeholder="example.com">
                 </div>
 
-                <div class="form-group">
-                    <label for="record-value">Valeur *</label>
-                    <input type="text" id="record-value" name="value" required placeholder="192.168.1.1">
+                <div class="form-group" id="record-address-ipv4-group" style="display: none;">
+                    <label for="record-address-ipv4">Adresse IPv4 *</label>
+                    <input type="text" id="record-address-ipv4" name="address_ipv4" placeholder="192.168.1.1">
+                </div>
+
+                <div class="form-group" id="record-address-ipv6-group" style="display: none;">
+                    <label for="record-address-ipv6">Adresse IPv6 *</label>
+                    <input type="text" id="record-address-ipv6" name="address_ipv6" placeholder="2001:0db8:85a3:0000:0000:8a2e:0370:7334">
+                </div>
+
+                <div class="form-group" id="record-cname-target-group" style="display: none;">
+                    <label for="record-cname-target">Cible CNAME *</label>
+                    <input type="text" id="record-cname-target" name="cname_target" placeholder="target.example.com">
+                </div>
+
+                <div class="form-group" id="record-ptrdname-group" style="display: none;">
+                    <label for="record-ptrdname">Nom PTR (inversé) *</label>
+                    <input type="text" id="record-ptrdname" name="ptrdname" placeholder="1.1.168.192.in-addr.arpa">
+                </div>
+
+                <div class="form-group" id="record-txt-group" style="display: none;">
+                    <label for="record-txt">Texte *</label>
+                    <textarea id="record-txt" name="txt" rows="3" placeholder="Contenu du champ TXT..."></textarea>
                 </div>
 
                 <div class="form-group">
                     <label for="record-ttl">TTL (secondes)</label>
                     <input type="number" id="record-ttl" name="ttl" value="3600" min="60">
-                </div>
-
-                <div class="form-group" id="record-priority-group">
-                    <label for="record-priority">Priorité (pour MX, SRV)</label>
-                    <input type="number" id="record-priority" name="priority" min="0" placeholder="10">
                 </div>
 
                 <div class="form-group">

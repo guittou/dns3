@@ -67,56 +67,77 @@ function isValidIPv6($ip) {
  * @return array ['valid' => bool, 'error' => string|null]
  */
 function validateRecordByType($recordType, $data) {
-    // Define required fields per type
+    // Define required fields per type (using dedicated fields)
     $requiredFields = [
-        'A' => ['name', 'value'],
-        'AAAA' => ['name', 'value'],
-        'CNAME' => ['name', 'value'],
-        'MX' => ['name', 'value', 'priority'],
-        'TXT' => ['name', 'value'],
-        'NS' => ['name', 'value'],
-        'SOA' => ['name', 'value'],
-        'PTR' => ['name', 'value'],
-        'SRV' => ['name', 'value', 'priority']
+        'A' => ['name', 'address_ipv4'],
+        'AAAA' => ['name', 'address_ipv6'],
+        'CNAME' => ['name', 'cname_target'],
+        'PTR' => ['name', 'ptrdname'],
+        'TXT' => ['name', 'txt']
     ];
     
-    $required = $requiredFields[$recordType] ?? ['name', 'value'];
+    // Check if we have the dedicated field or the value alias
+    $required = $requiredFields[$recordType] ?? ['name'];
     
     // Check required fields
     foreach ($required as $field) {
-        if (!isset($data[$field]) || trim($data[$field]) === '') {
-            return ['valid' => false, 'error' => "Missing required field: $field for type $recordType"];
+        // For dedicated fields, also accept 'value' as an alias
+        if ($field !== 'name') {
+            $hasDedicatedField = isset($data[$field]) && trim($data[$field]) !== '';
+            $hasValueAlias = isset($data['value']) && trim($data['value']) !== '';
+            if (!$hasDedicatedField && !$hasValueAlias) {
+                return ['valid' => false, 'error' => "Missing required field: $field (or value) for type $recordType"];
+            }
+        } else {
+            if (!isset($data[$field]) || trim($data[$field]) === '') {
+                return ['valid' => false, 'error' => "Missing required field: $field for type $recordType"];
+            }
         }
     }
     
     // Type-specific semantic validation
+    // Use dedicated field if available, otherwise use value
     switch($recordType) {
         case 'A':
-            if (!isValidIPv4($data['value'])) {
-                return ['valid' => false, 'error' => 'Value must be a valid IPv4 address for type A'];
+            $ipv4 = $data['address_ipv4'] ?? $data['value'] ?? '';
+            if (!isValidIPv4($ipv4)) {
+                return ['valid' => false, 'error' => 'Address must be a valid IPv4 address for type A'];
             }
             break;
             
         case 'AAAA':
-            if (!isValidIPv6($data['value'])) {
-                return ['valid' => false, 'error' => 'Value must be a valid IPv6 address for type AAAA'];
+            $ipv6 = $data['address_ipv6'] ?? $data['value'] ?? '';
+            if (!isValidIPv6($ipv6)) {
+                return ['valid' => false, 'error' => 'Address must be a valid IPv6 address for type AAAA'];
             }
             break;
             
         case 'CNAME':
+            $target = $data['cname_target'] ?? $data['value'] ?? '';
             // CNAME should not be an IP address
-            if (isValidIPv4($data['value']) || isValidIPv6($data['value'])) {
-                return ['valid' => false, 'error' => 'Value cannot be an IP address for type CNAME (must be a hostname)'];
+            if (isValidIPv4($target) || isValidIPv6($target)) {
+                return ['valid' => false, 'error' => 'CNAME target cannot be an IP address (must be a hostname)'];
+            }
+            // Basic FQDN validation
+            if (strlen($target) > 0 && !preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/', $target)) {
+                return ['valid' => false, 'error' => 'CNAME target must be a valid hostname'];
             }
             break;
             
-        case 'MX':
-        case 'SRV':
-            // Priority must be an integer
-            if (isset($data['priority']) && $data['priority'] !== null) {
-                if (!is_numeric($data['priority']) || intval($data['priority']) < 0) {
-                    return ['valid' => false, 'error' => "Priority must be a non-negative integer for type $recordType"];
-                }
+        case 'PTR':
+            $ptrdname = $data['ptrdname'] ?? $data['value'] ?? '';
+            // PTR requires a reverse DNS name (user must provide it in reverse format)
+            // Basic validation that it looks like a hostname
+            if (strlen($ptrdname) > 0 && !preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/', $ptrdname)) {
+                return ['valid' => false, 'error' => 'PTR target must be a valid hostname (reverse DNS name required)'];
+            }
+            break;
+            
+        case 'TXT':
+            $txt = $data['txt'] ?? $data['value'] ?? '';
+            // TXT records can contain any text, just ensure it's not empty
+            if (strlen($txt) === 0) {
+                return ['valid' => false, 'error' => 'TXT record content cannot be empty'];
             }
             break;
     }
@@ -215,11 +236,11 @@ try {
                 exit;
             }
 
-            // Validate record type
-            $valid_types = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SOA', 'PTR', 'SRV'];
+            // Validate record type - only A, AAAA, CNAME, PTR, TXT are supported
+            $valid_types = ['A', 'AAAA', 'CNAME', 'PTR', 'TXT'];
             if (!in_array($input['record_type'], $valid_types)) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid record type']);
+                echo json_encode(['error' => 'Invalid record type. Only A, AAAA, CNAME, PTR, and TXT are supported']);
                 exit;
             }
 
@@ -296,12 +317,12 @@ try {
             // Explicitly remove last_seen if provided by client (security)
             unset($input['last_seen']);
 
-            // Validate record type if provided
+            // Validate record type if provided - only A, AAAA, CNAME, PTR, TXT are supported
             if (isset($input['record_type'])) {
-                $valid_types = ['A', 'AAAA', 'CNAME', 'MX', 'TXT', 'NS', 'SOA', 'PTR', 'SRV'];
+                $valid_types = ['A', 'AAAA', 'CNAME', 'PTR', 'TXT'];
                 if (!in_array($input['record_type'], $valid_types)) {
                     http_response_code(400);
-                    echo json_encode(['error' => 'Invalid record type']);
+                    echo json_encode(['error' => 'Invalid record type. Only A, AAAA, CNAME, PTR, and TXT are supported']);
                     exit;
                 }
                 

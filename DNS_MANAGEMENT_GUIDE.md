@@ -82,7 +82,37 @@ curl -b cookies.txt -X POST 'http://localhost:8000/api/dns_api.php?action=create
   -d '{
     "record_type": "A",
     "name": "example.com",
+    "address_ipv4": "192.168.1.1",
+    "ttl": 3600
+  }'
+
+# Or using value alias for backward compatibility
+curl -b cookies.txt -X POST 'http://localhost:8000/api/dns_api.php?action=create' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "record_type": "A",
+    "name": "example.com",
     "value": "192.168.1.1",
+    "ttl": 3600
+  }'
+
+# Create CNAME record
+curl -b cookies.txt -X POST 'http://localhost:8000/api/dns_api.php?action=create' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "record_type": "CNAME",
+    "name": "www.example.com",
+    "cname_target": "example.com",
+    "ttl": 3600
+  }'
+
+# Create TXT record
+curl -b cookies.txt -X POST 'http://localhost:8000/api/dns_api.php?action=create' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "record_type": "TXT",
+    "name": "example.com",
+    "txt": "v=spf1 include:_spf.example.com ~all",
     "ttl": 3600
   }'
 ```
@@ -125,7 +155,7 @@ Expected response includes record data and history:
 curl -b cookies.txt -X POST 'http://localhost:8000/api/dns_api.php?action=update&id=1' \
   -H 'Content-Type: application/json' \
   -d '{
-    "value": "192.168.1.2",
+    "address_ipv4": "192.168.1.2",
     "ttl": 7200
   }'
 ```
@@ -221,6 +251,8 @@ SELECT * FROM acl_history ORDER BY changed_at DESC;
 3. **No Physical Deletion**: Records are never physically deleted, only soft-deleted (status = 'deleted')
 4. **Audit Trail**: All changes are recorded in history tables with user and timestamp
 5. **Input Validation**: API validates all inputs before processing
+6. **Server-Managed Fields**: The `last_seen` field is managed exclusively by the server and cannot be set by clients. Any attempt to set it via the API will be silently ignored.
+7. **Type Restrictions**: Only A, AAAA, CNAME, PTR, and TXT record types are supported. Attempts to create other types will return a 400 error.
 
 ## Troubleshooting
 
@@ -271,15 +303,28 @@ SELECT * FROM acl_history ORDER BY changed_at DESC;
 
 ### Record Types
 
-- A - IPv4 address
-- AAAA - IPv6 address
-- CNAME - Canonical name
-- MX - Mail exchange
-- TXT - Text record
-- NS - Name server
-- SOA - Start of authority
-- PTR - Pointer
-- SRV - Service
+The DNS management system supports the following record types:
+
+- **A** - IPv4 address (uses `address_ipv4` field)
+- **AAAA** - IPv6 address (uses `address_ipv6` field)
+- **CNAME** - Canonical name (uses `cname_target` field)
+- **PTR** - Pointer/Reverse DNS (uses `ptrdname` field, requires reverse DNS name)
+- **TXT** - Text record (uses `txt` field)
+
+**Note**: Other record types (MX, NS, SOA, SRV) are not supported in this version.
+
+### Dedicated Fields
+
+Each record type now uses a dedicated field instead of the generic `value` field:
+
+- **A records**: `address_ipv4` - IPv4 address (e.g., "192.168.1.1")
+- **AAAA records**: `address_ipv6` - IPv6 address (e.g., "2001:0db8:85a3:0000:0000:8a2e:0370:7334")
+- **CNAME records**: `cname_target` - Target hostname (e.g., "target.example.com")
+- **PTR records**: `ptrdname` - Reverse DNS name (e.g., "1.1.168.192.in-addr.arpa")
+- **TXT records**: `txt` - Text content (any text)
+
+For backward compatibility, the API continues to accept `value` as an alias for the dedicated field.
+The `value` field in database is kept temporarily for rollback capability.
 
 ### Status Values
 

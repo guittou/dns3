@@ -57,7 +57,14 @@ class DnsRecord {
         try {
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll();
+            $records = $stmt->fetchAll();
+            
+            // Compute 'value' field from dedicated columns for backward compatibility
+            foreach ($records as &$record) {
+                $record['value'] = $this->getValueFromDedicatedField($record);
+            }
+            
+            return $records;
         } catch (Exception $e) {
             error_log("DNS Record search error: " . $e->getMessage());
             return [];
@@ -89,6 +96,11 @@ class DnsRecord {
             $stmt->execute([$id]);
             $record = $stmt->fetch();
             
+            if ($record) {
+                // Compute 'value' field from dedicated columns for backward compatibility
+                $record['value'] = $this->getValueFromDedicatedField($record);
+            }
+            
             return $record ?: null;
         } catch (Exception $e) {
             error_log("DNS Record getById error: " . $e->getMessage());
@@ -99,7 +111,7 @@ class DnsRecord {
     /**
      * Create a new DNS record
      * 
-     * @param array $data Record data (record_type, name, value, ttl, priority, requester, expires_at, ticket_ref, comment)
+     * @param array $data Record data (record_type, name, and type-specific fields)
      * @param int $user_id User creating the record
      * @return int|bool New record ID or false on failure
      */
@@ -110,14 +122,30 @@ class DnsRecord {
             // Explicitly remove last_seen if provided by client (security)
             unset($data['last_seen']);
             
-            $sql = "INSERT INTO dns_records (record_type, name, value, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)";
+            // Map 'value' alias to dedicated field if provided
+            if (isset($data['value']) && !empty($data['value'])) {
+                $this->mapValueToDedicatedField($data);
+            }
+            
+            // Extract dedicated field values based on record type
+            $dedicatedFields = $this->extractDedicatedFields($data);
+            
+            // Also set 'value' for backward compatibility
+            $valueField = $this->getValueFromDedicatedFieldData($data);
+            
+            $sql = "INSERT INTO dns_records (record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $data['record_type'],
                 $data['name'],
-                $data['value'],
+                $valueField,
+                $dedicatedFields['address_ipv4'],
+                $dedicatedFields['address_ipv6'],
+                $dedicatedFields['cname_target'],
+                $dedicatedFields['ptrdname'],
+                $dedicatedFields['txt'],
                 $data['ttl'] ?? 3600,
                 $data['priority'] ?? null,
                 $data['requester'] ?? null,
@@ -163,8 +191,21 @@ class DnsRecord {
                 return false;
             }
             
+            // Map 'value' alias to dedicated field if provided
+            if (isset($data['value']) && !empty($data['value'])) {
+                $this->mapValueToDedicatedField($data);
+            }
+            
+            // Extract dedicated field values based on record type
+            $dedicatedFields = $this->extractDedicatedFields($data, $current);
+            
+            // Also update 'value' for backward compatibility
+            $valueField = $this->getValueFromDedicatedFieldData($data, $current);
+            
             $sql = "UPDATE dns_records 
-                    SET record_type = ?, name = ?, value = ?, ttl = ?, priority = ?, 
+                    SET record_type = ?, name = ?, value = ?, 
+                        address_ipv4 = ?, address_ipv6 = ?, cname_target = ?, ptrdname = ?, txt = ?,
+                        ttl = ?, priority = ?, 
                         requester = ?, expires_at = ?, ticket_ref = ?, comment = ?,
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
@@ -173,7 +214,12 @@ class DnsRecord {
             $stmt->execute([
                 $data['record_type'] ?? $current['record_type'],
                 $data['name'] ?? $current['name'],
-                $data['value'] ?? $current['value'],
+                $valueField,
+                $dedicatedFields['address_ipv4'],
+                $dedicatedFields['address_ipv6'],
+                $dedicatedFields['cname_target'],
+                $dedicatedFields['ptrdname'],
+                $dedicatedFields['txt'],
                 $data['ttl'] ?? $current['ttl'],
                 $data['priority'] ?? $current['priority'],
                 isset($data['requester']) ? $data['requester'] : $current['requester'],
@@ -252,8 +298,8 @@ class DnsRecord {
      */
     public function writeHistory($record_id, $action, $old_status, $new_status, $user_id, $notes = null) {
         try {
-            // Get current record data
-            $sql = "SELECT record_type, name, value, ttl, priority FROM dns_records WHERE id = ?";
+            // Get current record data including dedicated fields
+            $sql = "SELECT record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority FROM dns_records WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$record_id]);
             $record = $stmt->fetch();
@@ -263,8 +309,8 @@ class DnsRecord {
             }
             
             $sql = "INSERT INTO dns_record_history 
-                    (record_id, action, record_type, name, value, ttl, priority, old_status, new_status, changed_by, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    (record_id, action, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, old_status, new_status, changed_by, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
@@ -273,6 +319,11 @@ class DnsRecord {
                 $record['record_type'],
                 $record['name'],
                 $record['value'],
+                $record['address_ipv4'],
+                $record['address_ipv6'],
+                $record['cname_target'],
+                $record['ptrdname'],
+                $record['txt'],
                 $record['ttl'],
                 $record['priority'],
                 $old_status,
@@ -333,6 +384,136 @@ class DnsRecord {
             error_log("DNS Record markSeen error: " . $e->getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Get the value from the appropriate dedicated field based on record type
+     * 
+     * @param array $record Record data from database
+     * @return string|null The value from the dedicated field
+     */
+    private function getValueFromDedicatedField($record) {
+        switch ($record['record_type']) {
+            case 'A':
+                return $record['address_ipv4'] ?? $record['value'];
+            case 'AAAA':
+                return $record['address_ipv6'] ?? $record['value'];
+            case 'CNAME':
+                return $record['cname_target'] ?? $record['value'];
+            case 'PTR':
+                return $record['ptrdname'] ?? $record['value'];
+            case 'TXT':
+                return $record['txt'] ?? $record['value'];
+            default:
+                // For unsupported types, return the value field
+                return $record['value'] ?? null;
+        }
+    }
+    
+    /**
+     * Get the value from dedicated field data (for new/updated records)
+     * 
+     * @param array $data Input data
+     * @param array|null $current Current record data (for updates)
+     * @return string|null The value from the dedicated field
+     */
+    private function getValueFromDedicatedFieldData($data, $current = null) {
+        $recordType = $data['record_type'] ?? ($current['record_type'] ?? null);
+        
+        switch ($recordType) {
+            case 'A':
+                return $data['address_ipv4'] ?? ($current['address_ipv4'] ?? null);
+            case 'AAAA':
+                return $data['address_ipv6'] ?? ($current['address_ipv6'] ?? null);
+            case 'CNAME':
+                return $data['cname_target'] ?? ($current['cname_target'] ?? null);
+            case 'PTR':
+                return $data['ptrdname'] ?? ($current['ptrdname'] ?? null);
+            case 'TXT':
+                return $data['txt'] ?? ($current['txt'] ?? null);
+            default:
+                return null;
+        }
+    }
+    
+    /**
+     * Map the generic 'value' field to the appropriate dedicated field
+     * This provides backward compatibility by accepting 'value' as an alias
+     * 
+     * @param array &$data Reference to input data
+     */
+    private function mapValueToDedicatedField(&$data) {
+        if (!isset($data['record_type']) || !isset($data['value'])) {
+            return;
+        }
+        
+        switch ($data['record_type']) {
+            case 'A':
+                if (!isset($data['address_ipv4'])) {
+                    $data['address_ipv4'] = $data['value'];
+                }
+                break;
+            case 'AAAA':
+                if (!isset($data['address_ipv6'])) {
+                    $data['address_ipv6'] = $data['value'];
+                }
+                break;
+            case 'CNAME':
+                if (!isset($data['cname_target'])) {
+                    $data['cname_target'] = $data['value'];
+                }
+                break;
+            case 'PTR':
+                if (!isset($data['ptrdname'])) {
+                    $data['ptrdname'] = $data['value'];
+                }
+                break;
+            case 'TXT':
+                if (!isset($data['txt'])) {
+                    $data['txt'] = $data['value'];
+                }
+                break;
+        }
+    }
+    
+    /**
+     * Extract dedicated field values from input data
+     * 
+     * @param array $data Input data
+     * @param array|null $current Current record data (for updates)
+     * @return array Array with all dedicated field keys
+     */
+    private function extractDedicatedFields($data, $current = null) {
+        $recordType = $data['record_type'] ?? ($current['record_type'] ?? null);
+        
+        $fields = [
+            'address_ipv4' => null,
+            'address_ipv6' => null,
+            'cname_target' => null,
+            'ptrdname' => null,
+            'txt' => null
+        ];
+        
+        // Set the appropriate field based on record type
+        switch ($recordType) {
+            case 'A':
+                $fields['address_ipv4'] = $data['address_ipv4'] ?? ($current['address_ipv4'] ?? null);
+                break;
+            case 'AAAA':
+                $fields['address_ipv6'] = $data['address_ipv6'] ?? ($current['address_ipv6'] ?? null);
+                break;
+            case 'CNAME':
+                $fields['cname_target'] = $data['cname_target'] ?? ($current['cname_target'] ?? null);
+                break;
+            case 'PTR':
+                $fields['ptrdname'] = $data['ptrdname'] ?? ($current['ptrdname'] ?? null);
+                break;
+            case 'TXT':
+                $fields['txt'] = $data['txt'] ?? ($current['txt'] ?? null);
+                break;
+        }
+        
+        return $fields;
     }
 }
 ?>
