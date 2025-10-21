@@ -41,3 +41,9 @@ uploads/
 
 # Preview/demo files
 preview*.html
+
+# Background job runtime files
+jobs/validation_queue.json
+jobs/validation_processing.json
+jobs/worker.lock
+jobs/*.log
