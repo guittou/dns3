@@ -528,6 +528,10 @@
     border-top: 1px solid var(--border-color, #ddd);
 }
 
+.modal-footer-centered {
+    justify-content: center;
+}
+
 .close {
     font-size: 1.5rem;
     font-weight: bold;
@@ -671,6 +675,21 @@
 
 .actions-cell .btn {
     margin-right: 0.25rem;
+}
+
+/* Clickable rows */
+.zone-row:hover {
+    background-color: var(--bg-hover, #f8f9fa) !important;
+}
+
+.form-text {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.text-muted {
+    color: var(--text-secondary, #666);
 }
 
 /* Badge variations */

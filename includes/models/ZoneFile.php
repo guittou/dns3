@@ -24,10 +24,14 @@ class ZoneFile {
     public function search($filters = [], $limit = 100, $offset = 0) {
         $sql = "SELECT zf.*, 
                        u1.username as created_by_username,
-                       u2.username as updated_by_username
+                       u2.username as updated_by_username,
+                       zfi.parent_id,
+                       parent_zf.name as parent_name
                 FROM zone_files zf
                 LEFT JOIN users u1 ON zf.created_by = u1.id
                 LEFT JOIN users u2 ON zf.updated_by = u2.id
+                LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                LEFT JOIN zone_files parent_zf ON zfi.parent_id = parent_zf.id
                 WHERE 1=1";
         
         $params = [];
@@ -81,8 +85,9 @@ class ZoneFile {
      * @return int Total count of matching zone files
      */
     public function count($filters = []) {
-        $sql = "SELECT COUNT(*) as total
+        $sql = "SELECT COUNT(DISTINCT zf.id) as total
                 FROM zone_files zf
+                LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
                 WHERE 1=1";
         
         $params = [];
@@ -137,10 +142,14 @@ class ZoneFile {
         try {
             $sql = "SELECT zf.*, 
                            u1.username as created_by_username,
-                           u2.username as updated_by_username
+                           u2.username as updated_by_username,
+                           zfi.parent_id,
+                           parent_zf.name as parent_name
                     FROM zone_files zf
                     LEFT JOIN users u1 ON zf.created_by = u1.id
                     LEFT JOIN users u2 ON zf.updated_by = u2.id
+                    LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                    LEFT JOIN zone_files parent_zf ON zfi.parent_id = parent_zf.id
                     WHERE zf.id = ?";
             
             if (!$includeDeleted) {
@@ -313,47 +322,103 @@ class ZoneFile {
     }
 
     /**
-     * Assign an include file to a parent zone with cycle detection
+     * Assign an include file to a parent zone with cycle detection and reassignment support
      * 
      * @param int $parentId Parent zone file ID (can be master or include)
      * @param int $includeId Include zone file ID
      * @param int $position Position for ordering (default 0)
+     * @param int|null $userId User ID for history tracking
      * @return bool|string Success status or error message
      */
-    public function assignInclude($parentId, $includeId, $position = 0) {
+    public function assignInclude($parentId, $includeId, $position = 0, $userId = null) {
         try {
+            $this->db->beginTransaction();
+            
             // Prevent self-include
             if ($parentId === $includeId) {
+                $this->db->rollBack();
                 return "Cannot include a zone file in itself";
             }
             
             // Verify both zones exist
-            $parent = $this->getById($parentId);
-            $include = $this->getById($includeId);
+            $parent = $this->getById($parentId, true);
+            $include = $this->getById($includeId, true);
             
             if (!$parent || !$include) {
+                $this->db->rollBack();
                 return "Zone file not found";
             }
             
             // Verify include is actually an include type
             if ($include['file_type'] !== 'include') {
+                $this->db->rollBack();
                 return "Only include-type zone files can be assigned as includes";
             }
             
             // Check for cycles: verify that includeId doesn't have parentId as an ancestor
             if ($this->hasAncestor($includeId, $parentId)) {
+                $this->db->rollBack();
                 return "Cannot create circular dependency: this would create a cycle in the include tree";
             }
             
-            $sql = "INSERT INTO zone_file_includes (parent_id, include_id, position, created_at)
-                    VALUES (?, ?, ?, NOW())
-                    ON DUPLICATE KEY UPDATE position = VALUES(position)";
+            // Check if include already has a parent (reassignment case)
+            $checkSql = "SELECT parent_id FROM zone_file_includes WHERE include_id = ?";
+            $checkStmt = $this->db->prepare($checkSql);
+            $checkStmt->execute([$includeId]);
+            $existingParent = $checkStmt->fetch();
             
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$parentId, $includeId, $position]);
+            if ($existingParent && $existingParent['parent_id'] != $parentId) {
+                // Reassignment case - write history
+                $oldParent = $this->getById($existingParent['parent_id'], true);
+                $oldParentName = $oldParent ? $oldParent['name'] : 'Unknown';
+                $newParentName = $parent['name'];
+                
+                $notes = "Include reassigned from parent '{$oldParentName}' (ID: {$existingParent['parent_id']}) to '{$newParentName}' (ID: {$parentId})";
+                
+                // Write history for the include being reassigned
+                if ($userId) {
+                    $this->writeHistory(
+                        $includeId,
+                        'reassign_include',
+                        $include['status'],
+                        $include['status'],
+                        $userId,
+                        $notes
+                    );
+                }
+                
+                // Update the parent_id and position
+                $updateSql = "UPDATE zone_file_includes 
+                             SET parent_id = ?, position = ? 
+                             WHERE include_id = ?";
+                $updateStmt = $this->db->prepare($updateSql);
+                $updateStmt->execute([$parentId, $position, $includeId]);
+            } else {
+                // New assignment - insert
+                $sql = "INSERT INTO zone_file_includes (parent_id, include_id, position, created_at)
+                        VALUES (?, ?, ?, NOW())
+                        ON DUPLICATE KEY UPDATE position = VALUES(position)";
+                
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$parentId, $includeId, $position]);
+                
+                // Write history for new assignment
+                if ($userId && !$existingParent) {
+                    $this->writeHistory(
+                        $includeId,
+                        'assign_include',
+                        $include['status'],
+                        $include['status'],
+                        $userId,
+                        "Include assigned to parent '{$parent['name']}' (ID: {$parentId})"
+                    );
+                }
+            }
             
+            $this->db->commit();
             return true;
         } catch (Exception $e) {
+            $this->db->rollBack();
             error_log("ZoneFile assignInclude error: " . $e->getMessage());
             return "Failed to assign include: " . $e->getMessage();
         }
