@@ -67,7 +67,13 @@ function setupEventHandlers() {
     // Modal close on outside click
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
+            if (event.target.id === 'createZoneModal') {
+                closeCreateZoneModal();
+            } else if (event.target.id === 'zoneModal') {
+                closeZoneModal();
+            } else {
+                event.target.style.display = 'none';
+            }
         }
     };
 }
@@ -355,8 +361,10 @@ function switchTab(tabName) {
     // Update tab buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
+        if (btn.onclick && btn.onclick.toString().includes(tabName)) {
+            btn.classList.add('active');
+        }
     });
-    event.target?.classList.add('active');
     
     // Update tab panes
     document.querySelectorAll('.tab-pane').forEach(pane => {
