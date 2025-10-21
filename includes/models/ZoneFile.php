@@ -158,7 +158,14 @@ class ZoneFile {
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
-            return $stmt->fetch() ?: null;
+            $result = $stmt->fetch();
+            
+            // Ensure directory is included in result
+            if ($result && !isset($result['directory'])) {
+                $result['directory'] = null;
+            }
+            
+            return $result ?: null;
         } catch (Exception $e) {
             error_log("ZoneFile getById error: " . $e->getMessage());
             return null;
@@ -193,7 +200,7 @@ class ZoneFile {
     /**
      * Create a new zone file
      * 
-     * @param array $data Zone file data (name, filename, file_type, content)
+     * @param array $data Zone file data (name, filename, directory, file_type, content)
      * @param int $user_id User creating the zone file
      * @return int|bool New zone file ID or false on failure
      */
@@ -201,13 +208,14 @@ class ZoneFile {
         try {
             $this->db->beginTransaction();
             
-            $sql = "INSERT INTO zone_files (name, filename, content, file_type, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, 'active', ?, NOW())";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $data['name'],
                 $data['filename'],
+                $data['directory'] ?? null,
                 $data['content'] ?? null,
                 $data['file_type'] ?? 'master',
                 $user_id
@@ -247,7 +255,7 @@ class ZoneFile {
             }
             
             $sql = "UPDATE zone_files 
-                    SET name = ?, filename = ?, content = ?, file_type = ?,
+                    SET name = ?, filename = ?, directory = ?, content = ?, file_type = ?,
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
             
@@ -255,6 +263,7 @@ class ZoneFile {
             $stmt->execute([
                 $data['name'] ?? $current['name'],
                 $data['filename'] ?? $current['filename'],
+                isset($data['directory']) ? $data['directory'] : $current['directory'],
                 isset($data['content']) ? $data['content'] : $current['content'],
                 $data['file_type'] ?? $current['file_type'],
                 $user_id,
@@ -714,6 +723,160 @@ class ZoneFile {
         } catch (Exception $e) {
             error_log("ZoneFile getHistory error: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Generate complete zone file content with includes and DNS records
+     * 
+     * @param int $zoneId Zone file ID
+     * @return string|null Generated zone file content or null on error
+     */
+    public function generateZoneFile($zoneId) {
+        try {
+            // Get zone file information
+            $zone = $this->getById($zoneId);
+            if (!$zone) {
+                return null;
+            }
+            
+            $content = '';
+            
+            // Add zone's own content first
+            if (!empty($zone['content'])) {
+                $content .= $zone['content'];
+                // Ensure there's a newline after content
+                if (substr($content, -1) !== "\n") {
+                    $content .= "\n";
+                }
+                $content .= "\n";
+            }
+            
+            // Add $INCLUDE directives for direct includes
+            $includes = $this->getIncludes($zoneId);
+            foreach ($includes as $include) {
+                // Build include path: directory/filename if directory exists, otherwise just filename
+                $includePath = '';
+                if (!empty($include['directory'])) {
+                    $includePath = $include['directory'] . '/' . $include['filename'];
+                } else {
+                    // Use filename if available, otherwise fall back to name
+                    $includePath = !empty($include['filename']) ? $include['filename'] : $include['name'];
+                }
+                
+                $content .= '$INCLUDE "' . $includePath . '"' . "\n";
+            }
+            
+            if (count($includes) > 0) {
+                $content .= "\n";
+            }
+            
+            // Add DNS records associated with this zone formatted in BIND syntax
+            $records = $this->getDnsRecordsByZone($zoneId);
+            if (count($records) > 0) {
+                $content .= "; DNS Records\n";
+                foreach ($records as $record) {
+                    $content .= $this->formatDnsRecordBind($record) . "\n";
+                }
+            }
+            
+            return $content;
+        } catch (Exception $e) {
+            error_log("ZoneFile generateZoneFile error: " . $e->getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Get DNS records for a specific zone file
+     * 
+     * @param int $zoneId Zone file ID
+     * @return array Array of DNS records
+     */
+    private function getDnsRecordsByZone($zoneId) {
+        try {
+            $sql = "SELECT * FROM dns_records 
+                    WHERE zone_file_id = ? AND status = 'active'
+                    ORDER BY name, record_type";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$zoneId]);
+            return $stmt->fetchAll();
+        } catch (Exception $e) {
+            error_log("ZoneFile getDnsRecordsByZone error: " . $e->getMessage());
+            return [];
+        }
+    }
+    
+    /**
+     * Format a DNS record in BIND zone file syntax
+     * 
+     * @param array $record DNS record data
+     * @return string Formatted BIND record line
+     */
+    private function formatDnsRecordBind($record) {
+        $name = $record['name'];
+        $ttl = isset($record['ttl']) ? $record['ttl'] : 3600;
+        $type = $record['record_type'];
+        
+        // Format the record value based on type
+        $value = $this->getRecordValue($record);
+        
+        // Build the BIND format line
+        // Format: name TTL class type value
+        $line = sprintf("%-30s %6d IN %-6s %s", $name, $ttl, $type, $value);
+        
+        return $line;
+    }
+    
+    /**
+     * Get the value for a DNS record based on its type
+     * 
+     * @param array $record DNS record data
+     * @return string Record value
+     */
+    private function getRecordValue($record) {
+        $type = $record['record_type'];
+        
+        switch ($type) {
+            case 'A':
+                return $record['address_ipv4'] ?? $record['value'];
+            
+            case 'AAAA':
+                return $record['address_ipv6'] ?? $record['value'];
+            
+            case 'CNAME':
+                return $record['cname_target'] ?? $record['value'];
+            
+            case 'PTR':
+                return $record['ptrdname'] ?? $record['value'];
+            
+            case 'MX':
+                $priority = isset($record['priority']) ? $record['priority'] : 10;
+                $target = $record['value'];
+                return "$priority $target";
+            
+            case 'TXT':
+                $txt = $record['txt'] ?? $record['value'];
+                // Ensure TXT records are properly quoted
+                if (substr($txt, 0, 1) !== '"') {
+                    $txt = '"' . $txt . '"';
+                }
+                return $txt;
+            
+            case 'NS':
+                return $record['value'];
+            
+            case 'SOA':
+                return $record['value'];
+            
+            case 'SRV':
+                // SRV format: priority weight port target
+                $priority = isset($record['priority']) ? $record['priority'] : 10;
+                return "$priority " . $record['value'];
+            
+            default:
+                return $record['value'];
         }
     }
 }

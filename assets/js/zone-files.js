@@ -177,7 +177,7 @@ function renderZonesTable(zones) {
     if (zones.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="8" class="empty-cell">
+                <td colspan="7" class="empty-cell">
                     <div class="empty-state">
                         <i class="fas fa-inbox"></i>
                         <p>Aucune zone trouvée</p>
@@ -201,7 +201,6 @@ function renderZonesTable(zones) {
                 <td>${typeBadge}</td>
                 <td><code>${escapeHtml(zone.filename)}</code></td>
                 <td>${parentDisplay}</td>
-                <td>${zone.includes_count || 0}</td>
                 <td>${escapeHtml(zone.created_by_username || 'N/A')}</td>
                 <td>${statusBadge}</td>
                 <td>${formatDate(zone.updated_at || zone.created_at)}</td>
@@ -217,7 +216,7 @@ function renderErrorState() {
     const tbody = document.getElementById('zonesTableBody');
     tbody.innerHTML = `
         <tr>
-            <td colspan="8" class="error-cell">
+            <td colspan="7" class="error-cell">
                 <div class="error-state">
                     <i class="fas fa-exclamation-triangle"></i>
                     <p>Erreur lors du chargement des zones</p>
@@ -309,6 +308,7 @@ async function openZoneModal(zoneId) {
             document.getElementById('zoneModalTitle').textContent = currentZone.name;
             document.getElementById('zoneName').value = currentZone.name;
             document.getElementById('zoneFilename').value = currentZone.filename;
+            document.getElementById('zoneDirectory').value = currentZone.directory || '';
             document.getElementById('zoneFileType').value = currentZone.file_type;
             document.getElementById('zoneStatus').value = currentZone.status;
             document.getElementById('zoneContent').value = currentZone.content || '';
@@ -439,7 +439,7 @@ function loadIncludesList(includes) {
  * Setup change detection
  */
 function setupChangeDetection() {
-    const inputs = ['zoneName', 'zoneFilename', 'zoneStatus', 'zoneContent', 'zoneParent'];
+    const inputs = ['zoneName', 'zoneFilename', 'zoneDirectory', 'zoneStatus', 'zoneContent', 'zoneParent'];
     inputs.forEach(id => {
         const elem = document.getElementById(id);
         if (elem) {
@@ -459,6 +459,7 @@ async function saveZone() {
         const data = {
             name: document.getElementById('zoneName').value,
             filename: document.getElementById('zoneFilename').value,
+            directory: document.getElementById('zoneDirectory').value || null,
             content: document.getElementById('zoneContent').value
         };
         
@@ -678,4 +679,41 @@ function showSuccess(message) {
 function showError(message) {
     // Simple alert for now - can be enhanced with toast notifications
     alert('Erreur: ' + message);
+}
+
+/**
+ * Generate zone file content with includes and DNS records
+ */
+async function generateZoneFileContent() {
+    try {
+        const zoneId = document.getElementById('zoneId').value;
+        
+        const response = await zoneApiCall('generate_zone_file', {
+            params: { id: zoneId }
+        });
+        
+        if (response.success) {
+            // Display the generated content in a preview modal or download it
+            if (confirm('Fichier de zone généré avec succès. Voulez-vous télécharger le fichier?')) {
+                // Create a blob and download the file
+                const blob = new Blob([response.content], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = response.filename || 'zone-file.conf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                showSuccess('Fichier de zone téléchargé avec succès');
+            } else {
+                // Show the content in the textarea for preview
+                document.getElementById('zoneContent').value = response.content;
+                showSuccess('Contenu généré affiché dans l\'éditeur');
+            }
+        }
+    } catch (error) {
+        console.error('Failed to generate zone file:', error);
+        showError('Erreur lors de la génération du fichier de zone: ' + error.message);
+    }
 }

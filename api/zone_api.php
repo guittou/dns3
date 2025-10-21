@@ -518,6 +518,38 @@ try {
             echo $zone['content'] ?? '';
             exit;
 
+        case 'generate_zone_file':
+            // Generate complete zone file with includes and DNS records
+            requireAuth();
+
+            $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            if ($id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid zone file ID']);
+                exit;
+            }
+
+            $zone = $zoneFile->getById($id);
+            if (!$zone) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Zone file not found']);
+                exit;
+            }
+
+            $generatedContent = $zoneFile->generateZoneFile($id);
+            if ($generatedContent === null) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to generate zone file']);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'content' => $generatedContent,
+                'filename' => $zone['filename']
+            ]);
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Invalid action']);
