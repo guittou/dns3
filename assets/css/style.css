@@ -226,6 +226,7 @@ body {
 /* Make .main-content size to the content (table) but never exceed viewport */
 .main-content {
   display: block;
+  min-width: 1100px;
   width: max-content;              /* size to content (table) */
   max-width: calc(100vw - 40px);   /* but never exceed viewport minus page paddings */
   margin: 20px auto;
