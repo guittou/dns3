@@ -16,7 +16,7 @@ class ZoneFile {
     /**
      * Search zone files with filters
      * 
-     * @param array $filters Optional filters (name, file_type, status)
+     * @param array $filters Optional filters (name, file_type, status, owner, q for general search)
      * @param int $limit Maximum number of results
      * @param int $offset Pagination offset
      * @return array Array of zone files
@@ -32,6 +32,14 @@ class ZoneFile {
         
         $params = [];
         
+        // Support 'q' parameter for general search (searches name and filename)
+        if (isset($filters['q']) && $filters['q'] !== '') {
+            $sql .= " AND (zf.name LIKE ? OR zf.filename LIKE ?)";
+            $params[] = '%' . $filters['q'] . '%';
+            $params[] = '%' . $filters['q'] . '%';
+        }
+        
+        // Legacy 'name' filter support
         if (isset($filters['name']) && $filters['name'] !== '') {
             $sql .= " AND zf.name LIKE ?";
             $params[] = '%' . $filters['name'] . '%';
@@ -47,6 +55,11 @@ class ZoneFile {
             $params[] = $filters['status'];
         }
         
+        if (isset($filters['owner']) && $filters['owner'] !== '') {
+            $sql .= " AND zf.created_by = ?";
+            $params[] = $filters['owner'];
+        }
+        
         $sql .= " ORDER BY zf.created_at DESC LIMIT ? OFFSET ?";
         $params[] = $limit;
         $params[] = $offset;
@@ -58,6 +71,58 @@ class ZoneFile {
         } catch (Exception $e) {
             error_log("ZoneFile search error: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Count zone files matching filters (for pagination)
+     * 
+     * @param array $filters Optional filters (same as search method)
+     * @return int Total count of matching zone files
+     */
+    public function count($filters = []) {
+        $sql = "SELECT COUNT(*) as total
+                FROM zone_files zf
+                WHERE 1=1";
+        
+        $params = [];
+        
+        // Support 'q' parameter for general search
+        if (isset($filters['q']) && $filters['q'] !== '') {
+            $sql .= " AND (zf.name LIKE ? OR zf.filename LIKE ?)";
+            $params[] = '%' . $filters['q'] . '%';
+            $params[] = '%' . $filters['q'] . '%';
+        }
+        
+        // Legacy 'name' filter support
+        if (isset($filters['name']) && $filters['name'] !== '') {
+            $sql .= " AND zf.name LIKE ?";
+            $params[] = '%' . $filters['name'] . '%';
+        }
+        
+        if (isset($filters['file_type']) && $filters['file_type'] !== '') {
+            $sql .= " AND zf.file_type = ?";
+            $params[] = $filters['file_type'];
+        }
+        
+        if (isset($filters['status']) && $filters['status'] !== '') {
+            $sql .= " AND zf.status = ?";
+            $params[] = $filters['status'];
+        }
+        
+        if (isset($filters['owner']) && $filters['owner'] !== '') {
+            $sql .= " AND zf.created_by = ?";
+            $params[] = $filters['owner'];
+        }
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $result = $stmt->fetch();
+            return (int)$result['total'];
+        } catch (Exception $e) {
+            error_log("ZoneFile count error: " . $e->getMessage());
+            return 0;
         }
     }
 
