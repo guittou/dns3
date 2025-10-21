@@ -746,7 +746,7 @@ class ZoneFile {
             if (!empty($zone['content'])) {
                 $content .= $zone['content'];
                 // Ensure there's a newline after content
-                if (!str_ends_with($content, "\n")) {
+                if (substr($content, -1) !== "\n") {
                     $content .= "\n";
                 }
                 $content .= "\n";
@@ -859,7 +859,7 @@ class ZoneFile {
             case 'TXT':
                 $txt = $record['txt'] ?? $record['value'];
                 // Ensure TXT records are properly quoted
-                if (!str_starts_with($txt, '"')) {
+                if (substr($txt, 0, 1) !== '"') {
                     $txt = '"' . $txt . '"';
                 }
                 return $txt;
