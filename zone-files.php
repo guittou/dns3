@@ -198,7 +198,7 @@ if (!$auth->isAdmin()) {
                         <textarea id="zoneContent" class="form-control code-editor" rows="20"></textarea>
                     </div>
                     <div style="margin-top: 1rem;">
-                        <button type="button" class="btn btn-secondary" onclick="generateZoneFileContent()">
+                        <button type="button" class="btn btn-secondary" onclick="generateZoneFileContent(event)">
                             <i class="fas fa-file-code"></i> Générer le fichier de zone
                         </button>
                         <small class="form-text text-muted" style="display: inline-block; margin-left: 1rem;">
