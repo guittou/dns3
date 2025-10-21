@@ -56,13 +56,21 @@ $zoneFile = new ZoneFile();
 try {
     switch ($action) {
         case 'list_zones':
-            // List zone files (requires authentication)
+            // List zone files with pagination (requires authentication)
             requireAuth();
 
             $filters = [];
+            
+            // General search parameter 'q' searches both name and filename
+            if (isset($_GET['q']) && $_GET['q'] !== '') {
+                $filters['q'] = $_GET['q'];
+            }
+            
+            // Legacy 'name' filter support
             if (isset($_GET['name']) && $_GET['name'] !== '') {
                 $filters['name'] = $_GET['name'];
             }
+            
             if (isset($_GET['file_type']) && $_GET['file_type'] !== '') {
                 // Validate file_type
                 $allowed_types = ['master', 'include'];
@@ -70,22 +78,87 @@ try {
                     $filters['file_type'] = $_GET['file_type'];
                 }
             }
+            
             if (isset($_GET['status']) && $_GET['status'] !== '') {
                 $allowed_statuses = ['active', 'inactive', 'deleted'];
                 if (in_array($_GET['status'], $allowed_statuses)) {
                     $filters['status'] = $_GET['status'];
                 }
             }
+            
+            if (isset($_GET['owner']) && $_GET['owner'] !== '') {
+                $filters['owner'] = (int)$_GET['owner'];
+            }
 
-            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
-            $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
+            // Pagination parameters
+            $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+            $per_page = isset($_GET['per_page']) ? min(100, max(1, (int)$_GET['per_page'])) : 25;
+            
+            // For backwards compatibility, also support limit/offset
+            if (isset($_GET['limit'])) {
+                $per_page = min(100, max(1, (int)$_GET['limit']));
+            }
+            $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : ($page - 1) * $per_page;
 
-            $zones = $zoneFile->search($filters, $limit, $offset);
+            // Get total count for pagination
+            $total = $zoneFile->count($filters);
+            
+            // Get paginated results
+            $zones = $zoneFile->search($filters, $per_page, $offset);
+            
+            // Add include count to each zone
+            foreach ($zones as &$zone) {
+                $includes = $zoneFile->getIncludes($zone['id']);
+                $zone['includes_count'] = count($includes);
+            }
 
             echo json_encode([
                 'success' => true,
                 'data' => $zones,
-                'count' => count($zones)
+                'total' => $total,
+                'page' => $page,
+                'per_page' => $per_page,
+                'total_pages' => ceil($total / $per_page)
+            ]);
+            break;
+
+        case 'search_zones':
+            // Autocomplete search for zones (requires authentication)
+            // Returns minimal payload for performance
+            requireAuth();
+
+            $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+            $limit = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 20;
+            $file_type = isset($_GET['file_type']) ? $_GET['file_type'] : '';
+
+            $filters = [];
+            if ($q !== '') {
+                $filters['q'] = $q;
+            }
+            if ($file_type !== '') {
+                $allowed_types = ['master', 'include'];
+                if (in_array($file_type, $allowed_types)) {
+                    $filters['file_type'] = $file_type;
+                }
+            }
+            // Only search active zones for autocomplete
+            $filters['status'] = 'active';
+
+            $zones = $zoneFile->search($filters, $limit, 0);
+
+            // Return minimal data for autocomplete
+            $results = array_map(function($zone) {
+                return [
+                    'id' => $zone['id'],
+                    'name' => $zone['name'],
+                    'filename' => $zone['filename'],
+                    'file_type' => $zone['file_type']
+                ];
+            }, $zones);
+
+            echo json_encode([
+                'success' => true,
+                'data' => $results
             ]);
             break;
 
