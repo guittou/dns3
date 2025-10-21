@@ -65,11 +65,11 @@ if (!$auth->isAdmin()) {
                     <th>Zone</th>
                     <th>Type</th>
                     <th>Nom de fichier</th>
+                    <th>Parent</th>
                     <th># Includes</th>
                     <th>Propriétaire</th>
                     <th>Statut</th>
                     <th>Modifié le</th>
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="zonesTableBody">
@@ -114,10 +114,10 @@ if (!$auth->isAdmin()) {
             </div>
             <div class="form-group">
                 <label for="createFileType">Type *</label>
-                <select id="createFileType" class="form-control" required>
-                    <option value="master">Master</option>
-                    <option value="include">Include</option>
+                <select id="createFileType" class="form-control" required disabled>
+                    <option value="master" selected>Master</option>
                 </select>
+                <small class="form-text text-muted">Les zones master sont créées via "Nouvelle zone". Les includes sont créés depuis le modal d'édition d'une zone.</small>
             </div>
             <div class="form-group">
                 <label for="createContent">Contenu</label>
@@ -128,6 +128,113 @@ if (!$auth->isAdmin()) {
                 <button type="submit" class="btn btn-primary">Créer</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- Zone Edit Modal -->
+<div id="zoneModal" class="modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2 id="zoneModalTitle">Zone</h2>
+            <span class="close" onclick="closeZoneModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <!-- Tabs -->
+            <div class="tabs">
+                <button type="button" class="tab-btn active" onclick="switchTab('details')">Détails</button>
+                <button type="button" class="tab-btn" onclick="switchTab('editor')">Éditeur</button>
+                <button type="button" class="tab-btn" onclick="switchTab('includes')">Includes</button>
+            </div>
+            
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <!-- Details Tab -->
+                <div id="detailsTab" class="tab-pane active">
+                    <form id="zoneDetailsForm">
+                        <input type="hidden" id="zoneId">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="zoneName">Nom *</label>
+                                <input type="text" id="zoneName" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="zoneFilename">Nom de fichier *</label>
+                                <input type="text" id="zoneFilename" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="zoneFileType">Type</label>
+                                <select id="zoneFileType" class="form-control" disabled>
+                                    <option value="master">Master</option>
+                                    <option value="include">Include</option>
+                                </select>
+                                <small class="form-text text-muted">Le type ne peut pas être modifié après la création.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="zoneStatus">Statut</label>
+                                <select id="zoneStatus" class="form-control">
+                                    <option value="active">Actif</option>
+                                    <option value="inactive">Inactif</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="parentGroup" style="display: none;">
+                                <label for="zoneParent">Parent</label>
+                                <select id="zoneParent" class="form-control">
+                                    <option value="">Aucun parent</option>
+                                </select>
+                                <small class="form-text text-muted">Vous pouvez réassigner cet include à un autre parent.</small>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Editor Tab -->
+                <div id="editorTab" class="tab-pane">
+                    <div class="form-group">
+                        <label for="zoneContent">Contenu du fichier de zone</label>
+                        <textarea id="zoneContent" class="form-control code-editor" rows="20"></textarea>
+                    </div>
+                </div>
+                
+                <!-- Includes Tab -->
+                <div id="includesTab" class="tab-pane">
+                    <div class="includes-header">
+                        <h3>Fichiers inclus dans cette zone</h3>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="openCreateIncludeForm()">
+                            <i class="fas fa-plus"></i> Créer un include
+                        </button>
+                    </div>
+                    <div id="includesList">
+                        <div class="loading">Chargement...</div>
+                    </div>
+                    
+                    <!-- Create Include Form (hidden by default) -->
+                    <div id="createIncludeForm" style="display: none; margin-top: 1rem; padding: 1rem; border: 1px solid #ddd; border-radius: 4px;">
+                        <h4>Créer un nouvel include</h4>
+                        <div class="form-group">
+                            <label for="includeNameInput">Nom *</label>
+                            <input type="text" id="includeNameInput" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="includeFilenameInput">Nom de fichier *</label>
+                            <input type="text" id="includeFilenameInput" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="includeContentInput">Contenu</label>
+                            <textarea id="includeContentInput" class="form-control" rows="6"></textarea>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button type="button" class="btn btn-secondary" onclick="cancelCreateInclude()">Annuler</button>
+                            <button type="button" class="btn btn-primary" onclick="submitCreateInclude()">Créer et assigner</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer modal-footer-centered">
+            <button type="button" class="btn btn-danger" id="deleteZoneBtn" onclick="deleteZone()">Supprimer</button>
+            <button type="button" class="btn btn-secondary" onclick="closeZoneModal()">Annuler</button>
+            <button type="button" class="btn btn-primary" onclick="saveZone()">Enregistrer</button>
+        </div>
     </div>
 </div>
 

@@ -318,6 +318,7 @@ try {
 
         case 'assign_include':
             // Assign an include file to a parent zone with cycle detection (admin only)
+            // Now supports reassignment if include already has a parent
             requireAdmin();
 
             // Get JSON input for POST data
@@ -336,7 +337,8 @@ try {
                 exit;
             }
 
-            $result = $zoneFile->assignInclude($parent_id, $include_id, $position);
+            $user = $auth->getCurrentUser();
+            $result = $zoneFile->assignInclude($parent_id, $include_id, $position, $user['id']);
 
             if ($result === true) {
                 echo json_encode([
@@ -346,6 +348,75 @@ try {
             } else {
                 http_response_code(400);
                 echo json_encode(['error' => is_string($result) ? $result : 'Failed to assign include to parent zone']);
+            }
+            break;
+
+        case 'create_and_assign_include':
+            // Create an include and assign it to a parent in one call (admin only)
+            requireAdmin();
+
+            // Get JSON input
+            $input = json_decode(file_get_contents('php://input'), true);
+            if (!$input) {
+                $input = $_POST;
+            }
+
+            // Validate required fields
+            if (!isset($input['name']) || trim($input['name']) === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing required field: name']);
+                exit;
+            }
+            if (!isset($input['filename']) || trim($input['filename']) === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing required field: filename']);
+                exit;
+            }
+            if (!isset($input['parent_id']) || (int)$input['parent_id'] <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing required field: parent_id']);
+                exit;
+            }
+
+            $user = $auth->getCurrentUser();
+            
+            // Force file_type to include
+            $zoneData = [
+                'name' => $input['name'],
+                'filename' => $input['filename'],
+                'content' => $input['content'] ?? '',
+                'file_type' => 'include'
+            ];
+            
+            // Create the include
+            $include_id = $zoneFile->create($zoneData, $user['id']);
+            
+            if (!$include_id) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to create include zone file']);
+                exit;
+            }
+
+            // Assign it to the parent
+            $parent_id = (int)$input['parent_id'];
+            $position = isset($input['position']) ? (int)$input['position'] : 0;
+            
+            $result = $zoneFile->assignInclude($parent_id, $include_id, $position, $user['id']);
+
+            if ($result === true) {
+                http_response_code(201);
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Include created and assigned successfully',
+                    'id' => $include_id
+                ]);
+            } else {
+                // Include was created but assignment failed - include still exists
+                http_response_code(500);
+                echo json_encode([
+                    'error' => 'Include created but assignment failed: ' . (is_string($result) ? $result : 'Unknown error'),
+                    'id' => $include_id
+                ]);
             }
             break;
 

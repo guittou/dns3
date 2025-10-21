@@ -187,24 +187,18 @@ function renderZonesTable(zones) {
         const typeBadge = zone.file_type === 'master' ? 
             '<span class="badge badge-master">Master</span>' : 
             '<span class="badge badge-include">Include</span>';
+        const parentDisplay = zone.parent_name ? escapeHtml(zone.parent_name) : '-';
         
         return `
-            <tr>
+            <tr class="zone-row" data-id="${zone.id}" onclick="openZoneModal(${zone.id})" style="cursor: pointer;">
                 <td><strong>${escapeHtml(zone.name)}</strong></td>
                 <td>${typeBadge}</td>
                 <td><code>${escapeHtml(zone.filename)}</code></td>
+                <td>${parentDisplay}</td>
                 <td>${zone.includes_count || 0}</td>
                 <td>${escapeHtml(zone.created_by_username || 'N/A')}</td>
                 <td>${statusBadge}</td>
                 <td>${formatDate(zone.updated_at || zone.created_at)}</td>
-                <td class="actions-cell">
-                    <button class="btn btn-xs btn-primary" onclick="viewZone(${zone.id})" title="Voir">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-xs btn-secondary" onclick="editZone(${zone.id})" title="Éditer">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                </td>
             </tr>
         `;
     }).join('');
@@ -285,28 +279,333 @@ function nextPage() {
     }
 }
 
+// Modal state
+let currentZone = null;
+let currentTab = 'details';
+let hasUnsavedChanges = false;
+let originalZoneData = null;
+
 /**
- * View zone details (navigate to detail page)
+ * Open zone modal and load zone data
  */
-function viewZone(zoneId) {
-    window.location.href = `${window.BASE_URL}zone-file.php?id=${zoneId}`;
+async function openZoneModal(zoneId) {
+    try {
+        // Load zone data
+        const response = await zoneApiCall('get_zone', { params: { id: zoneId } });
+        
+        if (response.success) {
+            currentZone = response.data;
+            originalZoneData = JSON.parse(JSON.stringify(response.data));
+            hasUnsavedChanges = false;
+            
+            // Populate modal
+            document.getElementById('zoneId').value = currentZone.id;
+            document.getElementById('zoneModalTitle').textContent = currentZone.name;
+            document.getElementById('zoneName').value = currentZone.name;
+            document.getElementById('zoneFilename').value = currentZone.filename;
+            document.getElementById('zoneFileType').value = currentZone.file_type;
+            document.getElementById('zoneStatus').value = currentZone.status;
+            document.getElementById('zoneContent').value = currentZone.content || '';
+            
+            // Show parent select only for includes
+            const parentGroup = document.getElementById('parentGroup');
+            if (currentZone.file_type === 'include') {
+                parentGroup.style.display = 'block';
+                await loadParentOptions(currentZone.parent_id);
+            } else {
+                parentGroup.style.display = 'none';
+            }
+            
+            // Load includes list
+            loadIncludesList(response.includes || []);
+            
+            // Show modal
+            document.getElementById('zoneModal').style.display = 'block';
+            switchTab('details');
+            
+            // Setup change detection
+            setupChangeDetection();
+        }
+    } catch (error) {
+        console.error('Failed to load zone:', error);
+        showError('Erreur lors du chargement de la zone: ' + error.message);
+    }
 }
 
 /**
- * Edit zone (navigate to detail page with editor tab)
+ * Close zone modal
  */
-function editZone(zoneId) {
-    window.location.href = `${window.BASE_URL}zone-file.php?id=${zoneId}&tab=editor`;
+function closeZoneModal() {
+    if (hasUnsavedChanges) {
+        if (!confirm('Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir fermer?')) {
+            return;
+        }
+    }
+    document.getElementById('zoneModal').style.display = 'none';
+    currentZone = null;
+    hasUnsavedChanges = false;
 }
 
-// All detail view functions have been moved to zone-file-detail.js
-// This file now only handles the paginated list view
+/**
+ * Switch between tabs
+ */
+function switchTab(tabName) {
+    currentTab = tabName;
+    
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target?.classList.add('active');
+    
+    // Update tab panes
+    document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+    });
+    document.getElementById(tabName + 'Tab').classList.add('active');
+}
+
+/**
+ * Load parent options for includes
+ */
+async function loadParentOptions(currentParentId) {
+    try {
+        const response = await zoneApiCall('list_zones', { 
+            params: { 
+                status: 'active',
+                per_page: 100 
+            } 
+        });
+        
+        if (response.success) {
+            const select = document.getElementById('zoneParent');
+            select.innerHTML = '<option value="">Aucun parent</option>';
+            
+            // Filter out the current zone itself
+            const zones = response.data.filter(z => z.id != currentZone.id);
+            
+            zones.forEach(zone => {
+                const option = document.createElement('option');
+                option.value = zone.id;
+                option.textContent = `${zone.name} (${zone.file_type})`;
+                if (zone.id == currentParentId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load parent options:', error);
+    }
+}
+
+/**
+ * Load includes list
+ */
+function loadIncludesList(includes) {
+    const container = document.getElementById('includesList');
+    
+    if (includes.length === 0) {
+        container.innerHTML = '<p class="empty-list">Aucun include associé à cette zone.</p>';
+        return;
+    }
+    
+    container.innerHTML = includes.map(inc => `
+        <div class="include-item" style="padding: 0.75rem; margin-bottom: 0.5rem; border: 1px solid #ddd; border-radius: 4px; background: white;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong>${escapeHtml(inc.name)}</strong>
+                    <br>
+                    <small><code>${escapeHtml(inc.filename)}</code></small>
+                    <span class="badge badge-position" style="margin-left: 0.5rem;">Position: ${inc.position}</span>
+                </div>
+                <button class="btn btn-xs btn-secondary" onclick="removeIncludeFromZone(${inc.id})" title="Retirer">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+/**
+ * Setup change detection
+ */
+function setupChangeDetection() {
+    const inputs = ['zoneName', 'zoneFilename', 'zoneStatus', 'zoneContent', 'zoneParent'];
+    inputs.forEach(id => {
+        const elem = document.getElementById(id);
+        if (elem) {
+            elem.addEventListener('input', () => {
+                hasUnsavedChanges = true;
+            });
+        }
+    });
+}
+
+/**
+ * Save zone changes
+ */
+async function saveZone() {
+    try {
+        const zoneId = document.getElementById('zoneId').value;
+        const data = {
+            name: document.getElementById('zoneName').value,
+            filename: document.getElementById('zoneFilename').value,
+            content: document.getElementById('zoneContent').value
+        };
+        
+        // Handle status change separately if needed
+        const newStatus = document.getElementById('zoneStatus').value;
+        if (newStatus !== originalZoneData.status) {
+            await zoneApiCall('set_status_zone', {
+                params: { id: zoneId, status: newStatus }
+            });
+        }
+        
+        // Handle parent reassignment for includes
+        if (currentZone.file_type === 'include') {
+            const newParentId = document.getElementById('zoneParent').value;
+            if (newParentId && newParentId != currentZone.parent_id) {
+                await zoneApiCall('assign_include', {
+                    method: 'POST',
+                    body: {
+                        parent_id: parseInt(newParentId),
+                        include_id: parseInt(zoneId),
+                        position: 0
+                    }
+                });
+            }
+        }
+        
+        // Update zone
+        await zoneApiCall('update_zone', {
+            method: 'POST',
+            params: { id: zoneId },
+            body: data
+        });
+        
+        showSuccess('Zone mise à jour avec succès');
+        hasUnsavedChanges = false;
+        closeZoneModal();
+        await loadZonesList();
+    } catch (error) {
+        console.error('Failed to save zone:', error);
+        showError('Erreur lors de la sauvegarde: ' + error.message);
+    }
+}
+
+/**
+ * Delete zone (soft delete)
+ */
+async function deleteZone() {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette zone? Cette action peut être annulée en restaurant la zone.')) {
+        return;
+    }
+    
+    try {
+        const zoneId = document.getElementById('zoneId').value;
+        
+        await zoneApiCall('set_status_zone', {
+            params: { id: zoneId, status: 'deleted' }
+        });
+        
+        showSuccess('Zone supprimée avec succès');
+        closeZoneModal();
+        await loadZonesList();
+    } catch (error) {
+        console.error('Failed to delete zone:', error);
+        showError('Erreur lors de la suppression: ' + error.message);
+    }
+}
+
+/**
+ * Open create include form
+ */
+function openCreateIncludeForm() {
+    document.getElementById('createIncludeForm').style.display = 'block';
+    document.getElementById('includeNameInput').value = '';
+    document.getElementById('includeFilenameInput').value = '';
+    document.getElementById('includeContentInput').value = '';
+}
+
+/**
+ * Cancel create include
+ */
+function cancelCreateInclude() {
+    document.getElementById('createIncludeForm').style.display = 'none';
+}
+
+/**
+ * Submit create include
+ */
+async function submitCreateInclude() {
+    try {
+        const name = document.getElementById('includeNameInput').value.trim();
+        const filename = document.getElementById('includeFilenameInput').value.trim();
+        const content = document.getElementById('includeContentInput').value;
+        
+        if (!name || !filename) {
+            showError('Veuillez remplir tous les champs requis');
+            return;
+        }
+        
+        const parentId = currentZone.id;
+        
+        const response = await zoneApiCall('create_and_assign_include', {
+            method: 'POST',
+            body: {
+                name: name,
+                filename: filename,
+                content: content,
+                parent_id: parentId
+            }
+        });
+        
+        showSuccess('Include créé et assigné avec succès');
+        cancelCreateInclude();
+        
+        // Reload zone data to refresh includes list
+        await openZoneModal(currentZone.id);
+    } catch (error) {
+        console.error('Failed to create include:', error);
+        showError('Erreur lors de la création de l\'include: ' + error.message);
+    }
+}
+
+/**
+ * Remove include from zone
+ */
+async function removeIncludeFromZone(includeId) {
+    if (!confirm('Êtes-vous sûr de vouloir retirer cet include de cette zone?')) {
+        return;
+    }
+    
+    try {
+        await zoneApiCall('remove_include', {
+            params: {
+                parent_id: currentZone.id,
+                include_id: includeId
+            }
+        });
+        
+        showSuccess('Include retiré avec succès');
+        
+        // Reload zone data
+        await openZoneModal(currentZone.id);
+    } catch (error) {
+        console.error('Failed to remove include:', error);
+        showError('Erreur lors du retrait de l\'include: ' + error.message);
+    }
+}
 
 /**
  * Open create zone modal
  */
 function openCreateZoneModal() {
     document.getElementById('createZoneForm').reset();
+    // Force master type and disable the select
+    document.getElementById('createFileType').value = 'master';
+    document.getElementById('createFileType').disabled = true;
     document.getElementById('createZoneModal').style.display = 'block';
 }
 
@@ -325,7 +624,7 @@ async function createZone() {
         const data = {
             name: document.getElementById('createName').value,
             filename: document.getElementById('createFilename').value,
-            file_type: document.getElementById('createFileType').value,
+            file_type: 'master', // Always create as master from "Nouvelle zone" button
             content: document.getElementById('createContent').value
         };
 
@@ -338,9 +637,9 @@ async function createZone() {
         closeCreateZoneModal();
         await loadZonesList();
         
-        // Navigate to the new zone's detail page
+        // Open the new zone in the modal instead of navigating
         if (response.id) {
-            window.location.href = `${window.BASE_URL}zone-file.php?id=${response.id}`;
+            await openZoneModal(response.id);
         }
     } catch (error) {
         console.error('Failed to create zone:', error);
