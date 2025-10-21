@@ -291,15 +291,17 @@ let currentZone = null;
 let currentTab = 'details';
 let hasUnsavedChanges = false;
 let originalZoneData = null;
-let codeMirrorEditor = null;
-let previewCodeMirror = null;
 let previewData = null;
+let currentZoneId = null;
 
 /**
  * Open zone modal and load zone data
  */
 async function openZoneModal(zoneId) {
     try {
+        // Store current zone ID
+        currentZoneId = zoneId;
+        
         // Load zone data
         const response = await zoneApiCall('get_zone', { params: { id: zoneId } });
         
@@ -317,8 +319,8 @@ async function openZoneModal(zoneId) {
             document.getElementById('zoneFileType').value = currentZone.file_type;
             document.getElementById('zoneStatus').value = currentZone.status;
             
-            // Initialize CodeMirror for zone content editor
-            initializeCodeMirrorEditor(currentZone.content || '');
+            // Set textarea content directly (no CodeMirror)
+            document.getElementById('zoneContent').value = currentZone.content || '';
             
             // Show parent select only for includes
             const parentGroup = document.getElementById('parentGroup');
@@ -345,40 +347,7 @@ async function openZoneModal(zoneId) {
     }
 }
 
-/**
- * Initialize CodeMirror editor for zone content
- */
-function initializeCodeMirrorEditor(content) {
-    const textarea = document.getElementById('zoneContent');
-    
-    // Destroy existing editor if any
-    if (codeMirrorEditor) {
-        codeMirrorEditor.toTextArea();
-        codeMirrorEditor = null;
-    }
-    
-    // Check if CodeMirror is available
-    if (typeof CodeMirror !== 'undefined') {
-        codeMirrorEditor = CodeMirror.fromTextArea(textarea, {
-            mode: 'dns',
-            lineNumbers: true,
-            theme: 'default',
-            indentUnit: 4,
-            tabSize: 4,
-            lineWrapping: true
-        });
-        
-        codeMirrorEditor.setValue(content);
-        
-        // Setup change detection
-        codeMirrorEditor.on('change', function() {
-            hasUnsavedChanges = true;
-        });
-    } else {
-        // Fallback to textarea
-        textarea.value = content;
-    }
-}
+
 
 /**
  * Close zone modal
@@ -390,14 +359,9 @@ function closeZoneModal() {
         }
     }
     
-    // Destroy CodeMirror editor
-    if (codeMirrorEditor) {
-        codeMirrorEditor.toTextArea();
-        codeMirrorEditor = null;
-    }
-    
     document.getElementById('zoneModal').style.display = 'none';
     currentZone = null;
+    currentZoneId = null;
     hasUnsavedChanges = false;
 }
 
@@ -506,13 +470,8 @@ async function saveZone() {
     try {
         const zoneId = document.getElementById('zoneId').value;
         
-        // Get content from CodeMirror or fallback to textarea
-        let content;
-        if (codeMirrorEditor) {
-            content = codeMirrorEditor.getValue();
-        } else {
-            content = document.getElementById('zoneContent').value;
-        }
+        // Get content directly from textarea (no CodeMirror)
+        const content = document.getElementById('zoneContent').value;
         
         const data = {
             name: document.getElementById('zoneName').value,
@@ -744,7 +703,12 @@ function showError(message) {
  */
 async function generateZoneFileContent() {
     try {
-        const zoneId = document.getElementById('zoneId').value;
+        const zoneId = currentZoneId || document.getElementById('zoneId').value;
+        
+        if (!zoneId) {
+            showError('Aucune zone sélectionnée');
+            return;
+        }
         
         const response = await zoneApiCall('generate_zone_file', {
             params: { id: zoneId }
@@ -780,26 +744,8 @@ function openPreviewModal() {
     const modal = document.getElementById('previewModal');
     const textarea = document.getElementById('previewContent');
     
-    // Destroy existing preview CodeMirror if any
-    if (previewCodeMirror) {
-        previewCodeMirror.toTextArea();
-        previewCodeMirror = null;
-    }
-    
-    // Initialize CodeMirror for preview (readonly)
-    if (typeof CodeMirror !== 'undefined') {
-        previewCodeMirror = CodeMirror.fromTextArea(textarea, {
-            mode: 'dns',
-            lineNumbers: true,
-            theme: 'default',
-            readOnly: true,
-            lineWrapping: true
-        });
-        previewCodeMirror.setValue(previewData.content);
-    } else {
-        // Fallback to textarea
-        textarea.value = previewData.content;
-    }
+    // Set textarea content directly (no CodeMirror)
+    textarea.value = previewData.content;
     
     modal.style.display = 'block';
 }
@@ -808,12 +754,6 @@ function openPreviewModal() {
  * Close preview modal
  */
 function closePreviewModal() {
-    // Destroy preview CodeMirror
-    if (previewCodeMirror) {
-        previewCodeMirror.toTextArea();
-        previewCodeMirror = null;
-    }
-    
     document.getElementById('previewModal').style.display = 'none';
 }
 
