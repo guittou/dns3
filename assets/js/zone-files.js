@@ -71,8 +71,8 @@ function setupEventHandlers() {
                 closeCreateZoneModal();
             } else if (event.target.id === 'zoneModal') {
                 closeZoneModal();
-            } else if (event.target.id === 'previewModal') {
-                closePreviewModal();
+            } else if (event.target.id === 'zonePreviewModal') {
+                closeZonePreviewModal();
             } else {
                 event.target.style.display = 'none';
             }
@@ -701,7 +701,13 @@ function showError(message) {
 /**
  * Generate zone file content with includes and DNS records - Show preview
  */
-async function generateZoneFileContent() {
+async function generateZoneFileContent(e) {
+    // Prevent event propagation
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
     try {
         const zoneId = currentZoneId || document.getElementById('zoneId').value;
         
@@ -710,20 +716,27 @@ async function generateZoneFileContent() {
             return;
         }
         
+        // Immediately open preview modal with loading state
+        openZonePreviewModal();
+        
+        // Fetch the generated content
         const response = await zoneApiCall('generate_zone_file', {
             params: { id: zoneId }
         });
         
         if (response.success) {
-            // Store preview data and show preview modal
+            // Store preview data
             previewData = {
                 content: response.content,
                 filename: response.filename || 'zone-file.conf'
             };
-            openPreviewModal();
+            
+            // Update preview content
+            updateZonePreviewContent();
         }
     } catch (error) {
         console.error('Failed to generate zone file:', error);
+        closeZonePreviewModal();
         if (error.message.includes('403') || error.message.includes('Admin privileges required')) {
             showError('Accès refusé: seuls les administrateurs peuvent générer des fichiers de zone');
         } else {
@@ -733,34 +746,57 @@ async function generateZoneFileContent() {
 }
 
 /**
- * Open preview modal with generated content
+ * Open zone preview modal with loading state
  */
-function openPreviewModal() {
+function openZonePreviewModal() {
+    const modal = document.getElementById('zonePreviewModal');
+    const textarea = document.getElementById('zoneGeneratedPreview');
+    
+    // Set loading message
+    textarea.value = 'Chargement...';
+    
+    // Show modal using open class for better control
+    modal.classList.add('open');
+}
+
+/**
+ * Update zone preview content after fetch
+ */
+function updateZonePreviewContent() {
     if (!previewData) {
-        showError('Aucun contenu à prévisualiser');
         return;
     }
     
-    const modal = document.getElementById('previewModal');
-    const textarea = document.getElementById('previewContent');
-    
-    // Set textarea content directly (no CodeMirror)
+    const textarea = document.getElementById('zoneGeneratedPreview');
     textarea.value = previewData.content;
     
-    modal.style.display = 'block';
+    // Setup download button handler
+    const downloadBtn = document.getElementById('downloadZoneFile');
+    
+    // Remove old event listeners by cloning
+    const newDownloadBtn = downloadBtn.cloneNode(true);
+    downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+    
+    // Add new event listener
+    newDownloadBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        downloadZoneFileFromPreview();
+    });
 }
 
 /**
- * Close preview modal
+ * Close zone preview modal without closing editor modal
  */
-function closePreviewModal() {
-    document.getElementById('previewModal').style.display = 'none';
+function closeZonePreviewModal() {
+    const modal = document.getElementById('zonePreviewModal');
+    modal.classList.remove('open');
 }
 
 /**
- * Download file from preview
+ * Download file from zone preview
  */
-function downloadFromPreview() {
+function downloadZoneFileFromPreview() {
     if (!previewData) {
         showError('Aucun contenu à télécharger');
         return;

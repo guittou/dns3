@@ -489,6 +489,16 @@
     background-color: rgba(0, 0, 0, 0.5);
 }
 
+/* Preview Modal - Higher z-index to appear above other modals */
+.modal.preview-modal {
+    z-index: 9999;
+}
+
+/* Modal open state */
+.modal.open {
+    display: block;
+}
+
 .modal-content {
     background-color: white;
     margin: 5% auto;
@@ -497,6 +507,7 @@
     width: 90%;
     max-width: 600px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    position: relative;
 }
 
 .modal-large {
