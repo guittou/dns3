@@ -225,6 +225,26 @@ try {
                 exit;
             }
 
+            // Validate directory field
+            if (isset($input['directory']) && $input['directory'] !== null && $input['directory'] !== '') {
+                $directory = trim($input['directory']);
+                if (strlen($directory) > 255) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Directory path too long (max 255 characters)']);
+                    exit;
+                }
+                if (strpos($directory, '\\') !== false) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Directory path cannot contain backslashes']);
+                    exit;
+                }
+                if (strpos($directory, '..') !== false) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Directory path cannot contain ".."']);
+                    exit;
+                }
+            }
+
             $user = $auth->getCurrentUser();
             $zone_id = $zoneFile->create($input, $user['id']);
 
@@ -264,6 +284,26 @@ try {
                 if (!in_array($input['file_type'], $valid_types)) {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid file_type. Must be: master or include']);
+                    exit;
+                }
+            }
+
+            // Validate directory field
+            if (isset($input['directory']) && $input['directory'] !== null && $input['directory'] !== '') {
+                $directory = trim($input['directory']);
+                if (strlen($directory) > 255) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Directory path too long (max 255 characters)']);
+                    exit;
+                }
+                if (strpos($directory, '\\') !== false) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Directory path cannot contain backslashes']);
+                    exit;
+                }
+                if (strpos($directory, '..') !== false) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Directory path cannot contain ".."']);
                     exit;
                 }
             }
