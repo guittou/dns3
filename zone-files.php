@@ -66,7 +66,6 @@ if (!$auth->isAdmin()) {
                     <th>Type</th>
                     <th>Nom de fichier</th>
                     <th>Parent</th>
-                    <th># Includes</th>
                     <th>Propriétaire</th>
                     <th>Statut</th>
                     <th>Modifié le</th>
@@ -74,7 +73,7 @@ if (!$auth->isAdmin()) {
             </thead>
             <tbody id="zonesTableBody">
                 <tr>
-                    <td colspan="8" class="loading-cell">
+                    <td colspan="7" class="loading-cell">
                         <div class="loading">Chargement des zones...</div>
                     </td>
                 </tr>
@@ -162,6 +161,11 @@ if (!$auth->isAdmin()) {
                                 <input type="text" id="zoneFilename" class="form-control" required>
                             </div>
                             <div class="form-group">
+                                <label for="zoneDirectory">Répertoire</label>
+                                <input type="text" id="zoneDirectory" class="form-control" placeholder="Exemple: /etc/bind/zones">
+                                <small class="form-text text-muted">Répertoire pour les directives $INCLUDE (optionnel)</small>
+                            </div>
+                            <div class="form-group">
                                 <label for="zoneFileType">Type</label>
                                 <select id="zoneFileType" class="form-control" disabled>
                                     <option value="master">Master</option>
@@ -192,6 +196,14 @@ if (!$auth->isAdmin()) {
                     <div class="form-group">
                         <label for="zoneContent">Contenu du fichier de zone</label>
                         <textarea id="zoneContent" class="form-control code-editor" rows="20"></textarea>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <button type="button" class="btn btn-secondary" onclick="generateZoneFileContent()">
+                            <i class="fas fa-file-code"></i> Générer le fichier de zone
+                        </button>
+                        <small class="form-text text-muted" style="display: inline-block; margin-left: 1rem;">
+                            Génère le contenu complet avec les directives $INCLUDE et les enregistrements DNS
+                        </small>
                     </div>
                 </div>
                 
