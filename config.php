@@ -24,6 +24,10 @@ define('LDAP_BIND_PASS', 'your_ldap_password');
 define('SITE_NAME', 'DNS3');
 define('BASE_URL', '/');
 
+// Zone validation configuration
+define('ZONE_VALIDATE_SYNC', false); // Set to true to run named-checkzone synchronously
+define('NAMED_CHECKZONE_PATH', 'named-checkzone'); // Path to named-checkzone binary
+
 // Session configuration
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_strict_mode', 1);

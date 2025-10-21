@@ -249,6 +249,9 @@ try {
             $zone_id = $zoneFile->create($input, $user['id']);
 
             if ($zone_id) {
+                // Trigger validation after creation
+                $zoneFile->validateZoneFile($zone_id, $user['id']);
+                
                 http_response_code(201);
                 echo json_encode([
                     'success' => true,
@@ -312,6 +315,9 @@ try {
             $success = $zoneFile->update($id, $input, $user['id']);
 
             if ($success) {
+                // Trigger validation after update
+                $zoneFile->validateZoneFile($id, $user['id']);
+                
                 echo json_encode([
                     'success' => true,
                     'message' => 'Zone file updated successfully'
@@ -559,8 +565,8 @@ try {
             exit;
 
         case 'generate_zone_file':
-            // Generate complete zone file with includes and DNS records
-            requireAuth();
+            // Generate complete zone file with includes and DNS records (admin only)
+            requireAdmin();
 
             $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
             if ($id <= 0) {
@@ -588,6 +594,64 @@ try {
                 'content' => $generatedContent,
                 'filename' => $zone['filename']
             ]);
+            break;
+
+        case 'zone_validate':
+            // Trigger or retrieve validation result for a zone
+            requireAuth();
+
+            $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            if ($id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid zone file ID']);
+                exit;
+            }
+
+            $zone = $zoneFile->getById($id);
+            if (!$zone) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Zone file not found']);
+                exit;
+            }
+
+            // Check if requesting new validation or just retrieving latest
+            $trigger = isset($_GET['trigger']) && $_GET['trigger'] === 'true';
+            
+            if ($trigger && $auth->isAdmin()) {
+                // Only admins can trigger validation
+                $user = $auth->getCurrentUser();
+                $sync = isset($_GET['sync']) && $_GET['sync'] === 'true';
+                
+                $result = $zoneFile->validateZoneFile($id, $user['id'], $sync);
+                
+                if ($result === false) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Failed to queue validation']);
+                    exit;
+                }
+                
+                if (is_array($result)) {
+                    // Synchronous result
+                    echo json_encode([
+                        'success' => true,
+                        'validation' => $result
+                    ]);
+                } else {
+                    // Queued for background processing
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Validation queued for background processing'
+                    ]);
+                }
+            } else {
+                // Retrieve latest validation result
+                $validation = $zoneFile->getLatestValidation($id);
+                
+                echo json_encode([
+                    'success' => true,
+                    'validation' => $validation
+                ]);
+            }
             break;
 
         default:
