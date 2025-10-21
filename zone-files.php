@@ -130,30 +130,6 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
-<!-- Preview Modal -->
-<div id="previewModal" class="modal">
-    <div class="modal-content modal-large">
-        <div class="modal-header">
-            <h2 id="previewModalTitle">Aperçu du fichier de zone</h2>
-            <span class="close" onclick="closePreviewModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Contenu généré du fichier de zone</label>
-                <div id="previewContentContainer">
-                    <textarea id="previewContent" class="form-control code-editor" rows="25" readonly></textarea>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer modal-footer-centered">
-            <button type="button" class="btn btn-secondary" onclick="closePreviewModal()">Fermer</button>
-            <button type="button" class="btn btn-primary" onclick="downloadFromPreview()">
-                <i class="fas fa-download"></i> Télécharger
-            </button>
-        </div>
-    </div>
-</div>
-
 <!-- Zone Edit Modal -->
 <div id="zoneModal" class="modal">
     <div class="modal-content modal-large">
@@ -270,6 +246,30 @@ if (!$auth->isAdmin()) {
             <button type="button" class="btn btn-danger" id="deleteZoneBtn" onclick="deleteZone()">Supprimer</button>
             <button type="button" class="btn btn-secondary" onclick="closeZoneModal()">Annuler</button>
             <button type="button" class="btn btn-primary" onclick="saveZone()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Zone Preview Modal (positioned at document root for high z-index) -->
+<div id="zonePreviewModal" class="modal preview-modal">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2 id="zonePreviewModalTitle">Aperçu du fichier de zone</h2>
+            <span class="close" onclick="closeZonePreviewModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Contenu généré du fichier de zone</label>
+                <div id="zonePreviewContentContainer">
+                    <textarea id="zoneGeneratedPreview" class="form-control code-editor" rows="25" readonly></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer modal-footer-centered">
+            <button type="button" class="btn btn-secondary" onclick="closeZonePreviewModal()">Fermer</button>
+            <button type="button" id="downloadZoneFile" class="btn btn-primary">
+                <i class="fas fa-download"></i> Télécharger
+            </button>
         </div>
     </div>
 </div>
