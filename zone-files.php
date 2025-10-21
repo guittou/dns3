@@ -3,17 +3,17 @@ require_once __DIR__ . '/includes/header.php';
 
 // Check if user is logged in and is admin
 if (!$auth->isLoggedIn()) {
-    header('Location: ' . BASE_URL . 'login.php');
+    header('Location: ' . $basePath . 'login.php');
     exit;
 }
 
 if (!$auth->isAdmin()) {
-    header('Location: ' . BASE_URL . 'index.php');
+    header('Location: ' . $basePath . 'index.php');
     exit;
 }
 ?>
 
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/zone-files.css">
+<link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/zone-files.css">
 
 <div class="content-section">
     <div class="header-bar">
@@ -198,7 +198,7 @@ if (!$auth->isAdmin()) {
                         <textarea id="zoneContent" class="form-control code-editor" rows="20"></textarea>
                     </div>
                     <div style="margin-top: 1rem;">
-                        <button type="button" class="btn btn-secondary" onclick="generateZoneFileContent(event)">
+                        <button type="button" id="btnGenerateZoneFile" class="btn btn-secondary" data-action="generate-zone">
                             <i class="fas fa-file-code"></i> Générer le fichier de zone
                         </button>
                         <small class="form-text text-muted" style="display: inline-block; margin-left: 1rem;">
@@ -274,7 +274,7 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
-<script src="<?php echo BASE_URL; ?>assets/js/zone-files.js"></script>
+<script src="<?php echo $basePath; ?>assets/js/zone-files.js"></script>
 
 <?php
 require_once __DIR__ . '/includes/footer.php';

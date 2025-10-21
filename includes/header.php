@@ -6,6 +6,21 @@ require_once __DIR__ . '/auth.php';
 
 $auth = new Auth();
 $user = $auth->getCurrentUser();
+
+// Resilient basePath calculation for assets
+// If BASE_URL is not properly configured, compute it from the current request
+$basePath = defined('BASE_URL') && !empty(BASE_URL) ? BASE_URL : '';
+
+// Fallback: if BASE_URL is empty or incorrect, calculate from current script
+if (empty($basePath)) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https://' : 'http://';
+    $host = $_SERVER['HTTP_HOST'];
+    $scriptPath = dirname(dirname($_SERVER['SCRIPT_NAME'])); // Remove /includes from path
+    $basePath = $protocol . $host . rtrim($scriptPath, '/') . '/';
+}
+
+// Ensure basePath ends with /
+$basePath = rtrim($basePath, '/') . '/';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -13,10 +28,10 @@ $user = $auth->getCurrentUser();
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?php echo SITE_NAME; ?></title>
-  <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
+  <link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/style.css">
   <script>
     // Expose BASE_URL for JavaScript to construct proper URLs
-    window.BASE_URL = '<?php echo rtrim(BASE_URL, '/') . '/'; ?>';
+    window.BASE_URL = '<?php echo $basePath; ?>';
     window.API_BASE = window.BASE_URL + 'api/';
   </script>
 </head>
@@ -25,8 +40,8 @@ $user = $auth->getCurrentUser();
     <div class="bandeau_full" role="presentation">
       <!-- LOGO: collé à l'extrême gauche du viewport (avec offset via CSS --edge-offset) -->
       <div class="bandeau_logo" aria-hidden="false">
-        <a href="<?php echo BASE_URL; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
-          <img src="<?php echo BASE_URL; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
+        <a href="<?php echo $basePath; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
+          <img src="<?php echo $basePath; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
         </a>
       </div>
 
@@ -43,9 +58,9 @@ $user = $auth->getCurrentUser();
       <div class="bandeau_droite" aria-hidden="false">
         <?php if ($auth->isLoggedIn() && $user): ?>
           <span class="bandeau_user"><?php echo htmlspecialchars($user['username']); ?></span>
-          <a href="<?php echo BASE_URL; ?>logout.php" class="btn btn-logout">Déconnexion</a>
+          <a href="<?php echo $basePath; ?>logout.php" class="btn btn-logout">Déconnexion</a>
         <?php else: ?>
-          <a href="<?php echo BASE_URL; ?>login.php" class="btn btn-login">Se connecter</a>
+          <a href="<?php echo $basePath; ?>login.php" class="btn btn-login">Se connecter</a>
         <?php endif; ?>
       </div>
 
@@ -53,10 +68,10 @@ $user = $auth->getCurrentUser();
       <div class="bandeau_onglets_row" role="navigation" aria-label="Navigation principale">
         <ul class="bandeau_onglets">
           <?php if ($auth->isLoggedIn() && $auth->isAdmin()): ?>
-          <li><a href="<?php echo BASE_URL; ?>dns-management.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='dns-management.php') ? ' active' : ''; ?>">DNS</a></li>
-          <li><a href="<?php echo BASE_URL; ?>zone-files.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='zone-files.php' || basename($_SERVER['PHP_SELF'])==='zone-file.php') ? ' active' : ''; ?>">Zones</a></li>
-          <li><a href="<?php echo BASE_URL; ?>applications.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='applications.php') ? ' active' : ''; ?>">Applications</a></li>
-          <li><a href="<?php echo BASE_URL; ?>admin.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='admin.php') ? ' active' : ''; ?>">Administration</a></li>
+          <li><a href="<?php echo $basePath; ?>dns-management.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='dns-management.php') ? ' active' : ''; ?>">DNS</a></li>
+          <li><a href="<?php echo $basePath; ?>zone-files.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='zone-files.php' || basename($_SERVER['PHP_SELF'])==='zone-file.php') ? ' active' : ''; ?>">Zones</a></li>
+          <li><a href="<?php echo $basePath; ?>applications.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='applications.php') ? ' active' : ''; ?>">Applications</a></li>
+          <li><a href="<?php echo $basePath; ?>admin.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='admin.php') ? ' active' : ''; ?>">Administration</a></li>
           <?php endif; ?>
         </ul>
       </div>

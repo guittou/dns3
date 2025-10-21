@@ -78,6 +78,18 @@ function setupEventHandlers() {
             }
         }
     };
+
+    // Delegated event handler for "Générer le fichier de zone" button
+    // This works even if the button is dynamically recreated
+    document.addEventListener('click', function(event) {
+        // Check if clicked element or its parent is the generate button
+        const target = event.target.closest('#btnGenerateZoneFile, [data-action="generate-zone"]');
+        if (target) {
+            event.preventDefault();
+            event.stopPropagation();
+            generateZoneFileContent(event);
+        }
+    });
 }
 
 /**
@@ -711,36 +723,69 @@ async function generateZoneFileContent(e) {
     try {
         const zoneId = currentZoneId || document.getElementById('zoneId').value;
         
+        console.log('[generateZoneFileContent] Starting generation for zone ID:', zoneId);
+        
         if (!zoneId) {
+            console.error('[generateZoneFileContent] No zone ID available');
             showError('Aucune zone sélectionnée');
             return;
         }
         
         // Immediately open preview modal with loading state
+        console.log('[generateZoneFileContent] Opening preview modal with loading state');
         openZonePreviewModal();
         
         // Fetch the generated content
+        console.log('[generateZoneFileContent] Fetching zone file from API...');
         const response = await zoneApiCall('generate_zone_file', {
             params: { id: zoneId }
         });
         
-        if (response.success) {
+        console.log('[generateZoneFileContent] API response received:', {
+            success: response.success,
+            hasContent: !!response.content,
+            filename: response.filename
+        });
+        
+        if (response.success && response.content) {
             // Store preview data
             previewData = {
                 content: response.content,
                 filename: response.filename || 'zone-file.conf'
             };
             
+            console.log('[generateZoneFileContent] Preview data stored, updating content');
+            
             // Update preview content
             updateZonePreviewContent();
+        } else {
+            throw new Error('Réponse invalide du serveur: contenu manquant');
         }
     } catch (error) {
-        console.error('Failed to generate zone file:', error);
-        closeZonePreviewModal();
+        console.error('[generateZoneFileContent] Error:', error);
+        
+        // Show error in preview textarea instead of just closing
+        const textarea = document.getElementById('zoneGeneratedPreview');
+        if (textarea) {
+            let errorMessage = 'Erreur lors de la génération du fichier de zone:\n\n';
+            
+            if (error.message.includes('403') || error.message.includes('Admin privileges required')) {
+                errorMessage += 'Accès refusé: seuls les administrateurs peuvent générer des fichiers de zone.';
+            } else if (error.message.includes('404')) {
+                errorMessage += 'Zone non trouvée.';
+            } else if (error.message.includes('500')) {
+                errorMessage += 'Erreur serveur lors de la génération.';
+            } else {
+                errorMessage += error.message;
+            }
+            
+            textarea.value = errorMessage;
+        }
+        
+        // Also show alert for critical errors
         if (error.message.includes('403') || error.message.includes('Admin privileges required')) {
             showError('Accès refusé: seuls les administrateurs peuvent générer des fichiers de zone');
-        } else {
-            showError('Erreur lors de la génération du fichier de zone: ' + error.message);
+            closeZonePreviewModal();
         }
     }
 }
