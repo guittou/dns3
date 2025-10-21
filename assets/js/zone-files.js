@@ -71,6 +71,8 @@ function setupEventHandlers() {
                 closeCreateZoneModal();
             } else if (event.target.id === 'zoneModal') {
                 closeZoneModal();
+            } else if (event.target.id === 'previewModal') {
+                closePreviewModal();
             } else {
                 event.target.style.display = 'none';
             }
@@ -289,6 +291,9 @@ let currentZone = null;
 let currentTab = 'details';
 let hasUnsavedChanges = false;
 let originalZoneData = null;
+let codeMirrorEditor = null;
+let previewCodeMirror = null;
+let previewData = null;
 
 /**
  * Open zone modal and load zone data
@@ -311,7 +316,9 @@ async function openZoneModal(zoneId) {
             document.getElementById('zoneDirectory').value = currentZone.directory || '';
             document.getElementById('zoneFileType').value = currentZone.file_type;
             document.getElementById('zoneStatus').value = currentZone.status;
-            document.getElementById('zoneContent').value = currentZone.content || '';
+            
+            // Initialize CodeMirror for zone content editor
+            initializeCodeMirrorEditor(currentZone.content || '');
             
             // Show parent select only for includes
             const parentGroup = document.getElementById('parentGroup');
@@ -339,6 +346,41 @@ async function openZoneModal(zoneId) {
 }
 
 /**
+ * Initialize CodeMirror editor for zone content
+ */
+function initializeCodeMirrorEditor(content) {
+    const textarea = document.getElementById('zoneContent');
+    
+    // Destroy existing editor if any
+    if (codeMirrorEditor) {
+        codeMirrorEditor.toTextArea();
+        codeMirrorEditor = null;
+    }
+    
+    // Check if CodeMirror is available
+    if (typeof CodeMirror !== 'undefined') {
+        codeMirrorEditor = CodeMirror.fromTextArea(textarea, {
+            mode: 'dns',
+            lineNumbers: true,
+            theme: 'default',
+            indentUnit: 4,
+            tabSize: 4,
+            lineWrapping: true
+        });
+        
+        codeMirrorEditor.setValue(content);
+        
+        // Setup change detection
+        codeMirrorEditor.on('change', function() {
+            hasUnsavedChanges = true;
+        });
+    } else {
+        // Fallback to textarea
+        textarea.value = content;
+    }
+}
+
+/**
  * Close zone modal
  */
 function closeZoneModal() {
@@ -347,6 +389,13 @@ function closeZoneModal() {
             return;
         }
     }
+    
+    // Destroy CodeMirror editor
+    if (codeMirrorEditor) {
+        codeMirrorEditor.toTextArea();
+        codeMirrorEditor = null;
+    }
+    
     document.getElementById('zoneModal').style.display = 'none';
     currentZone = null;
     hasUnsavedChanges = false;
@@ -456,11 +505,20 @@ function setupChangeDetection() {
 async function saveZone() {
     try {
         const zoneId = document.getElementById('zoneId').value;
+        
+        // Get content from CodeMirror or fallback to textarea
+        let content;
+        if (codeMirrorEditor) {
+            content = codeMirrorEditor.getValue();
+        } else {
+            content = document.getElementById('zoneContent').value;
+        }
+        
         const data = {
             name: document.getElementById('zoneName').value,
             filename: document.getElementById('zoneFilename').value,
             directory: document.getElementById('zoneDirectory').value || null,
-            content: document.getElementById('zoneContent').value
+            content: content
         };
         
         // Handle status change separately if needed
@@ -682,7 +740,7 @@ function showError(message) {
 }
 
 /**
- * Generate zone file content with includes and DNS records
+ * Generate zone file content with includes and DNS records - Show preview
  */
 async function generateZoneFileContent() {
     try {
@@ -693,27 +751,90 @@ async function generateZoneFileContent() {
         });
         
         if (response.success) {
-            // Display the generated content in a preview modal or download it
-            if (confirm('Fichier de zone généré avec succès. Voulez-vous télécharger le fichier?')) {
-                // Create a blob and download the file
-                const blob = new Blob([response.content], { type: 'text/plain' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = response.filename || 'zone-file.conf';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-                showSuccess('Fichier de zone téléchargé avec succès');
-            } else {
-                // Show the content in the textarea for preview
-                document.getElementById('zoneContent').value = response.content;
-                showSuccess('Contenu généré affiché dans l\'éditeur');
-            }
+            // Store preview data and show preview modal
+            previewData = {
+                content: response.content,
+                filename: response.filename || 'zone-file.conf'
+            };
+            openPreviewModal();
         }
     } catch (error) {
         console.error('Failed to generate zone file:', error);
-        showError('Erreur lors de la génération du fichier de zone: ' + error.message);
+        if (error.message.includes('403') || error.message.includes('Admin privileges required')) {
+            showError('Accès refusé: seuls les administrateurs peuvent générer des fichiers de zone');
+        } else {
+            showError('Erreur lors de la génération du fichier de zone: ' + error.message);
+        }
     }
+}
+
+/**
+ * Open preview modal with generated content
+ */
+function openPreviewModal() {
+    if (!previewData) {
+        showError('Aucun contenu à prévisualiser');
+        return;
+    }
+    
+    const modal = document.getElementById('previewModal');
+    const textarea = document.getElementById('previewContent');
+    
+    // Destroy existing preview CodeMirror if any
+    if (previewCodeMirror) {
+        previewCodeMirror.toTextArea();
+        previewCodeMirror = null;
+    }
+    
+    // Initialize CodeMirror for preview (readonly)
+    if (typeof CodeMirror !== 'undefined') {
+        previewCodeMirror = CodeMirror.fromTextArea(textarea, {
+            mode: 'dns',
+            lineNumbers: true,
+            theme: 'default',
+            readOnly: true,
+            lineWrapping: true
+        });
+        previewCodeMirror.setValue(previewData.content);
+    } else {
+        // Fallback to textarea
+        textarea.value = previewData.content;
+    }
+    
+    modal.style.display = 'block';
+}
+
+/**
+ * Close preview modal
+ */
+function closePreviewModal() {
+    // Destroy preview CodeMirror
+    if (previewCodeMirror) {
+        previewCodeMirror.toTextArea();
+        previewCodeMirror = null;
+    }
+    
+    document.getElementById('previewModal').style.display = 'none';
+}
+
+/**
+ * Download file from preview
+ */
+function downloadFromPreview() {
+    if (!previewData) {
+        showError('Aucun contenu à télécharger');
+        return;
+    }
+    
+    // Create a blob and download the file
+    const blob = new Blob([previewData.content], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = previewData.filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    showSuccess('Fichier de zone téléchargé avec succès');
 }

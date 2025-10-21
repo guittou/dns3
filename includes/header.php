@@ -14,6 +14,12 @@ $user = $auth->getCurrentUser();
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?php echo SITE_NAME; ?></title>
   <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/style.css">
+  <!-- CodeMirror CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/default.min.css">
+  <!-- CodeMirror JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/dns/dns.min.js"></script>
   <script>
     // Expose BASE_URL for JavaScript to construct proper URLs
     window.BASE_URL = '<?php echo rtrim(BASE_URL, '/') . '/'; ?>';

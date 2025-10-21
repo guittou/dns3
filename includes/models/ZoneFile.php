@@ -879,5 +879,163 @@ class ZoneFile {
                 return $record['value'];
         }
     }
+
+    /**
+     * Validate zone file using named-checkzone
+     * 
+     * @param int $zoneId Zone file ID
+     * @param int|null $userId User ID who triggered validation
+     * @param bool $sync If true, run synchronously; if false, queue for background processing
+     * @return array|bool Validation result array for sync mode, true for async queued, false on error
+     */
+    public function validateZoneFile($zoneId, $userId = null, $sync = null) {
+        // Use config setting if not explicitly specified
+        if ($sync === null) {
+            $sync = defined('ZONE_VALIDATE_SYNC') ? ZONE_VALIDATE_SYNC : false;
+        }
+
+        try {
+            $zone = $this->getById($zoneId);
+            if (!$zone) {
+                return false;
+            }
+
+            if ($sync) {
+                // Run validation synchronously
+                return $this->runNamedCheckzone($zoneId, $zone, $userId);
+            } else {
+                // Queue for background processing
+                return $this->queueValidation($zoneId, $userId);
+            }
+        } catch (Exception $e) {
+            error_log("ZoneFile validateZoneFile error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Run named-checkzone command synchronously
+     * 
+     * @param int $zoneId Zone file ID
+     * @param array $zone Zone data
+     * @param int|null $userId User ID
+     * @return array Validation result [status, output]
+     */
+    private function runNamedCheckzone($zoneId, $zone, $userId) {
+        $namedCheckzone = defined('NAMED_CHECKZONE_PATH') ? NAMED_CHECKZONE_PATH : 'named-checkzone';
+        
+        // Create temporary file with zone content
+        $tempFile = tempnam(sys_get_temp_dir(), 'zone_');
+        $content = $this->generateZoneFile($zoneId);
+        file_put_contents($tempFile, $content);
+        
+        // Run named-checkzone
+        $zoneName = $zone['name'];
+        $command = escapeshellcmd($namedCheckzone) . ' ' . escapeshellarg($zoneName) . ' ' . escapeshellarg($tempFile) . ' 2>&1';
+        
+        exec($command, $output, $returnCode);
+        $outputText = implode("\n", $output);
+        
+        // Clean up temp file
+        unlink($tempFile);
+        
+        // Determine status
+        $status = ($returnCode === 0) ? 'passed' : 'failed';
+        
+        // Store validation result
+        $this->storeValidationResult($zoneId, $status, $outputText, $userId);
+        
+        return [
+            'status' => $status,
+            'output' => $outputText,
+            'return_code' => $returnCode
+        ];
+    }
+
+    /**
+     * Queue validation for background processing
+     * 
+     * @param int $zoneId Zone file ID
+     * @param int|null $userId User ID
+     * @return bool Success status
+     */
+    private function queueValidation($zoneId, $userId) {
+        // Create jobs directory if it doesn't exist
+        $jobsDir = __DIR__ . '/../../jobs';
+        if (!is_dir($jobsDir)) {
+            mkdir($jobsDir, 0755, true);
+        }
+        
+        $queueFile = $jobsDir . '/validation_queue.json';
+        
+        // Load existing queue
+        $queue = [];
+        if (file_exists($queueFile)) {
+            $queue = json_decode(file_get_contents($queueFile), true) ?: [];
+        }
+        
+        // Add new job
+        $queue[] = [
+            'zone_id' => $zoneId,
+            'user_id' => $userId,
+            'queued_at' => date('Y-m-d H:i:s')
+        ];
+        
+        // Save queue
+        file_put_contents($queueFile, json_encode($queue, JSON_PRETTY_PRINT));
+        
+        // Store pending status
+        $this->storeValidationResult($zoneId, 'pending', 'Validation queued for background processing', $userId);
+        
+        return true;
+    }
+
+    /**
+     * Store validation result in database
+     * 
+     * @param int $zoneId Zone file ID
+     * @param string $status Validation status
+     * @param string $output Command output
+     * @param int|null $userId User ID
+     * @return bool Success status
+     */
+    private function storeValidationResult($zoneId, $status, $output, $userId) {
+        try {
+            $sql = "INSERT INTO zone_file_validation (zone_file_id, status, output, run_by, checked_at)
+                    VALUES (?, ?, ?, ?, NOW())";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$zoneId, $status, $output, $userId]);
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("ZoneFile storeValidationResult error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get latest validation result for a zone
+     * 
+     * @param int $zoneId Zone file ID
+     * @return array|null Validation result or null
+     */
+    public function getLatestValidation($zoneId) {
+        try {
+            $sql = "SELECT v.*, u.username as run_by_username
+                    FROM zone_file_validation v
+                    LEFT JOIN users u ON v.run_by = u.id
+                    WHERE v.zone_file_id = ?
+                    ORDER BY v.checked_at DESC
+                    LIMIT 1";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$zoneId]);
+            return $stmt->fetch() ?: null;
+        } catch (Exception $e) {
+            error_log("ZoneFile getLatestValidation error: " . $e->getMessage());
+            return null;
+        }
+    }
 }
 ?>
