@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS zone_files (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Zone name (e.g., example.com)',
     filename VARCHAR(255) NOT NULL COMMENT 'Zone file name',
-    content TEXT NULL COMMENT 'Zone file content',
+    content MEDIUMTEXT NULL COMMENT 'Zone file content',
     file_type ENUM('master', 'include') NOT NULL DEFAULT 'master' COMMENT 'Type of zone file',
     status ENUM('active', 'inactive', 'deleted') DEFAULT 'active' COMMENT 'Zone status',
     created_by INT NULL,
@@ -24,16 +24,19 @@ CREATE TABLE IF NOT EXISTS zone_files (
     INDEX idx_created_by (created_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create zone_file_includes table for master/include relationships
+-- Create zone_file_includes table for recursive parent/include relationships
 CREATE TABLE IF NOT EXISTS zone_file_includes (
-    master_id INT NOT NULL COMMENT 'ID of master zone file',
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    parent_id INT NOT NULL COMMENT 'ID of parent zone file (can be master or include)',
     include_id INT NOT NULL COMMENT 'ID of include zone file',
+    position INT DEFAULT 0 COMMENT 'Order position for includes',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (master_id, include_id),
-    FOREIGN KEY (master_id) REFERENCES zone_files(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_parent_include (parent_id, include_id),
+    FOREIGN KEY (parent_id) REFERENCES zone_files(id) ON DELETE CASCADE,
     FOREIGN KEY (include_id) REFERENCES zone_files(id) ON DELETE CASCADE,
-    INDEX idx_master_id (master_id),
-    INDEX idx_include_id (include_id)
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_include_id (include_id),
+    INDEX idx_position (position)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create applications table
@@ -62,8 +65,8 @@ CREATE TABLE IF NOT EXISTS zone_file_history (
     file_type ENUM('master', 'include') NOT NULL,
     old_status ENUM('active', 'inactive', 'deleted') NULL,
     new_status ENUM('active', 'inactive', 'deleted') NOT NULL,
-    old_content TEXT NULL COMMENT 'Previous zone file content',
-    new_content TEXT NULL COMMENT 'New zone file content',
+    old_content MEDIUMTEXT NULL COMMENT 'Previous zone file content',
+    new_content MEDIUMTEXT NULL COMMENT 'New zone file content',
     changed_by INT NOT NULL,
     changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT NULL,

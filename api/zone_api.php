@@ -107,11 +107,9 @@ try {
                 exit;
             }
 
-            // Also get includes if this is a master zone
+            // Also get includes if this zone has any (masters and includes can have includes)
             $includes = [];
-            if ($zone['file_type'] === 'master') {
-                $includes = $zoneFile->getIncludes($id);
-            }
+            $includes = $zoneFile->getIncludes($id);
 
             // Also get history
             $history = $zoneFile->getHistory($id);
@@ -246,29 +244,110 @@ try {
             break;
 
         case 'assign_include':
-            // Assign an include file to a master zone (admin only)
+            // Assign an include file to a parent zone with cycle detection (admin only)
             requireAdmin();
 
-            $master_id = isset($_GET['master_id']) ? (int)$_GET['master_id'] : 0;
-            $include_id = isset($_GET['include_id']) ? (int)$_GET['include_id'] : 0;
+            // Get JSON input for POST data
+            $input = json_decode(file_get_contents('php://input'), true);
+            if (!$input) {
+                $input = $_POST;
+            }
 
-            if ($master_id <= 0 || $include_id <= 0) {
+            $parent_id = isset($input['parent_id']) ? (int)$input['parent_id'] : (isset($_GET['parent_id']) ? (int)$_GET['parent_id'] : 0);
+            $include_id = isset($input['include_id']) ? (int)$input['include_id'] : (isset($_GET['include_id']) ? (int)$_GET['include_id'] : 0);
+            $position = isset($input['position']) ? (int)$input['position'] : 0;
+
+            if ($parent_id <= 0 || $include_id <= 0) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid master_id or include_id']);
+                echo json_encode(['error' => 'Invalid parent_id or include_id']);
                 exit;
             }
 
-            $success = $zoneFile->assignInclude($master_id, $include_id);
+            $result = $zoneFile->assignInclude($parent_id, $include_id, $position);
+
+            if ($result === true) {
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Include assigned to parent zone successfully'
+                ]);
+            } else {
+                http_response_code(400);
+                echo json_encode(['error' => is_string($result) ? $result : 'Failed to assign include to parent zone']);
+            }
+            break;
+
+        case 'remove_include':
+            // Remove an include assignment (admin only)
+            requireAdmin();
+
+            $parent_id = isset($_GET['parent_id']) ? (int)$_GET['parent_id'] : 0;
+            $include_id = isset($_GET['include_id']) ? (int)$_GET['include_id'] : 0;
+
+            if ($parent_id <= 0 || $include_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid parent_id or include_id']);
+                exit;
+            }
+
+            $success = $zoneFile->removeInclude($parent_id, $include_id);
 
             if ($success) {
                 echo json_encode([
                     'success' => true,
-                    'message' => 'Include assigned to master zone successfully'
+                    'message' => 'Include removed successfully'
                 ]);
             } else {
                 http_response_code(500);
-                echo json_encode(['error' => 'Failed to assign include to master zone']);
+                echo json_encode(['error' => 'Failed to remove include']);
             }
+            break;
+
+        case 'get_tree':
+            // Get recursive include tree for a zone (requires authentication)
+            requireAuth();
+
+            $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            if ($id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid zone file ID']);
+                exit;
+            }
+
+            $tree = $zoneFile->getIncludeTree($id);
+            if ($tree === null) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Zone file not found']);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'data' => $tree
+            ]);
+            break;
+
+        case 'render_resolved':
+            // Get flattened content with all includes resolved (requires authentication)
+            requireAuth();
+
+            $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            if ($id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid zone file ID']);
+                exit;
+            }
+
+            $content = $zoneFile->renderResolvedContent($id);
+            if ($content === null) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Zone file not found']);
+                exit;
+            }
+
+            echo json_encode([
+                'success' => true,
+                'content' => $content
+            ]);
             break;
 
         case 'download_zone':

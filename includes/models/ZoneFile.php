@@ -248,57 +248,264 @@ class ZoneFile {
     }
 
     /**
-     * Assign an include file to a master zone
+     * Assign an include file to a parent zone with cycle detection
      * 
-     * @param int $master_id Master zone file ID
-     * @param int $include_id Include zone file ID
-     * @return bool Success status
+     * @param int $parentId Parent zone file ID (can be master or include)
+     * @param int $includeId Include zone file ID
+     * @param int $position Position for ordering (default 0)
+     * @return bool|string Success status or error message
      */
-    public function assignInclude($master_id, $include_id) {
+    public function assignInclude($parentId, $includeId, $position = 0) {
         try {
+            // Prevent self-include
+            if ($parentId === $includeId) {
+                return "Cannot include a zone file in itself";
+            }
+            
             // Verify both zones exist
-            $master = $this->getById($master_id);
-            $include = $this->getById($include_id);
+            $parent = $this->getById($parentId);
+            $include = $this->getById($includeId);
             
-            if (!$master || !$include) {
-                return false;
+            if (!$parent || !$include) {
+                return "Zone file not found";
             }
             
-            // Verify master is actually a master and include is actually an include
-            if ($master['file_type'] !== 'master' || $include['file_type'] !== 'include') {
-                return false;
+            // Verify include is actually an include type
+            if ($include['file_type'] !== 'include') {
+                return "Only include-type zone files can be assigned as includes";
             }
             
-            $sql = "INSERT INTO zone_file_includes (master_id, include_id, created_at)
-                    VALUES (?, ?, NOW())
-                    ON DUPLICATE KEY UPDATE created_at = created_at";
+            // Check for cycles: verify that includeId doesn't have parentId as an ancestor
+            if ($this->hasAncestor($includeId, $parentId)) {
+                return "Cannot create circular dependency: this would create a cycle in the include tree";
+            }
+            
+            $sql = "INSERT INTO zone_file_includes (parent_id, include_id, position, created_at)
+                    VALUES (?, ?, ?, NOW())
+                    ON DUPLICATE KEY UPDATE position = VALUES(position)";
             
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$master_id, $include_id]);
+            $stmt->execute([$parentId, $includeId, $position]);
             
             return true;
         } catch (Exception $e) {
             error_log("ZoneFile assignInclude error: " . $e->getMessage());
+            return "Failed to assign include: " . $e->getMessage();
+        }
+    }
+    
+    /**
+     * Check if a zone file has a specific ancestor in its include tree
+     * Used for cycle detection
+     * 
+     * @param int $candidateIncludeId The zone that would be included
+     * @param int $targetId The zone we're checking for in the ancestry
+     * @return bool True if targetId is an ancestor of candidateIncludeId
+     */
+    public function hasAncestor($candidateIncludeId, $targetId) {
+        try {
+            // Use recursive query if MySQL 8.0+ supports it
+            // Otherwise use PHP-based traversal
+            $visited = [];
+            return $this->hasAncestorRecursive($candidateIncludeId, $targetId, $visited);
+        } catch (Exception $e) {
+            error_log("ZoneFile hasAncestor error: " . $e->getMessage());
             return false;
+        }
+    }
+    
+    /**
+     * Recursive helper for cycle detection
+     * 
+     * @param int $currentId Current zone file being checked
+     * @param int $targetId Target zone we're looking for
+     * @param array &$visited Array of visited IDs to prevent infinite loops
+     * @return bool True if targetId is found in the include tree
+     */
+    private function hasAncestorRecursive($currentId, $targetId, &$visited) {
+        // Prevent infinite loops
+        if (in_array($currentId, $visited)) {
+            return false;
+        }
+        $visited[] = $currentId;
+        
+        // Get all includes for current zone
+        $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$currentId]);
+        $includes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        foreach ($includes as $includeId) {
+            // If we find the target, we have a cycle
+            if ($includeId == $targetId) {
+                return true;
+            }
+            // Check recursively
+            if ($this->hasAncestorRecursive($includeId, $targetId, $visited)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Remove an include assignment
+     * 
+     * @param int $parentId Parent zone file ID
+     * @param int $includeId Include zone file ID
+     * @return bool Success status
+     */
+    public function removeInclude($parentId, $includeId) {
+        try {
+            $sql = "DELETE FROM zone_file_includes WHERE parent_id = ? AND include_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$parentId, $includeId]);
+            return true;
+        } catch (Exception $e) {
+            error_log("ZoneFile removeInclude error: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Get the complete include tree for a zone file
+     * Returns a recursive structure of all includes
+     * 
+     * @param int $rootId Root zone file ID
+     * @param array &$visited Array to track visited nodes (prevents infinite loops)
+     * @return array Recursive tree structure
+     */
+    public function getIncludeTree($rootId, &$visited = []) {
+        try {
+            // Prevent infinite loops
+            if (in_array($rootId, $visited)) {
+                return [
+                    'error' => 'Circular reference detected',
+                    'id' => $rootId
+                ];
+            }
+            $visited[] = $rootId;
+            
+            // Get root zone info
+            $root = $this->getById($rootId);
+            if (!$root) {
+                return null;
+            }
+            
+            $tree = [
+                'id' => $root['id'],
+                'name' => $root['name'],
+                'filename' => $root['filename'],
+                'file_type' => $root['file_type'],
+                'status' => $root['status'],
+                'includes' => []
+            ];
+            
+            // Get includes ordered by position
+            $sql = "SELECT zf.*, zfi.position
+                    FROM zone_files zf
+                    INNER JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                    WHERE zfi.parent_id = ? AND zf.status = 'active'
+                    ORDER BY zfi.position, zf.name";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$rootId]);
+            $includes = $stmt->fetchAll();
+            
+            foreach ($includes as $include) {
+                // Recursively build tree for each include
+                $subtree = $this->getIncludeTree($include['id'], $visited);
+                if ($subtree) {
+                    $subtree['position'] = $include['position'];
+                    $tree['includes'][] = $subtree;
+                }
+            }
+            
+            return $tree;
+        } catch (Exception $e) {
+            error_log("ZoneFile getIncludeTree error: " . $e->getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Render the complete resolved content for a zone file
+     * Flattens all includes recursively into a single content string
+     * 
+     * @param int $rootId Root zone file ID
+     * @param array &$visited Array to track visited nodes (prevents infinite loops)
+     * @return string|null Flattened content or null on error
+     */
+    public function renderResolvedContent($rootId, &$visited = []) {
+        try {
+            // Prevent infinite loops
+            if (in_array($rootId, $visited)) {
+                return "\n; ERROR: Circular reference detected for zone ID $rootId\n";
+            }
+            $visited[] = $rootId;
+            
+            // Get zone info
+            $zone = $this->getById($rootId);
+            if (!$zone) {
+                return null;
+            }
+            
+            $content = '';
+            
+            // Add comment header
+            $content .= "; Zone: {$zone['name']} ({$zone['filename']})\n";
+            $content .= "; Type: {$zone['file_type']}\n";
+            $content .= "; Generated: " . date('Y-m-d H:i:s') . "\n\n";
+            
+            // Add zone's own content
+            if (!empty($zone['content'])) {
+                $content .= $zone['content'] . "\n\n";
+            }
+            
+            // Get includes ordered by position
+            $sql = "SELECT zf.id, zf.name, zf.filename, zfi.position
+                    FROM zone_files zf
+                    INNER JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                    WHERE zfi.parent_id = ? AND zf.status = 'active'
+                    ORDER BY zfi.position, zf.name";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$rootId]);
+            $includes = $stmt->fetchAll();
+            
+            foreach ($includes as $include) {
+                $content .= "; Including: {$include['name']} ({$include['filename']})\n";
+                // Recursively render includes
+                $includeContent = $this->renderResolvedContent($include['id'], $visited);
+                if ($includeContent !== null) {
+                    $content .= $includeContent . "\n";
+                }
+            }
+            
+            return $content;
+        } catch (Exception $e) {
+            error_log("ZoneFile renderResolvedContent error: " . $e->getMessage());
+            return null;
         }
     }
 
     /**
-     * Get includes for a master zone
+     * Get includes for a parent zone
      * 
-     * @param int $master_id Master zone file ID
+     * @param int $parentId Parent zone file ID
      * @return array Array of include zone files
      */
-    public function getIncludes($master_id) {
+    public function getIncludes($parentId) {
         try {
-            $sql = "SELECT zf.* 
+            $sql = "SELECT zf.*, zfi.position
                     FROM zone_files zf
                     INNER JOIN zone_file_includes zfi ON zf.id = zfi.include_id
-                    WHERE zfi.master_id = ? AND zf.status = 'active'
-                    ORDER BY zf.name";
+                    WHERE zfi.parent_id = ? AND zf.status = 'active'
+                    ORDER BY zfi.position, zf.name";
             
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$master_id]);
+            $stmt->execute([$parentId]);
             return $stmt->fetchAll();
         } catch (Exception $e) {
             error_log("ZoneFile getIncludes error: " . $e->getMessage());
