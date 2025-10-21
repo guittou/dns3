@@ -61,42 +61,56 @@ function setupEventHandlers() {
 }
 
 /**
- * Make API call to zone API
+ * Make API call to zone API (fixed)
  */
 async function zoneApiCall(action, options = {}) {
-    const method = options.method || 'GET';
+    const method = (options.method || 'GET').toUpperCase();
     const params = options.params || {};
     const body = options.body || null;
 
-    let url = `${API_BASE}?action=${action}`;
+    // Build explicit URL to zone_api.php (API_BASE already ends with 'api/')
+    let url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
+    url.searchParams.append('action', action);
+
     if (method === 'GET' && Object.keys(params).length > 0) {
-        const queryString = new URLSearchParams(params).toString();
-        url += `&${queryString}`;
+        Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
     }
 
     const fetchOptions = {
         method: method,
         headers: {
-            'Content-Type': 'application/json'
-        }
+            'Accept': 'application/json'
+        },
+        credentials: 'same-origin' // important: send session cookie
     };
 
-    if (body && (method === 'POST' || method === 'PUT')) {
+    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+        fetchOptions.headers['Content-Type'] = 'application/json';
         fetchOptions.body = JSON.stringify(body);
     }
 
     try {
-        const response = await fetch(url, fetchOptions);
-        const data = await response.json();
+        const response = await fetch(url.toString(), fetchOptions);
+
+        // Try parse JSON
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonErr) {
+            const text = await response.text();
+            console.error('zoneApiCall: invalid JSON response', text);
+            throw new Error('Invalid JSON response from server');
+        }
 
         if (!response.ok) {
-            throw new Error(data.error || `HTTP error ${response.status}`);
+            // bubble up server error message if present
+            throw new Error(data.error || `HTTP ${response.status}`);
         }
 
         return data;
-    } catch (error) {
-        console.error('API call failed:', error);
-        throw error;
+    } catch (err) {
+        console.error('zoneApiCall error:', err);
+        throw err;
     }
 }
 
