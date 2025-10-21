@@ -1,4 +1,16 @@
 <?php
+require_once 'config.php';
+require_once 'includes/auth.php';
+
+// Initialize auth
+$auth = new Auth();
+
+// Require authentication - redirect to login if not logged in
+if (!$auth->isLoggedIn()) {
+    header('Location: ' . BASE_URL . 'login.php');
+    exit;
+}
+
 require_once 'includes/header.php';
 ?>
 
