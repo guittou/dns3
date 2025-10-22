@@ -102,8 +102,14 @@ if (!$auth->isAdmin()) {
             <h2>Créer une nouvelle zone</h2>
             <span class="close" onclick="closeCreateZoneModal()">&times;</span>
         </div>
-        <form id="createZoneForm">
-            <div id="createZoneErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>
+        <form id="createZoneForm" onsubmit="return false;">
+            <!-- Error banner for create modal -->
+            <div id="createZoneErrorBanner" class="modal-error-banner" role="alert" tabindex="-1" style="display:none;">
+                <button class="modal-error-close" aria-label="Fermer" onclick="clearModalError('createZone')">&times;</button>
+                <strong class="modal-error-title">Erreur&nbsp;:</strong>
+                <div id="createZoneErrorMessage" class="modal-error-message"></div>
+            </div>
+            
             <div class="form-group">
                 <label for="createName">Nom *</label>
                 <input type="text" id="createName" class="form-control" required>
@@ -139,7 +145,13 @@ if (!$auth->isAdmin()) {
             <span class="close" onclick="closeZoneModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <div id="zoneModalErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>
+            <!-- Error banner for edit modal -->
+            <div id="zoneModalErrorBanner" class="modal-error-banner" role="alert" tabindex="-1" style="display:none;">
+                <button class="modal-error-close" aria-label="Fermer" onclick="clearModalError('zoneModal')">&times;</button>
+                <strong class="modal-error-title">Erreur&nbsp;:</strong>
+                <div id="zoneModalErrorMessage" class="modal-error-message"></div>
+            </div>
+            
             <!-- Tabs -->
             <div class="tabs">
                 <button type="button" class="tab-btn active" onclick="switchTab('details')">Détails</button>

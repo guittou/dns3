@@ -968,3 +968,35 @@
     --bg-secondary: #f5f5f5;
     --bg-hover: #f8f9fa;
 }
+
+/* Modal Error Banner Styles */
+.modal-error-banner {
+    background-color: #f8d7da; /* light red/pink background */
+    color: #842029;            /* dark red text */
+    border: 1px solid #f5c2c7;
+    padding: 0.75rem 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+    position: relative;
+    font-size: 0.95rem;
+}
+.modal-error-banner .modal-error-title {
+    margin-right: 0.5rem;
+}
+.modal-error-banner .modal-error-close {
+    position: absolute;
+    right: 0.5rem;
+    top: 0.25rem;
+    background: transparent;
+    border: none;
+    color: #842029;
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+.modal-error-banner .modal-error-close:hover {
+    color: #58151c;
+}
+.modal-error-message {
+    margin-top: 0.25rem;
+    white-space: normal;
+}

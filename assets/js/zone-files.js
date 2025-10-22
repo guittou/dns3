@@ -746,28 +746,39 @@ function showError(message) {
 
 /**
  * Show error banner in a modal
- * @param {string} modalId - Modal ID prefix (e.g., 'createZone' or 'zoneModal')
+ * @param {string} modalKey - Modal key (e.g., 'createZone' or 'zoneModal')
  * @param {string} message - Error message to display
  */
-function showModalError(modalId, message) {
-    const banner = document.getElementById(modalId + 'ErrorBanner');
-    if (banner) {
-        banner.innerText = message;
+function showModalError(modalKey, message) {
+    try {
+        const banner = document.getElementById(modalKey + 'ErrorBanner');
+        const msgEl = document.getElementById(modalKey + 'ErrorMessage');
+        if (!banner || !msgEl) {
+            console.warn('Banner elements not found for', modalKey);
+            showError('Erreur : ' + (message || 'Une erreur est survenue'));
+            return;
+        }
+        msgEl.textContent = message || "Erreur de validation : vérifiez les champs du formulaire.";
         banner.style.display = 'block';
-        // Focus the banner for accessibility
         banner.focus();
+    } catch (e) {
+        console.error('showModalError failed', e);
     }
 }
 
 /**
  * Clear error banner in a modal
- * @param {string} modalId - Modal ID prefix (e.g., 'createZone' or 'zoneModal')
+ * @param {string} modalKey - Modal key (e.g., 'createZone' or 'zoneModal')
  */
-function clearModalError(modalId) {
-    const banner = document.getElementById(modalId + 'ErrorBanner');
-    if (banner) {
+function clearModalError(modalKey) {
+    try {
+        const banner = document.getElementById(modalKey + 'ErrorBanner');
+        const msgEl = document.getElementById(modalKey + 'ErrorMessage');
+        if (!banner) return;
         banner.style.display = 'none';
-        banner.innerText = '';
+        if (msgEl) msgEl.textContent = '';
+    } catch (e) {
+        console.error('clearModalError failed', e);
     }
 }
 
