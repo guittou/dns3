@@ -264,6 +264,11 @@ if (!$auth->isAdmin()) {
                     <textarea id="zoneGeneratedPreview" class="form-control code-editor" rows="25" readonly></textarea>
                 </div>
             </div>
+            <div id="zoneValidationResults" class="validation-results" style="display: none;">
+                <h4>Résultat de la validation (named-checkzone)</h4>
+                <div id="zoneValidationStatus" class="validation-status"></div>
+                <div id="zoneValidationOutput" class="validation-output"></div>
+            </div>
         </div>
         <div class="modal-footer modal-footer-centered">
             <button type="button" id="closeZonePreview" class="btn btn-secondary" onclick="closeZonePreviewModal()">Fermer</button>

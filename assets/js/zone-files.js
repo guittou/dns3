@@ -801,12 +801,21 @@ async function handleGenerateZoneFile() {
         // Update preview content
         updateZonePreviewContent();
         
+        // Now trigger validation and display results
+        await fetchAndDisplayValidation(zoneId);
+        
     } catch (error) {
         console.error('Failed to generate zone file:', error);
         
         // Show error in preview textarea
         const textarea = document.getElementById('zoneGeneratedPreview');
         textarea.value = `Erreur lors de la génération du fichier de zone:\n\n${error.message}\n\nVeuillez consulter la console pour plus de détails.`;
+        
+        // Hide validation results on error
+        const validationResults = document.getElementById('zoneValidationResults');
+        if (validationResults) {
+            validationResults.style.display = 'none';
+        }
         
         // Don't close the modal - let user see the error
     }
@@ -904,4 +913,116 @@ function downloadZoneFileFromPreview() {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
     showSuccess('Fichier de zone téléchargé avec succès');
+}
+
+/**
+ * Fetch and display validation results for a zone
+ */
+async function fetchAndDisplayValidation(zoneId) {
+    try {
+        // Build URL for validation API request
+        const url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
+        url.searchParams.append('action', 'zone_validate');
+        url.searchParams.append('id', zoneId);
+        url.searchParams.append('trigger', 'true');
+        
+        // Fetch validation result with credentials
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+        
+        // Handle response
+        let data;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+            try {
+                data = await response.json();
+            } catch (jsonErr) {
+                console.error('Failed to parse validation JSON response:', jsonErr);
+                const textContent = await response.text();
+                console.error('Response text:', textContent);
+                throw new Error('Réponse JSON invalide du serveur pour la validation');
+            }
+        } else {
+            const textContent = await response.text();
+            console.error('Non-JSON validation response received:', textContent);
+            throw new Error('Le serveur a retourné une réponse non-JSON pour la validation');
+        }
+        
+        if (!response.ok) {
+            console.error('Validation HTTP error:', response.status, data);
+            throw new Error(data.error || `Erreur HTTP ${response.status} lors de la validation`);
+        }
+        
+        if (!data.success) {
+            console.error('Validation API error:', data);
+            throw new Error(data.error || 'La validation a échoué');
+        }
+        
+        // Display validation results
+        displayValidationResults(data.validation);
+        
+    } catch (error) {
+        console.error('Failed to fetch validation:', error);
+        
+        // Show error in validation section
+        const validationResults = document.getElementById('zoneValidationResults');
+        const validationStatus = document.getElementById('zoneValidationStatus');
+        const validationOutput = document.getElementById('zoneValidationOutput');
+        
+        if (validationResults && validationStatus && validationOutput) {
+            validationResults.style.display = 'block';
+            validationStatus.className = 'validation-status failed';
+            validationStatus.textContent = '❌ Erreur lors de la récupération de la validation';
+            validationOutput.textContent = `Erreur: ${error.message}\n\nLa validation n'a pas pu être effectuée. Veuillez consulter la console pour plus de détails.`;
+        }
+    }
+}
+
+/**
+ * Display validation results in the modal
+ */
+function displayValidationResults(validation) {
+    const validationResults = document.getElementById('zoneValidationResults');
+    const validationStatus = document.getElementById('zoneValidationStatus');
+    const validationOutput = document.getElementById('zoneValidationOutput');
+    
+    if (!validationResults || !validationStatus || !validationOutput) {
+        console.error('Validation result elements not found in DOM');
+        return;
+    }
+    
+    // Show validation section
+    validationResults.style.display = 'block';
+    
+    // Handle case where validation is null or queued
+    if (!validation) {
+        validationStatus.className = 'validation-status pending';
+        validationStatus.textContent = '⏳ En attente';
+        validationOutput.textContent = 'La validation n\'a pas encore été effectuée pour cette zone.';
+        return;
+    }
+    
+    // Display validation status
+    const status = validation.status || 'pending';
+    validationStatus.className = `validation-status ${status}`;
+    
+    if (status === 'passed') {
+        validationStatus.textContent = '✅ Validation réussie';
+    } else if (status === 'failed') {
+        validationStatus.textContent = '❌ Validation échouée';
+    } else if (status === 'pending') {
+        validationStatus.textContent = '⏳ Validation en cours';
+    } else {
+        validationStatus.textContent = `Statut: ${status}`;
+    }
+    
+    // Display validation output
+    const output = validation.output || 'Aucune sortie disponible';
+    validationOutput.textContent = output;
 }
