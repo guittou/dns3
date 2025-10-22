@@ -103,6 +103,7 @@ if (!$auth->isAdmin()) {
             <span class="close" onclick="closeCreateZoneModal()">&times;</span>
         </div>
         <form id="createZoneForm">
+            <div id="createZoneErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>
             <div class="form-group">
                 <label for="createName">Nom *</label>
                 <input type="text" id="createName" class="form-control" required>
@@ -124,7 +125,7 @@ if (!$auth->isAdmin()) {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeCreateZoneModal()">Annuler</button>
-                <button type="submit" class="btn btn-primary">Créer</button>
+                <button type="button" class="btn btn-primary" onclick="createZone()">Créer</button>
             </div>
         </form>
     </div>
@@ -138,6 +139,7 @@ if (!$auth->isAdmin()) {
             <span class="close" onclick="closeZoneModal()">&times;</span>
         </div>
         <div class="modal-body">
+            <div id="zoneModalErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>
             <!-- Tabs -->
             <div class="tabs">
                 <button type="button" class="tab-btn active" onclick="switchTab('details')">Détails</button>
