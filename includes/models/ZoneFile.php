@@ -1012,7 +1012,7 @@ class ZoneFile {
     }
 
     /**
-     * Run named-checkzone command synchronously
+     * Run named-checkzone command synchronously with $INCLUDE inlining
      * 
      * @param int $zoneId Zone file ID
      * @param array $zone Zone data
@@ -1022,35 +1022,167 @@ class ZoneFile {
     private function runNamedCheckzone($zoneId, $zone, $userId) {
         $namedCheckzone = defined('NAMED_CHECKZONE_PATH') ? NAMED_CHECKZONE_PATH : 'named-checkzone';
         
-        // Create temporary file with zone content
-        $tempFile = tempnam(sys_get_temp_dir(), 'zone_');
-        $content = $this->generateZoneFile($zoneId);
-        file_put_contents($tempFile, $content);
+        // Create secure temporary directory
+        $tmpDir = sys_get_temp_dir() . '/dns3_validation_' . uniqid();
+        if (!mkdir($tmpDir, 0700, true)) {
+            $errorMsg = "Failed to create temporary directory for validation";
+            $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
+            return [
+                'status' => 'failed',
+                'output' => $errorMsg,
+                'return_code' => 1
+            ];
+        }
         
-        // Run named-checkzone
-        $zoneName = $zone['name'];
-        $command = escapeshellcmd($namedCheckzone) . ' ' . escapeshellarg($zoneName) . ' ' . escapeshellarg($tempFile) . ' 2>&1';
+        try {
+            // Get zone content with $INCLUDE directives
+            $content = $this->generateZoneFile($zoneId);
+            
+            // Inline all $INCLUDE directives recursively
+            $visited = [];
+            try {
+                $inlinedContent = $this->inlineIncludes($content, $visited, 0);
+            } catch (Exception $e) {
+                $errorMsg = "Failed to inline includes: " . $e->getMessage();
+                $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
+                $this->rrmdir($tmpDir);
+                return [
+                    'status' => 'failed',
+                    'output' => $errorMsg,
+                    'return_code' => 1
+                ];
+            }
+            
+            // Write inlined content to temporary file
+            $tempFileName = 'zone_' . $zoneId . '.db';
+            $tempFile = $tmpDir . '/' . $tempFileName;
+            file_put_contents($tempFile, $inlinedContent);
+            
+            // Run named-checkzone from within the tmpdir to handle any relative paths
+            $zoneName = $zone['name'];
+            $command = 'cd ' . escapeshellarg($tmpDir) . ' && ' . 
+                       escapeshellcmd($namedCheckzone) . ' ' . 
+                       escapeshellarg($zoneName) . ' ' . 
+                       escapeshellarg($tempFileName) . ' 2>&1';
+            
+            exec($command, $output, $returnCode);
+            $outputText = implode("\n", $output);
+            
+            // Determine status
+            $status = ($returnCode === 0) ? 'passed' : 'failed';
+            
+            // Store validation result
+            $this->storeValidationResult($zoneId, $status, $outputText, $userId);
+            
+            // If this is a master or parent zone, propagate validation result to all includes
+            $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $outputText, $userId);
+            
+            return [
+                'status' => $status,
+                'output' => $outputText,
+                'return_code' => $returnCode
+            ];
+        } finally {
+            // Clean up temporary directory unless DEBUG_KEEP_TMPDIR is set
+            if (!defined('DEBUG_KEEP_TMPDIR') || !DEBUG_KEEP_TMPDIR) {
+                $this->rrmdir($tmpDir);
+            } else {
+                error_log("DEBUG: Temporary directory kept at: $tmpDir");
+            }
+        }
+    }
+    
+    /**
+     * Inline $INCLUDE directives recursively
+     * Replaces $INCLUDE directives with the actual generated content
+     * 
+     * @param string $content Zone file content with $INCLUDE directives
+     * @param array &$visited Array of visited filenames to prevent loops
+     * @param int $depth Current recursion depth
+     * @return string Content with all $INCLUDE directives replaced
+     * @throws Exception if include not found, depth exceeded, or loop detected
+     */
+    private function inlineIncludes($content, &$visited = [], $depth = 0) {
+        // Depth limit to prevent excessive recursion
+        $maxDepth = 10;
+        if ($depth > $maxDepth) {
+            throw new Exception("Maximum include depth ($maxDepth) exceeded");
+        }
         
-        exec($command, $output, $returnCode);
-        $outputText = implode("\n", $output);
+        // Find all $INCLUDE directives
+        // Pattern: $INCLUDE "path/to/file" or $INCLUDE path/to/file
+        $pattern = '/^\s*\$INCLUDE\s+["\']?([^\s"\']+)["\']?\s*$/m';
         
-        // Clean up temp file
-        unlink($tempFile);
+        $result = preg_replace_callback($pattern, function($matches) use (&$visited, $depth) {
+            $includePath = $matches[1];
+            $includeBasename = basename($includePath);
+            
+            // Check for loops
+            if (in_array($includeBasename, $visited)) {
+                throw new Exception("Circular include detected: $includeBasename");
+            }
+            $visited[] = $includeBasename;
+            
+            // Try to find the include by filename in zone_files table
+            $sql = "SELECT id FROM zone_files WHERE filename = ? AND status = 'active' LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$includeBasename]);
+            $includeZone = $stmt->fetch();
+            
+            if ($includeZone) {
+                // Generate content for this include
+                $includeContent = $this->generateZoneFile($includeZone['id']);
+                
+                // Recursively inline any nested includes
+                $includeContent = $this->inlineIncludes($includeContent, $visited, $depth + 1);
+                
+                // Return inlined content with comments for debugging
+                return "; BEGIN INCLUDE: $includeBasename\n" .
+                       trim($includeContent) . "\n" .
+                       "; END INCLUDE: $includeBasename\n";
+            }
+            
+            // Fallback: try to read from disk if file exists
+            // This is optional and provides backward compatibility
+            $possiblePath = __DIR__ . '/../../' . $includePath;
+            $realPath = realpath($possiblePath);
+            
+            if ($realPath && file_exists($realPath) && is_readable($realPath)) {
+                $includeContent = file_get_contents($realPath);
+                
+                // Recursively inline any nested includes in the disk file
+                $includeContent = $this->inlineIncludes($includeContent, $visited, $depth + 1);
+                
+                return "; BEGIN INCLUDE: $includeBasename (from disk)\n" .
+                       trim($includeContent) . "\n" .
+                       "; END INCLUDE: $includeBasename\n";
+            }
+            
+            // Include not found - throw exception
+            throw new Exception("Included file not found for validation: $includeBasename (path: $includePath)");
+        }, $content);
         
-        // Determine status
-        $status = ($returnCode === 0) ? 'passed' : 'failed';
+        return $result;
+    }
+    
+    /**
+     * Recursively remove a directory and its contents
+     * 
+     * @param string $dir Directory path to remove
+     * @return bool Success status
+     */
+    private function rrmdir($dir) {
+        if (!is_dir($dir)) {
+            return false;
+        }
         
-        // Store validation result
-        $this->storeValidationResult($zoneId, $status, $outputText, $userId);
+        $files = array_diff(scandir($dir), ['.', '..']);
+        foreach ($files as $file) {
+            $path = $dir . '/' . $file;
+            is_dir($path) ? $this->rrmdir($path) : unlink($path);
+        }
         
-        // If this is a master or parent zone, propagate validation result to all includes
-        $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $outputText, $userId);
-        
-        return [
-            'status' => $status,
-            'output' => $outputText,
-            'return_code' => $returnCode
-        ];
+        return rmdir($dir);
     }
     
     /**
