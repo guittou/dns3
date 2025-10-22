@@ -1071,15 +1071,18 @@ class ZoneFile {
             // Determine status
             $status = ($returnCode === 0) ? 'passed' : 'failed';
             
-            // Store validation result
-            $this->storeValidationResult($zoneId, $status, $outputText, $userId);
+            // Enrich output with extracted line context from errors
+            $enrichedOutput = $this->enrichValidationOutput($outputText, $tmpDir, $tempFileName);
+            
+            // Store validation result with enriched output
+            $this->storeValidationResult($zoneId, $status, $enrichedOutput, $userId);
             
             // If this is a master or parent zone, propagate validation result to all includes
-            $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $outputText, $userId);
+            $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $enrichedOutput, $userId);
             
             return [
                 'status' => $status,
-                'output' => $outputText,
+                'output' => $enrichedOutput,
                 'return_code' => $returnCode
             ];
         } finally {
@@ -1090,6 +1093,130 @@ class ZoneFile {
                 error_log("DEBUG: Temporary directory kept at: $tmpDir");
             }
         }
+    }
+    
+    /**
+     * Enrich validation output by extracting line context from errors
+     * 
+     * @param string $outputText Original named-checkzone output
+     * @param string $tmpDir Temporary directory containing zone files
+     * @param string $zoneFilename Main zone file name in tmpDir
+     * @return string Enriched output with line context appended
+     */
+    private function enrichValidationOutput($outputText, $tmpDir, $zoneFilename) {
+        $lines = explode("\n", $outputText);
+        $extractions = [];
+        
+        // Pattern to match error lines: "filename:line: message"
+        $pattern = '/^(.+?):(\d+):\s*(.*)$/';
+        
+        foreach ($lines as $line) {
+            if (preg_match($pattern, $line, $matches)) {
+                $reportedFile = $matches[1];
+                $lineNumber = (int)$matches[2];
+                $message = $matches[3];
+                
+                // Resolve the file path
+                $resolvedPath = $this->resolveValidationFilePath($reportedFile, $tmpDir, $zoneFilename);
+                
+                if ($resolvedPath && file_exists($resolvedPath)) {
+                    // Extract line context
+                    $context = $this->getFileLineContext($resolvedPath, $lineNumber, 2);
+                    if ($context) {
+                        $extractions[] = "File: " . basename($reportedFile) . ", Line: $lineNumber\n" . 
+                                       "Message: $message\n" . 
+                                       $context;
+                    }
+                } else {
+                    $extractions[] = "File: " . basename($reportedFile) . ", Line: $lineNumber\n" . 
+                                   "Message: $message\n" . 
+                                   "(Unable to locate file for line extraction)";
+                }
+            }
+        }
+        
+        // Append extractions if any were found
+        if (!empty($extractions)) {
+            $outputText .= "\n\n=== EXTRACTED LINES FROM INLINED FILE(S) ===\n\n";
+            $outputText .= implode("\n\n---\n\n", $extractions);
+            $outputText .= "\n\n=== END OF EXTRACTED LINES ===";
+        }
+        
+        return $outputText;
+    }
+    
+    /**
+     * Resolve the file path referenced in named-checkzone output
+     * 
+     * @param string $reportedFile File path from error message
+     * @param string $tmpDir Temporary directory
+     * @param string $zoneFilename Main zone file name
+     * @return string|null Resolved file path or null if not found
+     */
+    private function resolveValidationFilePath($reportedFile, $tmpDir, $zoneFilename) {
+        // Strategy 1: Check if it's an absolute path in tmpDir
+        if (strpos($reportedFile, $tmpDir) === 0 && file_exists($reportedFile)) {
+            return $reportedFile;
+        }
+        
+        // Strategy 2: Check if basename matches zone filename
+        if (basename($reportedFile) === $zoneFilename) {
+            $path = $tmpDir . '/' . $zoneFilename;
+            if (file_exists($path)) {
+                return $path;
+            }
+        }
+        
+        // Strategy 3: Try basename in tmpDir
+        $path = $tmpDir . '/' . basename($reportedFile);
+        if (file_exists($path)) {
+            return $path;
+        }
+        
+        // Strategy 4: Try the reported file as-is relative to tmpDir
+        $path = $tmpDir . '/' . $reportedFile;
+        if (file_exists($path)) {
+            return $path;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get file line context with surrounding lines
+     * 
+     * @param string $path File path
+     * @param int $lineNumber Target line number (1-based)
+     * @param int $contextLines Number of context lines before and after
+     * @return string Formatted block with line numbers, or empty string on error
+     */
+    private function getFileLineContext($path, $lineNumber, $contextLines = 2) {
+        if (!file_exists($path) || !is_readable($path)) {
+            return '';
+        }
+        
+        $fileLines = file($path, FILE_IGNORE_NEW_LINES);
+        if ($fileLines === false) {
+            return '';
+        }
+        
+        $totalLines = count($fileLines);
+        if ($lineNumber < 1 || $lineNumber > $totalLines) {
+            return '';
+        }
+        
+        // Calculate range (convert to 0-based index)
+        $startLine = max(0, $lineNumber - 1 - $contextLines);
+        $endLine = min($totalLines - 1, $lineNumber - 1 + $contextLines);
+        
+        $result = [];
+        for ($i = $startLine; $i <= $endLine; $i++) {
+            $displayLineNum = $i + 1;
+            $prefix = ($displayLineNum === $lineNumber) ? '>' : ' ';
+            $result[] = sprintf("%s %4d: %s", $prefix, $displayLineNum, $fileLines[$i]);
+        }
+        
+        return implode("\n", $result);
     }
     
     /**
