@@ -1057,7 +1057,16 @@ class ZoneFile {
                     return $validationResult;
                 } else {
                     // Queue for background processing
-                    return $this->queueValidation($zoneId, $userId);
+                    $result = $this->queueValidation($zoneId, $userId);
+                    
+                    // Mark all child includes as pending too
+                    $allIncludes = $this->getAllChildIncludes($zoneId);
+                    foreach ($allIncludes as $includeId) {
+                        $pendingMsg = "Validation queued for background processing (parent master '{$zone['name']}' id={$zoneId})";
+                        $this->storeValidationResult($includeId, 'pending', $pendingMsg, $userId);
+                    }
+                    
+                    return $result;
                 }
             }
         } catch (Exception $e) {
