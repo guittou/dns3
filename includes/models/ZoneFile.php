@@ -900,6 +900,96 @@ class ZoneFile {
                 return false;
             }
 
+            // Check if this is an include file
+            if ($zone['file_type'] === 'include') {
+                // Includes need to be validated via their parent
+                $parentId = null;
+                
+                // Try to get parent_id from the zone data (already JOINed in getById)
+                if (isset($zone['parent_id']) && $zone['parent_id']) {
+                    $parentId = $zone['parent_id'];
+                }
+                
+                // If no parent found, return/store error
+                if (!$parentId) {
+                    $errorMsg = "Include file has no parent; cannot validate standalone";
+                    if ($sync) {
+                        $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
+                        return [
+                            'status' => 'failed',
+                            'output' => $errorMsg,
+                            'return_code' => 1
+                        ];
+                    } else {
+                        $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
+                        return true;
+                    }
+                }
+                
+                // Parent found - validate the parent instead
+                if ($sync) {
+                    // Get parent zone
+                    $parent = $this->getById($parentId);
+                    if (!$parent) {
+                        $errorMsg = "Parent zone (ID: {$parentId}) not found";
+                        $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
+                        return [
+                            'status' => 'failed',
+                            'output' => $errorMsg,
+                            'return_code' => 1
+                        ];
+                    }
+                    
+                    // Generate the parent zone file content
+                    $content = $this->generateZoneFile($parentId);
+                    if ($content === null) {
+                        $errorMsg = "Failed to generate parent zone content";
+                        $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
+                        return [
+                            'status' => 'failed',
+                            'output' => $errorMsg,
+                            'return_code' => 1
+                        ];
+                    }
+                    
+                    // Run named-checkzone on the parent
+                    $namedCheckzone = defined('NAMED_CHECKZONE_PATH') ? NAMED_CHECKZONE_PATH : 'named-checkzone';
+                    $tempFile = tempnam(sys_get_temp_dir(), 'zone_');
+                    file_put_contents($tempFile, $content);
+                    
+                    $zoneName = $parent['name'];
+                    $command = escapeshellcmd($namedCheckzone) . ' ' . escapeshellarg($zoneName) . ' ' . escapeshellarg($tempFile) . ' 2>&1';
+                    
+                    exec($command, $output, $returnCode);
+                    $outputText = implode("\n", $output);
+                    
+                    // Clean up temp file
+                    unlink($tempFile);
+                    
+                    // Determine status
+                    $status = ($returnCode === 0) ? 'passed' : 'failed';
+                    
+                    // Store validation result for the parent
+                    $this->storeValidationResult($parentId, $status, $outputText, $userId);
+                    
+                    // Store validation result for the include with prefix
+                    $includeOutput = "Validation performed on parent zone '{$parent['name']}' (ID: {$parentId}):\n\n" . $outputText;
+                    $this->storeValidationResult($zoneId, $status, $includeOutput, $userId);
+                    
+                    return [
+                        'status' => $status,
+                        'output' => $includeOutput,
+                        'return_code' => $returnCode
+                    ];
+                } else {
+                    // For async validation, queue the parent instead
+                    // But still record that we're validating the include
+                    $this->storeValidationResult($zoneId, 'pending', "Validation queued for parent zone (ID: {$parentId})", $userId);
+                    return $this->queueValidation($parentId, $userId);
+                }
+            }
+
+            // Not an include - proceed with normal validation
             if ($sync) {
                 // Run validation synchronously
                 return $this->runNamedCheckzone($zoneId, $zone, $userId);
