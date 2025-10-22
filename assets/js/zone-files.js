@@ -964,8 +964,40 @@ async function fetchAndDisplayValidation(zoneId) {
             throw new Error(data.error || 'La validation a échoué');
         }
         
-        // Display validation results
+        // Display initial validation results (may be latest known or new result)
         displayValidationResults(data.validation);
+        
+        // Check if validation was queued and is pending
+        const isQueued = data.message && data.message.includes('queued');
+        const isPending = data.validation && data.validation.status === 'pending';
+        
+        if (isQueued || isPending) {
+            console.log('Validation queued or pending, starting polling...');
+            
+            // Start polling for the final result
+            try {
+                const finalValidation = await pollValidationResult(zoneId, {
+                    interval: 2000,  // Poll every 2 seconds
+                    timeout: 60000   // Timeout after 60 seconds
+                });
+                
+                // Update UI with final validation result
+                displayValidationResults(finalValidation);
+                console.log('Validation polling completed:', finalValidation.status);
+            } catch (pollError) {
+                console.error('Polling failed:', pollError);
+                
+                // Show polling error in validation section
+                const validationStatus = document.getElementById('zoneValidationStatus');
+                const validationOutput = document.getElementById('zoneValidationOutput');
+                
+                if (validationStatus && validationOutput) {
+                    validationStatus.className = 'validation-status failed';
+                    validationStatus.textContent = '❌ Timeout lors de l\'attente du résultat';
+                    validationOutput.textContent = `Erreur: ${pollError.message}\n\nLa validation peut toujours être en cours. Rafraîchissez la page pour voir le résultat final.`;
+                }
+            }
+        }
         
     } catch (error) {
         console.error('Failed to fetch validation:', error);
@@ -980,6 +1012,83 @@ async function fetchAndDisplayValidation(zoneId) {
             validationStatus.className = 'validation-status failed';
             validationStatus.textContent = '❌ Erreur lors de la récupération de la validation';
             validationOutput.textContent = `Erreur: ${error.message}\n\nLa validation n'a pas pu être effectuée. Veuillez consulter la console pour plus de détails.`;
+        }
+    }
+}
+
+/**
+ * Poll for validation result until status is not pending or timeout
+ * @param {number} zoneId - Zone file ID
+ * @param {object} options - Polling options {interval: ms, timeout: ms}
+ * @returns {Promise<object>} Final validation result
+ */
+async function pollValidationResult(zoneId, options = {}) {
+    const interval = options.interval || 2000; // Poll every 2 seconds by default
+    const timeout = options.timeout || 60000;  // Timeout after 60 seconds by default
+    const startTime = Date.now();
+    
+    while (true) {
+        // Check if timeout exceeded
+        if (Date.now() - startTime > timeout) {
+            throw new Error('Timeout attendu lors de la récupération du résultat de validation');
+        }
+        
+        try {
+            // Build URL for validation API request (without trigger)
+            const url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
+            url.searchParams.append('action', 'zone_validate');
+            url.searchParams.append('id', zoneId);
+            // No trigger parameter - just retrieve latest validation
+            
+            // Fetch validation result with credentials
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            });
+            
+            // Handle response
+            let data;
+            const contentType = response.headers.get('content-type');
+            
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    data = await response.json();
+                } catch (jsonErr) {
+                    console.error('Failed to parse validation JSON during polling:', jsonErr);
+                    throw new Error('Réponse JSON invalide du serveur');
+                }
+            } else {
+                const textContent = await response.text();
+                console.error('Non-JSON validation response during polling:', textContent);
+                throw new Error('Le serveur a retourné une réponse non-JSON');
+            }
+            
+            if (!response.ok) {
+                console.error('Validation HTTP error during polling:', response.status, data);
+                throw new Error(data.error || `Erreur HTTP ${response.status}`);
+            }
+            
+            if (!data.success) {
+                console.error('Validation API error during polling:', data);
+                throw new Error(data.error || 'Erreur lors de la récupération de la validation');
+            }
+            
+            const validation = data.validation;
+            
+            // Check if validation is complete (not pending)
+            if (validation && validation.status !== 'pending') {
+                return validation;
+            }
+            
+            // Wait before next poll
+            await new Promise(resolve => setTimeout(resolve, interval));
+            
+        } catch (error) {
+            console.error('Error during validation polling:', error);
+            throw error;
         }
     }
 }

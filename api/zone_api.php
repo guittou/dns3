@@ -646,9 +646,13 @@ try {
                     ]);
                 } else {
                     // Queued for background processing
+                    // Return the latest known validation so UI can display current state
+                    $latestValidation = $zoneFile->getLatestValidation($id);
+                    
                     echo json_encode([
                         'success' => true,
-                        'message' => 'Validation queued for background processing'
+                        'message' => 'Validation queued for background processing',
+                        'validation' => $latestValidation
                     ]);
                 }
             } else {
