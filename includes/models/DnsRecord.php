@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../lib/DnsValidator.php';
 
 class DnsRecord {
     private $db;
@@ -144,6 +145,22 @@ class DnsRecord {
                 $this->mapValueToDedicatedField($data);
             }
             
+            // Extract the value for validation based on record type
+            $recordType = $data['record_type'];
+            $owner = $data['name'];
+            $value = $this->getValueFromDedicatedFieldData($data);
+            
+            // Validate the record using DnsValidator
+            $extraData = [];
+            if (isset($data['priority'])) {
+                $extraData['priority'] = $data['priority'];
+            }
+            
+            $validation = DnsValidator::validateRecord($recordType, $owner, $value, $extraData);
+            if (!$validation['valid']) {
+                throw new Exception($validation['error']);
+            }
+            
             // Extract dedicated field values based on record type
             $dedicatedFields = $this->extractDedicatedFields($data);
             
@@ -218,12 +235,33 @@ class DnsRecord {
             $current = $this->getById($id);
             if (!$current) {
                 $this->db->rollBack();
-                return false;
+                throw new Exception("Record not found");
             }
             
             // Map 'value' alias to dedicated field if provided
             if (isset($data['value']) && !empty($data['value'])) {
                 $this->mapValueToDedicatedField($data);
+            }
+            
+            // Determine the record type (use updated value if provided, otherwise current)
+            $recordType = $data['record_type'] ?? $current['record_type'];
+            $owner = $data['name'] ?? $current['name'];
+            
+            // Extract the value for validation (will use updated or current values)
+            $dedicatedFieldsForValidation = $this->extractDedicatedFields($data, $current);
+            $valueForValidation = $this->getValueFromDedicatedFieldData($data, $current);
+            
+            // Validate the record using DnsValidator
+            $extraData = [];
+            if (isset($data['priority'])) {
+                $extraData['priority'] = $data['priority'];
+            } elseif (isset($current['priority'])) {
+                $extraData['priority'] = $current['priority'];
+            }
+            
+            $validation = DnsValidator::validateRecord($recordType, $owner, $valueForValidation, $extraData);
+            if (!$validation['valid']) {
+                throw new Exception($validation['error']);
             }
             
             // Extract dedicated field values based on record type
