@@ -15,6 +15,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/ZoneFile.php';
+require_once __DIR__ . '/../includes/lib/DnsValidator.php';
 
 // Set JSON header
 header('Content-Type: application/json');
@@ -214,6 +215,17 @@ try {
             if (!isset($input['filename']) || trim($input['filename']) === '') {
                 http_response_code(400);
                 echo json_encode(['error' => 'Missing required field: filename']);
+                exit;
+            }
+
+            // Validate zone name using DnsValidator
+            $nameValidation = DnsValidator::validateName(trim($input['name']));
+            if (!$nameValidation['valid']) {
+                http_response_code(422);
+                echo json_encode([
+                    'success' => false,
+                    'error' => $nameValidation['error']
+                ]);
                 exit;
             }
 
