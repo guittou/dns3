@@ -19,10 +19,163 @@ const API_BASE = window.API_BASE || '/api/zone_api.php';
 /**
  * Initialize page on load
  */
-document.addEventListener('DOMContentLoaded', function() {
-    setupEventHandlers();
-    loadZonesList();
-    setupDelegatedHandlers();
+// Handler robuste pour "Générer le fichier de zone" : ouvre la preview, affiche contenu ou erreur,
+// puis récupère et affiche le résultat de validation (trigger=true).
+document.addEventListener('DOMContentLoaded', function () {
+  // éléments attendus au niveau document root
+  const btnGenerate = document.getElementById('btnGenerateZoneFile');
+  const previewModal = document.getElementById('zonePreviewModal');
+  const previewTextarea = document.getElementById('zoneGeneratedPreview');
+  const downloadBtn = document.getElementById('downloadZoneFile');
+
+  function openPreview(msg) {
+    if (!previewModal) return;
+    if (previewTextarea) previewTextarea.value = msg || '';
+    previewModal.classList.add('open');
+    previewModal.style.display = 'flex';
+    previewModal.setAttribute('aria-hidden', 'false');
+  }
+  function closePreview() {
+    if (!previewModal) return;
+    previewModal.classList.remove('open');
+    previewModal.style.display = 'none';
+    previewModal.setAttribute('aria-hidden', 'true');
+  }
+
+  // Safety: don't attach multiple times
+  if (!btnGenerate) {
+    // may be dynamically created; use delegation elsewhere if needed
+    return;
+  }
+
+  btnGenerate.addEventListener('click', async function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const zoneId = window.currentZoneId || (document.getElementById('zoneId') && document.getElementById('zoneId').value);
+    if (!zoneId) {
+      alert('Aucune zone sélectionnée');
+      return;
+    }
+
+    // show preview immediately
+    openPreview('Chargement du fichier de zone…\n\nVeuillez patienter...');
+    previewTextarea.scrollTop = 0;
+
+    // Build generate URL
+    const apiBase = (window.API_BASE || (window.BASE_URL ? window.BASE_URL + 'api/' : '/api/'));
+    const genUrl = new URL(apiBase + 'zone_api.php', window.location.origin);
+    genUrl.searchParams.append('action', 'generate_zone_file');
+    genUrl.searchParams.append('id', zoneId);
+
+    let generatedContent = '';
+    let generatedFilename = `zone_${zoneId}.zone`;
+
+    try {
+      const resp = await fetch(genUrl.toString(), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json, text/plain' },
+        credentials: 'same-origin'
+      });
+
+      const ct = resp.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const data = await resp.json();
+        if (!resp.ok) {
+          const err = data && data.error ? data.error : `HTTP ${resp.status}`;
+          previewTextarea.value = 'Erreur lors de la génération : ' + err;
+          console.error('generate_zone_file API error', data);
+        } else if (!data.success) {
+          previewTextarea.value = 'Erreur lors de la génération : ' + (data.error || JSON.stringify(data));
+          console.error('generate_zone_file returned no success', data);
+        } else {
+          generatedContent = data.content || '';
+          generatedFilename = data.filename || generatedFilename;
+          previewTextarea.value = generatedContent;
+        }
+      } else {
+        // Non-JSON (plain text) — could be direct file content or error text
+        const text = await resp.text();
+        if (!resp.ok) {
+          previewTextarea.value = 'Erreur lors de la génération (HTTP ' + resp.status + '):\n\n' + text;
+          console.error('generate_zone_file non-json error', resp.status, text);
+        } else {
+          generatedContent = text;
+          previewTextarea.value = generatedContent;
+        }
+      }
+    } catch (err) {
+      console.error('Fetch error generate_zone_file:', err);
+      previewTextarea.value = 'Erreur réseau lors de la génération: ' + (err.message || err);
+    }
+
+    // Attach download handler (even if generatedContent is empty, user can download)
+    if (downloadBtn) {
+      downloadBtn.onclick = function () {
+        const blob = new Blob([generatedContent], { type: 'text/plain;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = generatedFilename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      };
+    }
+
+    // Now trigger validation and append result (trigger=true to force run)
+    // Build validation URL
+    try {
+      const valUrl = new URL(apiBase + 'zone_api.php', window.location.origin);
+      valUrl.searchParams.append('action', 'zone_validate');
+      valUrl.searchParams.append('id', zoneId);
+      valUrl.searchParams.append('trigger', 'true');
+
+      const respVal = await fetch(valUrl.toString(), {
+        method: 'GET',
+        headers: { 'Accept': 'application/json, text/plain' },
+        credentials: 'same-origin'
+      });
+
+      const ctVal = respVal.headers.get('content-type') || '';
+      let valText = '';
+      if (ctVal.includes('application/json')) {
+        const valData = await respVal.json();
+        // Try to normalize expected shapes: { success:true, result: { status, output } } or direct result
+        if (valData.success && valData.result) {
+          valText = `--- Résultat de validation : ${valData.result.status || 'unknown'} ---\n${valData.result.output || JSON.stringify(valData.result, null, 2)}`;
+        } else if (valData.status || valData.output) {
+          // some implementations return status/output directly
+          valText = `--- Résultat de validation : ${valData.status || 'unknown'} ---\n${valData.output || JSON.stringify(valData, null, 2)}`;
+        } else {
+          valText = '--- Résultat de validation (JSON) ---\n' + JSON.stringify(valData, null, 2);
+        }
+      } else {
+        // plain text
+        const text = await respVal.text();
+        valText = '--- Résultat de validation ---\n' + text;
+      }
+
+      // Append validation result to preview (separated)
+      previewTextarea.value = (previewTextarea.value || '') + '\n\n' + valText;
+      previewTextarea.scrollTop = 0;
+    } catch (err) {
+      console.error('Erreur lors de la récupération de la validation:', err);
+      previewTextarea.value = (previewTextarea.value || '') + '\n\nErreur lors de la récupération de la validation: ' + (err.message || err);
+    }
+  });
+
+  // close handlers for preview (if present)
+  const closeTop = document.getElementById('closeZonePreview');
+  const closeFooter = document.getElementById('closeZonePreviewBtn');
+  if (closeTop) closeTop.addEventListener('click', () => { previewModal && (previewModal.style.display='none'); });
+  if (closeFooter) closeFooter.addEventListener('click', () => { previewModal && (previewModal.style.display='none'); });
+
+  // overlay click closes preview
+  if (previewModal) {
+    previewModal.addEventListener('click', function (ev) {
+      if (ev.target === previewModal) previewModal.style.display = 'none';
+    });
+  }
 });
 
 /**
