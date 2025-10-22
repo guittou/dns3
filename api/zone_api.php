@@ -268,17 +268,25 @@ try {
             // Update a zone file (admin only)
             requireAdmin();
 
-            $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            // Read id from querystring first
+            $id = (int)($_GET['id'] ?? 0);
+            
+            // Get JSON input (always needed for update)
+            $input = json_decode(file_get_contents('php://input'), true);
+            if (!$input) {
+                $input = $_POST;
+            }
+            
+            // Fallback: if id not in querystring, try to get it from JSON body
+            if ($id <= 0 && isset($input['id'])) {
+                $id = (int)$input['id'];
+            }
+            
+            // Validate id
             if ($id <= 0) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Invalid zone file ID']);
                 exit;
-            }
-
-            // Get JSON input
-            $input = json_decode(file_get_contents('php://input'), true);
-            if (!$input) {
-                $input = $_POST;
             }
 
             // Validate file_type if provided
