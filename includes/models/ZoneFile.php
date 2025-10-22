@@ -972,9 +972,11 @@ class ZoneFile {
                     // Store validation result for the parent
                     $this->storeValidationResult($parentId, $status, $outputText, $userId);
                     
-                    // Store validation result for the include with prefix
+                    // Propagate validation result to the include (and any other includes)
+                    $this->propagateValidationToIncludes($parentId, $parent['name'], $status, $outputText, $userId);
+                    
+                    // Build include output for return value
                     $includeOutput = "Validation performed on parent zone '{$parent['name']}' (ID: {$parentId}):\n\n" . $outputText;
-                    $this->storeValidationResult($zoneId, $status, $includeOutput, $userId);
                     
                     return [
                         'status' => $status,
@@ -1035,11 +1037,43 @@ class ZoneFile {
         // Store validation result
         $this->storeValidationResult($zoneId, $status, $outputText, $userId);
         
+        // If this is a master or parent zone, propagate validation result to all includes
+        $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $outputText, $userId);
+        
         return [
             'status' => $status,
             'output' => $outputText,
             'return_code' => $returnCode
         ];
+    }
+    
+    /**
+     * Propagate validation result to all direct includes of a parent zone
+     * This is called after validating a master/parent zone to update include validation status
+     * 
+     * @param int $parentId Parent zone file ID
+     * @param string $parentName Parent zone name
+     * @param string $status Validation status
+     * @param string $output Validation output
+     * @param int|null $userId User ID
+     * @return void
+     */
+    private function propagateValidationToIncludes($parentId, $parentName, $status, $output, $userId) {
+        try {
+            // Get all direct includes of this parent
+            $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$parentId]);
+            $includes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            // Update validation result for each include
+            foreach ($includes as $includeId) {
+                $includeOutput = "Validation performed on parent zone '{$parentName}' (ID: {$parentId}):\n\n" . $output;
+                $this->storeValidationResult($includeId, $status, $includeOutput, $userId);
+            }
+        } catch (Exception $e) {
+            error_log("ZoneFile propagateValidationToIncludes error: " . $e->getMessage());
+        }
     }
 
     /**
