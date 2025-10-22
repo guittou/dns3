@@ -13,7 +13,7 @@ if (!$auth->isAdmin()) {
 }
 ?>
 
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/zone-files.css">
+<link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/zone-files.css">
 
 <div class="content-section">
     <div class="header-bar">
@@ -198,7 +198,7 @@ if (!$auth->isAdmin()) {
                         <textarea id="zoneContent" class="form-control code-editor" rows="20"></textarea>
                     </div>
                     <div style="margin-top: 1rem;">
-                        <button type="button" class="btn btn-secondary" onclick="generateZoneFileContent(event)">
+                        <button type="button" id="btnGenerateZoneFile" class="btn btn-secondary" onclick="generateZoneFileContent(event)">
                             <i class="fas fa-file-code"></i> Générer le fichier de zone
                         </button>
                         <small class="form-text text-muted" style="display: inline-block; margin-left: 1rem;">
@@ -255,7 +255,7 @@ if (!$auth->isAdmin()) {
     <div class="modal-content modal-large">
         <div class="modal-header">
             <h2 id="zonePreviewModalTitle">Aperçu du fichier de zone</h2>
-            <span class="close" onclick="closeZonePreviewModal()">&times;</span>
+            <span class="close" id="closeZonePreviewBtn" onclick="closeZonePreviewModal()">&times;</span>
         </div>
         <div class="modal-body">
             <div class="form-group">
@@ -266,7 +266,7 @@ if (!$auth->isAdmin()) {
             </div>
         </div>
         <div class="modal-footer modal-footer-centered">
-            <button type="button" class="btn btn-secondary" onclick="closeZonePreviewModal()">Fermer</button>
+            <button type="button" id="closeZonePreview" class="btn btn-secondary" onclick="closeZonePreviewModal()">Fermer</button>
             <button type="button" id="downloadZoneFile" class="btn btn-primary">
                 <i class="fas fa-download"></i> Télécharger
             </button>
@@ -274,7 +274,7 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
-<script src="<?php echo BASE_URL; ?>assets/js/zone-files.js"></script>
+<script src="<?php echo $basePath; ?>assets/js/zone-files.js"></script>
 
 <?php
 require_once __DIR__ . '/includes/footer.php';

@@ -22,7 +22,40 @@ const API_BASE = window.API_BASE || '/api/zone_api.php';
 document.addEventListener('DOMContentLoaded', function() {
     setupEventHandlers();
     loadZonesList();
+    setupDelegatedHandlers();
 });
+
+/**
+ * Setup delegated event handlers for dynamic content
+ */
+function setupDelegatedHandlers() {
+    // Delegated handler for generate zone file button
+    document.addEventListener('click', function(e) {
+        const generateBtn = e.target.closest('#btnGenerateZoneFile');
+        if (generateBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleGenerateZoneFile();
+        }
+    });
+    
+    // Delegated handler for close preview modal (overlay click)
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'zonePreviewModal' && e.target.classList.contains('modal')) {
+            e.stopPropagation();
+            closeZonePreviewModal();
+        }
+    });
+    
+    // Delegated handler for close preview modal buttons
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('#closeZonePreview') || e.target.closest('#closeZonePreviewBtn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeZonePreviewModal();
+        }
+    });
+}
 
 /**
  * Setup event handlers
@@ -699,15 +732,9 @@ function showError(message) {
 }
 
 /**
- * Generate zone file content with includes and DNS records - Show preview
+ * Handle generate zone file button click (delegated handler)
  */
-async function generateZoneFileContent(e) {
-    // Prevent event propagation
-    if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-    
+async function handleGenerateZoneFile() {
     try {
         const zoneId = currentZoneId || document.getElementById('zoneId').value;
         
@@ -717,46 +744,108 @@ async function generateZoneFileContent(e) {
         }
         
         // Immediately open preview modal with loading state
-        openZonePreviewModal();
+        openZonePreviewModalWithLoading();
         
-        // Fetch the generated content
-        const response = await zoneApiCall('generate_zone_file', {
-            params: { id: zoneId }
+        // Build URL for the API request
+        const url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
+        url.searchParams.append('action', 'generate_zone_file');
+        url.searchParams.append('id', zoneId);
+        
+        // Fetch the generated content with credentials
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
         });
         
-        if (response.success) {
-            // Store preview data
-            previewData = {
-                content: response.content,
-                filename: response.filename || 'zone-file.conf'
-            };
-            
-            // Update preview content
-            updateZonePreviewContent();
+        // Handle response
+        let data;
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+            try {
+                data = await response.json();
+            } catch (jsonErr) {
+                console.error('Failed to parse JSON response:', jsonErr);
+                const textContent = await response.text();
+                console.error('Response text:', textContent);
+                throw new Error('Réponse JSON invalide du serveur');
+            }
+        } else {
+            // Non-JSON response
+            const textContent = await response.text();
+            console.error('Non-JSON response received:', textContent);
+            throw new Error('Le serveur a retourné une réponse non-JSON');
         }
+        
+        if (!response.ok) {
+            // Handle HTTP error
+            console.error('HTTP error:', response.status, data);
+            throw new Error(data.error || `Erreur HTTP ${response.status}`);
+        }
+        
+        if (!data.success) {
+            console.error('API error:', data);
+            throw new Error(data.error || 'La génération du fichier a échoué');
+        }
+        
+        // Success - store preview data
+        previewData = {
+            content: data.content || '',
+            filename: data.filename || 'zone-file.conf'
+        };
+        
+        // Update preview content
+        updateZonePreviewContent();
+        
     } catch (error) {
         console.error('Failed to generate zone file:', error);
-        closeZonePreviewModal();
-        if (error.message.includes('403') || error.message.includes('Admin privileges required')) {
-            showError('Accès refusé: seuls les administrateurs peuvent générer des fichiers de zone');
-        } else {
-            showError('Erreur lors de la génération du fichier de zone: ' + error.message);
-        }
+        
+        // Show error in preview textarea
+        const textarea = document.getElementById('zoneGeneratedPreview');
+        textarea.value = `Erreur lors de la génération du fichier de zone:\n\n${error.message}\n\nVeuillez consulter la console pour plus de détails.`;
+        
+        // Don't close the modal - let user see the error
     }
+}
+
+/**
+ * Generate zone file content with includes and DNS records - Show preview
+ * (Legacy function name kept for backward compatibility)
+ */
+async function generateZoneFileContent(e) {
+    // Prevent event propagation
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    // Call the new handler
+    await handleGenerateZoneFile();
 }
 
 /**
  * Open zone preview modal with loading state
  */
-function openZonePreviewModal() {
+function openZonePreviewModalWithLoading() {
     const modal = document.getElementById('zonePreviewModal');
     const textarea = document.getElementById('zoneGeneratedPreview');
     
     // Set loading message
-    textarea.value = 'Chargement...';
+    textarea.value = 'Chargement…';
     
-    // Show modal using open class for better control
+    // Show modal using open class for better control and ensure high z-index
     modal.classList.add('open');
+    modal.style.zIndex = '9999';
+}
+
+/**
+ * Legacy function name for backward compatibility
+ */
+function openZonePreviewModal() {
+    openZonePreviewModalWithLoading();
 }
 
 /**
@@ -791,6 +880,7 @@ function updateZonePreviewContent() {
 function closeZonePreviewModal() {
     const modal = document.getElementById('zonePreviewModal');
     modal.classList.remove('open');
+    // Don't close zoneModal - it should stay open
 }
 
 /**

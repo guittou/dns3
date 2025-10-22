@@ -14,6 +14,6 @@
   </footer>
 
   <!-- Include the underline script (deferred by DOMContentLoaded handler above) -->
-  <script src="<?php echo BASE_URL; ?>assets/js/header-underline.js"></script>
+  <script src="<?php echo $basePath; ?>assets/js/header-underline.js"></script>
 </body>
 </html>
