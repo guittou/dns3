@@ -902,17 +902,13 @@ class ZoneFile {
 
             // Check if this is an include file
             if ($zone['file_type'] === 'include') {
-                // Includes need to be validated via their parent
-                $parentId = null;
+                // Includes need to be validated via their top master
+                // Find the top-level master by traversing the parent chain
+                $topMasterResult = $this->findTopMaster($zoneId);
                 
-                // Try to get parent_id from the zone data (already JOINed in getById)
-                if (isset($zone['parent_id']) && $zone['parent_id']) {
-                    $parentId = $zone['parent_id'];
-                }
-                
-                // If no parent found, return/store error
-                if (!$parentId) {
-                    $errorMsg = "Include file has no parent; cannot validate standalone";
+                // Check for errors (no master found or cycle detected)
+                if (isset($topMasterResult['error'])) {
+                    $errorMsg = $topMasterResult['error'];
                     if ($sync) {
                         $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
                         return [
@@ -926,68 +922,27 @@ class ZoneFile {
                     }
                 }
                 
-                // Parent found - validate the parent instead
+                $topMasterId = $topMasterResult['id'];
+                $topMasterName = $topMasterResult['name'];
+                
+                // Validate the top master
                 if ($sync) {
-                    // Get parent zone
-                    $parent = $this->getById($parentId);
-                    if (!$parent) {
-                        $errorMsg = "Parent zone (ID: {$parentId}) not found";
-                        $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
-                        return [
-                            'status' => 'failed',
-                            'output' => $errorMsg,
-                            'return_code' => 1
-                        ];
-                    }
+                    // Run named-checkzone on the top master
+                    $result = $this->runNamedCheckzone($topMasterId, $topMasterResult, $userId);
                     
-                    // Generate the parent zone file content
-                    $content = $this->generateZoneFile($parentId);
-                    if ($content === null) {
-                        $errorMsg = "Failed to generate parent zone content";
-                        $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
-                        return [
-                            'status' => 'failed',
-                            'output' => $errorMsg,
-                            'return_code' => 1
-                        ];
-                    }
-                    
-                    // Run named-checkzone on the parent
-                    $namedCheckzone = defined('NAMED_CHECKZONE_PATH') ? NAMED_CHECKZONE_PATH : 'named-checkzone';
-                    $tempFile = tempnam(sys_get_temp_dir(), 'zone_');
-                    file_put_contents($tempFile, $content);
-                    
-                    $zoneName = $parent['name'];
-                    $command = escapeshellcmd($namedCheckzone) . ' ' . escapeshellarg($zoneName) . ' ' . escapeshellarg($tempFile) . ' 2>&1';
-                    
-                    exec($command, $output, $returnCode);
-                    $outputText = implode("\n", $output);
-                    
-                    // Clean up temp file
-                    unlink($tempFile);
-                    
-                    // Determine status
-                    $status = ($returnCode === 0) ? 'passed' : 'failed';
-                    
-                    // Store validation result for the parent
-                    $this->storeValidationResult($parentId, $status, $outputText, $userId);
-                    
-                    // Propagate validation result to the include (and any other includes)
-                    $this->propagateValidationToIncludes($parentId, $parent['name'], $status, $outputText, $userId);
-                    
-                    // Build include output for return value
-                    $includeOutput = "Validation performed on parent zone '{$parent['name']}' (ID: {$parentId}):\n\n" . $outputText;
+                    // Build include-specific output for return value
+                    $includeOutput = "Validation performed on top master zone '{$topMasterName}' (ID: {$topMasterId}):\n\n" . $result['output'];
                     
                     return [
-                        'status' => $status,
+                        'status' => $result['status'],
                         'output' => $includeOutput,
-                        'return_code' => $returnCode
+                        'return_code' => $result['return_code']
                     ];
                 } else {
-                    // For async validation, queue the parent instead
+                    // For async validation, queue the top master instead
                     // But still record that we're validating the include
-                    $this->storeValidationResult($zoneId, 'pending', "Validation queued for parent zone (ID: {$parentId})", $userId);
-                    return $this->queueValidation($parentId, $userId);
+                    $this->storeValidationResult($zoneId, 'pending', "Validation queued for top master zone (ID: {$topMasterId})", $userId);
+                    return $this->queueValidation($topMasterId, $userId);
                 }
             }
 
@@ -1002,6 +957,57 @@ class ZoneFile {
         } catch (Exception $e) {
             error_log("ZoneFile validateZoneFile error: " . $e->getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Find the top-level master zone by traversing the parent chain
+     * Protects against cycles and handles cases where no master is found
+     * 
+     * @param int $zoneId Starting zone file ID
+     * @return array Array with 'id', 'name', 'file_type' of master, or 'error' if not found/cycle detected
+     */
+    private function findTopMaster($zoneId) {
+        $visited = [];
+        $currentId = $zoneId;
+        
+        while (true) {
+            // Cycle detection
+            if (in_array($currentId, $visited)) {
+                return ['error' => "Circular dependency detected in include chain; cannot validate"];
+            }
+            $visited[] = $currentId;
+            
+            // Get current zone
+            $current = $this->getById($currentId, true);
+            if (!$current) {
+                return ['error' => "Zone file (ID: {$currentId}) not found in parent chain"];
+            }
+            
+            // If we found a master, return it
+            if ($current['file_type'] === 'master') {
+                return [
+                    'id' => $current['id'],
+                    'name' => $current['name'],
+                    'file_type' => $current['file_type']
+                ];
+            }
+            
+            // Current is an include, find its parent
+            $parentId = null;
+            
+            // Try to get parent_id from the zone data (already JOINed in getById)
+            if (isset($current['parent_id']) && $current['parent_id']) {
+                $parentId = $current['parent_id'];
+            }
+            
+            // If no parent found via direct relationship, return error
+            if (!$parentId) {
+                return ['error' => "Include file has no master parent; cannot validate standalone"];
+            }
+            
+            // Move up to parent
+            $currentId = $parentId;
         }
     }
 
@@ -1048,11 +1054,12 @@ class ZoneFile {
     }
     
     /**
-     * Propagate validation result to all direct includes of a parent zone
+     * Propagate validation result to all descendant includes of a parent zone (recursively)
      * This is called after validating a master/parent zone to update include validation status
+     * Uses BFS (breadth-first search) to traverse the include tree
      * 
      * @param int $parentId Parent zone file ID
-     * @param string $parentName Parent zone name
+     * @param string $parentName Parent zone name (top master for output message)
      * @param string $status Validation status
      * @param string $output Validation output
      * @param int|null $userId User ID
@@ -1060,16 +1067,33 @@ class ZoneFile {
      */
     private function propagateValidationToIncludes($parentId, $parentName, $status, $output, $userId) {
         try {
-            // Get all direct includes of this parent
-            $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$parentId]);
-            $includes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            // Use BFS to traverse all descendants
+            $queue = [$parentId];
+            $visited = [];
             
-            // Update validation result for each include
-            foreach ($includes as $includeId) {
-                $includeOutput = "Validation performed on parent zone '{$parentName}' (ID: {$parentId}):\n\n" . $output;
-                $this->storeValidationResult($includeId, $status, $includeOutput, $userId);
+            while (!empty($queue)) {
+                $currentId = array_shift($queue);
+                
+                // Prevent infinite loops
+                if (in_array($currentId, $visited)) {
+                    continue;
+                }
+                $visited[] = $currentId;
+                
+                // Get all direct includes of current zone
+                $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$currentId]);
+                $includes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                
+                // Update validation result for each include and add to queue
+                foreach ($includes as $includeId) {
+                    $includeOutput = "Validation performed on parent zone '{$parentName}' (ID: {$parentId}):\n\n" . $output;
+                    $this->storeValidationResult($includeId, $status, $includeOutput, $userId);
+                    
+                    // Add to queue for recursive processing
+                    $queue[] = $includeId;
+                }
             }
         } catch (Exception $e) {
             error_log("ZoneFile propagateValidationToIncludes error: " . $e->getMessage());
