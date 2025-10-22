@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../lib/DnsValidator.php';
 
 class ZoneFile {
     private $db;
@@ -206,6 +207,12 @@ class ZoneFile {
      */
     public function create($data, $user_id) {
         try {
+            // Validate zone name
+            $nameValidation = DnsValidator::validateName($data['name'], true);
+            if (!$nameValidation['valid']) {
+                throw new Exception("Invalid zone name: " . $nameValidation['error']);
+            }
+            
             $this->db->beginTransaction();
             
             $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, status, created_by, created_at)
@@ -231,7 +238,7 @@ class ZoneFile {
         } catch (Exception $e) {
             $this->db->rollBack();
             error_log("ZoneFile create error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 
@@ -245,13 +252,21 @@ class ZoneFile {
      */
     public function update($id, $data, $user_id) {
         try {
+            // Validate zone name if it's being updated
+            if (isset($data['name'])) {
+                $nameValidation = DnsValidator::validateName($data['name'], true);
+                if (!$nameValidation['valid']) {
+                    throw new Exception("Invalid zone name: " . $nameValidation['error']);
+                }
+            }
+            
             $this->db->beginTransaction();
             
             // Get current zone file for history
             $current = $this->getById($id);
             if (!$current) {
                 $this->db->rollBack();
-                return false;
+                throw new Exception("Zone file not found");
             }
             
             $sql = "UPDATE zone_files 
@@ -283,7 +298,7 @@ class ZoneFile {
         } catch (Exception $e) {
             $this->db->rollBack();
             error_log("ZoneFile update error: " . $e->getMessage());
-            return false;
+            throw $e;
         }
     }
 

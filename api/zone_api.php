@@ -246,9 +246,10 @@ try {
             }
 
             $user = $auth->getCurrentUser();
-            $zone_id = $zoneFile->create($input, $user['id']);
-
-            if ($zone_id) {
+            
+            try {
+                $zone_id = $zoneFile->create($input, $user['id']);
+                
                 // Trigger validation after creation
                 $zoneFile->validateZoneFile($zone_id, $user['id']);
                 
@@ -258,9 +259,9 @@ try {
                     'message' => 'Zone file created successfully',
                     'id' => $zone_id
                 ]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Failed to create zone file']);
+            } catch (Exception $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
             }
             break;
 
@@ -320,9 +321,10 @@ try {
             }
 
             $user = $auth->getCurrentUser();
-            $success = $zoneFile->update($id, $input, $user['id']);
-
-            if ($success) {
+            
+            try {
+                $success = $zoneFile->update($id, $input, $user['id']);
+                
                 // Trigger validation after update
                 $zoneFile->validateZoneFile($id, $user['id']);
                 
@@ -330,9 +332,9 @@ try {
                     'success' => true,
                     'message' => 'Zone file updated successfully'
                 ]);
-            } else {
-                http_response_code(500);
-                echo json_encode(['error' => 'Failed to update zone file']);
+            } catch (Exception $e) {
+                http_response_code(400);
+                echo json_encode(['error' => $e->getMessage()]);
             }
             break;
 

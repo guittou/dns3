@@ -1,0 +1,17 @@
+{
+    "name": "guittou/dns3",
+    "description": "DNS3 - Application Web PHP pour gestion DNS",
+    "type": "project",
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "autoload": {
+        "classmap": [
+            "includes/lib/",
+            "includes/models/"
+        ]
+    },
+    "require": {
+        "php": ">=7.4"
+    }
+}
