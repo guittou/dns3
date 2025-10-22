@@ -91,12 +91,6 @@ function setupEventHandlers() {
         loadZonesList();
     });
 
-    // Create zone form submission
-    document.getElementById('createZoneForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        createZone();
-    });
-
     // Modal close on outside click
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
@@ -333,6 +327,9 @@ let currentZoneId = null;
  */
 async function openZoneModal(zoneId) {
     try {
+        // Clear any previous errors
+        clearModalError('zoneModal');
+        
         // Store current zone ID
         currentZoneId = zoneId;
         
@@ -502,6 +499,9 @@ function setupChangeDetection() {
  */
 async function saveZone() {
     try {
+        // Clear any previous errors
+        clearModalError('zoneModal');
+        
         const zoneId = document.getElementById('zoneId').value;
         
         // Get content directly from textarea (no CodeMirror)
@@ -550,7 +550,10 @@ async function saveZone() {
         await loadZonesList();
     } catch (error) {
         console.error('Failed to save zone:', error);
-        showError('Erreur lors de la sauvegarde: ' + error.message);
+        
+        // Show error in modal banner instead of global error
+        const errorMessage = error.message || 'Erreur lors de la sauvegarde de la zone';
+        showModalError('zoneModal', errorMessage);
     }
 }
 
@@ -662,6 +665,9 @@ async function removeIncludeFromZone(includeId) {
  * Open create zone modal
  */
 function openCreateZoneModal() {
+    // Clear any previous errors
+    clearModalError('createZone');
+    
     document.getElementById('createZoneForm').reset();
     // Force master type and disable the select
     document.getElementById('createFileType').value = 'master';
@@ -681,6 +687,9 @@ function closeCreateZoneModal() {
  */
 async function createZone() {
     try {
+        // Clear any previous errors
+        clearModalError('createZone');
+        
         const data = {
             name: document.getElementById('createName').value,
             filename: document.getElementById('createFilename').value,
@@ -703,7 +712,10 @@ async function createZone() {
         }
     } catch (error) {
         console.error('Failed to create zone:', error);
-        showError('Erreur lors de la création: ' + error.message);
+        
+        // Show error in modal banner instead of global error
+        const errorMessage = error.message || 'Erreur lors de la création de la zone';
+        showModalError('createZone', errorMessage);
     }
 }
 
@@ -730,6 +742,33 @@ function showSuccess(message) {
 function showError(message) {
     // Simple alert for now - can be enhanced with toast notifications
     alert('Erreur: ' + message);
+}
+
+/**
+ * Show error banner in a modal
+ * @param {string} modalId - Modal ID prefix (e.g., 'createZone' or 'zoneModal')
+ * @param {string} message - Error message to display
+ */
+function showModalError(modalId, message) {
+    const banner = document.getElementById(modalId + 'ErrorBanner');
+    if (banner) {
+        banner.innerText = message;
+        banner.style.display = 'block';
+        // Focus the banner for accessibility
+        banner.focus();
+    }
+}
+
+/**
+ * Clear error banner in a modal
+ * @param {string} modalId - Modal ID prefix (e.g., 'createZone' or 'zoneModal')
+ */
+function clearModalError(modalId) {
+    const banner = document.getElementById(modalId + 'ErrorBanner');
+    if (banner) {
+        banner.style.display = 'none';
+        banner.innerText = '';
+    }
 }
 
 /**
