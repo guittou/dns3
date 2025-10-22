@@ -125,7 +125,8 @@ async function zoneApiCall(action, options = {}) {
     let url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
     url.searchParams.append('action', action);
 
-    if (method === 'GET' && Object.keys(params).length > 0) {
+    // Always append params to URL for all methods (GET, POST, etc.)
+    if (Object.keys(params).length > 0) {
         Object.keys(params).forEach(k => url.searchParams.append(k, params[k]));
     }
 
