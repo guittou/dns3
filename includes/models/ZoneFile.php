@@ -917,6 +917,8 @@ class ZoneFile {
 
             // Check if this is an include file
             if ($zone['file_type'] === 'include') {
+                $this->logValidation("Zone ID $zoneId is an include file - finding top master for validation");
+                
                 // Includes need to be validated via their top master
                 // Find the top-level master by traversing the parent chain
                 $topMasterResult = $this->findTopMaster($zoneId);
@@ -924,6 +926,7 @@ class ZoneFile {
                 // Check for errors (no master found or cycle detected)
                 if (isset($topMasterResult['error'])) {
                     $errorMsg = $topMasterResult['error'];
+                    $this->logValidation("ERROR: Failed to find top master for include zone ID $zoneId: $errorMsg");
                     if ($sync) {
                         $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
                         return [
@@ -939,6 +942,8 @@ class ZoneFile {
                 
                 $topMasterId = $topMasterResult['id'];
                 $topMasterName = $topMasterResult['name'];
+                
+                $this->logValidation("Found top master for include zone ID $zoneId: master zone '{$topMasterName}' (ID: {$topMasterId})");
                 
                 // Validate the top master
                 if ($sync) {
@@ -962,6 +967,7 @@ class ZoneFile {
             }
 
             // Not an include - proceed with normal validation
+            $this->logValidation("Zone ID $zoneId is a {$zone['file_type']} zone - validating directly");
             if ($sync) {
                 // Run validation synchronously
                 return $this->runNamedCheckzone($zoneId, $zone, $userId);
@@ -989,6 +995,7 @@ class ZoneFile {
         while (true) {
             // Cycle detection
             if (in_array($currentId, $visited)) {
+                $this->logValidation("ERROR: Circular dependency detected in include chain at zone ID $currentId");
                 return ['error' => "Circular dependency detected in include chain; cannot validate"];
             }
             $visited[] = $currentId;
@@ -996,11 +1003,15 @@ class ZoneFile {
             // Get current zone
             $current = $this->getById($currentId, true);
             if (!$current) {
+                $this->logValidation("ERROR: Zone file (ID: {$currentId}) not found in parent chain");
                 return ['error' => "Zone file (ID: {$currentId}) not found in parent chain"];
             }
             
+            $this->logValidation("Traversing parent chain: zone ID $currentId, type='{$current['file_type']}', name='{$current['name']}'");
+            
             // If we found a master, return it
             if ($current['file_type'] === 'master') {
+                $this->logValidation("Found master zone: ID {$current['id']}, name '{$current['name']}'");
                 return [
                     'id' => $current['id'],
                     'name' => $current['name'],
@@ -1018,8 +1029,11 @@ class ZoneFile {
             
             // If no parent found via direct relationship, return error
             if (!$parentId) {
+                $this->logValidation("ERROR: Include file (ID: {$currentId}) has no master parent");
                 return ['error' => "Include file has no master parent; cannot validate standalone"];
             }
+            
+            $this->logValidation("Moving up to parent zone ID: $parentId");
             
             // Move up to parent
             $currentId = $parentId;
