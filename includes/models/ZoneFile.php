@@ -1041,6 +1041,7 @@ class ZoneFile {
         $tmpDir = sys_get_temp_dir() . '/dns3_validate_' . uniqid();
         if (!mkdir($tmpDir, 0700, true)) {
             $errorMsg = "Failed to create temporary directory for validation";
+            $this->logValidation("ERROR: $errorMsg");
             $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
             return [
                 'status' => 'failed',
@@ -1048,6 +1049,8 @@ class ZoneFile {
                 'return_code' => 1
             ];
         }
+        
+        $this->logValidation("Created temporary directory: $tmpDir");
         
         try {
             // Get zone content with $INCLUDE directives
@@ -1057,8 +1060,10 @@ class ZoneFile {
             $visited = [];
             try {
                 $this->writeZoneFilesToDisk($zoneId, $tmpDir, $visited);
+                $this->logValidation("Zone files written to disk successfully (zone ID: $zoneId)");
             } catch (Exception $e) {
                 $errorMsg = "Failed to write zone files: " . $e->getMessage();
+                $this->logValidation("ERROR: $errorMsg");
                 $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
                 $this->rrmdir($tmpDir);
                 return [
@@ -1078,11 +1083,18 @@ class ZoneFile {
                        escapeshellarg($zoneName) . ' ' . 
                        escapeshellarg($tempFileName) . ' 2>&1';
             
+            $this->logValidation("Executing command: $command");
+            $this->logValidation("Working directory: $tmpDir");
+            
             exec($command, $output, $returnCode);
             $outputText = implode("\n", $output);
             
+            $this->logValidation("Command exit code: $returnCode");
+            
             // Determine status
             $status = ($returnCode === 0) ? 'passed' : 'failed';
+            
+            $this->logValidation("Validation result for zone ID $zoneId: $status");
             
             // Enrich output with extracted line context from errors
             $enrichedOutput = $this->enrichValidationOutput($outputText, $tmpDir, $tempFileName);
@@ -1102,8 +1114,9 @@ class ZoneFile {
             // Clean up temporary directory unless DEBUG_KEEP_TMPDIR is set
             if (!defined('DEBUG_KEEP_TMPDIR') || !DEBUG_KEEP_TMPDIR) {
                 $this->rrmdir($tmpDir);
+                $this->logValidation("Temporary directory cleaned up: $tmpDir");
             } else {
-                error_log("DEBUG: Temporary directory kept at: $tmpDir");
+                $this->logValidation("DEBUG: Temporary directory kept at: $tmpDir");
             }
         }
     }
@@ -1512,6 +1525,19 @@ class ZoneFile {
             error_log("ZoneFile getLatestValidation error: " . $e->getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Log validation messages to worker.log
+     * 
+     * @param string $message Message to log
+     * @return void
+     */
+    private function logValidation($message) {
+        $logFile = __DIR__ . '/../../jobs/worker.log';
+        $timestamp = date('Y-m-d H:i:s');
+        $logLine = "[$timestamp] [ZoneFile] $message\n";
+        file_put_contents($logFile, $logLine, FILE_APPEND);
     }
 }
 ?>
