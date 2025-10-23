@@ -1,8 +1,8 @@
 <?php
-// Générateur de jeu de test (zones master + include, enregistrements pour masters/includes)
-// Usage : php scripts/generate_test_data.php --zones=50 --masters=40 --includes=10 --records=1000 --user=1
-// Si --masters/--includes omis, on split 80% masters / 20% includes.
-// Ne pas exécuter en production sans backup.
+// Gé®©rateur de jeu de test (zones master + include, enregistrements pour masters/includes)
+// Usage : php scripts/generate_test_data.php --zones=50 --masters=40 --includes=10 --records=1000 --user=1 [--mx=1]
+// Ce script gé®¨re des zones et includes valides (contenu BIND) afin que named-checkzone / worker.sh les valides.
+// Ne pas exé£µter en production sans backup.
 
 require_once __DIR__ . '/../includes/db.php';
 
@@ -38,6 +38,11 @@ function now() {
     return date('Y-m-d H:i:s');
 }
 
+function soa_serial($index = 1) {
+    // format YYYYMMDDnn to be valid and increasing
+    return date('Ymd') . sprintf('%02d', $index % 100);
+}
+
 // Prepare zone insert
 $insertZoneStmt = $pdo->prepare(
     "INSERT INTO zone_files (name, filename, content, file_type, status, created_by, created_at, updated_at)
@@ -46,10 +51,20 @@ $insertZoneStmt = $pdo->prepare(
 
 // 1) Create master zones
 $masterIds = [];
+$masterMeta = []; // store meta (id,name,filename) for later
 for ($i = 1; $i <= $mastersCount; $i++) {
     $name = "test-master-{$i}.local";
     $filename = "db.test-master-{$i}.local";
-    $content = "; Master zone $name\n\$TTL 3600\n@ IN SOA ns1.$name. admin.$name. (\n    2025010101 ; serial\n    3600\n    1800\n    604800\n    86400 )\n\n; example NS\nns1 IN A 192.0.2." . ($i % 254 + 1) . "\n";
+    $serial = soa_serial($i);
+    // valid BIND content for master zone with $ORIGIN and SOA/NS and ns1 A
+    $content = "";
+    $content .= "\$ORIGIN {$name}.\n";
+    $content .= "\$TTL 3600\n";
+    $content .= "@ IN SOA ns1.{$name}. admin.{$name}. ( {$serial} 3600 1800 604800 86400 )\n";
+    $content .= "    IN NS ns1.{$name}.\n";
+    $nsIp = "192.0.2." . ($i % 250 + 1);
+    $content .= "ns1 IN A {$nsIp}\n";
+    // includes will be appended later once includes are created and linked
     $insertZoneStmt->execute([
         ':name' => $name,
         ':filename' => $filename,
@@ -59,19 +74,27 @@ for ($i = 1; $i <= $mastersCount; $i++) {
         ':created_at' => now(),
         ':updated_at' => now()
     ]);
-    $masterIds[] = (int)$pdo->lastInsertId();
-    if ($i % 10 == 0) echo "  -> {$i} masters créés\n";
+    $zoneId = (int)$pdo->lastInsertId();
+    $masterIds[] = $zoneId;
+    $masterMeta[$zoneId] = ['name'=>$name,'filename'=>$filename,'serial'=>$serial];
+    if ($i % 10 == 0) echo "  -> {$i} masters cré©³\n";
 }
-echo "Masters créés: " . count($masterIds) . "\n";
+echo "Masters cré©³: " . count($masterIds) . "\n";
 
 // 2) Create include zones
 $includeIds = [];
+$includeMeta = []; // store filename and sample content
 for ($j = 1; $j <= $includesCount; $j++) {
-    $name = "common-include-{$j}.inc.local";
-    $filename = "include.common-{$j}.conf";
-    $content = "; Include file $name\n; common records for group $j\n";
-    // Put some sample records inside include content
-    $content .= "www IN A 198.51." . ($j % 254) . ".1\n";
+    $name = "common-include-{$j}.inc.local"; // logical name for the include file
+    // choose a filename that looks like an include file used by $INCLUDE directive
+    $filename = "includes/common-include-{$j}.inc"; // path-like; generation uses this name
+    // Build include content: records are relative to the master zone when included,
+    // so we take care to use relative names (no $ORIGIN) or explicit FQDN if needed.
+    $content = "; Include file for common records group {$j}\n";
+    // Add some sample records that are valid when included (relative names)
+    $content .= "monitor IN A 198.51." . ($j % 250) . ".10\n";
+    $content .= "monitor6 IN AAAA 2001:db8::" . dechex(100 + $j) . "\n";
+    $content .= "common-txt IN TXT \"include-group-{$j}\"\n";
     $insertZoneStmt->execute([
         ':name' => $name,
         ':filename' => $filename,
@@ -81,20 +104,22 @@ for ($j = 1; $j <= $includesCount; $j++) {
         ':created_at' => now(),
         ':updated_at' => now()
     ]);
-    $includeIds[] = (int)$pdo->lastInsertId();
-    if ($j % 10 == 0) echo "  -> {$j} includes créés\n";
+    $incId = (int)$pdo->lastInsertId();
+    $includeIds[] = $incId;
+    $includeMeta[$incId] = ['name'=>$name,'filename'=>$filename];
+    if ($j % 10 == 0) echo "  -> {$j} includes cré©³\n";
 }
-echo "Includes créés: " . count($includeIds) . "\n";
+echo "Includes cré©³: " . count($includeIds) . "\n";
 
-// 3) Link includes to masters (zone_file_includes)
+// 3) Link includes to masters (zone_file_includes) and append $INCLUDE to parent content
 if (!empty($includeIds)) {
     $insertIncludeStmt = $pdo->prepare("INSERT INTO zone_file_includes (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)");
+    $updateMasterContentStmt = $pdo->prepare("UPDATE zone_files SET content = CONCAT(content, :append) WHERE id = :id");
     $pos = 0;
     foreach ($includeIds as $incId) {
         // choose a random master as parent
         $parent = $masterIds[array_rand($masterIds)];
         $pos++;
-        // guard uniqueness: try/catch duplicate key
         try {
             $insertIncludeStmt->execute([
                 ':parent_id' => $parent,
@@ -105,11 +130,21 @@ if (!empty($includeIds)) {
         } catch (Exception $e) {
             // ignore uniqueness errors
         }
+
+        // Append a $INCLUDE directive to the parent content using the include filename
+        // Use the exact filename stored in the include (it may include a path)
+        $incFilename = $includeMeta[$incId]['filename'];
+        // The include directive must be on its own line; ensure proper format
+        $append = "\n\$INCLUDE {$incFilename}\n";
+        $updateMasterContentStmt->execute([
+            ':append' => $append,
+            ':id' => $parent
+        ]);
     }
-    echo "Includes liés aux masters.\n";
+    echo "Includes lié³ aux masters et directives \$INCLUDE ajouté¥³.\n";
 }
 
-// 4) Prepare dns_records insert (columns existants are known from schema)
+// 4) Prepare dns_records insert
 $insertRecordStmt = $pdo->prepare(
     "INSERT INTO dns_records (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, status, created_by, created_at, updated_at)
      VALUES (:zone_file_id, :record_type, :name, :value, :address_ipv4, :address_ipv6, :cname_target, :ptrdname, :txt, :ttl, :priority, :requester, :status, :created_by, :created_at, :updated_at)"
@@ -122,11 +157,11 @@ if ($enableMx) $types[] = 'MX';
 // choose target zone ids (both masters and includes)
 $allZoneIds = array_merge($masterIds, $includeIds);
 if (empty($allZoneIds)) {
-    fwrite(STDERR, "Erreur: aucune zone trouvée pour insérer des enregistrements.\n");
+    fwrite(STDERR, "Erreur: aucune zone trouvé¥ pour insé²¥r des enregistrements.\n");
     exit(1);
 }
 
-// Seed some values for CNAME targets - use master names
+// Get master names to use as possible CNAME targets
 $masterNamesStmt = $pdo->prepare("SELECT id, name FROM zone_files WHERE file_type = 'master' LIMIT 1000");
 $masterNamesStmt->execute();
 $masterNameRows = $masterNamesStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -163,8 +198,8 @@ for ($r = 1; $r <= $recordsCount; $r++) {
             $name = "host{$r}";
             break;
         case 'CNAME':
-            // choose a target from master names if available else use example target
             $target = count($masterNames) ? $masterNames[array_rand($masterNames)] : "alias.example.com.";
+            // target should be FQDN; ensure trailing dot
             $cname = rtrim($target, '.') . '.';
             $value = $cname;
             $name = "cname{$r}";
@@ -209,9 +244,10 @@ for ($r = 1; $r <= $recordsCount; $r++) {
         ':updated_at' => now(),
     ];
 
+    // Execute insert
     $insertRecordStmt->execute($params);
 
-    if ($r % 100 == 0) echo "  -> {$r} enregistrements créés\n";
+    if ($r % 100 == 0) echo "  -> {$r} enregistrements cré©³\n";
 }
 
-echo "Terminé : {$recordsCount} enregistrements insérés pour " . (count($masterIds)+count($includeIds)) . " zones ({$mastersCount} masters, {$includesCount} includes).\n";
+echo "Terminé º {$recordsCount} enregistrements insé²©s pour " . (count($masterIds)+count($includeIds)) . " zones ({$mastersCount} masters, {$includesCount} includes).\n";
