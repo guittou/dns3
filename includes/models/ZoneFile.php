@@ -1027,7 +1027,7 @@ class ZoneFile {
     }
 
     /**
-     * Run named-checkzone command synchronously with $INCLUDE inlining
+     * Run named-checkzone command synchronously by writing include files to disk
      * 
      * @param int $zoneId Zone file ID
      * @param array $zone Zone data
@@ -1038,7 +1038,7 @@ class ZoneFile {
         $namedCheckzone = defined('NAMED_CHECKZONE_PATH') ? NAMED_CHECKZONE_PATH : 'named-checkzone';
         
         // Create secure temporary directory
-        $tmpDir = sys_get_temp_dir() . '/dns3_validation_' . uniqid();
+        $tmpDir = sys_get_temp_dir() . '/dns3_validate_' . uniqid();
         if (!mkdir($tmpDir, 0700, true)) {
             $errorMsg = "Failed to create temporary directory for validation";
             $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
@@ -1053,12 +1053,12 @@ class ZoneFile {
             // Get zone content with $INCLUDE directives
             $content = $this->generateZoneFile($zoneId);
             
-            // Inline all $INCLUDE directives recursively
+            // Write main zone file and all include files to disk
             $visited = [];
             try {
-                $inlinedContent = $this->inlineIncludes($content, $visited, 0);
+                $this->writeZoneFilesToDisk($zoneId, $tmpDir, $visited);
             } catch (Exception $e) {
-                $errorMsg = "Failed to inline includes: " . $e->getMessage();
+                $errorMsg = "Failed to write zone files: " . $e->getMessage();
                 $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
                 $this->rrmdir($tmpDir);
                 return [
@@ -1068,10 +1068,8 @@ class ZoneFile {
                 ];
             }
             
-            // Write inlined content to temporary file
+            // Main zone file name
             $tempFileName = 'zone_' . $zoneId . '.db';
-            $tempFile = $tmpDir . '/' . $tempFileName;
-            file_put_contents($tempFile, $inlinedContent);
             
             // Run named-checkzone from within the tmpdir to handle any relative paths
             $zoneName = $zone['name'];
@@ -1107,6 +1105,59 @@ class ZoneFile {
             } else {
                 error_log("DEBUG: Temporary directory kept at: $tmpDir");
             }
+        }
+    }
+    
+    /**
+     * Write zone file and all its includes to disk recursively
+     * Creates proper directory structure for $INCLUDE directives
+     * 
+     * @param int $zoneId Zone file ID to write
+     * @param string $tmpDir Temporary directory base path
+     * @param array &$visited Array of visited zone IDs to prevent cycles
+     * @return void
+     * @throws Exception if zone not found or circular dependency detected
+     */
+    private function writeZoneFilesToDisk($zoneId, $tmpDir, &$visited = []) {
+        // Cycle detection
+        if (in_array($zoneId, $visited)) {
+            throw new Exception("Circular dependency detected in include chain");
+        }
+        $visited[] = $zoneId;
+        
+        // Get zone file
+        $zone = $this->getById($zoneId);
+        if (!$zone) {
+            throw new Exception("Zone file not found: ID $zoneId");
+        }
+        
+        // Generate content with $INCLUDE directives (not inlined)
+        $content = $this->generateZoneFile($zoneId);
+        
+        // Determine file path based on zone type and directory
+        if ($zone['file_type'] === 'master' || empty($zone['directory'])) {
+            // Master zones go in the root of tmpDir
+            $filePath = $tmpDir . '/zone_' . $zoneId . '.db';
+        } else {
+            // Include zones respect their directory structure
+            $dirPath = $tmpDir . '/' . $zone['directory'];
+            if (!is_dir($dirPath)) {
+                if (!mkdir($dirPath, 0700, true)) {
+                    throw new Exception("Failed to create directory: " . $zone['directory']);
+                }
+            }
+            $filePath = $dirPath . '/' . $zone['filename'];
+        }
+        
+        // Write zone content to disk
+        if (file_put_contents($filePath, $content) === false) {
+            throw new Exception("Failed to write zone file: $filePath");
+        }
+        
+        // Recursively write all includes
+        $includes = $this->getIncludes($zoneId);
+        foreach ($includes as $include) {
+            $this->writeZoneFilesToDisk($include['id'], $tmpDir, $visited);
         }
     }
     
@@ -1235,8 +1286,11 @@ class ZoneFile {
     }
     
     /**
-     * Inline $INCLUDE directives recursively
+     * Inline $INCLUDE directives recursively (LEGACY - kept for backward compatibility)
      * Replaces $INCLUDE directives with the actual generated content
+     * 
+     * Note: This method is kept for backward compatibility but is no longer used
+     * by the validation system. Validation now writes files to disk instead.
      * 
      * @param string $content Zone file content with $INCLUDE directives
      * @param array &$visited Array of visited filenames to prevent loops
