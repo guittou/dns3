@@ -95,56 +95,58 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
-<!-- Create Zone Modal -->
-<div id="createZoneModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Créer une nouvelle zone</h2>
-            <span class="close" onclick="closeCreateZoneModal()">&times;</span>
+<!-- Create Zone Modal (styled like DNS modal) -->
+<div id="createZoneModal" class="dns-modal">
+    <div class="dns-modal-content">
+        <div class="dns-modal-header">
+            <h2>Nouvelle zone</h2>
+            <button class="dns-modal-close" onclick="closeCreateZoneModal()" aria-label="Fermer">&times;</button>
         </div>
-        <form id="createZoneForm" onsubmit="return false;">
+        <div class="dns-modal-body">
             <!-- Error banner for create modal -->
             <div id="createZoneErrorBanner" class="modal-error-banner" role="alert" tabindex="-1" style="display:none;">
                 <button class="modal-error-close" aria-label="Fermer" onclick="clearModalError('createZone')">&times;</button>
                 <strong class="modal-error-title">Erreur&nbsp;:</strong>
                 <div id="createZoneErrorMessage" class="modal-error-message"></div>
             </div>
-            
-            <div class="form-group">
-                <label for="createName">Nom *</label>
-                <input type="text" id="createName" class="form-control" required>
-            </div>
-            <div class="form-group">
-                <label for="createFilename">Nom de fichier *</label>
-                <input type="text" id="createFilename" class="form-control" required>
-            </div>
-            <div class="form-group">
-                <label for="createFileType">Type *</label>
-                <select id="createFileType" class="form-control" required disabled>
-                    <option value="master" selected>Master</option>
-                </select>
-                <small class="form-text text-muted">Les zones master sont créées via "Nouvelle zone". Les includes sont créés depuis le modal d'édition d'une zone.</small>
-            </div>
-            <div class="form-group">
-                <label for="createContent">Contenu</label>
-                <textarea id="createContent" class="form-control code-editor" rows="10"></textarea>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeCreateZoneModal()">Annuler</button>
-                <button type="button" class="btn btn-primary" onclick="createZone()">Créer</button>
-            </div>
-        </form>
+
+            <form id="createZoneForm" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="createName">Nom *</label>
+                    <input id="createName" class="form-control" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="createFilename">Nom de fichier *</label>
+                    <input id="createFilename" class="form-control" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="createFileType">Type *</label>
+                    <select id="createFileType" class="form-control" required disabled>
+                        <option value="master" selected>Master</option>
+                    </select>
+                    <small class="form-text text-muted">Les zones master sont créées via "Nouvelle zone". Les includes sont créés depuis le modal d'édition d'une zone.</small>
+                </div>
+                <div class="form-group">
+                    <label for="createContent">Contenu</label>
+                    <textarea id="createContent" class="form-control code-editor" rows="10"></textarea>
+                </div>
+                <div class="dns-modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeCreateZoneModal()">Annuler</button>
+                    <button type="button" class="btn-primary" onclick="createZone()">Créer</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
-<!-- Zone Edit Modal -->
-<div id="zoneModal" class="modal">
-    <div class="modal-content modal-large">
-        <div class="modal-header">
+<!-- Zone Edit Modal (styled like DNS modal) -->
+<div id="zoneModal" class="dns-modal">
+    <div class="dns-modal-content modal-large">
+        <div class="dns-modal-header">
             <h2 id="zoneModalTitle">Zone</h2>
-            <span class="close" onclick="closeZoneModal()">&times;</span>
+            <button class="dns-modal-close" onclick="closeZoneModal()" aria-label="Fermer">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="dns-modal-body">
             <!-- Error banner for edit modal -->
             <div id="zoneModalErrorBanner" class="modal-error-banner" role="alert" tabindex="-1" style="display:none;">
                 <button class="modal-error-close" aria-label="Fermer" onclick="clearModalError('zoneModal')">&times;</button>
@@ -256,10 +258,10 @@ if (!$auth->isAdmin()) {
                 </div>
             </div>
         </div>
-        <div class="modal-footer modal-footer-centered">
+        <div class="dns-modal-footer modal-footer-centered">
             <button type="button" class="btn btn-danger" id="deleteZoneBtn" onclick="deleteZone()">Supprimer</button>
-            <button type="button" class="btn btn-secondary" onclick="closeZoneModal()">Annuler</button>
-            <button type="button" class="btn btn-primary" onclick="saveZone()">Enregistrer</button>
+            <button type="button" class="btn-cancel" onclick="closeZoneModal()">Annuler</button>
+            <button type="button" class="btn-primary" onclick="saveZone()">Enregistrer</button>
         </div>
     </div>
 </div>
