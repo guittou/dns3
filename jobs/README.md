@@ -37,7 +37,12 @@ The zone validation worker processes queued `named-checkzone` validation jobs fo
 
 1. When a zone is created or updated, a validation job is queued in `jobs/validation_queue.json`
 2. The cron job runs `worker.sh` every minute
-3. The worker processes all queued jobs using `process_validations.php`
+3. The worker processes all queued jobs using `process_validations.php`:
+   - For zones with `$INCLUDE` directives, the worker **flattens** the zone by inlining all include file contents recursively
+   - Writes the flattened zone to a temporary file
+   - Runs `named-checkzone` against the flattened file
+   - Stores validation results in the database
+   - Cleans up temporary files (unless `JOBS_KEEP_TMP=1`)
 4. Validation results are stored in the `zone_file_validation` table
 5. Results can be retrieved via the API: `/api/zone_api.php?action=zone_validate&id=<zone_id>`
 
@@ -47,6 +52,10 @@ Set these options in `config.php`:
 
 - `ZONE_VALIDATE_SYNC`: Set to `true` to run validation synchronously (default: `false`)
 - `NAMED_CHECKZONE_PATH`: Path to the `named-checkzone` binary (default: `named-checkzone`)
+
+Set these environment variables when running the worker:
+
+- `JOBS_KEEP_TMP`: Set to `1` to keep temporary files for debugging (default: not set, files are cleaned up)
 
 ### Logs
 
@@ -68,3 +77,10 @@ Worker logs are written to:
 **Issue**: Permission denied
 - Ensure worker.sh is executable: `chmod +x jobs/worker.sh`
 - Ensure web server user can write to jobs directory: `chown -R www-data:www-data jobs/`
+
+**Issue**: Include file validation fails
+- Ensure include files exist in `zone_files` table with `file_type='include'`
+- Check for circular dependencies in include chains
+- Set `JOBS_KEEP_TMP=1` and inspect the flattened zone file in `/tmp/dns3_validate_*`
+
+For detailed documentation on include flattening, see `VALIDATION_FLATTENING_IMPLEMENTATION.md`
