@@ -1,8 +1,8 @@
-# $INCLUDE Inlining for named-checkzone Validation
+# Zone File Validation with Separate Include Files
 
 ## Overview
 
-This feature implements inline expansion of `$INCLUDE` directives during zone file validation with `named-checkzone`, while preserving the original `$INCLUDE` directives in files downloaded by users.
+This feature implements validation of zone files with `$INCLUDE` directives by writing include files to disk in their proper directory structure, allowing `named-checkzone` to natively resolve includes.
 
 ## Problem Statement
 
@@ -14,70 +14,74 @@ Previously, validation with `named-checkzone` would fail when `$INCLUDE` directi
 
 ## Solution
 
-The solution implements **inline expansion** of `$INCLUDE` directives specifically for validation:
+The solution writes zone files and their includes to a temporary directory with proper structure:
 
-1. **During validation**: Replace all `$INCLUDE` directives with the actual generated content
-2. **During download**: Keep `$INCLUDE` directives unchanged for users
+1. **During validation**: Write main zone file and all includes as separate files to temporary directory
+2. **During validation**: Run `named-checkzone` which natively resolves `$INCLUDE` directives
+3. **During download**: Keep `$INCLUDE` directives unchanged for users
 
 ## Implementation Details
 
 ### New Methods
 
-#### 1. `inlineIncludes($content, &$visited = [], $depth = 0)`
+#### 1. `writeZoneFilesToDisk($zoneId, $tmpDir, &$visited = [])`
 
-Recursively replaces `$INCLUDE` directives with generated content.
+Recursively writes zone file and all its includes to disk with proper directory structure.
 
 **Features:**
-- Pattern matching: Finds `$INCLUDE "path"` or `$INCLUDE path` directives
-- Database lookup: Searches `zone_files` table by `filename` column
-- Fallback: Optional disk read for backward compatibility
-- Debug comments: Adds `; BEGIN INCLUDE` and `; END INCLUDE` markers
-- Protection: Cycle detection and depth limiting (max 10 levels)
+- Writes main zone file with `$INCLUDE` directives intact
+- Creates subdirectories based on zone's `directory` field
+- Writes include files to their specified locations
+- Recursive: processes nested includes
+- Protection: Cycle detection to prevent infinite loops
 
 **Algorithm:**
 ```
-1. Parse content for $INCLUDE directives using regex
-2. For each include:
-   a. Check if already visited (cycle detection)
-   b. Mark as visited
-   c. Look up include by filename in zone_files table
-   d. Generate content via generateZoneFile(includeId)
-   e. Recursively inline any nested includes
-   f. Replace directive with inlined content + comments
-3. Return fully inlined content
+1. Check if zone already visited (cycle detection)
+2. Mark zone as visited
+3. Get zone from database
+4. Generate zone content with $INCLUDE directives
+5. Determine file path:
+   - Master zones: tmpDir/zone_{id}.db
+   - Includes: tmpDir/{directory}/{filename}
+6. Create subdirectories if needed
+7. Write zone content to file
+8. Recursively process all direct includes
 ```
 
 **Error Handling:**
-- Missing include: Throws exception with descriptive message
-- Circular dependency: Throws exception when include revisited
-- Depth exceeded: Throws exception when depth > 10
+- Missing zone: Throws exception with zone ID
+- Circular dependency: Throws exception when zone revisited
+- Directory creation failed: Throws exception with directory path
+- File write failed: Throws exception with file path
 
 #### 2. `runNamedCheckzone($zoneId, $zone, $userId)` (Updated)
 
-Now creates a temporary directory and inlines includes before validation.
+Now creates a temporary directory and writes include files separately before validation.
 
 **Flow:**
 ```
-1. Create secure temp directory: sys_get_temp_dir()/dns3_validation_{uniqid}
-2. Generate zone content with $INCLUDE directives
-3. Call inlineIncludes() to replace all $INCLUDE with content
-4. Write inlined content to temp file
-5. Execute: cd tmpdir && named-checkzone zoneName zoneFile
-6. Capture output and return code
+1. Create secure temp directory: sys_get_temp_dir()/dns3_validate_{uniqid}
+2. Call writeZoneFilesToDisk() to write all files with directory structure
+3. Execute: cd tmpdir && named-checkzone zoneName zone_{id}.db
+4. named-checkzone natively resolves $INCLUDE directives
+5. Capture output and return code
+6. Enrich output with line context from errors
 7. Store validation result in database
 8. Propagate result to all child includes (BFS)
 9. Clean up temp directory (unless DEBUG_KEEP_TMPDIR)
 ```
 
-**Benefits of temp directory:**
-- Relative paths in content work correctly
-- Isolated from other validations
-- Secure permissions (0700)
-- Easy cleanup
+**Benefits of separate files:**
+- Named-checkzone resolves $INCLUDE natively
+- Line numbers in errors match actual file structure
+- Validates directory structure that will be deployed
+- Easier debugging with DEBUG_KEEP_TMPDIR
+- More realistic - matches production BIND behavior
 
 #### 3. `rrmdir($dir)`
 
-Helper to recursively remove directories and contents.
+Helper to recursively remove directories and contents (unchanged).
 
 **Implementation:**
 ```php
@@ -152,7 +156,7 @@ When validating an include file:
 
 ## Zone File Structure Examples
 
-### Master Zone (Generated)
+### Master Zone File (zone_1.db)
 
 ```bind
 ; Zone content
@@ -160,41 +164,43 @@ $ORIGIN example.com.
 $TTL 3600
 
 ; Includes
-$INCLUDE "common.db"
-$INCLUDE "hosts.db"
+$INCLUDE "includes/common.db"
+$INCLUDE "includes/hosts.db"
 
 ; DNS Records
 www     3600 IN A     192.168.1.100
 ```
 
-### After Inlining (For Validation Only)
+### Include File (includes/common.db)
 
 ```bind
-; Zone content
-$ORIGIN example.com.
-$TTL 3600
-
-; Includes
-; BEGIN INCLUDE: common.db
 ; Zone: Common Records (common.db)
 ; Type: include
 ; Generated: 2024-10-22 11:00:00
 
 ns1     3600 IN A     192.168.1.10
 ns2     3600 IN A     192.168.1.11
-; END INCLUDE: common.db
+```
 
-; BEGIN INCLUDE: hosts.db
+### Include File (includes/hosts.db)
+
+```bind
 ; Zone: Host Records (hosts.db)
 ; Type: include
 ; Generated: 2024-10-22 11:00:00
 
 mail    3600 IN A     192.168.1.50
 ftp     3600 IN A     192.168.1.51
-; END INCLUDE: hosts.db
+```
 
-; DNS Records
-www     3600 IN A     192.168.1.100
+### Temporary Directory Structure
+
+```
+/tmp/dns3_validate_abc123/
+├── zone_1.db (master zone with $INCLUDE directives)
+└── includes/
+    ├── common.db
+    └── hosts.db
 ```
 
 ## Validation Flow
@@ -204,10 +210,10 @@ www     3600 IN A     192.168.1.100
 ```
 1. User triggers validation
 2. System generates zone with $INCLUDE directives
-3. System inlines all includes recursively
-4. Creates temp directory
-5. Writes inlined content to temp file
-6. Runs named-checkzone from temp directory
+3. Creates temp directory: /tmp/dns3_validate_*
+4. Writes main zone file with $INCLUDE directives intact
+5. Writes all include files to proper subdirectories
+6. Runs named-checkzone which natively resolves $INCLUDE
 7. Stores result for master zone
 8. Propagates result to all child includes
 9. Cleans up temp directory
@@ -231,21 +237,21 @@ www     3600 IN A     192.168.1.100
 
 ```
 Status: failed
-Output: Included file not found for validation: common.db (path: includes/common.db)
+Output: Failed to write zone files: Zone file not found: ID 123
 ```
 
 ### Circular Dependency
 
 ```
 Status: failed
-Output: Failed to inline includes: Circular include detected: common.db
+Output: Failed to write zone files: Circular dependency detected in include chain
 ```
 
-### Depth Exceeded
+### Directory Creation Failed
 
 ```
 Status: failed
-Output: Failed to inline includes: Maximum include depth (10) exceeded
+Output: Failed to write zone files: Failed to create directory: includes/nested
 ```
 
 ### Directory Creation Failed
@@ -267,8 +273,10 @@ echo "define('DEBUG_KEEP_TMPDIR', true);" >> config.php
 curl -X GET "http://localhost/api/zone_api.php?action=validate_zone&id=1&trigger=true&sync=true"
 
 # Check temp directory (path in logs)
-ls -la /tmp/dns3_validation_*
-cat /tmp/dns3_validation_*/zone_*.db
+ls -la /tmp/dns3_validate_*
+tree /tmp/dns3_validate_*
+cat /tmp/dns3_validate_*/zone_*.db
+cat /tmp/dns3_validate_*/includes/*.db
 ```
 
 ### Automated Tests
@@ -308,17 +316,17 @@ bash test-zone-generation.sh
 - Secure permissions (0700)
 - Automatic cleanup
 
-### Recursion Limits
+### File Operations
 
-- Max depth: 10 levels
-- Protects against stack overflow
-- Reasonable for real-world zone files
+- Multiple files written per validation
+- Subdirectories created as needed
+- Minimal I/O overhead
 
 ### Database Queries
 
-- One query per include
-- Indexed by filename
-- Efficient lookup
+- One query per zone/include
+- Efficient for typical zone structures
+- BFS traversal for include propagation
 
 ## Security
 
@@ -344,10 +352,10 @@ bash test-zone-generation.sh
 
 ### Potential Improvements
 
-1. Cache inlined content for repeated validations
+1. Cache directory structure for repeated validations
 2. Parallel validation for multiple zones
 3. Validation preview before save
-4. Inline expansion for download (optional)
+4. Support for alternative validation tools
 
 ### Not Implemented (By Design)
 
@@ -355,19 +363,20 @@ bash test-zone-generation.sh
 2. Database schema changes - not needed
 3. UI changes - transparent to users
 4. New API endpoints - existing endpoints sufficient
+5. Inlining for download - users need $INCLUDE directives
 
 ## Troubleshooting
 
-### Validation Fails with "Include not found"
+### Validation Fails with "Zone file not found"
 
-**Cause:** Include file not in database or filename mismatch
+**Cause:** Include file not in database
 
 **Solution:**
-1. Check `zone_files.filename` matches `$INCLUDE` basename
+1. Check include exists in `zone_files` table
 2. Verify include is `status='active'`
-3. Check include exists in database
+3. Check zone_file_includes relationship is correct
 
-### Validation Fails with "Circular include"
+### Validation Fails with "Circular dependency"
 
 **Cause:** Include references itself directly or indirectly
 
@@ -376,13 +385,22 @@ bash test-zone-generation.sh
 2. Break the cycle by removing problematic include
 3. Restructure includes to be acyclic
 
+### Validation Fails with "Failed to create directory"
+
+**Cause:** Permission issues or invalid directory path
+
+**Solution:**
+1. Check write permissions on /tmp
+2. Verify directory field in zone_files table is valid
+3. Ensure no special characters in directory path
+
 ### Temp Directory Not Cleaned Up
 
 **Cause:** `DEBUG_KEEP_TMPDIR` enabled or crash during cleanup
 
 **Solution:**
 1. Check if `DEBUG_KEEP_TMPDIR` is defined
-2. Manually remove: `rm -rf /tmp/dns3_validation_*`
+2. Manually remove: `rm -rf /tmp/dns3_validate_*`
 3. Check error logs for cleanup failures
 
 ### Named-checkzone Not Found
@@ -398,11 +416,13 @@ bash test-zone-generation.sh
 
 This implementation provides robust, secure validation of zone files with `$INCLUDE` directives by:
 
-1. ✅ Inlining includes transparently during validation
-2. ✅ Preserving original `$INCLUDE` directives in downloads
-3. ✅ Protecting against cycles and excessive depth
-4. ✅ Providing clear error messages
-5. ✅ Cleaning up temporary files automatically
-6. ✅ Supporting debugging with optional temp directory retention
-7. ✅ Maintaining full backward compatibility
-8. ✅ Requiring no database or UI changes
+1. ✅ Writing include files to disk with proper directory structure
+2. ✅ Allowing native `$INCLUDE` resolution by named-checkzone
+3. ✅ Preserving original `$INCLUDE` directives in downloads
+4. ✅ Protecting against circular dependencies
+5. ✅ Providing accurate line numbers in error messages
+6. ✅ Cleaning up temporary files automatically
+7. ✅ Supporting debugging with optional temp directory retention
+8. ✅ Maintaining full backward compatibility
+9. ✅ Requiring no database or UI changes
+10. ✅ Matching production BIND behavior
