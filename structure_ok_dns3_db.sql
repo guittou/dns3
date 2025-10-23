@@ -165,7 +165,7 @@ CREATE TABLE `dns_record_history` (
   KEY `idx_changed_at` (`changed_at`),
   CONSTRAINT `dns_record_history_ibfk_1` FOREIGN KEY (`record_id`) REFERENCES `dns_records` (`id`) ON DELETE CASCADE,
   CONSTRAINT `dns_record_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -212,7 +212,7 @@ CREATE TABLE `dns_records` (
   KEY `idx_zone_file_id` (`zone_file_id`),
   CONSTRAINT `dns_records_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
   CONSTRAINT `dns_records_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -324,7 +324,7 @@ CREATE TABLE `zone_file_history` (
   KEY `idx_changed_at` (`changed_at`),
   CONSTRAINT `zone_file_history_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
   CONSTRAINT `zone_file_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -345,8 +345,8 @@ CREATE TABLE `zone_file_includes` (
   UNIQUE KEY `ux_include_single_parent` (`include_id`),
   KEY `idx_parent` (`parent_id`),
   KEY `idx_include` (`include_id`),
-  CONSTRAINT `zone_file_includes_ibfk_include` FOREIGN KEY (`include_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `zone_file_includes_ibfk_parent` FOREIGN KEY (`parent_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE
+  CONSTRAINT `zone_file_includes_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `zone_file_includes_ibfk_2` FOREIGN KEY (`include_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -373,26 +373,28 @@ CREATE TABLE `zone_file_includes_new` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `zone_file_includes_old`
+-- Table structure for table `zone_file_validation`
 --
 
-DROP TABLE IF EXISTS `zone_file_includes_old`;
+DROP TABLE IF EXISTS `zone_file_validation`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `zone_file_includes_old` (
+CREATE TABLE `zone_file_validation` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `master_id` int(11) NOT NULL COMMENT 'ID of master zone file',
-  `parent_id` int(11) NOT NULL,
-  `include_id` int(11) NOT NULL,
-  `position` int(11) NOT NULL DEFAULT 0,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `zone_file_id` int(11) NOT NULL,
+  `status` enum('pending','passed','failed','error') NOT NULL DEFAULT 'pending',
+  `output` text DEFAULT NULL COMMENT 'Output from named-checkzone command',
+  `checked_at` timestamp NULL DEFAULT current_timestamp(),
+  `run_by` int(11) DEFAULT NULL COMMENT 'User ID who triggered the validation (NULL for background jobs)',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `ux_parent_include` (`parent_id`,`include_id`),
-  KEY `idx_master_id` (`master_id`),
-  KEY `idx_include_id` (`include_id`),
-  KEY `idx_parent` (`parent_id`),
-  KEY `idx_include` (`include_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+  KEY `run_by` (`run_by`),
+  KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_checked_at` (`checked_at`),
+  KEY `idx_zone_file_checked` (`zone_file_id`,`checked_at` DESC),
+  CONSTRAINT `zone_file_validation_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `zone_file_validation_ibfk_2` FOREIGN KEY (`run_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB AUTO_INCREMENT=90 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -406,6 +408,7 @@ CREATE TABLE `zone_files` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL COMMENT 'Zone name (e.g., example.com)',
   `filename` varchar(255) NOT NULL COMMENT 'Zone file name',
+  `directory` varchar(255) DEFAULT NULL COMMENT 'Directory path for zone file',
   `content` text DEFAULT NULL COMMENT 'Zone file content',
   `file_type` enum('master','include') NOT NULL DEFAULT 'master' COMMENT 'Type of zone file',
   `status` enum('active','inactive','deleted') DEFAULT 'active' COMMENT 'Zone status',
@@ -421,9 +424,10 @@ CREATE TABLE `zone_files` (
   KEY `idx_status` (`status`),
   KEY `idx_created_by` (`created_by`),
   KEY `idx_zone_type_status_name` (`file_type`,`status`,`name`(100)),
+  KEY `idx_directory` (`directory`),
   CONSTRAINT `zone_files_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `zone_files_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -435,4 +439,4 @@ CREATE TABLE `zone_files` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-21 12:16:31
+-- Dump completed on 2025-10-23  9:47:33
