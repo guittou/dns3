@@ -643,6 +643,90 @@ class ZoneFile {
             return null;
         }
     }
+    
+    /**
+     * Generate flattened zone content for validation
+     * Concatenates master content with all include contents recursively in order
+     * Used by validation to create a single complete zone file for named-checkzone
+     * 
+     * @param int $masterId Master zone file ID
+     * @param array &$visited Array to track visited include IDs (prevents cycles)
+     * @return string|null Flattened zone content or null on error
+     */
+    private function generateFlatZone($masterId, &$visited = []) {
+        try {
+            // Prevent infinite loops
+            if (in_array($masterId, $visited)) {
+                $this->logValidation("ERROR: Circular reference detected in generateFlatZone for zone ID $masterId");
+                return null;
+            }
+            $visited[] = $masterId;
+            
+            // Get zone info
+            $zone = $this->getById($masterId);
+            if (!$zone) {
+                $this->logValidation("ERROR: Zone file not found (ID: $masterId) in generateFlatZone");
+                return null;
+            }
+            
+            $content = '';
+            
+            // Add zone's own content first (without $INCLUDE directives)
+            if (!empty($zone['content'])) {
+                // Remove any $INCLUDE directives from the master content
+                // We'll be inlining the actual content instead
+                $zoneContent = preg_replace('/^\s*\$INCLUDE\s+[^\n]+$/m', '', $zone['content']);
+                $content .= trim($zoneContent);
+                if (!empty($content)) {
+                    $content .= "\n\n";
+                }
+            }
+            
+            // Get includes ordered by position
+            $sql = "SELECT zf.id, zf.name, zf.filename, zf.content, zfi.position
+                    FROM zone_files zf
+                    INNER JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                    WHERE zfi.parent_id = ? AND zf.status = 'active'
+                    ORDER BY zfi.position, zf.name";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$masterId]);
+            $includes = $stmt->fetchAll();
+            
+            foreach ($includes as $include) {
+                $content .= "; BEGIN INCLUDE: {$include['name']} ({$include['filename']})\n";
+                
+                // Recursively get flattened content for this include
+                $includeContent = $this->generateFlatZone($include['id'], $visited);
+                if ($includeContent !== null) {
+                    $content .= $includeContent;
+                } else {
+                    // If we can't get content, add the include's own content at least
+                    if (!empty($include['content'])) {
+                        $includeContentClean = preg_replace('/^\s*\$INCLUDE\s+[^\n]+$/m', '', $include['content']);
+                        $content .= trim($includeContentClean) . "\n";
+                    }
+                }
+                
+                $content .= "; END INCLUDE: {$include['name']}\n\n";
+            }
+            
+            // Add DNS records associated with this zone formatted in BIND syntax
+            $records = $this->getDnsRecordsByZone($masterId);
+            if (count($records) > 0) {
+                $content .= "; DNS Records\n";
+                foreach ($records as $record) {
+                    $content .= $this->formatDnsRecordBind($record) . "\n";
+                }
+            }
+            
+            return $content;
+        } catch (Exception $e) {
+            error_log("ZoneFile generateFlatZone error: " . $e->getMessage());
+            $this->logValidation("ERROR in generateFlatZone: " . $e->getMessage());
+            return null;
+        }
+    }
 
     /**
      * Get includes for a parent zone
@@ -1041,12 +1125,12 @@ class ZoneFile {
     }
 
     /**
-     * Run named-checkzone command synchronously by writing include files to disk
+     * Run named-checkzone command synchronously with flattened zone content
      * 
      * @param int $zoneId Zone file ID
      * @param array $zone Zone data
      * @param int|null $userId User ID
-     * @return array Validation result [status, output]
+     * @return array Validation result [status, output, return_code]
      */
     private function runNamedCheckzone($zoneId, $zone, $userId) {
         $namedCheckzone = defined('NAMED_CHECKZONE_PATH') ? NAMED_CHECKZONE_PATH : 'named-checkzone';
@@ -1056,7 +1140,7 @@ class ZoneFile {
         if (!mkdir($tmpDir, 0700, true)) {
             $errorMsg = "Failed to create temporary directory for validation";
             $this->logValidation("ERROR: $errorMsg");
-            $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
+            $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId, null, 1);
             return [
                 'status' => 'failed',
                 'output' => $errorMsg,
@@ -1067,19 +1151,14 @@ class ZoneFile {
         $this->logValidation("Created temporary directory: $tmpDir");
         
         try {
-            // Get zone content with $INCLUDE directives
-            $content = $this->generateZoneFile($zoneId);
-            
-            // Write main zone file and all include files to disk
+            // Generate flattened zone content (master + all includes inlined)
             $visited = [];
-            try {
-                $this->writeZoneFilesToDisk($zoneId, $tmpDir, $visited);
-                $this->logValidation("Zone files written to disk successfully (zone ID: $zoneId)");
-            } catch (Exception $e) {
-                $errorMsg = "Failed to write zone files: " . $e->getMessage();
+            $flatContent = $this->generateFlatZone($zoneId, $visited);
+            
+            if ($flatContent === null) {
+                $errorMsg = "Failed to generate flattened zone content";
                 $this->logValidation("ERROR: $errorMsg");
-                $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId);
-                $this->rrmdir($tmpDir);
+                $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId, null, 1);
                 return [
                     'status' => 'failed',
                     'output' => $errorMsg,
@@ -1087,19 +1166,35 @@ class ZoneFile {
                 ];
             }
             
-            // Main zone file name
-            $tempFileName = 'zone_' . $zoneId . '.db';
+            $this->logValidation("Generated flattened zone content (" . strlen($flatContent) . " bytes)");
             
-            // Run named-checkzone from within the tmpdir to handle any relative paths
+            // Write flattened zone file to disk
+            $tempFileName = 'zone_' . $zoneId . '_flat.db';
+            $tempFilePath = $tmpDir . '/' . $tempFileName;
+            
+            if (file_put_contents($tempFilePath, $flatContent) === false) {
+                $errorMsg = "Failed to write flattened zone file to disk";
+                $this->logValidation("ERROR: $errorMsg");
+                $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId, null, 1);
+                return [
+                    'status' => 'failed',
+                    'output' => $errorMsg,
+                    'return_code' => 1
+                ];
+            }
+            
+            $this->logValidation("Flattened zone file written to: $tempFilePath");
+            
+            // Build named-checkzone command
             $zoneName = $zone['name'];
-            $command = 'cd ' . escapeshellarg($tmpDir) . ' && ' . 
-                       escapeshellcmd($namedCheckzone) . ' ' . 
+            $command = escapeshellcmd($namedCheckzone) . ' ' . 
                        escapeshellarg($zoneName) . ' ' . 
-                       escapeshellarg($tempFileName) . ' 2>&1';
+                       escapeshellarg($tempFilePath) . ' 2>&1';
             
             $this->logValidation("Executing command: $command");
-            $this->logValidation("Working directory: $tmpDir");
+            $this->logValidation("Temporary directory: $tmpDir");
             
+            // Execute command
             exec($command, $output, $returnCode);
             $outputText = implode("\n", $output);
             
@@ -1110,18 +1205,24 @@ class ZoneFile {
             
             $this->logValidation("Validation result for zone ID $zoneId: $status");
             
-            // Enrich output with extracted line context from errors
-            $enrichedOutput = $this->enrichValidationOutput($outputText, $tmpDir, $tempFileName);
+            // Truncate output if too large (keep first 5000 chars for diagnostics)
+            $maxOutputLength = 5000;
+            $originalLength = strlen($outputText);
+            if ($originalLength > $maxOutputLength) {
+                $outputText = substr($outputText, 0, $maxOutputLength) . 
+                             "\n\n[Output truncated: " . ($originalLength - $maxOutputLength) . " additional bytes]";
+                $this->logValidation("Output truncated from $originalLength to $maxOutputLength bytes");
+            }
             
-            // Store validation result with enriched output
-            $this->storeValidationResult($zoneId, $status, $enrichedOutput, $userId);
+            // Store validation result with command and return code
+            $this->storeValidationResult($zoneId, $status, $outputText, $userId, $command, $returnCode);
             
             // If this is a master or parent zone, propagate validation result to all includes
-            $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $enrichedOutput, $userId);
+            $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $outputText, $userId, $command, $returnCode);
             
             return [
                 'status' => $status,
-                'output' => $enrichedOutput,
+                'output' => $outputText,
                 'return_code' => $returnCode
             ];
         } finally {
@@ -1418,9 +1519,11 @@ class ZoneFile {
      * @param string $status Validation status
      * @param string $output Validation output
      * @param int|null $userId User ID
+     * @param string|null $command Command executed
+     * @param int|null $returnCode Exit code
      * @return void
      */
-    private function propagateValidationToIncludes($parentId, $parentName, $status, $output, $userId) {
+    private function propagateValidationToIncludes($parentId, $parentName, $status, $output, $userId, $command = null, $returnCode = null) {
         try {
             // Use BFS to traverse all descendants
             $queue = [$parentId];
@@ -1444,7 +1547,7 @@ class ZoneFile {
                 // Update validation result for each include and add to queue
                 foreach ($includes as $includeId) {
                     $includeOutput = "Validation performed on parent zone '{$parentName}' (ID: {$parentId}):\n\n" . $output;
-                    $this->storeValidationResult($includeId, $status, $includeOutput, $userId);
+                    $this->storeValidationResult($includeId, $status, $includeOutput, $userId, $command, $returnCode);
                     
                     // Add to queue for recursive processing
                     $queue[] = $includeId;
@@ -1500,15 +1603,17 @@ class ZoneFile {
      * @param string $status Validation status
      * @param string $output Command output
      * @param int|null $userId User ID
+     * @param string|null $command Command executed
+     * @param int|null $returnCode Exit code
      * @return bool Success status
      */
-    private function storeValidationResult($zoneId, $status, $output, $userId) {
+    private function storeValidationResult($zoneId, $status, $output, $userId, $command = null, $returnCode = null) {
         try {
-            $sql = "INSERT INTO zone_file_validation (zone_file_id, status, output, run_by, checked_at)
-                    VALUES (?, ?, ?, ?, NOW())";
+            $sql = "INSERT INTO zone_file_validation (zone_file_id, status, output, command, return_code, run_by, checked_at)
+                    VALUES (?, ?, ?, ?, ?, ?, NOW())";
             
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$zoneId, $status, $output, $userId]);
+            $stmt->execute([$zoneId, $status, $output, $command, $returnCode, $userId]);
             
             return true;
         } catch (Exception $e) {
