@@ -59,10 +59,14 @@ fi
 
 # Move queue to processing file
 mv "$QUEUE_FILE" "$PROCESSING_FILE"
-log "Processing queue file"
+log "Processing queue file: $PROCESSING_FILE"
+log "Number of jobs in queue: $(grep -c 'zone_id' "$PROCESSING_FILE" 2>/dev/null || echo '0')"
 
 # Process each job using PHP script
+log "Executing: php $SCRIPT_DIR/process_validations.php $PROCESSING_FILE"
 php "$SCRIPT_DIR/process_validations.php" "$PROCESSING_FILE"
+VALIDATION_EXIT_CODE=$?
+log "process_validations.php completed with exit code: $VALIDATION_EXIT_CODE"
 
 # Remove processing file
 rm -f "$PROCESSING_FILE"
