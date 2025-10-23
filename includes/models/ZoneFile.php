@@ -1148,7 +1148,7 @@ class ZoneFile {
             ];
         }
         
-        $this->logValidation("Created temporary directory: $tmpDir");
+        $this->logValidation("Created temporary directory for zone ID $zoneId: $tmpDir");
         
         try {
             // Generate flattened zone content (master + all includes inlined)
@@ -1156,7 +1156,7 @@ class ZoneFile {
             $flatContent = $this->generateFlatZone($zoneId, $visited);
             
             if ($flatContent === null) {
-                $errorMsg = "Failed to generate flattened zone content";
+                $errorMsg = "Failed to generate flattened zone content for zone ID $zoneId";
                 $this->logValidation("ERROR: $errorMsg");
                 $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId, null, 1);
                 return [
@@ -1166,14 +1166,14 @@ class ZoneFile {
                 ];
             }
             
-            $this->logValidation("Generated flattened zone content (" . strlen($flatContent) . " bytes)");
+            $this->logValidation("Generated flattened zone content for zone ID $zoneId (" . strlen($flatContent) . " bytes)");
             
             // Write flattened zone file to disk
             $tempFileName = 'zone_' . $zoneId . '_flat.db';
             $tempFilePath = $tmpDir . '/' . $tempFileName;
             
             if (file_put_contents($tempFilePath, $flatContent) === false) {
-                $errorMsg = "Failed to write flattened zone file to disk";
+                $errorMsg = "Failed to write flattened zone file to disk for zone ID $zoneId";
                 $this->logValidation("ERROR: $errorMsg");
                 $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId, null, 1);
                 return [
@@ -1185,36 +1185,31 @@ class ZoneFile {
             
             $this->logValidation("Flattened zone file written to: $tempFilePath");
             
-            // Build named-checkzone command
+            // Build named-checkzone command with -q for quiet mode (less verbose)
             $zoneName = $zone['name'];
-            $command = escapeshellcmd($namedCheckzone) . ' ' . 
+            $command = escapeshellcmd($namedCheckzone) . ' -q ' . 
                        escapeshellarg($zoneName) . ' ' . 
                        escapeshellarg($tempFilePath) . ' 2>&1';
             
-            $this->logValidation("Executing command: $command");
-            $this->logValidation("Temporary directory: $tmpDir");
+            $this->logValidation("Executing command for zone ID $zoneId: $command");
             
             // Execute command
             exec($command, $output, $returnCode);
             $outputText = implode("\n", $output);
             
-            $this->logValidation("Command exit code: $returnCode");
+            $this->logValidation("Command exit code for zone ID $zoneId: $returnCode");
+            
+            // Log errors if validation failed
+            if ($returnCode !== 0) {
+                $this->logValidation("Validation FAILED for zone ID $zoneId. Output: " . substr($outputText, 0, 500));
+            } else {
+                $this->logValidation("Validation PASSED for zone ID $zoneId");
+            }
             
             // Determine status
             $status = ($returnCode === 0) ? 'passed' : 'failed';
             
-            $this->logValidation("Validation result for zone ID $zoneId: $status");
-            
-            // Truncate output if too large (keep first 5000 chars for diagnostics)
-            $maxOutputLength = 5000;
-            $originalLength = strlen($outputText);
-            if ($originalLength > $maxOutputLength) {
-                $outputText = substr($outputText, 0, $maxOutputLength) . 
-                             "\n\n[Output truncated: " . ($originalLength - $maxOutputLength) . " additional bytes]";
-                $this->logValidation("Output truncated from $originalLength to $maxOutputLength bytes");
-            }
-            
-            // Store validation result with command and return code
+            // Store validation result with command and return code embedded in output
             $this->storeValidationResult($zoneId, $status, $outputText, $userId, $command, $returnCode);
             
             // If this is a master or parent zone, propagate validation result to all includes
@@ -1231,7 +1226,7 @@ class ZoneFile {
                 $this->rrmdir($tmpDir);
                 $this->logValidation("Temporary directory cleaned up: $tmpDir");
             } else {
-                $this->logValidation("DEBUG: Temporary directory kept at: $tmpDir");
+                $this->logValidation("DEBUG: Temporary directory kept at: $tmpDir (JOBS_KEEP_TMP=1)");
             }
         }
     }
@@ -1601,19 +1596,40 @@ class ZoneFile {
      * 
      * @param int $zoneId Zone file ID
      * @param string $status Validation status
-     * @param string $output Command output
+     * @param string $output Command output (should include command, exit code, and stdout/stderr)
      * @param int|null $userId User ID
-     * @param string|null $command Command executed
-     * @param int|null $returnCode Exit code
+     * @param string|null $command Command executed (will be embedded in output)
+     * @param int|null $returnCode Exit code (will be embedded in output)
      * @return bool Success status
      */
     private function storeValidationResult($zoneId, $status, $output, $userId, $command = null, $returnCode = null) {
         try {
-            $sql = "INSERT INTO zone_file_validation (zone_file_id, status, output, command, return_code, run_by, checked_at)
-                    VALUES (?, ?, ?, ?, ?, ?, NOW())";
+            // Embed command and return code into output field if provided
+            $fullOutput = $output;
+            if ($command !== null || $returnCode !== null) {
+                $fullOutput = '';
+                if ($command !== null) {
+                    $fullOutput .= "Command: $command\n";
+                }
+                if ($returnCode !== null) {
+                    $fullOutput .= "Exit Code: $returnCode\n";
+                }
+                $fullOutput .= "\n" . $output;
+            }
+            
+            // Truncate if too large (keep first 10000 chars)
+            $maxOutputLength = 10000;
+            $originalLength = strlen($fullOutput);
+            if ($originalLength > $maxOutputLength) {
+                $fullOutput = substr($fullOutput, 0, $maxOutputLength) . 
+                             "\n\n[Output truncated: " . ($originalLength - $maxOutputLength) . " additional bytes]";
+            }
+            
+            $sql = "INSERT INTO zone_file_validation (zone_file_id, status, output, run_by, checked_at)
+                    VALUES (?, ?, ?, ?, NOW())";
             
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$zoneId, $status, $output, $command, $returnCode, $userId]);
+            $stmt->execute([$zoneId, $status, $fullOutput, $userId]);
             
             return true;
         } catch (Exception $e) {
