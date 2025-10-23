@@ -8,8 +8,7 @@ set -euo pipefail
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-3306}"
 DB_USER="${DB_USER:-root}"
-DB_NAME="${DB_NAME:-dns3_db}"
-# DB_PASSWORD can be provided via env var or prompt
+DB_NAME="${DB_NAME:-dns3}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 
 DRY_RUN=0
@@ -47,6 +46,8 @@ DELETE FROM dns_records;
 
 DELETE FROM zone_file_history;
 DELETE FROM zone_file_includes;
+DELETE FROM zone_file_includes_new;
+DELETE FROM zone_file_validation;
 DELETE FROM applications;
 DELETE FROM zone_files;
 
