@@ -144,7 +144,38 @@ if (!empty($includeIds)) {
     echo "Includes lié³ aux masters et directives \$INCLUDE ajouté¥³.\n";
 }
 
-// 4) Prepare dns_records insert
+// 4) Detect compatibility columns in dns_records
+// Check for optional legacy columns: zone, zone_name, zone_file_name, zone_file
+$compatColumns = [];
+$columnsStmt = $pdo->query("SHOW COLUMNS FROM dns_records");
+$columns = $columnsStmt->fetchAll(PDO::FETCH_ASSOC);
+foreach ($columns as $col) {
+    $colName = $col['Field'];
+    if (in_array($colName, ['zone', 'zone_name', 'zone_file_name', 'zone_file'])) {
+        $compatColumns[] = $colName;
+    }
+}
+if (!empty($compatColumns)) {
+    echo "Detected compatibility columns in dns_records: " . implode(', ', $compatColumns) . "\n";
+} else {
+    echo "No compatibility columns detected (zone_file_id only mode).\n";
+}
+
+// Cache zone metadata for compatibility column population
+$zoneMetadata = [];
+if (!empty($compatColumns)) {
+    $allZoneInfoStmt = $pdo->prepare("SELECT id, name, filename FROM zone_files");
+    $allZoneInfoStmt->execute();
+    while ($row = $allZoneInfoStmt->fetch(PDO::FETCH_ASSOC)) {
+        $zoneMetadata[(int)$row['id']] = [
+            'name' => $row['name'],
+            'filename' => $row['filename']
+        ];
+    }
+    echo "Cached metadata for " . count($zoneMetadata) . " zones for compatibility columns.\n";
+}
+
+// 5) Prepare dns_records insert
 $insertRecordStmt = $pdo->prepare(
     "INSERT INTO dns_records (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, status, created_by, created_at, updated_at)
      VALUES (:zone_file_id, :record_type, :name, :value, :address_ipv4, :address_ipv6, :cname_target, :ptrdname, :txt, :ttl, :priority, :requester, :status, :created_by, :created_at, :updated_at)"
@@ -246,6 +277,35 @@ for ($r = 1; $r <= $recordsCount; $r++) {
 
     // Execute insert
     $insertRecordStmt->execute($params);
+    $recordId = (int)$pdo->lastInsertId();
+
+    // Populate compatibility columns if they exist
+    if (!empty($compatColumns) && isset($zoneMetadata[$zoneId])) {
+        $zoneInfo = $zoneMetadata[$zoneId];
+        
+        // Build UPDATE statement dynamically based on detected columns
+        $updateParts = [];
+        $updateParams = [];
+        
+        foreach ($compatColumns as $compatCol) {
+            if ($compatCol === 'zone' || $compatCol === 'zone_name') {
+                // Populate with zone_files.name
+                $updateParts[] = "{$compatCol} = ?";
+                $updateParams[] = $zoneInfo['name'];
+            } elseif ($compatCol === 'zone_file_name' || $compatCol === 'zone_file') {
+                // Populate with zone_files.filename
+                $updateParts[] = "{$compatCol} = ?";
+                $updateParams[] = $zoneInfo['filename'];
+            }
+        }
+        
+        if (!empty($updateParts)) {
+            $updateParams[] = $recordId;
+            $updateSql = "UPDATE dns_records SET " . implode(', ', $updateParts) . " WHERE id = ?";
+            $updateStmt = $pdo->prepare($updateSql);
+            $updateStmt->execute($updateParams);
+        }
+    }
 
     if ($r % 100 == 0) echo "  -> {$r} enregistrements cré©³\n";
 }
