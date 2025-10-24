@@ -26,7 +26,8 @@ class DnsRecord {
         $sql = "SELECT dr.*, 
                        u1.username as created_by_username,
                        u2.username as updated_by_username,
-                       zf.name as zone_name
+                       zf.name as zone_name,
+                       zf.filename as zone_filename
                 FROM dns_records dr
                 LEFT JOIN users u1 ON dr.created_by = u1.id
                 LEFT JOIN users u2 ON dr.updated_by = u2.id
@@ -84,7 +85,8 @@ class DnsRecord {
             $sql = "SELECT dr.*, 
                            u1.username as created_by_username,
                            u2.username as updated_by_username,
-                           zf.name as zone_name
+                           zf.name as zone_name,
+                           zf.filename as zone_filename
                     FROM dns_records dr
                     LEFT JOIN users u1 ON dr.created_by = u1.id
                     LEFT JOIN users u2 ON dr.updated_by = u2.id
