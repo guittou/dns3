@@ -415,8 +415,22 @@
             
             // Set zone_file_id
             const zoneFileSelector = document.getElementById('record-zone-file');
-            if (zoneFileSelector && record.zone_file_id) {
-                zoneFileSelector.value = record.zone_file_id;
+            if (zoneFileSelector) {
+                if (record.zone_file_id) {
+                    // Primary: use zone_file_id if available
+                    zoneFileSelector.value = record.zone_file_id;
+                } else if (record.zone_name || record.zone) {
+                    // Fallback: try to find option by matching zone name
+                    const zoneName = record.zone_name || record.zone;
+                    const options = zoneFileSelector.querySelectorAll('option');
+                    for (const option of options) {
+                        // Match by textContent (which includes zone name) or by exact value
+                        if (option.textContent.includes(zoneName) || option.value === zoneName) {
+                            zoneFileSelector.value = option.value;
+                            break;
+                        }
+                    }
+                }
             }
 
             document.getElementById('record-type').value = record.record_type;
