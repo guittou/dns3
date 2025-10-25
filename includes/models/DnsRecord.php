@@ -27,8 +27,8 @@ class DnsRecord {
                        u1.username as created_by_username,
                        u2.username as updated_by_username,
                        dr.zone_file_id,
-                       COALESCE(zf.name, dr.zone_name, dr.zone) as zone_name,
-                       COALESCE(zf.filename, dr.zone_file_name) as zone_file_name
+                       COALESCE(zf.name, '') as zone_name,
+                       COALESCE(zf.filename, '') as zone_file_name
                 FROM dns_records dr
                 LEFT JOIN users u1 ON dr.created_by = u1.id
                 LEFT JOIN users u2 ON dr.updated_by = u2.id
@@ -63,8 +63,17 @@ class DnsRecord {
             $records = $stmt->fetchAll();
             
             // Compute 'value' field from dedicated columns for backward compatibility
+            // and ensure zone fields are always present
             foreach ($records as &$record) {
                 $record['value'] = $this->getValueFromDedicatedField($record);
+                
+                // Ensure zone_name and zone_file_name are never null
+                if (!isset($record['zone_name']) || $record['zone_name'] === null) {
+                    $record['zone_name'] = '';
+                }
+                if (!isset($record['zone_file_name']) || $record['zone_file_name'] === null) {
+                    $record['zone_file_name'] = '';
+                }
             }
             
             return $records;
@@ -87,8 +96,8 @@ class DnsRecord {
                            u1.username as created_by_username,
                            u2.username as updated_by_username,
                            dr.zone_file_id,
-                           COALESCE(zf.name, dr.zone_name, dr.zone) as zone_name,
-                           COALESCE(zf.filename, dr.zone_file_name) as zone_file_name
+                           COALESCE(zf.name, '') as zone_name,
+                           COALESCE(zf.filename, '') as zone_file_name
                     FROM dns_records dr
                     LEFT JOIN users u1 ON dr.created_by = u1.id
                     LEFT JOIN users u2 ON dr.updated_by = u2.id
@@ -106,6 +115,14 @@ class DnsRecord {
             if ($record) {
                 // Compute 'value' field from dedicated columns for backward compatibility
                 $record['value'] = $this->getValueFromDedicatedField($record);
+                
+                // Ensure zone_name and zone_file_name are never null
+                if (!isset($record['zone_name']) || $record['zone_name'] === null) {
+                    $record['zone_name'] = '';
+                }
+                if (!isset($record['zone_file_name']) || $record['zone_file_name'] === null) {
+                    $record['zone_file_name'] = '';
+                }
             }
             
             return $record ?: null;

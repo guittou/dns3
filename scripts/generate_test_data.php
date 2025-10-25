@@ -144,7 +144,28 @@ if (!empty($includeIds)) {
     echo "Includes lié³ aux masters et directives \$INCLUDE ajouté¥³.\n";
 }
 
-// 4) Prepare dns_records insert
+// 4) Detect compatibility columns in dns_records table
+echo "Checking for compatibility columns in dns_records...\n";
+$columnsStmt = $pdo->query("SHOW COLUMNS FROM dns_records");
+$columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);
+$hasZone = in_array('zone', $columns);
+$hasZoneName = in_array('zone_name', $columns);
+$hasZoneFileName = in_array('zone_file_name', $columns);
+$hasZoneFile = in_array('zone_file', $columns);
+
+if ($hasZone || $hasZoneName || $hasZoneFileName || $hasZoneFile) {
+    echo "Found compatibility columns: ";
+    $compatCols = [];
+    if ($hasZone) $compatCols[] = 'zone';
+    if ($hasZoneName) $compatCols[] = 'zone_name';
+    if ($hasZoneFileName) $compatCols[] = 'zone_file_name';
+    if ($hasZoneFile) $compatCols[] = 'zone_file';
+    echo implode(', ', $compatCols) . "\n";
+} else {
+    echo "No compatibility columns detected (using canonical zone_file_id only).\n";
+}
+
+// 5) Prepare dns_records insert
 $insertRecordStmt = $pdo->prepare(
     "INSERT INTO dns_records (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, status, created_by, created_at, updated_at)
      VALUES (:zone_file_id, :record_type, :name, :value, :address_ipv4, :address_ipv6, :cname_target, :ptrdname, :txt, :ttl, :priority, :requester, :status, :created_by, :created_at, :updated_at)"
@@ -246,6 +267,44 @@ for ($r = 1; $r <= $recordsCount; $r++) {
 
     // Execute insert
     $insertRecordStmt->execute($params);
+    $recordId = (int)$pdo->lastInsertId();
+
+    // Update compatibility columns if they exist
+    if ($hasZone || $hasZoneName || $hasZoneFileName || $hasZoneFile) {
+        // Get zone file info for this record
+        $zoneInfoStmt = $pdo->prepare("SELECT name, filename FROM zone_files WHERE id = ?");
+        $zoneInfoStmt->execute([$zoneId]);
+        $zoneInfo = $zoneInfoStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($zoneInfo) {
+            $updateParts = [];
+            $updateParams = [];
+            
+            if ($hasZone) {
+                $updateParts[] = "zone = ?";
+                $updateParams[] = $zoneInfo['name'];
+            }
+            if ($hasZoneName) {
+                $updateParts[] = "zone_name = ?";
+                $updateParams[] = $zoneInfo['name'];
+            }
+            if ($hasZoneFileName) {
+                $updateParts[] = "zone_file_name = ?";
+                $updateParams[] = $zoneInfo['filename'];
+            }
+            if ($hasZoneFile) {
+                $updateParts[] = "zone_file = ?";
+                $updateParams[] = $zoneInfo['filename'];
+            }
+            
+            if (!empty($updateParts)) {
+                $updateParams[] = $recordId;
+                $updateSql = "UPDATE dns_records SET " . implode(', ', $updateParts) . " WHERE id = ?";
+                $updateStmt = $pdo->prepare($updateSql);
+                $updateStmt->execute($updateParams);
+            }
+        }
+    }
 
     if ($r % 100 == 0) echo "  -> {$r} enregistrements cré©³\n";
 }

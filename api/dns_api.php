@@ -181,6 +181,17 @@ try {
 
             $records = $dnsRecord->search($filters, $limit, $offset);
 
+            // Ensure all records have zone_file_id, zone_name, zone_file_name
+            foreach ($records as &$record) {
+                if (!isset($record['zone_file_id']) || $record['zone_file_id'] === null) {
+                    error_log("DNS API Warning: Record {$record['id']} missing zone_file_id");
+                }
+                if (!isset($record['zone_name']) || $record['zone_name'] === null || $record['zone_name'] === '') {
+                    error_log("DNS API Warning: Record {$record['id']} missing zone_name");
+                }
+            }
+            unset($record); // break reference
+
             echo json_encode([
                 'success' => true,
                 'data' => $records,
@@ -202,8 +213,17 @@ try {
             $record = $dnsRecord->getById($id);
             if (!$record) {
                 http_response_code(404);
+                error_log("DNS API Error: Record {$id} not found");
                 echo json_encode(['error' => 'Record not found']);
                 exit;
+            }
+
+            // Ensure zone fields are present
+            if (!isset($record['zone_file_id']) || $record['zone_file_id'] === null) {
+                error_log("DNS API Warning: Record {$id} missing zone_file_id");
+            }
+            if (!isset($record['zone_name']) || $record['zone_name'] === null || $record['zone_name'] === '') {
+                error_log("DNS API Warning: Record {$id} missing zone_name");
             }
 
             // Also get history
@@ -438,7 +458,7 @@ try {
             break;
     }
 } catch (Exception $e) {
-    error_log("DNS API error: " . $e->getMessage());
+    error_log("DNS API error [action={$action}]: " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
     http_response_code(500);
     echo json_encode(['error' => 'Internal server error']);
 }
