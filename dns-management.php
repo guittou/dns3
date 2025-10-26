@@ -170,8 +170,9 @@ if (!$auth->isAdmin()) {
                 </div>
 
                 <div class="dns-modal-footer">
-                    <button type="button" class="btn-cancel" onclick="dnsRecords.closeModal()">Annuler</button>
                     <button type="submit" class="btn-submit">Enregistrer</button>
+                    <button type="button" class="btn-cancel" onclick="dnsRecords.closeModal()">Annuler</button>
+                    <button type="button" id="record-delete-btn" class="btn-delete" style="display: none;">Supprimer</button>
                 </div>
             </form>
         </div>

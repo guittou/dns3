@@ -390,6 +390,7 @@
         const form = document.getElementById('dns-form');
         const title = document.getElementById('dns-modal-title');
         const lastSeenGroup = document.getElementById('record-last-seen-group');
+        const deleteBtn = document.getElementById('record-delete-btn');
         
         if (!modal || !form || !title) return;
 
@@ -401,6 +402,11 @@
         // Hide last_seen field for new records (server-managed)
         if (lastSeenGroup) {
             lastSeenGroup.style.display = 'none';
+        }
+        
+        // Hide delete button for create mode
+        if (deleteBtn) {
+            deleteBtn.style.display = 'none';
         }
         
         // Load zone files for selector
@@ -532,6 +538,16 @@
 
             // Update field visibility based on record type
             updateFieldVisibility();
+
+            // Show and bind delete button for edit mode
+            const deleteBtn = document.getElementById('record-delete-btn');
+            if (deleteBtn) {
+                deleteBtn.style.display = 'block';
+                // Remove any previous click listeners and add new one
+                deleteBtn.onclick = function() {
+                    dnsRecords.deleteRecord(recordId);
+                };
+            }
 
             modal.style.display = 'block';
         } catch (error) {

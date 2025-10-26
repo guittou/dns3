@@ -15,7 +15,7 @@ if (isset($_GET['logout'])) {
 
 // Redirect if already logged in (and not logout)
 if ($auth->isLoggedIn() && !isset($_GET['logout'])) {
-    header('Location: ' . BASE_URL . 'index.php');
+    header('Location: ' . BASE_URL . 'dns-management.php');
     exit;
 }
 
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Veuillez remplir tous les champs.';
     } else {
         if ($auth->login($username, $password, $method)) {
-            header('Location: ' . BASE_URL . 'index.php');
+            header('Location: ' . BASE_URL . 'dns-management.php');
             exit;
         } else {
             $error = 'Identifiants incorrects. Veuillez réessayer.';
@@ -75,10 +75,6 @@ require_once 'includes/header.php';
 
         <button type="submit" class="btn btn-submit">Se connecter</button>
     </form>
-
-    <p style="text-align: center; margin-top: 18px;">
-        <a href="<?php echo BASE_URL; ?>index.php">Retour à l'accueil</a>
-    </p>
 </div>
 
 <?php
