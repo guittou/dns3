@@ -75,10 +75,6 @@ require_once 'includes/header.php';
 
         <button type="submit" class="btn btn-submit">Se connecter</button>
     </form>
-
-    <p style="text-align: center; margin-top: 18px;">
-        <a href="<?php echo BASE_URL; ?>index.php">Retour à l'accueil</a>
-    </p>
 </div>
 
 <?php
