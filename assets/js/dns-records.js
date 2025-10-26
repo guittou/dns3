@@ -383,6 +383,30 @@
     }
 
     /**
+     * Set modal footer mode (create or edit)
+     * @param {string} mode - 'create' or 'edit'
+     * @param {number|null} recordId - Record ID for edit mode
+     */
+    function setRecordModalFooterMode(mode, recordId = null) {
+        const deleteBtn = document.getElementById('record-delete-btn');
+        
+        if (!deleteBtn) return;
+        
+        if (mode === 'create') {
+            // Hide delete button in create mode
+            deleteBtn.style.display = 'none';
+        } else if (mode === 'edit' && recordId) {
+            // Show delete button in edit mode
+            deleteBtn.style.display = 'inline-flex';
+            deleteBtn.classList.add('modal-action-button');
+            // Bind delete handler
+            deleteBtn.onclick = function() {
+                dnsRecords.deleteRecord(recordId);
+            };
+        }
+    }
+
+    /**
      * Open modal to create a new record
      */
     function openCreateModal() {
@@ -390,7 +414,6 @@
         const form = document.getElementById('dns-form');
         const title = document.getElementById('dns-modal-title');
         const lastSeenGroup = document.getElementById('record-last-seen-group');
-        const deleteBtn = document.getElementById('record-delete-btn');
         
         if (!modal || !form || !title) return;
 
@@ -404,10 +427,8 @@
             lastSeenGroup.style.display = 'none';
         }
         
-        // Hide delete button for create mode
-        if (deleteBtn) {
-            deleteBtn.style.display = 'none';
-        }
+        // Set footer to create mode
+        setRecordModalFooterMode('create');
         
         // Load zone files for selector
         loadZoneFiles();
@@ -539,15 +560,8 @@
             // Update field visibility based on record type
             updateFieldVisibility();
 
-            // Show and bind delete button for edit mode
-            const deleteBtn = document.getElementById('record-delete-btn');
-            if (deleteBtn) {
-                deleteBtn.style.display = 'block';
-                // Remove any previous click listeners and add new one
-                deleteBtn.onclick = function() {
-                    dnsRecords.deleteRecord(recordId);
-                };
-            }
+            // Set footer to edit mode
+            setRecordModalFooterMode('edit', recordId);
 
             modal.style.display = 'block';
         } catch (error) {

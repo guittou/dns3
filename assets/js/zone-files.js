@@ -323,6 +323,26 @@ let previewData = null;
 let currentZoneId = null;
 
 /**
+ * Set zone modal footer mode (create or edit)
+ * @param {string} mode - 'create' or 'edit'
+ * @param {number|null} zoneId - Zone ID for edit mode
+ */
+function setZoneModalFooterMode(mode, zoneId = null) {
+    const deleteBtn = document.getElementById('zone-delete-btn');
+    
+    if (!deleteBtn) return;
+    
+    if (mode === 'create') {
+        // Hide delete button in create mode
+        deleteBtn.style.display = 'none';
+    } else if (mode === 'edit' && zoneId) {
+        // Show delete button in edit mode
+        deleteBtn.style.display = 'inline-flex';
+        deleteBtn.classList.add('modal-action-button');
+    }
+}
+
+/**
  * Open zone modal and load zone data
  */
 async function openZoneModal(zoneId) {
@@ -364,6 +384,9 @@ async function openZoneModal(zoneId) {
             
             // Load includes list
             loadIncludesList(response.includes || []);
+            
+            // Set footer to edit mode
+            setZoneModalFooterMode('edit', zoneId);
             
             // Show modal
             document.getElementById('zoneModal').style.display = 'block';
