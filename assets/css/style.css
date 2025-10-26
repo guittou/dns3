@@ -599,41 +599,29 @@ body {
 }
 
 /* Button semantic colors */
-.dns-modal-footer .btn-submit,
-.modal-action-bar .btn-submit,
 .btn-submit.modal-action-button {
   background: #27ae60;
   color: #fff;
 }
 
-.dns-modal-footer .btn-submit:hover,
-.modal-action-bar .btn-submit:hover,
 .btn-submit.modal-action-button:hover {
   background: #229954;
 }
 
-.dns-modal-footer .btn-cancel,
-.modal-action-bar .btn-cancel,
 .btn-cancel.modal-action-button {
   background: #95a5a6;
   color: #fff;
 }
 
-.dns-modal-footer .btn-cancel:hover,
-.modal-action-bar .btn-cancel:hover,
 .btn-cancel.modal-action-button:hover {
   background: #7f8c8d;
 }
 
-.dns-modal-footer .btn-delete,
-.modal-action-bar .btn-delete,
 .btn-delete.modal-action-button {
   background: #e74c3c;
   color: #fff;
 }
 
-.dns-modal-footer .btn-delete:hover,
-.modal-action-bar .btn-delete:hover,
 .btn-delete.modal-action-button:hover {
   background: #c0392b;
 }
