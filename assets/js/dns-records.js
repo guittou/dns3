@@ -324,47 +324,7 @@
     }
 
     /**
-     * Set modal footer mode (create or edit)
-     * @param {string} mode - 'create' or 'edit'
-     * @param {number} recordId - Record ID (only for edit mode)
-     */
-    function setRecordModalFooterMode(mode, recordId = null) {
-        const deleteBtn = document.getElementById('record-delete-btn');
-        const cancelBtn = document.getElementById('record-cancel-btn');
-        const createdInfo = document.getElementById('modal-info-created');
-        const updatedInfo = document.getElementById('modal-info-updated');
-        
-        if (!deleteBtn) return;
-        
-        if (mode === 'create') {
-            // Hide delete button in create mode
-            deleteBtn.style.display = 'none';
-            
-            // Hide metadata info
-            if (createdInfo) createdInfo.style.display = 'none';
-            if (updatedInfo) updatedInfo.style.display = 'none';
-        } else if (mode === 'edit' && recordId) {
-            // Show delete button in edit mode with inline-flex
-            deleteBtn.style.display = 'inline-flex';
-            
-            // Bind delete action with confirmation
-            deleteBtn.onclick = function() {
-                deleteRecord(recordId);
-            };
-            
-            // Show metadata info (will be populated separately)
-            if (createdInfo) createdInfo.style.display = 'block';
-            if (updatedInfo) updatedInfo.style.display = 'block';
-        }
-        
-        // Ensure cancel button is properly bound
-        if (cancelBtn) {
-            cancelBtn.onclick = closeModal;
-        }
-    }
-
-    /**
-     * Update field visibility and required attributes based on record type
+     * Update form field visibility and required attributes based on record type
      */
     function updateFieldVisibility() {
         const recordType = document.getElementById('record-type').value;
@@ -430,6 +390,7 @@
         const form = document.getElementById('dns-form');
         const title = document.getElementById('dns-modal-title');
         const lastSeenGroup = document.getElementById('record-last-seen-group');
+        const deleteBtn = document.getElementById('record-delete-btn');
         
         if (!modal || !form || !title) return;
 
@@ -443,8 +404,10 @@
             lastSeenGroup.style.display = 'none';
         }
         
-        // Set footer mode to create
-        setRecordModalFooterMode('create');
+        // Hide delete button for create mode
+        if (deleteBtn) {
+            deleteBtn.style.display = 'none';
+        }
         
         // Load zone files for selector
         loadZoneFiles();
@@ -576,19 +539,15 @@
             // Update field visibility based on record type
             updateFieldVisibility();
 
-            // Populate sidebar metadata info
-            const createdInfoValue = document.getElementById('modal-info-created-value');
-            const updatedInfoValue = document.getElementById('modal-info-updated-value');
-            
-            if (createdInfoValue && record.created_at) {
-                createdInfoValue.textContent = formatDateTime(record.created_at);
+            // Show and bind delete button for edit mode
+            const deleteBtn = document.getElementById('record-delete-btn');
+            if (deleteBtn) {
+                deleteBtn.style.display = 'block';
+                // Remove any previous click listeners and add new one
+                deleteBtn.onclick = function() {
+                    dnsRecords.deleteRecord(recordId);
+                };
             }
-            if (updatedInfoValue && record.updated_at) {
-                updatedInfoValue.textContent = formatDateTime(record.updated_at);
-            }
-
-            // Set footer mode to edit with delete button
-            setRecordModalFooterMode('edit', recordId);
 
             modal.style.display = 'block';
         } catch (error) {
