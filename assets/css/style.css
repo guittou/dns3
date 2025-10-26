@@ -574,22 +574,81 @@ body {
 }
 
 .dns-modal-footer {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 20px;
+}
+
+.dns-modal-footer .modal-action-bar {
+  display: flex;
   gap: 12px;
   align-items: center;
 }
 
-.dns-modal-footer .btn-submit {
-  justify-self: start;
+/* Shared modal action button base styles */
+.modal-action-button {
+  min-width: 120px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.dns-modal-footer .btn-cancel {
-  justify-self: center;
+/* Button semantic colors */
+.dns-modal-footer .btn-submit,
+.modal-action-bar .btn-submit,
+.btn-submit.modal-action-button {
+  background: #27ae60;
+  color: #fff;
 }
 
-.dns-modal-footer .btn-delete {
-  justify-self: end;
+.dns-modal-footer .btn-submit:hover,
+.modal-action-bar .btn-submit:hover,
+.btn-submit.modal-action-button:hover {
+  background: #229954;
+}
+
+.dns-modal-footer .btn-cancel,
+.modal-action-bar .btn-cancel,
+.btn-cancel.modal-action-button {
+  background: #95a5a6;
+  color: #fff;
+}
+
+.dns-modal-footer .btn-cancel:hover,
+.modal-action-bar .btn-cancel:hover,
+.btn-cancel.modal-action-button:hover {
+  background: #7f8c8d;
+}
+
+.dns-modal-footer .btn-delete,
+.modal-action-bar .btn-delete,
+.btn-delete.modal-action-button {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.dns-modal-footer .btn-delete:hover,
+.modal-action-bar .btn-delete:hover,
+.btn-delete.modal-action-button:hover {
+  background: #c0392b;
+}
+
+/* Responsive: stack buttons vertically on small screens */
+@media (max-width: 600px) {
+  .dns-modal-footer .modal-action-bar {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .modal-action-button {
+    width: 100%;
+    min-width: unset;
+  }
 }
 
 .btn-cancel {

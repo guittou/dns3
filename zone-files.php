@@ -131,8 +131,10 @@ if (!$auth->isAdmin()) {
                     <textarea id="createContent" class="form-control code-editor" rows="10"></textarea>
                 </div>
                 <div class="dns-modal-footer">
-                    <button type="button" class="btn-cancel" onclick="closeCreateZoneModal()">Annuler</button>
-                    <button type="button" class="btn-primary" onclick="createZone()">Créer</button>
+                    <div class="modal-action-bar">
+                        <button type="button" id="zone-create-save-btn" class="btn-submit modal-action-button" onclick="createZone()">Créer</button>
+                        <button type="button" id="zone-create-cancel-btn" class="btn-cancel modal-action-button" onclick="closeCreateZoneModal()">Annuler</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -258,10 +260,12 @@ if (!$auth->isAdmin()) {
                 </div>
             </div>
         </div>
-        <div class="dns-modal-footer modal-footer-centered">
-            <button type="button" class="btn btn-danger" id="deleteZoneBtn" onclick="deleteZone()">Supprimer</button>
-            <button type="button" class="btn-cancel" onclick="closeZoneModal()">Annuler</button>
-            <button type="button" class="btn-primary" onclick="saveZone()">Enregistrer</button>
+        <div class="dns-modal-footer">
+            <div class="modal-action-bar">
+                <button type="button" id="zone-save-btn" class="btn-submit modal-action-button" onclick="saveZone()">Enregistrer</button>
+                <button type="button" id="zone-cancel-btn" class="btn-cancel modal-action-button" onclick="closeZoneModal()">Annuler</button>
+                <button type="button" id="zone-delete-btn" class="btn-delete modal-action-button" onclick="deleteZone()">Supprimer</button>
+            </div>
         </div>
     </div>
 </div>
