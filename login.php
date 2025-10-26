@@ -15,7 +15,7 @@ if (isset($_GET['logout'])) {
 
 // Redirect if already logged in (and not logout)
 if ($auth->isLoggedIn() && !isset($_GET['logout'])) {
-    header('Location: ' . BASE_URL . 'index.php');
+    header('Location: ' . BASE_URL . 'dns-management.php');
     exit;
 }
 
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Veuillez remplir tous les champs.';
     } else {
         if ($auth->login($username, $password, $method)) {
-            header('Location: ' . BASE_URL . 'index.php');
+            header('Location: ' . BASE_URL . 'dns-management.php');
             exit;
         } else {
             $error = 'Identifiants incorrects. Veuillez réessayer.';

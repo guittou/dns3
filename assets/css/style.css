@@ -574,9 +574,22 @@ body {
 }
 
 .dns-modal-footer {
-  display: flex;
-  justify-content: flex-end;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   gap: 12px;
+  align-items: center;
+}
+
+.dns-modal-footer .btn-submit {
+  justify-self: start;
+}
+
+.dns-modal-footer .btn-cancel {
+  justify-self: center;
+}
+
+.dns-modal-footer .btn-delete {
+  justify-self: end;
 }
 
 .btn-cancel {
