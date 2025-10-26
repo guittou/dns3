@@ -323,6 +323,31 @@ let previewData = null;
 let currentZoneId = null;
 
 /**
+ * Set zone modal footer mode (create or edit)
+ * @param {string} mode - 'create' or 'edit'
+ * @param {number} zoneId - Zone ID (only for edit mode)
+ */
+function setZoneModalFooterMode(mode, zoneId = null) {
+    const deleteBtn = document.getElementById('zone-delete-btn');
+    const cancelBtn = document.getElementById('zone-cancel-btn');
+    
+    if (!deleteBtn) return;
+    
+    if (mode === 'create') {
+        // Hide delete button in create mode
+        deleteBtn.style.display = 'none';
+    } else if (mode === 'edit' && zoneId) {
+        // Show delete button in edit mode with inline-flex
+        deleteBtn.style.display = 'inline-flex';
+        
+        // Bind delete action with confirmation (already bound via onclick in HTML)
+        // No need to rebind as deleteZone() already handles it
+    }
+    
+    // Ensure cancel button is properly bound (already bound via onclick in HTML)
+}
+
+/**
  * Open zone modal and load zone data
  */
 async function openZoneModal(zoneId) {
@@ -364,6 +389,9 @@ async function openZoneModal(zoneId) {
             
             // Load includes list
             loadIncludesList(response.includes || []);
+            
+            // Set footer mode to edit
+            setZoneModalFooterMode('edit', zoneId);
             
             // Show modal
             document.getElementById('zoneModal').style.display = 'block';
