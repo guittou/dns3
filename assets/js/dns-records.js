@@ -95,31 +95,47 @@
     }
 
     /**
-     * Construct API URL using window.API_BASE
+     * Construct API URL using window.API_BASE with fallbacks
      */
     function getApiUrl(action, params = {}) {
-        const url = new URL(window.API_BASE + 'dns_api.php', window.location.origin);
+        // Use window.API_BASE or fallback to window.BASE_URL or current origin
+        const apiBase = window.API_BASE || window.BASE_URL || '/api/';
+        
+        // Normalize apiBase to ensure it ends with /
+        const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+        
+        const url = new URL(normalizedBase + 'dns_api.php', window.location.origin);
         url.searchParams.append('action', action);
         
         Object.keys(params).forEach(key => {
             url.searchParams.append(key, params[key]);
         });
 
-        return url.toString();
+        const finalUrl = url.toString();
+        console.debug('[API Request] Constructed URL:', finalUrl);
+        return finalUrl;
     }
 
     /**
-     * Construct Zone API URL
+     * Construct Zone API URL with fallbacks
      */
     function getZoneApiUrl(action, params = {}) {
-        const url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
+        // Use window.API_BASE or fallback to window.BASE_URL or current origin
+        const apiBase = window.API_BASE || window.BASE_URL || '/api/';
+        
+        // Normalize apiBase to ensure it ends with /
+        const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+        
+        const url = new URL(normalizedBase + 'zone_api.php', window.location.origin);
         url.searchParams.append('action', action);
         
         Object.keys(params).forEach(key => {
             url.searchParams.append(key, params[key]);
         });
 
-        return url.toString();
+        const finalUrl = url.toString();
+        console.debug('[Zone API Request] Constructed URL:', finalUrl);
+        return finalUrl;
     }
 
     /**
@@ -141,6 +157,7 @@
                 options.body = JSON.stringify(body);
             }
 
+            console.debug('[API Request] Fetching:', method, url);
             const response = await fetch(url, options);
             
             // Try to parse JSON, fallback to text for debugging
@@ -149,18 +166,22 @@
                 data = await response.json();
             } catch (jsonError) {
                 const text = await response.text();
-                console.error('Failed to parse JSON response:', jsonError);
-                console.error('Response body:', text);
+                console.error('[API Error] Failed to parse JSON response:', jsonError);
+                console.error('[API Error] Response status:', response.status, response.statusText);
+                console.error('[API Error] Response body:', text);
                 throw new Error('Invalid JSON response from API');
             }
 
             if (!response.ok) {
+                console.error('[API Error] Request failed:', response.status, response.statusText);
+                console.error('[API Error] Response data:', data);
                 throw new Error(data.error || 'API request failed');
             }
 
+            console.debug('[API Response] Success:', data);
             return data;
         } catch (error) {
-            console.error('API call error:', error);
+            console.error('[API Error] Exception during API call:', error);
             throw error;
         }
     }
@@ -419,16 +440,37 @@
                 if (record.zone_file_id) {
                     // Primary: use zone_file_id if available
                     zoneFileSelector.value = record.zone_file_id;
-                } else if (record.zone_name || record.zone) {
-                    // Fallback: try to find option by matching zone name
-                    const zoneName = record.zone_name || record.zone;
-                    const options = zoneFileSelector.querySelectorAll('option');
-                    for (const option of options) {
-                        // Match by textContent (which includes zone name) or by exact value
-                        if (option.textContent.includes(zoneName) || option.value === zoneName) {
-                            zoneFileSelector.value = option.value;
-                            break;
+                    console.debug('[Edit Modal] Set zone_file_id:', record.zone_file_id);
+                    
+                    // Verify the option exists
+                    if (!zoneFileSelector.value || zoneFileSelector.value === '') {
+                        console.warn('[Edit Modal] zone_file_id', record.zone_file_id, 'not found in selector options');
+                    }
+                } else {
+                    console.warn('[Edit Modal] Record missing zone_file_id, attempting fallback');
+                }
+                
+                // Fallback: if zone_file_id not set or option not found, try to match by name
+                if (!zoneFileSelector.value || zoneFileSelector.value === '') {
+                    if (record.zone_name || record.zone || record.zone_file_name) {
+                        const zoneName = record.zone_name || record.zone || record.zone_file_name;
+                        console.debug('[Edit Modal] Attempting to match zone by name:', zoneName);
+                        const options = zoneFileSelector.querySelectorAll('option');
+                        let matched = false;
+                        for (const option of options) {
+                            // Match by textContent (which includes zone name) or by exact value
+                            if (option.textContent.includes(zoneName) || option.value === zoneName) {
+                                zoneFileSelector.value = option.value;
+                                matched = true;
+                                console.debug('[Edit Modal] Matched zone option:', option.textContent, 'value:', option.value);
+                                break;
+                            }
                         }
+                        if (!matched) {
+                            console.error('[Edit Modal] Could not find matching zone for:', zoneName);
+                        }
+                    } else {
+                        console.error('[Edit Modal] Record has no zone information (zone_file_id, zone_name, zone, zone_file_name)');
                     }
                 }
             }
