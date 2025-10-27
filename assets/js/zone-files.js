@@ -372,6 +372,14 @@ async function openZoneModal(zoneId) {
             
             // Show modal
             document.getElementById('zoneModal').style.display = 'block';
+            document.getElementById('zoneModal').classList.add('open');
+            
+            // Call centering helper if available
+            const zoneModal = document.getElementById('zoneModal');
+            if (typeof window.ensureModalCentered === 'function') {
+                window.ensureModalCentered(zoneModal);
+            }
+            
             switchTab('details');
             
             // Setup change detection
@@ -401,6 +409,7 @@ function closeZoneModal() {
         }
     }
     
+    document.getElementById('zoneModal').classList.remove('open');
     document.getElementById('zoneModal').style.display = 'none';
     currentZone = null;
     currentZoneId = null;
@@ -429,6 +438,12 @@ function switchTab(tabName) {
     
     // Recalculate zone tab content height after switching tabs
     setZoneTabContentHeight();
+    
+    // Call centering helper after tab switch if available
+    const modal = document.getElementById('zoneModal');
+    if (modal && modal.classList.contains('open') && typeof window.ensureModalCentered === 'function') {
+        window.ensureModalCentered(modal);
+    }
 }
 
 /**
