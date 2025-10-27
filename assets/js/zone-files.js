@@ -371,14 +371,7 @@ async function openZoneModal(zoneId) {
             loadIncludesList(response.includes || []);
             
             // Show modal
-            const zoneModal = document.getElementById('zoneModal');
-            zoneModal.style.display = 'block';
-            
-            // Ensure modal is vertically centered
-            if (window.ensureModalCentered) {
-                window.ensureModalCentered(zoneModal);
-            }
-            
+            document.getElementById('zoneModal').style.display = 'block';
             switchTab('details');
             
             // Setup change detection
@@ -436,12 +429,6 @@ function switchTab(tabName) {
     
     // Recalculate zone tab content height after switching tabs
     setZoneTabContentHeight();
-    
-    // Ensure modal remains centered after tab switch
-    const zoneModal = document.getElementById('zoneModal');
-    if (zoneModal && zoneModal.style.display === 'block' && window.ensureModalCentered) {
-        window.ensureModalCentered(zoneModal);
-    }
 }
 
 /**

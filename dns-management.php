@@ -187,7 +187,6 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
-<script src="<?php echo BASE_URL; ?>assets/js/modal-utils.js"></script>
 <script src="<?php echo BASE_URL; ?>assets/js/dns-records.js"></script>
 
 <?php
