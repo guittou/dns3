@@ -448,7 +448,8 @@ function switchTab(tabName) {
 
 /**
  * Set zone tab content height to maintain constant modal size
- * Computes available height based on modal, header, tabs, and footer
+ * Computes available height based on window height minus fixed elements
+ * This prevents the modal from growing on each tab switch
  */
 function setZoneTabContentHeight() {
     const modal = document.getElementById('zoneModal');
@@ -459,15 +460,27 @@ function setZoneTabContentHeight() {
         return;
     }
     
-    // Get computed dimensions
+    // Get computed dimensions of fixed elements
     const header = modalContent.querySelector('.dns-modal-header');
     const tabs = modalContent.querySelector('.tabs');
     const footer = modalContent.querySelector('.dns-modal-footer');
     const errorBanner = modalContent.querySelector('.modal-error-banner');
     
-    // Calculate available height for tab content
-    let availableHeight = modalContent.clientHeight;
+    // Calculate overlay padding from modal's computed styles
+    let overlayPadding = 40; // Default fallback
+    try {
+        const computedStyle = window.getComputedStyle(modal);
+        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
+        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
+        overlayPadding = paddingTop + paddingBottom;
+    } catch (e) {
+        console.warn('Could not calculate overlay padding, using default', e);
+    }
     
+    // Calculate available height based on window.innerHeight
+    let availableHeight = window.innerHeight - overlayPadding;
+    
+    // Subtract heights of fixed elements
     if (header) {
         availableHeight -= header.offsetHeight;
     }
@@ -481,16 +494,23 @@ function setZoneTabContentHeight() {
         availableHeight -= errorBanner.offsetHeight;
     }
     
-    // Account for padding and margins (approximate)
-    availableHeight -= 40; // Modal body padding/margins
+    // Ensure minimum height
+    availableHeight = Math.max(200, availableHeight);
     
-    // Set height on all zone-tab-content elements
-    const tabContents = modalContent.querySelectorAll('.zone-tab-content');
-    tabContents.forEach(tabContent => {
-        if (availableHeight > 100) {
-            tabContent.style.height = availableHeight + 'px';
-        }
+    // Set height and overflow on all relevant tab content elements
+    const tabContentSelectors = ['.zone-tab-content', '.tab-content', '.dns-modal-body'];
+    tabContentSelectors.forEach(selector => {
+        const elements = modalContent.querySelectorAll(selector);
+        elements.forEach(element => {
+            element.style.height = availableHeight + 'px';
+            element.style.overflowY = 'auto';
+        });
     });
+    
+    // Call centering helper if available to handle animations/async loading
+    if (typeof window.ensureModalCentered === 'function') {
+        window.ensureModalCentered(modal);
+    }
 }
 
 /**
