@@ -416,6 +416,11 @@
         updateFieldVisibility();
 
         modal.style.display = 'block';
+        
+        // Adjust modal position for centering/top-alignment
+        if (window.adjustModalPosition) {
+            window.adjustModalPosition(modal);
+        }
     }
 
     /**
@@ -550,6 +555,11 @@
             }
 
             modal.style.display = 'block';
+            
+            // Adjust modal position for centering/top-alignment
+            if (window.adjustModalPosition) {
+                window.adjustModalPosition(modal);
+            }
         } catch (error) {
             console.error('Error opening edit modal:', error);
             showMessage('Erreur lors du chargement de l\'enregistrement: ' + error.message, 'error');

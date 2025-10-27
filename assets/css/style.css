@@ -532,6 +532,31 @@ body {
   background-color: rgba(0, 0, 0, 0.5);
 }
 
+/* Modal overlay centering - applied when modal fits viewport */
+.dns-modal.modal-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.dns-modal.modal-overlay .dns-modal-content,
+.dns-modal.modal-overlay .zone-modal-content {
+  margin: 0;
+}
+
+/* Modal top alignment - applied when modal exceeds viewport height */
+.dns-modal.modal-top {
+  display: block;
+  overflow: auto;
+}
+
+.dns-modal.modal-top .dns-modal-content,
+.dns-modal.modal-top .zone-modal-content {
+  margin: 40px auto;
+  overflow-y: auto;
+}
+
 .dns-modal-content {
   background-color: #fff;
   margin: 5% auto;
@@ -868,6 +893,17 @@ body {
     width: 95%;
     margin: 10% auto;
   }
+  
+  /* Modal centering adjustments for small screens */
+  .dns-modal.modal-overlay .dns-modal-content,
+  .dns-modal.modal-overlay .zone-modal-content {
+    width: 95%;
+  }
+  
+  .dns-modal.modal-top .dns-modal-content,
+  .dns-modal.modal-top .zone-modal-content {
+    margin: 20px auto;
+  }
 }
 
 /* Zone Modal Fixed Height Behavior */
@@ -906,5 +942,9 @@ body {
 @media (max-width: 768px) {
   .zone-modal-content {
     max-height: calc(100vh - 40px);
+  }
+  
+  .dns-modal.modal-top .zone-modal-content {
+    margin: 20px auto;
   }
 }
