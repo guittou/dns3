@@ -416,6 +416,12 @@
         updateFieldVisibility();
 
         modal.style.display = 'block';
+        modal.classList.add('open');
+        
+        // Call centering helper if available
+        if (typeof window.ensureModalCentered === 'function') {
+            window.ensureModalCentered(modal);
+        }
     }
 
     /**
@@ -550,6 +556,12 @@
             }
 
             modal.style.display = 'block';
+            modal.classList.add('open');
+            
+            // Call centering helper if available
+            if (typeof window.ensureModalCentered === 'function') {
+                window.ensureModalCentered(modal);
+            }
         } catch (error) {
             console.error('Error opening edit modal:', error);
             showMessage('Erreur lors du chargement de l\'enregistrement: ' + error.message, 'error');
@@ -562,6 +574,7 @@
     function closeModal() {
         const modal = document.getElementById('dns-modal');
         if (modal) {
+            modal.classList.remove('open');
             modal.style.display = 'none';
         }
     }

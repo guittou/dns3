@@ -545,6 +545,19 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
+/* Vertical centering when modal is open */
+.dns-modal.open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dns-modal.open .dns-modal-content {
+  margin: 0;
+  max-height: calc(100vh - 80px);
+  overflow: auto;
+}
+
 .dns-modal-header {
   display: flex;
   justify-content: space-between;
