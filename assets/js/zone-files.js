@@ -451,6 +451,7 @@ function switchTab(tabName) {
  * Calculates available height from viewport and applies as max-height
  */
 function adjustZoneModalTabHeights() {
+    // Support both ID and class selectors for flexibility across different modal implementations
     const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
     if (!modal) return;
     const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
@@ -468,7 +469,9 @@ function adjustZoneModalTabHeights() {
         const pt = parseFloat(overlayStyle.paddingTop) || 20;
         const pb = parseFloat(overlayStyle.paddingBottom) || 20;
         overlayPadding = pt + pb;
-    } catch (e) {}
+    } catch (e) {
+        // Fallback to default if getComputedStyle fails
+    }
     
     let contentPadding = 0;
     try {
@@ -476,7 +479,9 @@ function adjustZoneModalTabHeights() {
         const cpt = parseFloat(mcStyle.paddingTop) || 0;
         const cpb = parseFloat(mcStyle.paddingBottom) || 0;
         contentPadding = cpt + cpb;
-    } catch (e) {}
+    } catch (e) {
+        // Fallback to 0 if getComputedStyle fails
+    }
     
     let availableHeight = window.innerHeight - overlayPadding - contentPadding;
     if (header) availableHeight -= header.offsetHeight;
