@@ -416,6 +416,11 @@
         updateFieldVisibility();
 
         modal.style.display = 'block';
+        
+        // Ensure modal is properly centered after opening
+        if (window.ensureModalCentered) {
+            window.ensureModalCentered(modal);
+        }
     }
 
     /**
@@ -550,6 +555,11 @@
             }
 
             modal.style.display = 'block';
+            
+            // Ensure modal is properly centered after opening
+            if (window.ensureModalCentered) {
+                window.ensureModalCentered(modal);
+            }
         } catch (error) {
             console.error('Error opening edit modal:', error);
             showMessage('Erreur lors du chargement de l\'enregistrement: ' + error.message, 'error');
