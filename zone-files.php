@@ -299,6 +299,7 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
+<script src="<?php echo $basePath; ?>assets/js/modal-utils.js"></script>
 <script src="<?php echo $basePath; ?>assets/js/zone-files.js"></script>
 
 <?php
