@@ -547,9 +547,11 @@ body {
 
 /* Vertical centering when modal is open */
 .dns-modal.open {
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .dns-modal.open .dns-modal-content {
@@ -918,6 +920,17 @@ body {
 /* Responsive fallback for zone modal */
 @media (max-width: 768px) {
   .zone-modal-content {
+    max-height: calc(100vh - 40px);
+  }
+}
+
+/* Responsive fallback for modal centering on small screens */
+@media (max-width: 768px) {
+  .dns-modal.open {
+    padding: 10px;
+  }
+  
+  .dns-modal.open .dns-modal-content {
     max-height: calc(100vh - 40px);
   }
 }

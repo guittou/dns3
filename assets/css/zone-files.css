@@ -494,9 +494,19 @@
     z-index: 9999;
 }
 
-/* Modal open state */
+/* Modal open state - centered vertically and horizontally */
 .modal.open {
-    display: block;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.modal.open .modal-content {
+  margin: 0;
+  max-height: calc(100vh - 80px);
+  overflow: auto;
 }
 
 .modal-content {
@@ -999,4 +1009,15 @@
 .modal-error-message {
     margin-top: 0.25rem;
     white-space: normal;
+}
+
+/* Responsive fallback for modal centering on small screens */
+@media (max-width: 768px) {
+  .modal.open {
+    padding: 10px;
+  }
+  
+  .modal.open .modal-content {
+    max-height: calc(100vh - 40px);
+  }
 }
