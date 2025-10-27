@@ -530,16 +530,20 @@ body {
   height: 100%;
   overflow: auto;
   background-color: rgba(0, 0, 0, 0.5);
+  /* Flex container for vertical and horizontal centering */
+  align-items: center;
+  justify-content: center;
 }
 
 .dns-modal-content {
   background-color: #fff;
-  margin: 5% auto;
+  margin: 0;
   padding: 24px;
   border-radius: 8px;
   width: 90%;
   max-width: 900px;
   max-height: calc(100vh - 80px);
+  overflow: auto;
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
@@ -866,7 +870,8 @@ body {
   
   .dns-modal-content {
     width: 95%;
-    margin: 10% auto;
+    max-height: calc(100vh - 40px);
+    margin: 0;
   }
 }
 
