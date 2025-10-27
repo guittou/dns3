@@ -374,12 +374,6 @@ async function openZoneModal(zoneId) {
             document.getElementById('zoneModal').style.display = 'block';
             switchTab('details');
             
-            // Adjust modal position for centering/top-alignment
-            if (window.adjustModalPosition) {
-                const modal = document.getElementById('zoneModal');
-                window.adjustModalPosition(modal);
-            }
-            
             // Setup change detection
             setupChangeDetection();
             
@@ -435,17 +429,6 @@ function switchTab(tabName) {
     
     // Recalculate zone tab content height after switching tabs
     setZoneTabContentHeight();
-    
-    // Adjust modal position after tab switch (content height may have changed)
-    if (window.adjustModalPosition) {
-        const modal = document.getElementById('zoneModal');
-        if (modal) {
-            // Use requestAnimationFrame to allow DOM to update with new tab content
-            requestAnimationFrame(() => {
-                window.adjustModalPosition(modal);
-            });
-        }
-    }
 }
 
 /**
