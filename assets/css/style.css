@@ -539,6 +539,9 @@ body {
   border-radius: 8px;
   width: 90%;
   max-width: 900px;
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
@@ -579,14 +582,44 @@ body {
   margin-bottom: 16px;
 }
 
-.modal-column-left,
+.modal-column-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .modal-column-right {
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
-/* Full-width field for comment */
+/* Right column with side comment - make it a flex container */
+.modal-side-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* Comment wrapper in right column - fills remaining vertical space */
+.modal-side-comment {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 100px;
+}
+
+/* Comment textarea fills available space and scrolls internally */
+.modal-side-comment textarea {
+  flex: 1 1 auto;
+  resize: none;
+  width: 100%;
+  overflow: auto;
+  min-height: 100px;
+}
+
+/* Full-width field for comment (legacy, now unused) */
 .modal-full-width {
   width: 100%;
 }
@@ -601,6 +634,8 @@ body {
 
 .dns-modal-body {
   margin-bottom: 20px;
+  overflow-y: auto;
+  flex: 1 1 auto;
 }
 
 .dns-modal-footer {
@@ -832,5 +867,44 @@ body {
   .dns-modal-content {
     width: 95%;
     margin: 10% auto;
+  }
+}
+
+/* Zone Modal Fixed Height Behavior */
+/* Ensure zone modal maintains constant overall size when switching tabs */
+.zone-modal-content {
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.zone-modal-content .dns-modal-body {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+
+.zone-modal-content .tabs {
+  flex-shrink: 0;
+}
+
+.zone-modal-content .tab-content {
+  flex: 1 1 auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.zone-tab-content {
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+/* Responsive fallback for zone modal */
+@media (max-width: 768px) {
+  .zone-modal-content {
+    max-height: calc(100vh - 40px);
   }
 }
