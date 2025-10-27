@@ -108,7 +108,7 @@ function setupEventHandlers() {
     
     // Window resize handler to recalculate zone tab content height
     window.addEventListener('resize', function() {
-        setZoneTabContentHeight();
+        adjustZoneModalTabHeights();
     });
 }
 
@@ -447,73 +447,59 @@ function switchTab(tabName) {
 }
 
 /**
- * Set zone tab content height to maintain constant modal size
- * Computes available height based on window height minus fixed elements
- * This prevents the modal from growing on each tab switch
+ * Adjust zone modal tab heights to prevent modal growth
+ * Calculates available height from viewport and applies as max-height
  */
-function setZoneTabContentHeight() {
-    const modal = document.getElementById('zoneModal');
-    const modalContent = modal ? modal.querySelector('.dns-modal-content') : null;
+function adjustZoneModalTabHeights() {
+    const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
+    if (!modal) return;
+    const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
+    if (!modalContent) return;
+    const modalStyle = getComputedStyle(modal);
+    if (modalStyle.display === 'none') return;
     
-    if (!modalContent || modal.style.display === 'none') {
-        // Modal not open or not found
-        return;
-    }
-    
-    // Get computed dimensions of fixed elements
     const header = modalContent.querySelector('.dns-modal-header');
     const tabs = modalContent.querySelector('.tabs');
     const footer = modalContent.querySelector('.dns-modal-footer');
-    const errorBanner = modalContent.querySelector('.modal-error-banner');
     
-    // Calculate overlay padding from modal's computed styles
-    // Default to 80px to match ensureModalCentered's calculation
-    let overlayPadding = 80;
+    let overlayPadding = 40;
     try {
-        const computedStyle = window.getComputedStyle(modal);
-        const paddingTop = parseFloat(computedStyle.paddingTop) || 0;
-        const paddingBottom = parseFloat(computedStyle.paddingBottom) || 0;
-        if (paddingTop + paddingBottom > 0) {
-            overlayPadding = paddingTop + paddingBottom;
-        }
-    } catch (e) {
-        console.warn('Could not calculate overlay padding, using default', e);
-    }
+        const overlayStyle = getComputedStyle(modal);
+        const pt = parseFloat(overlayStyle.paddingTop) || 20;
+        const pb = parseFloat(overlayStyle.paddingBottom) || 20;
+        overlayPadding = pt + pb;
+    } catch (e) {}
     
-    // Calculate available height based on window.innerHeight
-    let availableHeight = window.innerHeight - overlayPadding;
+    let contentPadding = 0;
+    try {
+        const mcStyle = getComputedStyle(modalContent);
+        const cpt = parseFloat(mcStyle.paddingTop) || 0;
+        const cpb = parseFloat(mcStyle.paddingBottom) || 0;
+        contentPadding = cpt + cpb;
+    } catch (e) {}
     
-    // Subtract heights of fixed elements
-    if (header) {
-        availableHeight -= header.offsetHeight;
-    }
-    if (tabs) {
-        availableHeight -= tabs.offsetHeight;
-    }
-    if (footer) {
-        availableHeight -= footer.offsetHeight;
-    }
-    if (errorBanner && errorBanner.style.display !== 'none') {
-        availableHeight -= errorBanner.offsetHeight;
-    }
+    let availableHeight = window.innerHeight - overlayPadding - contentPadding;
+    if (header) availableHeight -= header.offsetHeight;
+    if (tabs) availableHeight -= tabs.offsetHeight;
+    if (footer) availableHeight -= footer.offsetHeight;
     
-    // Ensure minimum height
-    availableHeight = Math.max(200, availableHeight);
+    availableHeight = Math.max(120, Math.min(availableHeight, window.innerHeight - 40));
     
-    // Set height and overflow on all relevant tab content elements
-    const tabContentSelectors = ['.zone-tab-content', '.tab-content', '.dns-modal-body'];
-    tabContentSelectors.forEach(selector => {
-        const elements = modalContent.querySelectorAll(selector);
-        elements.forEach(element => {
-            element.style.height = availableHeight + 'px';
-            element.style.overflowY = 'auto';
-        });
+    const tabContainers = modalContent.querySelectorAll('.zone-tab-content, .tab-content, .dns-modal-body');
+    tabContainers.forEach(tc => {
+        tc.style.boxSizing = 'border-box';
+        tc.style.maxHeight = availableHeight + 'px';
+        tc.style.overflowY = 'auto';
     });
     
-    // Call centering helper if available to handle animations/async loading
-    if (typeof window.ensureModalCentered === 'function') {
-        window.ensureModalCentered(modal);
-    }
+    if (window.ensureModalCentered) window.ensureModalCentered(modal);
+}
+
+/**
+ * Legacy function name kept for backward compatibility
+ */
+function setZoneTabContentHeight() {
+    adjustZoneModalTabHeights();
 }
 
 /**
