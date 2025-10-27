@@ -748,14 +748,24 @@ function openCreateZoneModal() {
     // Force master type and disable the select
     document.getElementById('createFileType').value = 'master';
     document.getElementById('createFileType').disabled = true;
-    document.getElementById('createZoneModal').style.display = 'block';
+    
+    const modal = document.getElementById('createZoneModal');
+    modal.style.display = 'block';
+    modal.classList.add('open');
+    
+    // Call centering helper if available
+    if (typeof window.ensureModalCentered === 'function') {
+        window.ensureModalCentered(modal);
+    }
 }
 
 /**
  * Close create zone modal
  */
 function closeCreateZoneModal() {
-    document.getElementById('createZoneModal').style.display = 'none';
+    const modal = document.getElementById('createZoneModal');
+    modal.classList.remove('open');
+    modal.style.display = 'none';
 }
 
 /**
@@ -975,6 +985,11 @@ function openZonePreviewModalWithLoading() {
     // Show modal using open class for better control and ensure high z-index
     modal.classList.add('open');
     modal.style.zIndex = '9999';
+    
+    // Call centering helper if available
+    if (typeof window.ensureModalCentered === 'function') {
+        window.ensureModalCentered(modal);
+    }
 }
 
 /**
