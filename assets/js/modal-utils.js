@@ -29,8 +29,8 @@
      * Recompute centering for all visible modals on resize/orientation change
      */
     function recomputeVisibleModals() {
-        // Find all visible modal overlays
-        const visibleModals = document.querySelectorAll('.dns-modal.open, .zone-modal.open');
+        // Find all visible modal overlays (all modals use .dns-modal class)
+        const visibleModals = document.querySelectorAll('.dns-modal.open');
         
         visibleModals.forEach(function(modal) {
             if (modal.style.display !== 'none') {
