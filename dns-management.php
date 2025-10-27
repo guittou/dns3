@@ -145,8 +145,8 @@ if (!$auth->isAdmin()) {
                         </div>
                     </div>
 
-                    <!-- Right column: Ticket reference, Requester, Expiration date -->
-                    <div class="modal-column-right">
+                    <!-- Right column: Ticket reference, Requester, Expiration date, Comment -->
+                    <div class="modal-column-right modal-side-col">
                         <div class="form-group">
                             <label for="record-ticket-ref">Référence ticket</label>
                             <input type="text" id="record-ticket-ref" name="ticket_ref" placeholder="JIRA-123 ou REF-456">
@@ -161,13 +161,12 @@ if (!$auth->isAdmin()) {
                             <label for="record-expires-at">Date d'expiration</label>
                             <input type="datetime-local" id="record-expires-at" name="expires_at">
                         </div>
-                    </div>
-                </div>
 
-                <!-- Full-width comment field below the two columns -->
-                <div class="form-group modal-full-width">
-                    <label for="record-comment">Commentaire</label>
-                    <textarea id="record-comment" name="comment" rows="3" placeholder="Notes additionnelles..."></textarea>
+                        <div class="form-group modal-side-comment">
+                            <label for="record-comment">Commentaire</label>
+                            <textarea id="record-comment" name="comment" placeholder="Notes additionnelles..."></textarea>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Server-managed field (hidden) -->

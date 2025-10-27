@@ -143,7 +143,7 @@ if (!$auth->isAdmin()) {
 
 <!-- Zone Edit Modal (styled like DNS modal) -->
 <div id="zoneModal" class="dns-modal">
-    <div class="dns-modal-content modal-large">
+    <div class="dns-modal-content modal-large zone-modal-content">
         <div class="dns-modal-header">
             <h2 id="zoneModalTitle">Zone</h2>
             <button class="dns-modal-close" onclick="closeZoneModal()" aria-label="Fermer">&times;</button>
@@ -158,15 +158,15 @@ if (!$auth->isAdmin()) {
             
             <!-- Tabs -->
             <div class="tabs">
-                <button type="button" class="tab-btn active" onclick="switchTab('details')">Détails</button>
-                <button type="button" class="tab-btn" onclick="switchTab('editor')">Éditeur</button>
-                <button type="button" class="tab-btn" onclick="switchTab('includes')">Includes</button>
+                <button type="button" class="tab-btn active" data-zone-tab="details" onclick="switchTab('details')">Détails</button>
+                <button type="button" class="tab-btn" data-zone-tab="editor" onclick="switchTab('editor')">Éditeur</button>
+                <button type="button" class="tab-btn" data-zone-tab="includes" onclick="switchTab('includes')">Includes</button>
             </div>
             
             <!-- Tab Content -->
             <div class="tab-content">
                 <!-- Details Tab -->
-                <div id="detailsTab" class="tab-pane active">
+                <div id="detailsTab" class="tab-pane zone-tab-content active">
                     <form id="zoneDetailsForm">
                         <input type="hidden" id="zoneId">
                         <div class="form-grid">
@@ -210,7 +210,7 @@ if (!$auth->isAdmin()) {
                 </div>
                 
                 <!-- Editor Tab -->
-                <div id="editorTab" class="tab-pane">
+                <div id="editorTab" class="tab-pane zone-tab-content">
                     <div class="form-group">
                         <label for="zoneContent">Contenu du fichier de zone</label>
                         <textarea id="zoneContent" class="form-control code-editor" rows="20"></textarea>
@@ -226,7 +226,7 @@ if (!$auth->isAdmin()) {
                 </div>
                 
                 <!-- Includes Tab -->
-                <div id="includesTab" class="tab-pane">
+                <div id="includesTab" class="tab-pane zone-tab-content">
                     <div class="includes-header">
                         <h3>Fichiers inclus dans cette zone</h3>
                         <button type="button" class="btn btn-sm btn-primary" onclick="openCreateIncludeForm()">

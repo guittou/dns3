@@ -105,6 +105,11 @@ function setupEventHandlers() {
             }
         }
     };
+    
+    // Window resize handler to recalculate zone tab content height
+    window.addEventListener('resize', function() {
+        setZoneTabContentHeight();
+    });
 }
 
 /**
@@ -371,6 +376,12 @@ async function openZoneModal(zoneId) {
             
             // Setup change detection
             setupChangeDetection();
+            
+            // Set zone tab content height after modal is displayed
+            // Use setTimeout to ensure DOM has updated
+            setTimeout(() => {
+                setZoneTabContentHeight();
+            }, 50);
         }
     } catch (error) {
         console.error('Failed to load zone:', error);
@@ -415,6 +426,56 @@ function switchTab(tabName) {
         pane.classList.remove('active');
     });
     document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    // Recalculate zone tab content height after switching tabs
+    setZoneTabContentHeight();
+}
+
+/**
+ * Set zone tab content height to maintain constant modal size
+ * Computes available height based on modal, header, tabs, and footer
+ */
+function setZoneTabContentHeight() {
+    const modal = document.getElementById('zoneModal');
+    const modalContent = modal ? modal.querySelector('.dns-modal-content') : null;
+    
+    if (!modalContent || modal.style.display === 'none') {
+        // Modal not open or not found
+        return;
+    }
+    
+    // Get computed dimensions
+    const header = modalContent.querySelector('.dns-modal-header');
+    const tabs = modalContent.querySelector('.tabs');
+    const footer = modalContent.querySelector('.dns-modal-footer');
+    const errorBanner = modalContent.querySelector('.modal-error-banner');
+    
+    // Calculate available height for tab content
+    let availableHeight = modalContent.clientHeight;
+    
+    if (header) {
+        availableHeight -= header.offsetHeight;
+    }
+    if (tabs) {
+        availableHeight -= tabs.offsetHeight;
+    }
+    if (footer) {
+        availableHeight -= footer.offsetHeight;
+    }
+    if (errorBanner && errorBanner.style.display !== 'none') {
+        availableHeight -= errorBanner.offsetHeight;
+    }
+    
+    // Account for padding and margins (approximate)
+    availableHeight -= 40; // Modal body padding/margins
+    
+    // Set height on all zone-tab-content elements
+    const tabContents = modalContent.querySelectorAll('.zone-tab-content');
+    tabContents.forEach(tabContent => {
+        if (availableHeight > 100) {
+            tabContent.style.height = availableHeight + 'px';
+        }
+    });
 }
 
 /**
