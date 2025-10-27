@@ -371,7 +371,14 @@ async function openZoneModal(zoneId) {
             loadIncludesList(response.includes || []);
             
             // Show modal
-            document.getElementById('zoneModal').style.display = 'block';
+            const modal = document.getElementById('zoneModal');
+            modal.style.display = 'block';
+            
+            // Ensure modal is properly centered after opening
+            if (window.ensureModalCentered) {
+                window.ensureModalCentered(modal);
+            }
+            
             switchTab('details');
             
             // Setup change detection
@@ -733,7 +740,14 @@ function openCreateZoneModal() {
     // Force master type and disable the select
     document.getElementById('createFileType').value = 'master';
     document.getElementById('createFileType').disabled = true;
-    document.getElementById('createZoneModal').style.display = 'block';
+    
+    const modal = document.getElementById('createZoneModal');
+    modal.style.display = 'block';
+    
+    // Ensure modal is properly centered after opening
+    if (window.ensureModalCentered) {
+        window.ensureModalCentered(modal);
+    }
 }
 
 /**
@@ -960,6 +974,11 @@ function openZonePreviewModalWithLoading() {
     // Show modal using open class for better control and ensure high z-index
     modal.classList.add('open');
     modal.style.zIndex = '9999';
+    
+    // Ensure modal is properly centered after opening
+    if (window.ensureModalCentered) {
+        window.ensureModalCentered(modal);
+    }
 }
 
 /**
