@@ -467,7 +467,7 @@ function setZoneTabContentHeight() {
     const errorBanner = modalContent.querySelector('.modal-error-banner');
     
     // Calculate overlay padding from modal's computed styles
-    // Default to 80px to match ensureModalCentered (40px top + 40px bottom)
+    // Default to 80px to match ensureModalCentered's calculation
     let overlayPadding = 80;
     try {
         const computedStyle = window.getComputedStyle(modal);
