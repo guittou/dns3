@@ -440,10 +440,10 @@ function switchTab(tabName) {
     if (window.adjustModalPosition) {
         const modal = document.getElementById('zoneModal');
         if (modal) {
-            // Use setTimeout to allow DOM to update with new tab content
-            setTimeout(() => {
+            // Use requestAnimationFrame to allow DOM to update with new tab content
+            requestAnimationFrame(() => {
                 window.adjustModalPosition(modal);
-            }, 10);
+            });
         }
     }
 }

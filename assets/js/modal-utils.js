@@ -66,8 +66,8 @@
             // Debounce resize events
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
-                // Find all visible modals
-                const visibleModals = document.querySelectorAll('.dns-modal[style*="display: block"], .dns-modal.open');
+                // Find all visible modals (both inline style and class-based visibility)
+                const visibleModals = document.querySelectorAll('.dns-modal[style*="display: block"], .dns-modal.open, .modal-overlay, .modal-top');
                 visibleModals.forEach(modal => {
                     adjustModalPosition(modal);
                 });
