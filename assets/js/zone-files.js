@@ -534,26 +534,30 @@ function adjustZoneModalTabHeights() {
     
     // Refresh CodeMirror/ACE instances if available (safe guarded call)
     try {
-        // CodeMirror refresh
-        if (typeof CodeMirror !== 'undefined' && CodeMirror.instances) {
-            CodeMirror.instances.forEach(cm => {
-                if (cm && typeof cm.refresh === 'function') {
-                    cm.refresh();
-                }
-            });
-        }
+        // CodeMirror refresh - find all CodeMirror instances via DOM
+        const cmElements = modalContent.querySelectorAll('.CodeMirror');
+        cmElements.forEach(cmEl => {
+            if (cmEl.CodeMirror && typeof cmEl.CodeMirror.refresh === 'function') {
+                cmEl.CodeMirror.refresh();
+            }
+        });
     } catch (e) {
         // Safe to ignore - CodeMirror may not be present
     }
     
     try {
-        // ACE Editor resize
+        // ACE Editor resize - check if element already has editor instance
         if (typeof ace !== 'undefined') {
-            const editors = document.querySelectorAll('.ace_editor');
-            editors.forEach(editorEl => {
-                const editor = ace.edit(editorEl);
-                if (editor && typeof editor.resize === 'function') {
-                    editor.resize();
+            const aceElements = modalContent.querySelectorAll('.ace_editor');
+            aceElements.forEach(aceEl => {
+                try {
+                    // Try to get existing editor instance, don't create new one
+                    const editor = ace.edit(aceEl);
+                    if (editor && typeof editor.resize === 'function') {
+                        editor.resize();
+                    }
+                } catch (aceErr) {
+                    // Element may not have an editor instance yet
                 }
             });
         }

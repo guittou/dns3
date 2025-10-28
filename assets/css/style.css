@@ -950,35 +950,43 @@ body {
    Ensure textarea/editor fills available space and scrolls internally
    ---------------------------------------------------------------- */
 
-/* Ensure tab containers use flex layout and allow internal scroll */
-.zone-tab-content, .tab-content, .dns-modal-body {
-  display: flex !important;
-  flex-direction: column !important;
-  min-height: 0 !important;
+/* Ensure tab containers use flex layout for proper internal scrolling */
+.dns-modal-content .zone-tab-content,
+.dns-modal-content .tab-content,
+.dns-modal-content .dns-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Override zone-tab-content overflow to prevent external scroll */
+.dns-modal-content .zone-tab-content {
+  overflow-y: hidden;
 }
 
 /* Editor textarea should fill available space and scroll internally */
-textarea.code-editor, 
-textarea.editor,
-.code-editor,
-.editor {
-  flex: 1 1 auto !important;
-  box-sizing: border-box !important;
-  min-height: 0 !important;
-  overflow: auto !important;
-  resize: none !important;
-  height: auto !important;
-  max-height: 100% !important;
+.dns-modal-content textarea.code-editor, 
+.dns-modal-content textarea.editor,
+.dns-modal-content .code-editor,
+.dns-modal-content .editor {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-height: 0;
+  overflow: auto;
+  resize: none;
+  height: auto;
+  max-height: 100%;
 }
 
 /* Ensure CodeMirror/ACE wrappers fill space if present */
-.CodeMirror,
-.ace_editor {
-  height: 100% !important;
-  box-sizing: border-box !important;
+.dns-modal-content .CodeMirror,
+.dns-modal-content .ace_editor {
+  height: 100%;
+  box-sizing: border-box;
+  flex: 1 1 auto;
 }
 
 /* Prevent tab content from scrolling - only editors should scroll */
-.tab-content {
-  overflow-y: hidden !important;
+.dns-modal-content .tab-content {
+  overflow-y: hidden;
 }
