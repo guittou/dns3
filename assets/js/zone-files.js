@@ -627,8 +627,8 @@ function adjustZoneModalTabHeights(force = false, allowGrowBeyondViewport = fals
   modalContent.querySelectorAll('.tab-pane, [id$="Tab"], .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
     tc.style.boxSizing = 'border-box';
     tc.style.minHeight = '0';
-    // Keep overflow:auto to allow scrolling when needed
-    tc.style.overflow = 'auto';
+    // When allowGrowBeyondViewport, prevent internal scroll; otherwise allow scrolling when capped
+    tc.style.overflow = allowGrowBeyondViewport ? 'hidden' : 'auto';
     if (tc.classList && tc.classList.contains('active')) {
       tc.style.display = tc.style.display || 'flex';
       tc.style.flexDirection = tc.style.flexDirection || 'column';
@@ -686,9 +686,8 @@ function adjustZoneModalTabHeights(force = false, allowGrowBeyondViewport = fals
 
 window.adjustZoneModalTabHeights = adjustZoneModalTabHeights;
 
-/* lockZoneModalHeight: no-op, we keep sizing controlled by adjustZoneModalTabHeights.
-   If you want to lock to the computed height, you can call lockZoneModalHeight()
-   and it will simply re-apply the computed height. */
+/* lockZoneModalHeight: re-apply the computed height and overflow styles.
+   This ensures the modal stays at the locked size during tab switches. */
 function lockZoneModalHeight() {
   const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
   if (!modal) return;
@@ -696,13 +695,34 @@ function lockZoneModalHeight() {
   if (!modalContent) return;
   if (modalContent.dataset._computedModalHeight) {
     modalContent.style.height = modalContent.dataset._computedModalHeight;
+    
+    const allowGrow = modalContent.dataset._allowGrow === '1';
+    
     // Only apply maxHeight if _allowGrow is not '1'
-    if (modalContent.dataset._allowGrow === '1') {
+    if (allowGrow) {
       // No maxHeight constraint when allowed to grow
       modalContent.style.maxHeight = '';
     } else {
       modalContent.style.maxHeight = modalContent.dataset._computedViewport || modalContent.style.maxHeight;
     }
+    
+    // Reapply overflow styles to panes based on allowGrow flag
+    modalContent.querySelectorAll('.tab-pane, [id$="Tab"], .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
+      tc.style.overflow = allowGrow ? 'hidden' : 'auto';
+    });
+    
+    // Reapply overflow styles to textareas based on allowGrow flag
+    modalContent.querySelectorAll('textarea').forEach(e => {
+      if (allowGrow) {
+        e.style.overflow = 'hidden';
+        e.style.height = 'auto';
+        e.style.maxHeight = 'none';
+      } else {
+        e.style.overflow = 'auto';
+        e.style.height = 'auto';
+        e.style.maxHeight = '100%';
+      }
+    });
   }
 }
 
