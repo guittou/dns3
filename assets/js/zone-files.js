@@ -470,7 +470,7 @@ function adjustZoneModalTabHeights() {
         const pb = parseFloat(overlayStyle.paddingBottom) || 20;
         overlayPadding = pt + pb;
     } catch (e) {
-        // Fallback to default if getComputedStyle fails
+        // Fallback to default padding of 40px if getComputedStyle fails
     }
     
     let contentPadding = 0;
@@ -480,7 +480,7 @@ function adjustZoneModalTabHeights() {
         const cpb = parseFloat(mcStyle.paddingBottom) || 0;
         contentPadding = cpt + cpb;
     } catch (e) {
-        // Fallback to 0 if getComputedStyle fails
+        // Fallback to 0 padding if getComputedStyle fails
     }
     
     let availableHeight = window.innerHeight - overlayPadding - contentPadding;
