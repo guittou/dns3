@@ -110,6 +110,11 @@ function setupEventHandlers() {
     window.addEventListener('resize', function() {
         adjustZoneModalTabHeights();
     });
+    
+    // Orientation change handler for mobile devices
+    window.addEventListener('orientationchange', function() {
+        adjustZoneModalTabHeights();
+    });
 }
 
 /**
@@ -385,10 +390,10 @@ async function openZoneModal(zoneId) {
             // Setup change detection
             setupChangeDetection();
             
-            // Set zone tab content height after modal is displayed
+            // Adjust zone tab content height after modal is displayed
             // Use setTimeout to ensure DOM has updated
             setTimeout(() => {
-                setZoneTabContentHeight();
+                adjustZoneModalTabHeights();
             }, 50);
         }
     } catch (error) {
@@ -437,68 +442,73 @@ function switchTab(tabName) {
     document.getElementById(tabName + 'Tab').classList.add('active');
     
     // Recalculate zone tab content height after switching tabs
-    setZoneTabContentHeight();
-    
-    // Call centering helper after tab switch if available
-    const modal = document.getElementById('zoneModal');
-    if (modal && modal.classList.contains('open') && typeof window.ensureModalCentered === 'function') {
-        window.ensureModalCentered(modal);
-    }
+    // Use setTimeout to ensure DOM has updated and any animations are complete
+    setTimeout(() => {
+        adjustZoneModalTabHeights();
+    }, 50);
 }
 
 /**
- * Adjust zone modal tab heights to prevent modal growth
- * Calculates available height from viewport and applies as max-height
+ * Robust adjuster: lock modal container max-height and set inner tab max-height (no cumulative growth)
  */
 function adjustZoneModalTabHeights() {
-    // Support both ID and class selectors for flexibility across different modal implementations
     const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
     if (!modal) return;
     const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
     if (!modalContent) return;
     const modalStyle = getComputedStyle(modal);
     if (modalStyle.display === 'none') return;
-    
     const header = modalContent.querySelector('.dns-modal-header');
     const tabs = modalContent.querySelector('.tabs');
     const footer = modalContent.querySelector('.dns-modal-footer');
-    
+
+    // overlay padding (top+bottom) fallback
     let overlayPadding = 40;
     try {
         const overlayStyle = getComputedStyle(modal);
         const pt = parseFloat(overlayStyle.paddingTop) || 20;
         const pb = parseFloat(overlayStyle.paddingBottom) || 20;
         overlayPadding = pt + pb;
-    } catch (e) {
-        // Fallback to default padding of 40px if getComputedStyle fails
-    }
-    
+    } catch (e) { }
+
+    // modalContent internal padding (top+bottom)
     let contentPadding = 0;
     try {
         const mcStyle = getComputedStyle(modalContent);
         const cpt = parseFloat(mcStyle.paddingTop) || 0;
         const cpb = parseFloat(mcStyle.paddingBottom) || 0;
         contentPadding = cpt + cpb;
-    } catch (e) {
-        // Fallback to 0 padding if getComputedStyle fails
-    }
-    
-    let availableHeight = window.innerHeight - overlayPadding - contentPadding;
-    if (header) availableHeight -= header.offsetHeight;
-    if (tabs) availableHeight -= tabs.offsetHeight;
-    if (footer) availableHeight -= footer.offsetHeight;
-    
-    availableHeight = Math.max(120, Math.min(availableHeight, window.innerHeight - 40));
-    
+    } catch (e) { }
+
+    // Compute a max allowed height for the whole modal content relative to viewport
+    const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
+    modalContent.style.boxSizing = 'border-box';
+    modalContent.style.maxHeight = viewportAvailable + 'px';
+
+    // Now compute inner available height for tab content: subtract header/tabs/footer and internal padding
+    let innerAvailable = viewportAvailable - contentPadding;
+    if (header) innerAvailable -= header.offsetHeight;
+    if (tabs) innerAvailable -= tabs.offsetHeight;
+    if (footer) innerAvailable -= footer.offsetHeight;
+    innerAvailable = Math.max(120, innerAvailable);
+
+    // Apply as maxHeight so size is stable and content scrolls internally
     const tabContainers = modalContent.querySelectorAll('.zone-tab-content, .tab-content, .dns-modal-body');
     tabContainers.forEach(tc => {
         tc.style.boxSizing = 'border-box';
-        tc.style.maxHeight = availableHeight + 'px';
+        tc.style.maxHeight = innerAvailable + 'px';
         tc.style.overflowY = 'auto';
+        tc.querySelectorAll('.editor, .code-editor, .ace_editor, .cm-s').forEach(e => {
+            e.style.height = '100%';
+            e.style.boxSizing = 'border-box';
+            e.style.maxHeight = '100%';
+        });
     });
-    
+
     if (window.ensureModalCentered) window.ensureModalCentered(modal);
 }
+
+window.adjustZoneModalTabHeights = adjustZoneModalTabHeights;
 
 /**
  * Legacy function name kept for backward compatibility
