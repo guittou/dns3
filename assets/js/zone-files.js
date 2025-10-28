@@ -578,32 +578,28 @@ function lockZoneModalHeight() {
     if (!modal) return;
     const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
     if (!modalContent) return;
-    
-    // Get current computed height
-    const rect = modalContent.getBoundingClientRect();
-    const computedHeight = Math.round(rect.height);
-    
-    // Lock the height to prevent modal from growing/shrinking between tabs
-    modalContent.style.height = computedHeight + 'px';
-    
-    // Ensure max-height remains set (should already be set by adjustZoneModalTabHeights)
-    // This is a safety check
-    if (!modalContent.style.maxHeight || modalContent.style.maxHeight === 'none') {
-        const modalStyle = getComputedStyle(modal);
-        if (modalStyle.display !== 'none') {
-            let overlayPadding = 40;
-            try {
-                const overlayStyle = getComputedStyle(modal);
-                const pt = parseFloat(overlayStyle.paddingTop) || 20;
-                const pb = parseFloat(overlayStyle.paddingBottom) || 20;
-                overlayPadding = pt + pb;
-            } catch (e) {
-                // Safe to ignore: overlayPadding falls back to default value of 40
-            }
-            const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
-            modalContent.style.maxHeight = viewportAvailable + 'px';
-        }
+
+    // Remove any previously set inline height so flex can size children
+    modalContent.style.height = '';
+
+    // Prefer the maxHeight already set by adjustZoneModalTabHeights
+    let maxH = modalContent.style.maxHeight;
+    if (!maxH || maxH === 'none') {
+        // compute viewport-based available height as fallback
+        let overlayPadding = 40;
+        try {
+            const overlayStyle = getComputedStyle(modal);
+            const pt = parseFloat(overlayStyle.paddingTop) || 20;
+            const pb = parseFloat(overlayStyle.paddingBottom) || 20;
+            overlayPadding = pt + pb;
+        } catch (e) { }
+        const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
+        maxH = viewportAvailable + 'px';
+        modalContent.style.maxHeight = maxH;
     }
+
+    // Lock to the maxHeight (not to the current measured rect) so editors can fill vertical space
+    modalContent.style.height = maxH;
 }
 
 /**
