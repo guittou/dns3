@@ -525,13 +525,6 @@ function adjustZoneModalTabHeights(force = false, allowGrowBeyondViewport = fals
     contentPadding = cpt + cpb;
   } catch (e) {}
 
-  // collect panes
-  const panes = Array.from(modalContent.querySelectorAll('.tab-pane, [id$="Tab"]'));
-  if (panes.length === 0) {
-    const fallback = modalContent.querySelector('.zone-tab-content, .tab-content, .dns-modal-body');
-    if (fallback) panes.push(fallback);
-  }
-
   // helper to measure height without affecting layout
   function measureHeight(el) {
     const prev = {
@@ -559,13 +552,47 @@ function adjustZoneModalTabHeights(force = false, allowGrowBeyondViewport = fals
     return Math.ceil(h);
   }
 
-  // measure max content height among panes
+  // PRIORITY: Try to find and measure the editor zone first
   let maxPaneContentHeight = 0;
-  panes.forEach(p => {
-    const inner = p.querySelector('.zone-tab-content, .tab-content, .dns-modal-body') || p;
-    const h = measureHeight(inner);
-    if (h > maxPaneContentHeight) maxPaneContentHeight = h;
-  });
+  let editorFound = false;
+  
+  // Search for editor elements: #zoneContent (textarea), .CodeMirror, or .ace_editor
+  const editorSelectors = ['#zoneContent', '.CodeMirror', '.ace_editor'];
+  for (const selector of editorSelectors) {
+    const editor = modalContent.querySelector(selector);
+    if (editor) {
+      editorFound = true;
+      // Find the editor's parent pane to measure properly
+      let editorPane = editor.closest('.tab-pane, [id$="Tab"]');
+      if (!editorPane) {
+        editorPane = editor.closest('.zone-tab-content, .tab-content, .dns-modal-body');
+      }
+      if (editorPane) {
+        maxPaneContentHeight = measureHeight(editorPane);
+      } else {
+        // Fallback: measure the editor element itself
+        maxPaneContentHeight = measureHeight(editor);
+      }
+      console.log('Editor found (' + selector + '), using its height:', maxPaneContentHeight);
+      break;
+    }
+  }
+  
+  // If no editor found, fall back to measuring all panes
+  if (!editorFound) {
+    const panes = Array.from(modalContent.querySelectorAll('.tab-pane, [id$="Tab"]'));
+    if (panes.length === 0) {
+      const fallback = modalContent.querySelector('.zone-tab-content, .tab-content, .dns-modal-body');
+      if (fallback) panes.push(fallback);
+    }
+    
+    panes.forEach(p => {
+      const inner = p.querySelector('.zone-tab-content, .tab-content, .dns-modal-body') || p;
+      const h = measureHeight(inner);
+      if (h > maxPaneContentHeight) maxPaneContentHeight = h;
+    });
+    console.log('No editor found, using max pane height:', maxPaneContentHeight);
+  }
 
   const headerH = header ? header.offsetHeight : 0;
   const tabsH = tabs ? tabs.offsetHeight : 0;
@@ -588,6 +615,9 @@ function adjustZoneModalTabHeights(force = false, allowGrowBeyondViewport = fals
   modalContent.style.boxSizing = 'border-box';
   if (!allowGrowBeyondViewport) {
     modalContent.style.maxHeight = viewportAvailable + 'px';
+  } else {
+    // Remove maxHeight constraint when allowed to grow
+    modalContent.style.maxHeight = '';
   }
   modalContent.style.height = finalH + 'px';
   modalContent.dataset._computedModalHeight = modalContent.style.height;
@@ -696,6 +726,7 @@ function unlockZoneModalHeight() {
 /**
  * Handle window resize for zone modal
  * Simply recalculates the modal sizes to fit new viewport
+ * On resize, cap at viewport (allowGrowBeyondViewport = false)
  */
 function handleZoneModalResize() {
     const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
@@ -707,8 +738,8 @@ function handleZoneModalResize() {
     // Check if modal is open
     if (!modal.classList.contains('open')) return;
     
-    // Recalculate sizes for new viewport - force recalculation
-    adjustZoneModalTabHeights(true);
+    // Recalculate sizes for new viewport - force recalculation, capped at viewport
+    adjustZoneModalTabHeights(true, false);
 }
 
 /**
