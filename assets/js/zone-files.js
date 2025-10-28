@@ -398,11 +398,12 @@ async function openZoneModal(zoneId) {
             setupChangeDetection();
             
             // Adjust zone tab content height after modal is displayed
-            // Use setTimeout to ensure DOM has updated
+            // Use setTimeout to ensure DOM has updated and async content loaded
+            // Force calculation on open to compute max height across all tabs
             setTimeout(() => {
-                adjustZoneModalTabHeights();
+                adjustZoneModalTabHeights(true);
                 lockZoneModalHeight();
-            }, 50);
+            }, 150);
         }
     } catch (error) {
         console.error('Failed to load zone:', error);
@@ -452,10 +453,24 @@ function switchTab(tabName) {
         pane.setAttribute('aria-hidden', !isActive);
     });
     
-    // Recalculate zone tab content height after switching tabs
-    // Use setTimeout to ensure DOM has updated and any animations are complete
+    // Refresh editors if present (CodeMirror/ACE) after tab switch
     setTimeout(() => {
-        adjustZoneModalTabHeights();
+        try {
+            document.querySelectorAll('.CodeMirror').forEach(cmEl => {
+                const inst = cmEl.CodeMirror || cmEl.__cm;
+                if (inst && typeof inst.refresh === 'function') inst.refresh();
+            });
+        } catch (e) {}
+        try {
+            if (typeof ace !== 'undefined') {
+                document.querySelectorAll('.ace_editor').forEach(aceEl => {
+                    try {
+                        const ed = ace.edit(aceEl);
+                        if (ed && typeof ed.resize === 'function') ed.resize();
+                    } catch (err) {}
+                });
+            }
+        } catch (e) {}
     }, 50);
 }
 
