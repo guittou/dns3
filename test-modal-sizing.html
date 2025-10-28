@@ -115,13 +115,15 @@
         <ol>
             <li>Click "Open Test Modal" button below</li>
             <li>Switch between all tabs: Détails, Éditeur, Includes</li>
-            <li>Verify the modal height remains stable</li>
+            <li>Verify the modal height remains stable (should NOT grow when switching tabs)</li>
             <li>Check that the Editor tab has full space for the textarea</li>
-            <li>Resize the browser window and verify modal adapts</li>
+            <li>Resize the browser window and verify modal adapts (force recalculation)</li>
+            <li>Click "Force Recalculation" to test the force=true parameter</li>
             <li>Check console log below for any errors</li>
         </ol>
 
         <button class="btn-test" onclick="openTestModal()">Open Test Modal</button>
+        <button class="btn-test" onclick="forceRecalc()" style="background: #28a745; margin-left: 10px;">Force Recalculation</button>
 
         <div id="consoleLog" class="console-log">
             <div>Console log will appear here...</div>
@@ -296,8 +298,17 @@ _dmarc  IN      TXT     "v=DMARC1; p=none; rua=mailto:admin@example.com"
             if (modalContent) {
                 const height = modalContent.style.height;
                 const maxHeight = modalContent.style.maxHeight;
+                const computed = modalContent.dataset._computedModalHeight;
+                const viewport = modalContent.dataset._computedViewport;
                 log(`Modal dimensions - height: ${height}, maxHeight: ${maxHeight}`);
+                log(`Stored values - computed: ${computed}, viewport: ${viewport}`);
             }
+        }
+
+        function forceRecalc() {
+            log('Forcing recalculation with adjustZoneModalTabHeights(true)...');
+            adjustZoneModalTabHeights(true);
+            logModalDimensions();
         }
 
         // Log window resize
