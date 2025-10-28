@@ -948,6 +948,7 @@ body {
 /* ----------------------------------------------------------------
    Editor Tab Internal Scroll Fix
    Ensure textarea/editor fills available space and scrolls internally
+   Override previous rules that set overflow-y: auto on .zone-tab-content
    ---------------------------------------------------------------- */
 
 /* Ensure tab containers use flex layout for proper internal scrolling */
@@ -959,8 +960,9 @@ body {
   min-height: 0;
 }
 
-/* Override zone-tab-content overflow to prevent external scroll */
-.dns-modal-content .zone-tab-content {
+/* Override zone-tab-content overflow to prevent external scroll (overrides line 916) */
+.dns-modal-content .zone-tab-content,
+.dns-modal-content .tab-content {
   overflow-y: hidden;
 }
 
@@ -978,15 +980,10 @@ body {
   max-height: 100%;
 }
 
-/* Ensure CodeMirror/ACE wrappers fill space if present */
+/* Override existing !important rules for editor wrappers to enable flex behavior */
 .dns-modal-content .CodeMirror,
 .dns-modal-content .ace_editor {
-  height: 100%;
+  height: 100% !important; /* Override existing !important rule at line 925 */
   box-sizing: border-box;
   flex: 1 1 auto;
-}
-
-/* Prevent tab content from scrolling - only editors should scroll */
-.dns-modal-content .tab-content {
-  overflow-y: hidden;
 }
