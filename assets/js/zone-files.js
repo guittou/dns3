@@ -400,8 +400,9 @@ async function openZoneModal(zoneId) {
             // Adjust zone tab content height after modal is displayed
             // Use setTimeout to ensure DOM has updated and async content loaded
             // Force calculation on open to compute max height across all tabs
+            // Allow modal to grow beyond viewport on open
             setTimeout(() => {
-                adjustZoneModalTabHeights(true);
+                adjustZoneModalTabHeights(true, true);
                 lockZoneModalHeight();
             }, 150);
         }
@@ -476,7 +477,7 @@ function switchTab(tabName) {
 
 /* adjustZoneModalTabHeights: compute the max needed height among all panes once,
    store it on modalContent.dataset, reuse it on tab switches. Pass force=true to recompute. */
-function adjustZoneModalTabHeights(force = false) {
+function adjustZoneModalTabHeights(force = false, allowGrowBeyondViewport = false) {
   const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
   if (!modal) return;
   const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
@@ -576,20 +577,28 @@ function adjustZoneModalTabHeights(force = false) {
   // desired total modal content height (include paddings)
   let desired = headerH + tabsH + footerH + maxPaneContentHeight + contentPadding;
   desired = Math.max(200, desired);
-  const finalH = Math.min(desired, viewportAvailable);
+  
+  // Store allowGrow flag
+  modalContent.dataset._allowGrow = allowGrowBeyondViewport ? '1' : '0';
+  
+  // Apply viewport cap only if allowGrowBeyondViewport is false
+  const finalH = allowGrowBeyondViewport ? desired : Math.min(desired, viewportAvailable);
 
   // apply sizes and store them so subsequent tab switches reuse them
   modalContent.style.boxSizing = 'border-box';
-  modalContent.style.maxHeight = viewportAvailable + 'px';
+  if (!allowGrowBeyondViewport) {
+    modalContent.style.maxHeight = viewportAvailable + 'px';
+  }
   modalContent.style.height = finalH + 'px';
   modalContent.dataset._computedModalHeight = modalContent.style.height;
-  modalContent.dataset._computedViewport = modalContent.style.maxHeight;
+  modalContent.dataset._computedViewport = allowGrowBeyondViewport ? '' : viewportAvailable + 'px';
 
   // ensure panes/layout are flex columns so editor can fill internal space
   modalContent.querySelectorAll('.tab-pane, [id$="Tab"], .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
     tc.style.boxSizing = 'border-box';
     tc.style.minHeight = '0';
-    tc.style.overflow = 'hidden';
+    // Keep overflow:auto to allow scrolling when needed
+    tc.style.overflow = 'auto';
     if (tc.classList && tc.classList.contains('active')) {
       tc.style.display = tc.style.display || 'flex';
       tc.style.flexDirection = tc.style.flexDirection || 'column';
@@ -598,14 +607,22 @@ function adjustZoneModalTabHeights(force = false) {
   });
 
   // configure editors/textareas to fill and scroll internally
+  // When allowGrowBeyondViewport is true, allow textareas to expand naturally
   modalContent.querySelectorAll('textarea, .code-editor, .editor, .ace_editor, .CodeMirror').forEach(e => {
     if (e.tagName && e.tagName.toLowerCase() === 'textarea') {
       e.style.boxSizing = 'border-box';
       e.style.flex = '1 1 auto';
       e.style.minHeight = '0';
-      e.style.height = 'auto';
-      e.style.maxHeight = '100%';
-      e.style.overflow = 'auto';
+      if (allowGrowBeyondViewport) {
+        // Allow textarea to expand naturally without internal scroll
+        e.style.height = 'auto';
+        e.style.maxHeight = 'none';
+        e.style.overflow = 'hidden';
+      } else {
+        e.style.height = 'auto';
+        e.style.maxHeight = '100%';
+        e.style.overflow = 'auto';
+      }
       e.style.resize = 'none';
     } else {
       e.style.boxSizing = 'border-box';
@@ -649,7 +666,13 @@ function lockZoneModalHeight() {
   if (!modalContent) return;
   if (modalContent.dataset._computedModalHeight) {
     modalContent.style.height = modalContent.dataset._computedModalHeight;
-    modalContent.style.maxHeight = modalContent.dataset._computedViewport || modalContent.style.maxHeight;
+    // Only apply maxHeight if _allowGrow is not '1'
+    if (modalContent.dataset._allowGrow === '1') {
+      // No maxHeight constraint when allowed to grow
+      modalContent.style.maxHeight = '';
+    } else {
+      modalContent.style.maxHeight = modalContent.dataset._computedViewport || modalContent.style.maxHeight;
+    }
   }
 }
 
@@ -666,6 +689,7 @@ function unlockZoneModalHeight() {
     modalContent.style.height = '';
     delete modalContent.dataset._computedModalHeight;
     delete modalContent.dataset._computedViewport;
+    delete modalContent.dataset._allowGrow;
     // Note: We keep maxHeight set so ensureModalCentered can use it on next open
 }
 
