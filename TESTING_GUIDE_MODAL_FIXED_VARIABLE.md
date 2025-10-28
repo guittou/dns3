@@ -79,8 +79,8 @@ console.log(modal.style.getPropertyValue('--modal-fixed-height')); // "740px"
    ```javascript
    document.documentElement.style.setProperty('--modal-fixed-height', '700px');
    ```
-2. Open a new modal (or refresh existing)
-3. Check modal height
+2. Close any open modal
+3. Open a new modal to see the new height applied
 
 **Expected Results**:
 - All new modals use the new global height
