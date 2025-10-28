@@ -572,6 +572,8 @@ window.adjustZoneModalTabHeights = adjustZoneModalTabHeights;
 
 /**
  * Lock zone modal height to prevent size changes when switching tabs
+ * Instead of locking to the current measured rect height (which may be too small),
+ * lock to the allowed maxHeight (viewport-based) so the inner editor can fill the space.
  */
 function lockZoneModalHeight() {
     const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
