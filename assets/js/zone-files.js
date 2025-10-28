@@ -548,7 +548,9 @@ function lockZoneModalHeight() {
                 const pt = parseFloat(overlayStyle.paddingTop) || 20;
                 const pb = parseFloat(overlayStyle.paddingBottom) || 20;
                 overlayPadding = pt + pb;
-            } catch (e) { }
+            } catch (e) {
+                // Safe to ignore: overlayPadding falls back to default value of 40
+            }
             const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
             modalContent.style.maxHeight = viewportAvailable + 'px';
         }
@@ -566,8 +568,7 @@ function unlockZoneModalHeight() {
     
     // Remove inline height to restore clean state for next open
     modalContent.style.height = '';
-    // Optionally remove maxHeight to let ensureModalCentered set it next time
-    // modalContent.style.maxHeight = '';
+    // Note: We keep maxHeight set so ensureModalCentered can use it on next open
 }
 
 /**
