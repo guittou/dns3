@@ -1010,3 +1010,40 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+/* ----------------------------------------------------------------
+   ID-based Fallback for Tab Pane Visibility
+   Additional layer to ensure elements with IDs ending in "Tab" are hidden
+   when inactive, even if .tab-pane class is missing or not applied correctly
+   ---------------------------------------------------------------- */
+
+/* Hide all elements with IDs ending in "Tab" by default */
+[id$="Tab"] {
+  display: none !important;
+  width: 100%;
+}
+
+/* Show active elements with flex column layout */
+[id$="Tab"].active {
+  display: flex !important;
+  flex-direction: column;
+}
+
+/* Keep .tab-pane rule for compatibility */
+.tab-pane {
+  display: none !important;
+  width: 100%;
+}
+
+.tab-pane.active {
+  display: flex !important;
+  flex-direction: column;
+}
+
+.tab-pane.active .zone-tab-content,
+.tab-pane.active .tab-content,
+.tab-pane.active .dns-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
