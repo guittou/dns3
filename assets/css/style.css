@@ -985,3 +985,28 @@ body {
   box-sizing: border-box;
   flex: 1 1 auto;
 }
+
+/* ----------------------------------------------------------------
+   Tab Pane Visibility Fix
+   Hide inactive tab panes and only show the active one with flex layout
+   ---------------------------------------------------------------- */
+
+/* Hide tab panes by default */
+.tab-pane {
+  display: none;
+  width: 100%;
+}
+
+/* Show active tab pane with flex column layout */
+.tab-pane.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure active tab pane children maintain flex layout */
+.tab-pane.active .zone-tab-content,
+.tab-pane.active .tab-content,
+.tab-pane.active .dns-modal-body {
+  display: flex;
+  flex-direction: column;
+}

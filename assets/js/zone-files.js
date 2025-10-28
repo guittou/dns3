@@ -438,19 +438,19 @@ function closeZoneModal() {
 function switchTab(tabName) {
     currentTab = tabName;
     
-    // Update tab buttons
+    // Update tab buttons - more robust using data-zone-tab attribute
     document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.onclick && btn.onclick.toString().includes(tabName)) {
-            btn.classList.add('active');
-        }
+        const isActive = btn.getAttribute('data-zone-tab') === tabName;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive);
     });
     
-    // Update tab panes
+    // Update tab panes - toggle active class and aria-hidden for accessibility
     document.querySelectorAll('.tab-pane').forEach(pane => {
-        pane.classList.remove('active');
+        const isActive = pane.id === tabName + 'Tab';
+        pane.classList.toggle('active', isActive);
+        pane.setAttribute('aria-hidden', !isActive);
     });
-    document.getElementById(tabName + 'Tab').classList.add('active');
     
     // Recalculate zone tab content height after switching tabs
     // Use setTimeout to ensure DOM has updated and any animations are complete
