@@ -460,7 +460,8 @@ function switchTab(tabName) {
 }
 
 /**
- * Robust adjuster: lock modal container max-height and set inner tab max-height (no cumulative growth)
+ * Adjust zone modal tab heights - size modal to tallest tab so editor isn't truncated
+ * Measures each tab pane's required height and sizes the modal accordingly
  */
 function adjustZoneModalTabHeights() {
     const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
@@ -469,11 +470,12 @@ function adjustZoneModalTabHeights() {
     if (!modalContent) return;
     const modalStyle = getComputedStyle(modal);
     if (modalStyle.display === 'none') return;
+    
     const header = modalContent.querySelector('.dns-modal-header');
     const tabs = modalContent.querySelector('.tabs');
     const footer = modalContent.querySelector('.dns-modal-footer');
 
-    // overlay padding (top+bottom) fallback
+    // Calculate viewport available height with padding
     let overlayPadding = 40;
     try {
         const overlayStyle = getComputedStyle(modal);
@@ -482,7 +484,7 @@ function adjustZoneModalTabHeights() {
         overlayPadding = pt + pb;
     } catch (e) { }
 
-    // modalContent internal padding (top+bottom)
+    // Calculate modalContent internal padding
     let contentPadding = 0;
     try {
         const mcStyle = getComputedStyle(modalContent);
@@ -491,29 +493,85 @@ function adjustZoneModalTabHeights() {
         contentPadding = cpt + cpb;
     } catch (e) { }
 
-    // Compute a max allowed height for the whole modal content relative to viewport
+    // Find all tab panes (including both .tab-pane and elements with ID ending in 'Tab')
+    const allPanes = [];
+    modalContent.querySelectorAll('.tab-pane').forEach(pane => allPanes.push(pane));
+    modalContent.querySelectorAll('[id$="Tab"]').forEach(pane => {
+        if (!allPanes.includes(pane)) allPanes.push(pane);
+    });
+
+    // Measure required height for each pane
+    let maxPaneHeight = 0;
+    allPanes.forEach(pane => {
+        // Store original state
+        const wasActive = pane.classList.contains('active');
+        const originalDisplay = pane.style.display;
+        const originalPosition = pane.style.position;
+        const originalVisibility = pane.style.visibility;
+        
+        // Make visible temporarily for measurement if not active
+        if (!wasActive) {
+            pane.style.position = 'absolute';
+            pane.style.visibility = 'hidden';
+            pane.style.display = 'block';
+            pane.classList.add('active');
+        }
+        
+        // Measure the scrollHeight (actual content height)
+        const paneHeight = pane.scrollHeight;
+        if (paneHeight > maxPaneHeight) {
+            maxPaneHeight = paneHeight;
+        }
+        
+        // Restore original state
+        if (!wasActive) {
+            pane.classList.remove('active');
+            pane.style.display = originalDisplay;
+            pane.style.position = originalPosition;
+            pane.style.visibility = originalVisibility;
+        }
+    });
+
+    // Add some padding for better spacing (20px)
+    maxPaneHeight += 20;
+
+    // Calculate total desired modal height
+    let totalDesiredHeight = contentPadding;
+    if (header) totalDesiredHeight += header.offsetHeight;
+    if (tabs) totalDesiredHeight += tabs.offsetHeight;
+    if (footer) totalDesiredHeight += footer.offsetHeight;
+    totalDesiredHeight += maxPaneHeight;
+
+    // Calculate viewport available height
     const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
+    
+    // Cap modal height to viewport available
+    const finalModalHeight = Math.min(totalDesiredHeight, viewportAvailable);
+    
+    // Apply calculated height to modal content
     modalContent.style.boxSizing = 'border-box';
+    modalContent.style.height = finalModalHeight + 'px';
     modalContent.style.maxHeight = viewportAvailable + 'px';
 
-    // Now compute inner available height for tab content: subtract header/tabs/footer and internal padding
-    let innerAvailable = viewportAvailable - contentPadding;
-    if (header) innerAvailable -= header.offsetHeight;
-    if (tabs) innerAvailable -= tabs.offsetHeight;
-    if (footer) innerAvailable -= footer.offsetHeight;
-    innerAvailable = Math.max(120, innerAvailable);
+    // Calculate available height for tab content area
+    let tabContentHeight = finalModalHeight - contentPadding;
+    if (header) tabContentHeight -= header.offsetHeight;
+    if (tabs) tabContentHeight -= tabs.offsetHeight;
+    if (footer) tabContentHeight -= footer.offsetHeight;
+    tabContentHeight = Math.max(120, tabContentHeight);
 
-    // Apply as maxHeight so size is stable and content scrolls internally
-    const tabContainers = modalContent.querySelectorAll('.zone-tab-content, .tab-content, .dns-modal-body');
+    // Configure all tab panes with flex layout for proper editor sizing
+    const tabContainers = modalContent.querySelectorAll('.zone-tab-content, .tab-pane, .tab-content');
     tabContainers.forEach(tc => {
         tc.style.boxSizing = 'border-box';
-        tc.style.maxHeight = innerAvailable + 'px';
+        tc.style.height = tabContentHeight + 'px';
+        tc.style.maxHeight = tabContentHeight + 'px';
         tc.style.overflowY = 'hidden'; // tab container should not scroll
         tc.style.display = 'flex';
         tc.style.flexDirection = 'column';
         tc.style.minHeight = '0';
         
-        // Find and configure textareas/editors to fill and scroll internally
+        // Configure textareas/editors to fill available space and scroll internally
         tc.querySelectorAll('textarea.code-editor, textarea.editor, .editor, .code-editor').forEach(e => {
             e.style.flex = '1 1 auto';
             e.style.height = 'auto';
@@ -532,9 +590,8 @@ function adjustZoneModalTabHeights() {
         });
     });
     
-    // Refresh CodeMirror/ACE instances if available (safe guarded call)
+    // Refresh CodeMirror instances if available (safe guarded call)
     try {
-        // CodeMirror refresh - find all CodeMirror instances via DOM
         const cmElements = modalContent.querySelectorAll('.CodeMirror');
         cmElements.forEach(cmEl => {
             if (cmEl.CodeMirror && typeof cmEl.CodeMirror.refresh === 'function') {
@@ -545,13 +602,12 @@ function adjustZoneModalTabHeights() {
         // Safe to ignore - CodeMirror may not be present
     }
     
+    // Refresh ACE Editor instances if available (safe guarded call)
     try {
-        // ACE Editor resize - check if element already has editor instance
         if (typeof ace !== 'undefined') {
             const aceElements = modalContent.querySelectorAll('.ace_editor');
             aceElements.forEach(aceEl => {
                 try {
-                    // Try to get existing editor instance, don't create new one
                     const editor = ace.edit(aceEl);
                     if (editor && typeof editor.resize === 'function') {
                         editor.resize();
@@ -565,43 +621,20 @@ function adjustZoneModalTabHeights() {
         // Safe to ignore - ACE may not be present
     }
 
+    // Call modal centering utility if available
     if (window.ensureModalCentered) window.ensureModalCentered(modal);
 }
 
 window.adjustZoneModalTabHeights = adjustZoneModalTabHeights;
 
 /**
- * Lock zone modal height to prevent size changes when switching tabs
- * Instead of locking to the current measured rect height (which may be too small),
- * lock to the allowed maxHeight (viewport-based) so the inner editor can fill the space.
+ * Lock zone modal height - now a no-op as adjustZoneModalTabHeights handles sizing
+ * Kept for backward compatibility but doesn't overwrite calculated height
  */
 function lockZoneModalHeight() {
-    const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
-    if (!modal) return;
-    const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
-    if (!modalContent) return;
-
-    // Remove any previously set inline height so flex can size children
-    modalContent.style.height = '';
-
-    // Prefer the maxHeight already set by adjustZoneModalTabHeights
-    let maxH = modalContent.style.maxHeight;
-    if (!maxH || maxH === 'none') {
-        // compute viewport-based available height as fallback
-        let overlayPadding = 40;
-        try {
-            const overlayStyle = getComputedStyle(modal);
-            const pt = parseFloat(overlayStyle.paddingTop) || 20;
-            const pb = parseFloat(overlayStyle.paddingBottom) || 20;
-            overlayPadding = pt + pb;
-        } catch (e) { /* ignore */ }
-        const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
-        maxH = viewportAvailable + 'px';
-        modalContent.style.maxHeight = maxH;
-    }
-
-    // Lock to the maxHeight (not to the current measured rect) so editors can fill vertical space
-    modalContent.style.height = maxH;
+    // No-op: adjustZoneModalTabHeights now handles all sizing
+    // This function is kept for backward compatibility and to not break existing call sites
+    return;
 }
 
 /**
@@ -620,7 +653,7 @@ function unlockZoneModalHeight() {
 
 /**
  * Handle window resize for zone modal
- * Removes lock, recalculates sizes, then re-locks to new size
+ * Simply recalculates the modal sizes to fit new viewport
  */
 function handleZoneModalResize() {
     const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
@@ -632,14 +665,8 @@ function handleZoneModalResize() {
     // Check if modal is open
     if (!modal.classList.contains('open')) return;
     
-    // Remove lock temporarily
-    unlockZoneModalHeight();
-    
-    // Recalculate sizes
+    // Recalculate sizes for new viewport
     adjustZoneModalTabHeights();
-    
-    // Re-lock to new size
-    lockZoneModalHeight();
 }
 
 /**
