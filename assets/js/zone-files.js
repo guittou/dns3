@@ -508,13 +508,58 @@ function adjustZoneModalTabHeights() {
     tabContainers.forEach(tc => {
         tc.style.boxSizing = 'border-box';
         tc.style.maxHeight = innerAvailable + 'px';
-        tc.style.overflowY = 'auto';
-        tc.querySelectorAll('.editor, .code-editor, .ace_editor, .cm-s').forEach(e => {
-            e.style.height = '100%';
+        tc.style.overflowY = 'hidden'; // tab container should not scroll
+        tc.style.display = 'flex';
+        tc.style.flexDirection = 'column';
+        tc.style.minHeight = '0';
+        
+        // Find and configure textareas/editors to fill and scroll internally
+        tc.querySelectorAll('textarea.code-editor, textarea.editor, .editor, .code-editor').forEach(e => {
+            e.style.flex = '1 1 auto';
+            e.style.height = 'auto';
             e.style.boxSizing = 'border-box';
             e.style.maxHeight = '100%';
+            e.style.minHeight = '0';
+            e.style.overflow = 'auto';
+            e.style.resize = 'none';
+        });
+        
+        // Configure CodeMirror/ACE wrappers if present
+        tc.querySelectorAll('.CodeMirror, .ace_editor').forEach(wrapper => {
+            wrapper.style.height = '100%';
+            wrapper.style.boxSizing = 'border-box';
+            wrapper.style.flex = '1 1 auto';
         });
     });
+    
+    // Refresh CodeMirror/ACE instances if available (safe guarded call)
+    try {
+        // CodeMirror refresh
+        if (typeof CodeMirror !== 'undefined' && CodeMirror.instances) {
+            CodeMirror.instances.forEach(cm => {
+                if (cm && typeof cm.refresh === 'function') {
+                    cm.refresh();
+                }
+            });
+        }
+    } catch (e) {
+        // Safe to ignore - CodeMirror may not be present
+    }
+    
+    try {
+        // ACE Editor resize
+        if (typeof ace !== 'undefined') {
+            const editors = document.querySelectorAll('.ace_editor');
+            editors.forEach(editorEl => {
+                const editor = ace.edit(editorEl);
+                if (editor && typeof editor.resize === 'function') {
+                    editor.resize();
+                }
+            });
+        }
+    } catch (e) {
+        // Safe to ignore - ACE may not be present
+    }
 
     if (window.ensureModalCentered) window.ensureModalCentered(modal);
 }

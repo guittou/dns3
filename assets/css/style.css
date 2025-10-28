@@ -944,3 +944,41 @@ body {
     max-height: calc(100vh - 40px);
   }
 }
+
+/* ----------------------------------------------------------------
+   Editor Tab Internal Scroll Fix
+   Ensure textarea/editor fills available space and scrolls internally
+   ---------------------------------------------------------------- */
+
+/* Ensure tab containers use flex layout and allow internal scroll */
+.zone-tab-content, .tab-content, .dns-modal-body {
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+}
+
+/* Editor textarea should fill available space and scroll internally */
+textarea.code-editor, 
+textarea.editor,
+.code-editor,
+.editor {
+  flex: 1 1 auto !important;
+  box-sizing: border-box !important;
+  min-height: 0 !important;
+  overflow: auto !important;
+  resize: none !important;
+  height: auto !important;
+  max-height: 100% !important;
+}
+
+/* Ensure CodeMirror/ACE wrappers fill space if present */
+.CodeMirror,
+.ace_editor {
+  height: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Prevent tab content from scrolling - only editors should scroll */
+.tab-content {
+  overflow-y: hidden !important;
+}
