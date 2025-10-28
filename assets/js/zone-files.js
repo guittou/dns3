@@ -397,7 +397,7 @@ async function openZoneModal(zoneId) {
             // Setup change detection
             setupChangeDetection();
             
-            // Apply fixed 720px height after modal is displayed
+            // Apply fixed modal height after modal is displayed
             setTimeout(() => {
                 applyFixedModalHeight();
             }, 150);
@@ -472,18 +472,36 @@ function switchTab(tabName) {
     // Note: No height recalculation on tab switch - fixed 720px height is maintained
 }
 
-// Simplified modal height locking (fixed to 720px)
-// ---------- Fixed modal height implementation using a CSS class ----------
-function applyFixedModalHeight() {
+// Generic modal fixed-height helper using CSS variable + class
+const MODAL_FIXED_CLASS = 'modal-fixed';
+const DEFAULT_MODAL_HEIGHT = '730px';
+
+function applyFixedModalHeight(height) {
   const modal = document.getElementById('zoneModal') || document.querySelector('.dns-modal') || document.querySelector('.zone-modal');
   if (!modal) return;
-  modal.classList.add('modal-fixed-720');
+
+  // if a specific height is provided, set it as an inline CSS variable on the modal
+  if (height) {
+    modal.style.setProperty('--modal-fixed-height', height);
+  } else {
+    // ensure default exists
+    if (!getComputedStyle(document.documentElement).getPropertyValue('--modal-fixed-height').trim()) {
+      modal.style.setProperty('--modal-fixed-height', DEFAULT_MODAL_HEIGHT);
+    }
+  }
+
+  modal.classList.add(MODAL_FIXED_CLASS);
+
   const mc = modal.querySelector('.dns-modal-content, .zone-modal-content');
   if (mc) {
-    mc.dataset._computedModalHeight = '720px';
+    mc.dataset._computedModalHeight = modal.style.getPropertyValue('--modal-fixed-height') || getComputedStyle(document.documentElement).getPropertyValue('--modal-fixed-height').trim() || DEFAULT_MODAL_HEIGHT;
     mc.dataset._allowGrow = '0';
   }
-  modal.querySelectorAll('.tab-pane, .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => { tc.style.overflow = 'auto'; });
+
+  modal.querySelectorAll('.tab-pane, .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
+    tc.style.overflow = 'auto';
+  });
+
   setTimeout(() => {
     try { document.querySelectorAll('.CodeMirror').forEach(cmEl => (cmEl.CodeMirror || cmEl.__cm)?.refresh?.()); } catch (e) {}
     try { document.querySelectorAll('.ace_editor').forEach(aceEl => { try { const ed = (window.ace && ace.edit) ? ace.edit(aceEl) : null; if (ed && typeof ed.resize === 'function') ed.resize(); } catch (err) {} }); } catch (e) {}
@@ -502,7 +520,10 @@ function lockZoneModalHeight() {
 function unlockZoneModalHeight() {
   const modal = document.getElementById('zoneModal') || document.querySelector('.dns-modal') || document.querySelector('.zone-modal');
   if (!modal) return;
-  modal.classList.remove('modal-fixed-720');
+
+  modal.classList.remove(MODAL_FIXED_CLASS);
+  modal.style.removeProperty('--modal-fixed-height');
+
   const mc = modal.querySelector('.dns-modal-content, .zone-modal-content');
   if (mc) {
     delete mc.dataset._computedModalHeight;
@@ -510,12 +531,14 @@ function unlockZoneModalHeight() {
     mc.style.height = '';
     mc.style.maxHeight = '';
   }
-  modal.querySelectorAll('.tab-pane, .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => { tc.style.overflow = ''; });
+
+  modal.querySelectorAll('.tab-pane, .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
+    tc.style.overflow = '';
+  });
 }
 
 function handleZoneModalResize() {
-  // keep no-op; reapply if you want to enforce after external changes
-  // applyFixedModalHeight();
+  // no-op; fixed height via CSS variable/class
 }
 
 /**

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Modal Fixed Height with CSS Variable</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+        .test-button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #2980b9;
+        }
+        .code-example {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .result {
+            padding: 10px;
+            margin: 10px 0;
+            background: #e9f7ef;
+            border-left: 4px solid #27ae60;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test: Generic Modal Fixed Height via CSS Variable</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Default Height (730px)</h2>
+        <p>This test opens a modal with the default height from the CSS variable <code>--modal-fixed-height: 730px</code></p>
+        <button class="test-button" onclick="testDefaultHeight()">Open Modal (Default 730px)</button>
+        <div class="code-example">
+            // JavaScript call:<br>
+            applyFixedModalHeight();
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Custom Height via JS Parameter</h2>
+        <p>This test opens the modal with a custom height passed to the function</p>
+        <button class="test-button" onclick="testCustomHeight('740px')">Open Modal (740px)</button>
+        <button class="test-button" onclick="testCustomHeight('800px')">Open Modal (800px)</button>
+        <button class="test-button" onclick="testCustomHeight('80vh')">Open Modal (80vh)</button>
+        <div class="code-example">
+            // JavaScript calls:<br>
+            applyFixedModalHeight('740px');<br>
+            applyFixedModalHeight('800px');<br>
+            applyFixedModalHeight('80vh');
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Change Global CSS Variable</h2>
+        <p>This test changes the global CSS variable to affect all modals site-wide</p>
+        <button class="test-button" onclick="changeGlobalHeight('700px')">Set Global to 700px</button>
+        <button class="test-button" onclick="changeGlobalHeight('750px')">Set Global to 750px</button>
+        <button class="test-button" onclick="resetGlobalHeight()">Reset to Default (730px)</button>
+        <div class="code-example">
+            // CSS change:<br>
+            document.documentElement.style.setProperty('--modal-fixed-height', '700px');
+        </div>
+        <div id="globalHeightDisplay" class="result">
+            Current global height: <strong>730px</strong> (default)
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Unlock/Lock Modal Height</h2>
+        <p>Test the unlock and lock functions</p>
+        <button class="test-button" onclick="testUnlock()">Unlock Modal Height</button>
+        <button class="test-button" onclick="testLock()">Re-Lock Modal Height</button>
+        <div class="code-example">
+            // JavaScript calls:<br>
+            unlockZoneModalHeight();<br>
+            lockZoneModalHeight();
+        </div>
+    </div>
+
+    <!-- Test Modal -->
+    <div id="zoneModal" class="dns-modal">
+        <div class="dns-modal-content">
+            <div class="dns-modal-header">
+                <h2 id="zoneModalTitle">Test Modal - Fixed Height</h2>
+                <button class="dns-modal-close" onclick="closeTestModal()">&times;</button>
+            </div>
+            <div class="dns-modal-body">
+                <div class="tab-content">
+                    <h3>Modal Content</h3>
+                    <p>This modal is using the <code>modal-fixed</code> class with CSS variable <code>--modal-fixed-height</code>.</p>
+                    <p>The height should remain constant when switching tabs and resizing the window.</p>
+                    
+                    <h4>Instructions:</h4>
+                    <ol>
+                        <li>Open modal with default height (730px)</li>
+                        <li>Try opening with different custom heights</li>
+                        <li>Change the global CSS variable</li>
+                        <li>Test unlock/lock functionality</li>
+                    </ol>
+
+                    <h4>Verification:</h4>
+                    <ul>
+                        <li>Modal should maintain fixed height</li>
+                        <li>Internal content should scroll</li>
+                        <li>Height should be adjustable via CSS variable</li>
+                        <li>Custom heights should override defaults</li>
+                    </ul>
+
+                    <div style="height: 500px; background: linear-gradient(to bottom, #e3f2fd, #90caf9); padding: 20px; border-radius: 4px; margin-top: 20px;">
+                        <p><strong>Scrollable content area</strong></p>
+                        <p>This tall content will cause internal scrolling if the modal height is fixed correctly.</p>
+                        <p style="margin-top: 200px;">Content continues...</p>
+                        <p style="margin-top: 200px;">End of scrollable content</p>
+                    </div>
+                </div>
+            </div>
+            <div class="dns-modal-footer">
+                <button class="btn-cancel modal-action-button" onclick="closeTestModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/zone-files.js"></script>
+    <script>
+        // Test Functions
+        function testDefaultHeight() {
+            openTestModal();
+            applyFixedModalHeight();
+            showResult('Modal opened with default height (730px)');
+        }
+
+        function testCustomHeight(height) {
+            openTestModal();
+            applyFixedModalHeight(height);
+            showResult(`Modal opened with custom height: ${height}`);
+        }
+
+        function changeGlobalHeight(height) {
+            document.documentElement.style.setProperty('--modal-fixed-height', height);
+            updateGlobalHeightDisplay(height);
+            showResult(`Global CSS variable set to: ${height}`);
+        }
+
+        function resetGlobalHeight() {
+            document.documentElement.style.setProperty('--modal-fixed-height', '730px');
+            updateGlobalHeightDisplay('730px');
+            showResult('Global CSS variable reset to default: 730px');
+        }
+
+        function updateGlobalHeightDisplay(height) {
+            document.getElementById('globalHeightDisplay').innerHTML = 
+                `Current global height: <strong>${height}</strong>`;
+        }
+
+        function testUnlock() {
+            unlockZoneModalHeight();
+            showResult('Modal height unlocked - modal-fixed class removed');
+        }
+
+        function testLock() {
+            lockZoneModalHeight();
+            showResult('Modal height locked - modal-fixed class applied');
+        }
+
+        function openTestModal() {
+            const modal = document.getElementById('zoneModal');
+            modal.style.display = 'block';
+            modal.classList.add('open');
+        }
+
+        function closeTestModal() {
+            const modal = document.getElementById('zoneModal');
+            unlockZoneModalHeight();
+            modal.classList.remove('open');
+            modal.style.display = 'none';
+        }
+
+        function showResult(message) {
+            // Create temporary result message
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result';
+            resultDiv.textContent = '✓ ' + message;
+            resultDiv.style.position = 'fixed';
+            resultDiv.style.top = '20px';
+            resultDiv.style.right = '20px';
+            resultDiv.style.zIndex = '10000';
+            resultDiv.style.minWidth = '300px';
+            document.body.appendChild(resultDiv);
+            
+            setTimeout(() => {
+                resultDiv.remove();
+            }, 3000);
+        }
+
+        // Display initial global height
+        window.addEventListener('DOMContentLoaded', function() {
+            const currentHeight = getComputedStyle(document.documentElement)
+                .getPropertyValue('--modal-fixed-height').trim() || '730px';
+            updateGlobalHeightDisplay(currentHeight);
+        });
+    </script>
+</body>
+</html>
