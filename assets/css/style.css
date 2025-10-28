@@ -1074,3 +1074,25 @@ body {
   flex-direction: column;
   min-height: 0;
 }
+
+/* ----------------------------------------------------------------
+   Permanent fix: class to force modal content height to 720px
+   ---------------------------------------------------------------- */
+.modal-fixed-720 .dns-modal-content,
+.modal-fixed-720 .zone-modal-content,
+#zoneModal.modal-fixed-720 .dns-modal-content,
+#zoneModal.modal-fixed-720 .zone-modal-content {
+  height: 720px !important;
+  max-height: 720px !important;
+  overflow: visible !important;
+}
+.modal-fixed-720 .tab-pane,
+.modal-fixed-720 .zone-tab-content,
+.modal-fixed-720 .tab-content,
+.modal-fixed-720 .dns-modal-body {
+  overflow: auto !important;
+}
+.modal-fixed-720 textarea {
+  max-height: 100% !important;
+  overflow: auto !important;
+}
