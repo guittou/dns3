@@ -887,13 +887,14 @@ body {
 
 /* Zone Modal Fixed Height Behavior */
 /* Ensure zone modal maintains constant overall size when switching tabs */
-.zone-modal-content {
+.dns-modal-content, .zone-modal-content { 
+  display: flex; 
+  flex-direction: column; 
   max-height: calc(100vh - 80px);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
+.dns-modal-content .dns-modal-body,
 .zone-modal-content .dns-modal-body {
   display: flex;
   flex-direction: column;
@@ -905,21 +906,30 @@ body {
   flex-shrink: 0;
 }
 
-.zone-modal-content .tab-content {
-  flex: 1 1 auto;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+.dns-modal-body, .zone-tab-content, .tab-content { 
+  flex: 1 1 auto; 
+  overflow: hidden; 
+  min-height: 0; 
 }
 
 .zone-tab-content {
   overflow-y: auto;
-  flex: 1 1 auto;
+}
+
+.zone-modal-content .tab-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.code-editor, .editor, .ace_editor, .cm-s { 
+  height: 100% !important; 
+  max-height: 100% !important; 
+  box-sizing: border-box; 
 }
 
 /* Responsive fallback for zone modal */
 @media (max-width: 768px) {
-  .zone-modal-content {
+  .dns-modal-content, .zone-modal-content {
     max-height: calc(100vh - 40px);
   }
 }
