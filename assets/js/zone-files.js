@@ -508,13 +508,62 @@ function adjustZoneModalTabHeights() {
     tabContainers.forEach(tc => {
         tc.style.boxSizing = 'border-box';
         tc.style.maxHeight = innerAvailable + 'px';
-        tc.style.overflowY = 'auto';
-        tc.querySelectorAll('.editor, .code-editor, .ace_editor, .cm-s').forEach(e => {
-            e.style.height = '100%';
+        tc.style.overflowY = 'hidden'; // tab container should not scroll
+        tc.style.display = 'flex';
+        tc.style.flexDirection = 'column';
+        tc.style.minHeight = '0';
+        
+        // Find and configure textareas/editors to fill and scroll internally
+        tc.querySelectorAll('textarea.code-editor, textarea.editor, .editor, .code-editor').forEach(e => {
+            e.style.flex = '1 1 auto';
+            e.style.height = 'auto';
             e.style.boxSizing = 'border-box';
             e.style.maxHeight = '100%';
+            e.style.minHeight = '0';
+            e.style.overflow = 'auto';
+            e.style.resize = 'none';
+        });
+        
+        // Configure CodeMirror/ACE wrappers if present
+        tc.querySelectorAll('.CodeMirror, .ace_editor').forEach(wrapper => {
+            wrapper.style.height = '100%';
+            wrapper.style.boxSizing = 'border-box';
+            wrapper.style.flex = '1 1 auto';
         });
     });
+    
+    // Refresh CodeMirror/ACE instances if available (safe guarded call)
+    try {
+        // CodeMirror refresh - find all CodeMirror instances via DOM
+        const cmElements = modalContent.querySelectorAll('.CodeMirror');
+        cmElements.forEach(cmEl => {
+            if (cmEl.CodeMirror && typeof cmEl.CodeMirror.refresh === 'function') {
+                cmEl.CodeMirror.refresh();
+            }
+        });
+    } catch (e) {
+        // Safe to ignore - CodeMirror may not be present
+    }
+    
+    try {
+        // ACE Editor resize - check if element already has editor instance
+        if (typeof ace !== 'undefined') {
+            const aceElements = modalContent.querySelectorAll('.ace_editor');
+            aceElements.forEach(aceEl => {
+                try {
+                    // Try to get existing editor instance, don't create new one
+                    const editor = ace.edit(aceEl);
+                    if (editor && typeof editor.resize === 'function') {
+                        editor.resize();
+                    }
+                } catch (aceErr) {
+                    // Element may not have an editor instance yet
+                }
+            });
+        }
+    } catch (e) {
+        // Safe to ignore - ACE may not be present
+    }
 
     if (window.ensureModalCentered) window.ensureModalCentered(modal);
 }

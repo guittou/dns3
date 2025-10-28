@@ -944,3 +944,44 @@ body {
     max-height: calc(100vh - 40px);
   }
 }
+
+/* ----------------------------------------------------------------
+   Editor Tab Internal Scroll Fix
+   Ensure textarea/editor fills available space and scrolls internally
+   
+   These rules override previous rules (specifically line 916's overflow-y: auto)
+   to prevent external scrolling on the modal popup. Instead, scrolling occurs
+   only within the textarea/editor elements themselves.
+   ---------------------------------------------------------------- */
+
+/* Ensure tab containers use flex layout and prevent external scroll */
+.dns-modal-content .zone-tab-content,
+.dns-modal-content .tab-content,
+.dns-modal-content .dns-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: hidden; /* Prevent external scroll - only child editors should scroll */
+}
+
+/* Editor textarea should fill available space and scroll internally */
+.dns-modal-content textarea.code-editor, 
+.dns-modal-content textarea.editor,
+.dns-modal-content .code-editor,
+.dns-modal-content .editor {
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  min-height: 0;
+  overflow: auto;
+  resize: none;
+  height: auto;
+  max-height: 100%;
+}
+
+/* Override previous !important height rules for CodeMirror/ACE to enable flex behavior */
+.dns-modal-content .CodeMirror,
+.dns-modal-content .ace_editor {
+  height: 100% !important; /* Must use !important to override rule: .code-editor { height: 100% !important; } */
+  box-sizing: border-box;
+  flex: 1 1 auto;
+}
