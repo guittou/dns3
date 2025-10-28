@@ -1047,3 +1047,30 @@ body {
   flex-direction: column;
   min-height: 0;
 }
+
+/* --- Hide non-active panes (fallback for different markup) --- */
+.dns-modal .tab-pane,
+.dns-modal [id$="Tab"],
+.dns-modal .tab-content > .tab-pane {
+  display: none !important;
+  width: 100%;
+}
+
+/* Show only active panes as flex column so editors/textareas fill area */
+.dns-modal .tab-pane.active,
+.dns-modal [id$="Tab"].active {
+  display: flex !important;
+  flex-direction: column;
+}
+
+/* Ensure inner layout of the active pane behaves as expected */
+.dns-modal .tab-pane.active .zone-tab-content,
+.dns-modal .tab-pane.active .tab-content,
+.dns-modal .tab-pane.active .dns-modal-body,
+.dns-modal [id$="Tab"].active .zone-tab-content,
+.dns-modal [id$="Tab"].active .tab-content,
+.dns-modal [id$="Tab"].active .dns-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
