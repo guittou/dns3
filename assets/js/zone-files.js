@@ -594,7 +594,7 @@ function lockZoneModalHeight() {
             const pt = parseFloat(overlayStyle.paddingTop) || 20;
             const pb = parseFloat(overlayStyle.paddingBottom) || 20;
             overlayPadding = pt + pb;
-        } catch (e) { }
+        } catch (e) { /* ignore */ }
         const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
         maxH = viewportAvailable + 'px';
         modalContent.style.maxHeight = maxH;
