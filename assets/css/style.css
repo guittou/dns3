@@ -1075,24 +1075,30 @@ body {
   min-height: 0;
 }
 
-/* ----------------------------------------------------------------
-   Permanent fix: class to force modal content height to 720px
-   ---------------------------------------------------------------- */
-.modal-fixed-720 .dns-modal-content,
-.modal-fixed-720 .zone-modal-content,
-#zoneModal.modal-fixed-720 .dns-modal-content,
-#zoneModal.modal-fixed-720 .zone-modal-content {
-  height: 720px !important;
-  max-height: 720px !important;
+/* Generic fixed modal height using a CSS variable */
+:root {
+  --modal-fixed-height: 730px; /* default value, change this to adjust modal height globally */
+}
+
+.modal-fixed .dns-modal-content,
+.modal-fixed .zone-modal-content,
+#zoneModal.modal-fixed .dns-modal-content,
+#zoneModal.modal-fixed .zone-modal-content {
+  height: var(--modal-fixed-height) !important;
+  max-height: var(--modal-fixed-height) !important;
   overflow: visible !important;
 }
-.modal-fixed-720 .tab-pane,
-.modal-fixed-720 .zone-tab-content,
-.modal-fixed-720 .tab-content,
-.modal-fixed-720 .dns-modal-body {
+
+/* Ensure internal panes scroll inside the fixed-height modal */
+.modal-fixed .tab-pane,
+.modal-fixed .zone-tab-content,
+.modal-fixed .tab-content,
+.modal-fixed .dns-modal-body {
   overflow: auto !important;
 }
-.modal-fixed-720 textarea {
+
+/* Make textareas inside not expand parent unexpectedly */
+.modal-fixed textarea {
   max-height: 100% !important;
   overflow: auto !important;
 }
