@@ -107,13 +107,20 @@ function setupEventHandlers() {
     };
     
     // Window resize handler to recalculate zone tab content height
+    // Use debounce to avoid excessive recalculations
+    let resizeTimeout = null;
     window.addEventListener('resize', function() {
-        adjustZoneModalTabHeights();
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(function() {
+            handleZoneModalResize();
+        }, 150);
     });
     
     // Orientation change handler for mobile devices
     window.addEventListener('orientationchange', function() {
-        adjustZoneModalTabHeights();
+        setTimeout(function() {
+            handleZoneModalResize();
+        }, 200);
     });
 }
 
@@ -394,6 +401,7 @@ async function openZoneModal(zoneId) {
             // Use setTimeout to ensure DOM has updated
             setTimeout(() => {
                 adjustZoneModalTabHeights();
+                lockZoneModalHeight();
             }, 50);
         }
     } catch (error) {
@@ -413,6 +421,9 @@ function closeZoneModal() {
             return;
         }
     }
+    
+    // Remove height lock to restore clean state for next open
+    unlockZoneModalHeight();
     
     document.getElementById('zoneModal').classList.remove('open');
     document.getElementById('zoneModal').style.display = 'none';
@@ -509,6 +520,79 @@ function adjustZoneModalTabHeights() {
 }
 
 window.adjustZoneModalTabHeights = adjustZoneModalTabHeights;
+
+/**
+ * Lock zone modal height to prevent size changes when switching tabs
+ */
+function lockZoneModalHeight() {
+    const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
+    if (!modal) return;
+    const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
+    if (!modalContent) return;
+    
+    // Get current computed height
+    const rect = modalContent.getBoundingClientRect();
+    const computedHeight = Math.round(rect.height);
+    
+    // Lock the height to prevent modal from growing/shrinking between tabs
+    modalContent.style.height = computedHeight + 'px';
+    
+    // Ensure max-height remains set (should already be set by adjustZoneModalTabHeights)
+    // This is a safety check
+    if (!modalContent.style.maxHeight || modalContent.style.maxHeight === 'none') {
+        const modalStyle = getComputedStyle(modal);
+        if (modalStyle.display !== 'none') {
+            let overlayPadding = 40;
+            try {
+                const overlayStyle = getComputedStyle(modal);
+                const pt = parseFloat(overlayStyle.paddingTop) || 20;
+                const pb = parseFloat(overlayStyle.paddingBottom) || 20;
+                overlayPadding = pt + pb;
+            } catch (e) { }
+            const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
+            modalContent.style.maxHeight = viewportAvailable + 'px';
+        }
+    }
+}
+
+/**
+ * Unlock zone modal height to restore clean state
+ */
+function unlockZoneModalHeight() {
+    const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
+    if (!modal) return;
+    const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
+    if (!modalContent) return;
+    
+    // Remove inline height to restore clean state for next open
+    modalContent.style.height = '';
+    // Optionally remove maxHeight to let ensureModalCentered set it next time
+    // modalContent.style.maxHeight = '';
+}
+
+/**
+ * Handle window resize for zone modal
+ * Removes lock, recalculates sizes, then re-locks to new size
+ */
+function handleZoneModalResize() {
+    const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
+    if (!modal) return;
+    
+    const modalStyle = getComputedStyle(modal);
+    if (modalStyle.display === 'none') return;
+    
+    // Check if modal is open
+    if (!modal.classList.contains('open')) return;
+    
+    // Remove lock temporarily
+    unlockZoneModalHeight();
+    
+    // Recalculate sizes
+    adjustZoneModalTabHeights();
+    
+    // Re-lock to new size
+    lockZoneModalHeight();
+}
 
 /**
  * Legacy function name kept for backward compatibility
