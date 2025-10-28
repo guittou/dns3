@@ -397,13 +397,9 @@ async function openZoneModal(zoneId) {
             // Setup change detection
             setupChangeDetection();
             
-            // Adjust zone tab content height after modal is displayed
-            // Use setTimeout to ensure DOM has updated and async content loaded
-            // Force calculation on open to compute max height across all tabs
-            // Allow modal to grow beyond viewport on open
+            // Apply fixed 720px height after modal is displayed
             setTimeout(() => {
-                adjustZoneModalTabHeights(true, true);
-                lockZoneModalHeight();
+                applyFixedModalHeight();
             }, 150);
         }
     } catch (error) {
@@ -473,293 +469,57 @@ function switchTab(tabName) {
             }
         } catch (e) {}
     }, 50);
+    // Note: No height recalculation on tab switch - fixed 720px height is maintained
 }
 
-/* adjustZoneModalTabHeights: compute the max needed height among all panes once,
-   store it on modalContent.dataset, reuse it on tab switches. Pass force=true to recompute. */
-function adjustZoneModalTabHeights(force = false, allowGrowBeyondViewport = false) {
-  const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
-  if (!modal) return;
-  const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
-  if (!modalContent) return;
-  const header = modalContent.querySelector('.dns-modal-header');
-  const tabs = modalContent.querySelector('.tabs');
-  const footer = modalContent.querySelector('.dns-modal-footer, .modal-footer');
-
-  // If modal is hidden, nothing to do
-  const modalStyle = getComputedStyle(modal);
-  if (modalStyle.display === 'none') return;
-
-  // If we've previously computed a stable height and no force, reuse it
-  if (!force && modalContent.dataset._computedModalHeight) {
-    modalContent.style.boxSizing = 'border-box';
-    modalContent.style.maxHeight = modalContent.dataset._computedViewport || 'calc(100vh - 80px)';
-    modalContent.style.height = modalContent.dataset._computedModalHeight;
-    modalContent.querySelectorAll('.tab-pane, [id$="Tab"], .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
-      tc.style.boxSizing = 'border-box';
-      tc.style.minHeight = '0';
-      tc.style.overflow = 'hidden';
-      if (tc.classList && tc.classList.contains('active')) {
-        tc.style.display = tc.style.display || 'flex';
-        tc.style.flexDirection = tc.style.flexDirection || 'column';
-        tc.style.flex = '1 1 auto';
-      }
-    });
-    return;
-  }
-
-  // compute overlay padding and content padding
-  let overlayPadding = 40;
-  try {
-    const overlayStyle = getComputedStyle(modal);
-    const pt = parseFloat(overlayStyle.paddingTop) || 20;
-    const pb = parseFloat(overlayStyle.paddingBottom) || 20;
-    overlayPadding = pt + pb;
-  } catch (e) {}
-
-  let contentPadding = 0;
-  try {
-    const mcStyle = getComputedStyle(modalContent);
-    const cpt = parseFloat(mcStyle.paddingTop) || 0;
-    const cpb = parseFloat(mcStyle.paddingBottom) || 0;
-    contentPadding = cpt + cpb;
-  } catch (e) {}
-
-  // helper to measure height without affecting layout
-  function measureHeight(el) {
-    const prev = {
-      display: el.style.display || '',
-      position: el.style.position || '',
-      visibility: el.style.visibility || '',
-      left: el.style.left || '',
-      top: el.style.top || ''
-    };
-    let h;
-    try {
-      el.style.position = 'absolute';
-      el.style.visibility = 'hidden';
-      el.style.left = '-9999px';
-      el.style.top = '-9999px';
-      el.style.display = 'block';
-      h = Math.max(el.scrollHeight, el.getBoundingClientRect().height);
-    } finally {
-      el.style.display = prev.display;
-      el.style.position = prev.position;
-      el.style.visibility = prev.visibility;
-      el.style.left = prev.left;
-      el.style.top = prev.top;
-    }
-    return Math.ceil(h);
-  }
-
-  // PRIORITY: Try to find and measure the editor zone first
-  let maxPaneContentHeight = 0;
-  let editorFound = false;
-  
-  // Search for editor elements: #zoneContent (textarea), .CodeMirror, or .ace_editor
-  const editorSelectors = ['#zoneContent', '.CodeMirror', '.ace_editor'];
-  for (const selector of editorSelectors) {
-    const editor = modalContent.querySelector(selector);
-    if (editor) {
-      editorFound = true;
-      // Find the editor's parent pane to measure properly
-      let editorPane = editor.closest('.tab-pane, [id$="Tab"]');
-      if (!editorPane) {
-        editorPane = editor.closest('.zone-tab-content, .tab-content, .dns-modal-body');
-      }
-      if (editorPane) {
-        maxPaneContentHeight = measureHeight(editorPane);
-      } else {
-        // Fallback: measure the editor element itself
-        maxPaneContentHeight = measureHeight(editor);
-      }
-      console.log('Editor found (' + selector + '), using its height:', maxPaneContentHeight);
-      break;
-    }
-  }
-  
-  // If no editor found, fall back to measuring all panes
-  if (!editorFound) {
-    const panes = Array.from(modalContent.querySelectorAll('.tab-pane, [id$="Tab"]'));
-    if (panes.length === 0) {
-      const fallback = modalContent.querySelector('.zone-tab-content, .tab-content, .dns-modal-body');
-      if (fallback) panes.push(fallback);
-    }
-    
-    panes.forEach(p => {
-      const inner = p.querySelector('.zone-tab-content, .tab-content, .dns-modal-body') || p;
-      const h = measureHeight(inner);
-      if (h > maxPaneContentHeight) maxPaneContentHeight = h;
-    });
-    console.log('No editor found, using max pane height:', maxPaneContentHeight);
-  }
-
-  const headerH = header ? header.offsetHeight : 0;
-  const tabsH = tabs ? tabs.offsetHeight : 0;
-  const footerH = footer ? footer.offsetHeight : 0;
-
-  // viewport cap
-  const viewportAvailable = Math.max(200, window.innerHeight - overlayPadding - 40);
-
-  // desired total modal content height (include paddings)
-  let desired = headerH + tabsH + footerH + maxPaneContentHeight + contentPadding;
-  desired = Math.max(200, desired);
-  
-  // Store allowGrow flag
-  modalContent.dataset._allowGrow = allowGrowBeyondViewport ? '1' : '0';
-  
-  // Apply viewport cap only if allowGrowBeyondViewport is false
-  const finalH = allowGrowBeyondViewport ? desired : Math.min(desired, viewportAvailable);
-
-  // apply sizes and store them so subsequent tab switches reuse them
-  modalContent.style.boxSizing = 'border-box';
-  if (!allowGrowBeyondViewport) {
-    modalContent.style.maxHeight = viewportAvailable + 'px';
-  } else {
-    // Remove maxHeight constraint when allowed to grow
-    modalContent.style.maxHeight = '';
-  }
-  modalContent.style.height = finalH + 'px';
-  modalContent.dataset._computedModalHeight = modalContent.style.height;
-  modalContent.dataset._computedViewport = allowGrowBeyondViewport ? '' : viewportAvailable + 'px';
-
-  // ensure panes/layout are flex columns so editor can fill internal space
-  modalContent.querySelectorAll('.tab-pane, [id$="Tab"], .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
-    tc.style.boxSizing = 'border-box';
-    tc.style.minHeight = '0';
-    // When allowGrowBeyondViewport, prevent internal scroll; otherwise allow scrolling when capped
-    tc.style.overflow = allowGrowBeyondViewport ? 'hidden' : 'auto';
-    if (tc.classList && tc.classList.contains('active')) {
-      tc.style.display = tc.style.display || 'flex';
-      tc.style.flexDirection = tc.style.flexDirection || 'column';
-      tc.style.flex = '1 1 auto';
-    }
+// Simplified modal height locking (fixed to 720px)
+function applyFixedModalHeight() {
+  const mc = document.querySelector('.dns-modal-content, .zone-modal-content');
+  if (!mc) return;
+  mc.style.boxSizing = 'border-box';
+  mc.style.height = '720px';
+  mc.style.maxHeight = '720px';
+  mc.dataset._computedModalHeight = mc.style.height;
+  mc.dataset._allowGrow = '0';
+  // ensure panes scroll internally
+  mc.querySelectorAll('.tab-pane, .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
+    tc.style.overflow = 'auto';
   });
-
-  // configure editors/textareas to fill and scroll internally
-  // When allowGrowBeyondViewport is true, allow textareas to expand naturally
-  modalContent.querySelectorAll('textarea, .code-editor, .editor, .ace_editor, .CodeMirror').forEach(e => {
-    if (e.tagName && e.tagName.toLowerCase() === 'textarea') {
-      e.style.boxSizing = 'border-box';
-      e.style.flex = '1 1 auto';
-      e.style.minHeight = '0';
-      if (allowGrowBeyondViewport) {
-        // Allow textarea to expand naturally without internal scroll
-        e.style.height = 'auto';
-        e.style.maxHeight = 'none';
-        e.style.overflow = 'hidden';
-      } else {
-        e.style.height = 'auto';
-        e.style.maxHeight = '100%';
-        e.style.overflow = 'auto';
-      }
-      e.style.resize = 'none';
-    } else {
-      e.style.boxSizing = 'border-box';
-      e.style.height = '100%';
-      e.style.maxHeight = '100%';
-      e.style.flex = '1 1 auto';
-    }
-  });
-
-  // refresh editors if present
+  // refresh editors
   setTimeout(() => {
-    try {
-      document.querySelectorAll('.CodeMirror').forEach(cmEl => {
-        const inst = cmEl.CodeMirror || cmEl.__cm;
-        if (inst && typeof inst.refresh === 'function') inst.refresh();
-      });
-    } catch (e) {}
-    try {
-      if (typeof ace !== 'undefined') {
-        document.querySelectorAll('.ace_editor').forEach(aceEl => {
-          try {
-            const ed = ace.edit(aceEl);
-            if (ed && typeof ed.resize === 'function') ed.resize();
-          } catch (err) {}
-        });
-      }
-    } catch (e) {}
-    window.dispatchEvent(new Event('resize'));
-  }, 60);
+    try { document.querySelectorAll('.CodeMirror').forEach(cm => (cm.CodeMirror || cm.__cm)?.refresh?.()); } catch(e){}
+    try { document.querySelectorAll('.ace_editor').forEach(a => { try { const ed = ace.edit(a); if (ed && ed.resize) ed.resize(); } catch(e){} }); } catch(e){}
+  }, 80);
+}
+
+function adjustZoneModalTabHeights(force) {
+  // no-op: fixed height enforced via applyFixedModalHeight
+  applyFixedModalHeight();
 }
 
 window.adjustZoneModalTabHeights = adjustZoneModalTabHeights;
 
-/* lockZoneModalHeight: re-apply the computed height and overflow styles.
-   This ensures the modal stays at the locked size during tab switches. */
 function lockZoneModalHeight() {
-  const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
-  if (!modal) return;
-  const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
-  if (!modalContent) return;
-  if (modalContent.dataset._computedModalHeight) {
-    modalContent.style.height = modalContent.dataset._computedModalHeight;
-    
-    const allowGrow = modalContent.dataset._allowGrow === '1';
-    
-    // Only apply maxHeight if _allowGrow is not '1'
-    if (allowGrow) {
-      // No maxHeight constraint when allowed to grow
-      modalContent.style.maxHeight = '';
-    } else {
-      modalContent.style.maxHeight = modalContent.dataset._computedViewport || modalContent.style.maxHeight;
-    }
-    
-    // Reapply overflow styles to panes based on allowGrow flag
-    modalContent.querySelectorAll('.tab-pane, [id$="Tab"], .zone-tab-content, .tab-content, .dns-modal-body').forEach(tc => {
-      tc.style.overflow = allowGrow ? 'hidden' : 'auto';
-    });
-    
-    // Reapply overflow styles to textareas based on allowGrow flag
-    modalContent.querySelectorAll('textarea').forEach(e => {
-      if (allowGrow) {
-        e.style.overflow = 'hidden';
-        e.style.height = 'auto';
-        e.style.maxHeight = 'none';
-      } else {
-        e.style.overflow = 'auto';
-        e.style.height = 'auto';
-        e.style.maxHeight = '100%';
-      }
-    });
-  }
+  applyFixedModalHeight();
 }
 
-/**
- * Unlock zone modal height to restore clean state
- */
 function unlockZoneModalHeight() {
-    const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
-    if (!modal) return;
-    const modalContent = modal.querySelector('.dns-modal-content, .zone-modal-content');
-    if (!modalContent) return;
-    
-    // Remove inline height and stored dataset to restore clean state for next open
-    modalContent.style.height = '';
-    delete modalContent.dataset._computedModalHeight;
-    delete modalContent.dataset._computedViewport;
-    delete modalContent.dataset._allowGrow;
-    // Note: We keep maxHeight set so ensureModalCentered can use it on next open
+  const mc = document.querySelector('.dns-modal-content, .zone-modal-content');
+  if (!mc) return;
+  mc.style.height = '';
+  mc.style.maxHeight = '';
+  delete mc.dataset._computedModalHeight;
+  delete mc.dataset._allowGrow;
 }
 
 /**
  * Handle window resize for zone modal
- * Simply recalculates the modal sizes to fit new viewport
- * On resize, cap at viewport (allowGrowBeyondViewport = false)
+ * Note: With fixed 720px height, resize should not change modal height
  */
 function handleZoneModalResize() {
-    const modal = document.getElementById('zoneModal') || document.querySelector('.zone-modal');
-    if (!modal) return;
-    
-    const modalStyle = getComputedStyle(modal);
-    if (modalStyle.display === 'none') return;
-    
-    // Check if modal is open
-    if (!modal.classList.contains('open')) return;
-    
-    // Recalculate sizes for new viewport - force recalculation, capped at viewport
-    adjustZoneModalTabHeights(true, false);
+    // No-op: modal height is fixed to 720px and should not change on window resize
+    // unless you want to reapply in case some other script modified it
+    // applyFixedModalHeight(); // Uncomment if you want to re-enforce the fixed height on resize
 }
 
 /**
