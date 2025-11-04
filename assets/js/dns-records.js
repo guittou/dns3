@@ -277,15 +277,16 @@
             
             // If a specific zone_file_id is provided, ensure it's in the list
             if (selectedZoneFileId) {
-                const zoneIdNum = parseInt(selectedZoneFileId);
-                const zoneExists = zones.some(z => z.id === zoneIdNum);
+                const zoneIdNum = parseInt(selectedZoneFileId, 10);
+                // Use loose equality to handle both string and number IDs from API
+                const zoneExists = zones.some(z => z.id == zoneIdNum);
                 
                 // If the zone isn't in the list (due to pagination/filtering), fetch it specifically
                 if (!zoneExists) {
                     console.debug('[populateZoneFileSelect] Zone', zoneIdNum, 'not in list, fetching specifically');
                     try {
                         const specificZoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
-                        if (specificZoneResult.success && specificZoneResult.data) {
+                        if (specificZoneResult && specificZoneResult.data) {
                             // Add the specific zone to our list
                             zones.push(specificZoneResult.data);
                             console.debug('[populateZoneFileSelect] Added zone', specificZoneResult.data.name, 'to selector');
