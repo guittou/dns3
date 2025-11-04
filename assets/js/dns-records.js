@@ -278,23 +278,29 @@
             // If a specific zone_file_id is provided, ensure it's in the list
             if (selectedZoneFileId) {
                 const zoneIdNum = parseInt(selectedZoneFileId, 10);
-                // Convert zone.id to number for strict comparison since API may return string or number
-                const zoneExists = zones.some(z => parseInt(z.id, 10) === zoneIdNum);
                 
-                // If the zone isn't in the list (due to pagination/filtering), fetch it specifically
-                if (!zoneExists) {
-                    console.debug('[populateZoneFileSelect] Zone', zoneIdNum, 'not in list, fetching specifically');
-                    try {
-                        const specificZoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
-                        // API throws on error, but verify data exists before using
-                        if (specificZoneResult && specificZoneResult.data) {
-                            // Add the specific zone to our list
-                            zones.push(specificZoneResult.data);
-                            console.debug('[populateZoneFileSelect] Added zone', specificZoneResult.data.name, 'to selector');
+                // Validate parsed zone ID before attempting to fetch
+                if (!isNaN(zoneIdNum) && zoneIdNum > 0) {
+                    // Convert zone.id to number for strict comparison since API may return string or number
+                    const zoneExists = zones.some(z => parseInt(z.id, 10) === zoneIdNum);
+                    
+                    // If the zone isn't in the list (due to pagination/filtering), fetch it specifically
+                    if (!zoneExists) {
+                        console.debug('[populateZoneFileSelect] Zone', zoneIdNum, 'not in list, fetching specifically');
+                        try {
+                            const specificZoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
+                            // API throws on error, but verify data exists before using
+                            if (specificZoneResult && specificZoneResult.data) {
+                                // Add the specific zone to our list
+                                zones.push(specificZoneResult.data);
+                                console.debug('[populateZoneFileSelect] Added zone', specificZoneResult.data.name, 'to selector');
+                            }
+                        } catch (fetchError) {
+                            console.warn('[populateZoneFileSelect] Failed to fetch specific zone:', fetchError);
                         }
-                    } catch (fetchError) {
-                        console.warn('[populateZoneFileSelect] Failed to fetch specific zone:', fetchError);
                     }
+                } else {
+                    console.warn('[populateZoneFileSelect] Invalid zone_file_id:', selectedZoneFileId);
                 }
             }
             
