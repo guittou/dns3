@@ -260,18 +260,40 @@
     /**
      * Helper function to populate zone file select and set selected value
      * Ensures the select is populated before attempting to set the value
+     * If a specific zone_file_id is provided, fetches that zone and ensures it's in the list
      * @param {number|string|null} selectedZoneFileId - The zone file ID to select after populating
      */
     async function populateZoneFileSelect(selectedZoneFileId) {
         try {
             // List only active master and include zones
             const result = await zoneApiCall('list_zones', { status: 'active' });
-            const zones = result.data || [];
+            let zones = result.data || [];
             
             const selector = document.getElementById('record-zone-file');
             if (!selector) {
                 console.error('[populateZoneFileSelect] Zone file selector not found');
                 return;
+            }
+            
+            // If a specific zone_file_id is provided, ensure it's in the list
+            if (selectedZoneFileId) {
+                const zoneIdNum = parseInt(selectedZoneFileId);
+                const zoneExists = zones.some(z => z.id === zoneIdNum);
+                
+                // If the zone isn't in the list (due to pagination/filtering), fetch it specifically
+                if (!zoneExists) {
+                    console.debug('[populateZoneFileSelect] Zone', zoneIdNum, 'not in list, fetching specifically');
+                    try {
+                        const specificZoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
+                        if (specificZoneResult.success && specificZoneResult.data) {
+                            // Add the specific zone to our list
+                            zones.push(specificZoneResult.data);
+                            console.debug('[populateZoneFileSelect] Added zone', specificZoneResult.data.name, 'to selector');
+                        }
+                    } catch (fetchError) {
+                        console.warn('[populateZoneFileSelect] Failed to fetch specific zone:', fetchError);
+                    }
+                }
             }
             
             // Clear existing options and add placeholder
@@ -295,7 +317,7 @@
                 if (selector.value === zoneIdStr) {
                     console.debug('[populateZoneFileSelect] Successfully set zone_file_id:', zoneIdStr);
                 } else {
-                    console.warn('[populateZoneFileSelect] zone_file_id', zoneIdStr, 'not found in selector options');
+                    console.warn('[populateZoneFileSelect] zone_file_id', zoneIdStr, 'not found in selector options after fetch attempt');
                 }
             }
         } catch (error) {
