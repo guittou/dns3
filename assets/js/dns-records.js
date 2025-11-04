@@ -258,6 +258,53 @@
     }
 
     /**
+     * Helper function to populate zone file select and set selected value
+     * Ensures the select is populated before attempting to set the value
+     * @param {number|string|null} selectedZoneFileId - The zone file ID to select after populating
+     */
+    async function populateZoneFileSelect(selectedZoneFileId) {
+        try {
+            // List only active master and include zones
+            const result = await zoneApiCall('list_zones', { status: 'active' });
+            const zones = result.data || [];
+            
+            const selector = document.getElementById('record-zone-file');
+            if (!selector) {
+                console.error('[populateZoneFileSelect] Zone file selector not found');
+                return;
+            }
+            
+            // Clear existing options and add placeholder
+            selector.innerHTML = '<option value="">-- Sélectionner une zone --</option>';
+            
+            // Filter to show only master and include types, add to selector
+            zones.filter(z => z.file_type === 'master' || z.file_type === 'include')
+                .forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone.id;
+                    option.textContent = `${zone.name} (${zone.file_type})`;
+                    selector.appendChild(option);
+                });
+            
+            // Set the selected value if provided
+            if (selectedZoneFileId) {
+                const zoneIdStr = String(selectedZoneFileId);
+                selector.value = zoneIdStr;
+                
+                // Verify the option exists
+                if (selector.value === zoneIdStr) {
+                    console.debug('[populateZoneFileSelect] Successfully set zone_file_id:', zoneIdStr);
+                } else {
+                    console.warn('[populateZoneFileSelect] zone_file_id', zoneIdStr, 'not found in selector options');
+                }
+            }
+        } catch (error) {
+            console.error('[populateZoneFileSelect] Error:', error);
+            // Don't show message to user, just log it
+        }
+    }
+
+    /**
      * Load and display DNS records table
      */
     async function loadDnsTable(filters = {}) {
@@ -385,7 +432,7 @@
     /**
      * Open modal to create a new record
      */
-    function openCreateModal() {
+    async function openCreateModal() {
         const modal = document.getElementById('dns-modal');
         const form = document.getElementById('dns-form');
         const title = document.getElementById('dns-modal-title');
@@ -409,8 +456,8 @@
             deleteBtn.style.display = 'none';
         }
         
-        // Load zone files for selector
-        loadZoneFiles();
+        // Load zone files for selector (no selection for new records)
+        await populateZoneFileSelect(null);
 
         // Update field visibility based on default record type
         updateFieldVisibility();
@@ -443,49 +490,8 @@
             form.dataset.mode = 'edit';
             form.dataset.recordId = recordId;
             
-            // Load zone files for selector
-            await loadZoneFiles();
-            
-            // Set zone_file_id
-            const zoneFileSelector = document.getElementById('record-zone-file');
-            if (zoneFileSelector) {
-                if (record.zone_file_id) {
-                    // Primary: use zone_file_id if available
-                    zoneFileSelector.value = record.zone_file_id;
-                    console.debug('[Edit Modal] Set zone_file_id:', record.zone_file_id);
-                    
-                    // Verify the option exists
-                    if (!zoneFileSelector.value || zoneFileSelector.value === '') {
-                        console.warn('[Edit Modal] zone_file_id', record.zone_file_id, 'not found in selector options');
-                    }
-                } else {
-                    console.warn('[Edit Modal] Record missing zone_file_id, attempting fallback');
-                }
-                
-                // Fallback: if zone_file_id not set or option not found, try to match by name
-                if (!zoneFileSelector.value || zoneFileSelector.value === '') {
-                    if (record.zone_name || record.zone || record.zone_file_name) {
-                        const zoneName = record.zone_name || record.zone || record.zone_file_name;
-                        console.debug('[Edit Modal] Attempting to match zone by name:', zoneName);
-                        const options = zoneFileSelector.querySelectorAll('option');
-                        let matched = false;
-                        for (const option of options) {
-                            // Match by textContent (which includes zone name) or by exact value
-                            if (option.textContent.includes(zoneName) || option.value === zoneName) {
-                                zoneFileSelector.value = option.value;
-                                matched = true;
-                                console.debug('[Edit Modal] Matched zone option:', option.textContent, 'value:', option.value);
-                                break;
-                            }
-                        }
-                        if (!matched) {
-                            console.error('[Edit Modal] Could not find matching zone for:', zoneName);
-                        }
-                    } else {
-                        console.error('[Edit Modal] Record has no zone information (zone_file_id, zone_name, zone, zone_file_name)');
-                    }
-                }
-            }
+            // Populate zone files and set the selected zone_file_id
+            await populateZoneFileSelect(record.zone_file_id);
 
             document.getElementById('record-type').value = record.record_type;
             document.getElementById('record-name').value = record.name;
