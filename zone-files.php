@@ -132,8 +132,8 @@ if (!$auth->isAdmin()) {
                 </div>
                 <div class="dns-modal-footer">
                     <div class="modal-action-bar">
+                        <button type="button" id="zone-create-save-btn" class="btn-success modal-action-button" onclick="createZone()">Créer</button>
                         <button type="button" id="zone-create-cancel-btn" class="btn-cancel modal-action-button" onclick="closeCreateZoneModal()">Annuler</button>
-                        <button type="button" id="zone-create-save-btn" class="btn-submit modal-action-button" onclick="createZone()">Créer</button>
                     </div>
                 </div>
             </form>
@@ -262,9 +262,9 @@ if (!$auth->isAdmin()) {
         </div>
         <div class="dns-modal-footer">
             <div class="modal-action-bar">
-                <button type="button" id="zone-delete-btn" class="btn-delete modal-action-button" onclick="deleteZone()">Supprimer</button>
+                <button type="button" id="zone-save-btn" class="btn-success modal-action-button" onclick="saveZone()">Enregistrer</button>
                 <button type="button" id="zone-cancel-btn" class="btn-cancel modal-action-button" onclick="closeZoneModal()">Annuler</button>
-                <button type="button" id="zone-save-btn" class="btn-submit modal-action-button" onclick="saveZone()">Enregistrer</button>
+                <button type="button" id="zone-delete-btn" class="btn-delete modal-action-button" onclick="deleteZone()">Supprimer</button>
             </div>
         </div>
     </div>
