@@ -179,13 +179,13 @@ if (!$auth->isAdmin()) {
 </div>
 
 <!-- Modal: Create/Edit User -->
-<div id="modal-user" class="dns-modal">
-    <div class="dns-modal-content modal-medium">
-        <div class="dns-modal-header">
+<div id="modal-user" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
             <h3 id="modal-user-title">Créer un utilisateur</h3>
-            <button class="dns-modal-close" onclick="closeUserModal()">&times;</button>
+            <button class="modal-close" onclick="closeUserModal()">&times;</button>
         </div>
-        <div class="dns-modal-body">
+        <div class="modal-body">
             <form id="form-user">
                 <input type="hidden" id="user-id" value="">
                 
@@ -229,25 +229,24 @@ if (!$auth->isAdmin()) {
                         <!-- Will be populated dynamically -->
                     </div>
                 </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-user">Enregistrer</button>
+                </div>
             </form>
-        </div>
-        <div class="dns-modal-footer">
-            <div class="modal-action-bar">
-                <button type="button" class="btn-cancel modal-action-button" onclick="closeUserModal()">Annuler</button>
-                <button type="submit" class="btn-submit modal-action-button" id="btn-save-user" form="form-user">Enregistrer</button>
-            </div>
         </div>
     </div>
 </div>
 
 <!-- Modal: Create Mapping -->
-<div id="modal-mapping" class="dns-modal">
-    <div class="dns-modal-content modal-medium">
-        <div class="dns-modal-header">
+<div id="modal-mapping" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
             <h3>Créer un mapping AD/LDAP</h3>
-            <button class="dns-modal-close" onclick="closeMappingModal()">&times;</button>
+            <button class="modal-close" onclick="closeMappingModal()">&times;</button>
         </div>
-        <div class="dns-modal-body">
+        <div class="modal-body">
             <form id="form-mapping">
                 <div class="form-group">
                     <label for="mapping-source">Source *</label>
@@ -279,25 +278,24 @@ if (!$auth->isAdmin()) {
                     <textarea id="mapping-notes" name="notes" rows="3" 
                               placeholder="Description ou notes sur ce mapping"></textarea>
                 </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeMappingModal()">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Créer</button>
+                </div>
             </form>
-        </div>
-        <div class="dns-modal-footer">
-            <div class="modal-action-bar">
-                <button type="button" class="btn-cancel modal-action-button" onclick="closeMappingModal()">Annuler</button>
-                <button type="submit" class="btn-submit modal-action-button" form="form-mapping">Créer</button>
-            </div>
         </div>
     </div>
 </div>
 
 <!-- Modal: Create/Edit Domain -->
-<div id="modal-domain" class="dns-modal">
-    <div class="dns-modal-content modal-medium">
-        <div class="dns-modal-header">
+<div id="modal-domain" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
             <h3 id="modal-domain-title">Créer un domaine</h3>
-            <button class="dns-modal-close" onclick="closeDomainModal()">&times;</button>
+            <button class="modal-close" onclick="closeDomainModal()">&times;</button>
         </div>
-        <div class="dns-modal-body">
+        <div class="modal-body">
             <form id="form-domain">
                 <input type="hidden" id="domain-id" value="">
                 
@@ -332,14 +330,13 @@ if (!$auth->isAdmin()) {
                     <label>Modifié le</label>
                     <input type="text" id="domain-updated-at" readonly disabled>
                 </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" id="btn-delete-domain" onclick="deleteDomainFromModal()" style="display: none;">Supprimer</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeDomainModal()">Annuler</button>
+                    <button type="submit" class="btn btn-success" id="btn-save-domain">Enregistrer</button>
+                </div>
             </form>
-        </div>
-        <div class="dns-modal-footer">
-            <div class="modal-action-bar">
-                <button type="button" class="btn-delete modal-action-button" id="btn-delete-domain" onclick="deleteDomainFromModal()" style="display: none;">Supprimer</button>
-                <button type="button" class="btn-cancel modal-action-button" onclick="closeDomainModal()">Annuler</button>
-                <button type="submit" class="btn-success modal-action-button" id="btn-save-domain" form="form-domain">Enregistrer</button>
-            </div>
         </div>
     </div>
 </div>
@@ -579,6 +576,104 @@ if (!$auth->isAdmin()) {
     border-radius: 3px;
     font-family: monospace;
     font-size: 12px;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    overflow-y: auto;
+}
+
+.modal.show {
+    display: block;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 50px auto;
+    padding: 0;
+    border-radius: 8px;
+    max-width: 600px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #7f8c8d;
+}
+
+.modal-close:hover {
+    color: #2c3e50;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #7f8c8d;
 }
 
 #user-roles-checkboxes {
