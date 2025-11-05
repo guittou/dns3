@@ -49,6 +49,7 @@
 
     /**
      * Apply fixed height to modal to prevent resizing during tab switches
+     * Enforces 720px height with responsive fallback for smaller viewports
      * @param {HTMLElement} modalEl - The modal overlay element
      */
     window.applyFixedModalHeight = function(modalEl) {
@@ -57,13 +58,20 @@
         const content = modalEl.querySelector('.dns-modal-content, .zone-modal-content, .modal-content');
         if (!content) return;
         
-        // Get current height and fix it
-        const currentHeight = content.offsetHeight;
-        if (currentHeight > 0) {
-            content.style.height = currentHeight + 'px';
-            content.style.maxHeight = currentHeight + 'px';
-            modalEl.classList.add('modal-fixed');
-        }
+        // Fixed height target: 720px
+        const targetHeight = 720;
+        
+        // Responsive fallback: if viewport is smaller than 720px + padding (80px), use viewport height
+        const viewportHeight = window.innerHeight;
+        const availableHeight = viewportHeight - 80; // 40px padding top + 40px padding bottom
+        
+        // Choose the smaller of target height or available height
+        const finalHeight = Math.min(targetHeight, availableHeight);
+        
+        // Apply the fixed height
+        content.style.height = finalHeight + 'px';
+        content.style.maxHeight = finalHeight + 'px';
+        modalEl.classList.add('modal-fixed');
     };
 
     /**

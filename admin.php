@@ -233,8 +233,8 @@ if (!$auth->isAdmin()) {
         </div>
         <div class="dns-modal-footer">
             <div class="modal-action-bar">
+                <button type="submit" class="btn-success modal-action-button" id="btn-save-user" form="form-user">Enregistrer</button>
                 <button type="button" class="btn-cancel modal-action-button" onclick="closeUserModal()">Annuler</button>
-                <button type="submit" class="btn-submit modal-action-button" id="btn-save-user" form="form-user">Enregistrer</button>
             </div>
         </div>
     </div>
@@ -283,8 +283,8 @@ if (!$auth->isAdmin()) {
         </div>
         <div class="dns-modal-footer">
             <div class="modal-action-bar">
+                <button type="submit" class="btn-success modal-action-button" form="form-mapping">Créer</button>
                 <button type="button" class="btn-cancel modal-action-button" onclick="closeMappingModal()">Annuler</button>
-                <button type="submit" class="btn-submit modal-action-button" form="form-mapping">Créer</button>
             </div>
         </div>
     </div>
@@ -336,9 +336,9 @@ if (!$auth->isAdmin()) {
         </div>
         <div class="dns-modal-footer">
             <div class="modal-action-bar">
-                <button type="button" class="btn-delete modal-action-button" id="btn-delete-domain" onclick="deleteDomainFromModal()" style="display: none;">Supprimer</button>
-                <button type="button" class="btn-cancel modal-action-button" onclick="closeDomainModal()">Annuler</button>
                 <button type="submit" class="btn-success modal-action-button" id="btn-save-domain" form="form-domain">Enregistrer</button>
+                <button type="button" class="btn-cancel modal-action-button" onclick="closeDomainModal()">Annuler</button>
+                <button type="button" class="btn-danger modal-action-button" id="btn-delete-domain" onclick="deleteDomainFromModal()" style="display: none;">Supprimer</button>
             </div>
         </div>
     </div>

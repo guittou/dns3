@@ -115,7 +115,7 @@
 }
 
 /* ===== MODAL ACTION BUTTONS ===== */
-/* Order: Delete (red) / Cancel (gray) / Save (green) */
+/* Standard order: Save/Enregistrer (green) / Cancel/Annuler (gray) / Delete/Supprimer (red) */
 .modal-action-button {
   min-width: 120px;
   padding: 10px 16px;
@@ -127,7 +127,7 @@
   transition: background-color 0.2s ease;
 }
 
-/* Delete button (red) - appears first (left) */
+/* Delete button (red) - appears last (right) when present */
 .btn-delete.modal-action-button {
   background: #e74c3c;
   color: #fff;
@@ -147,7 +147,7 @@
   background: #7f8c8d;
 }
 
-/* Submit/Save button (green) - appears last (right) */
+/* Submit/Save button (green) - appears first (left) */
 .btn-submit.modal-action-button,
 .btn-success.modal-action-button {
   background: #27ae60;
@@ -157,6 +157,59 @@
 .btn-submit.modal-action-button:hover,
 .btn-success.modal-action-button:hover {
   background: #229954;
+}
+
+/* ===== STANDALONE BUTTON CLASSES ===== */
+/* For use outside .modal-action-button context */
+.btn-success {
+  background: #27ae60;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  min-width: 120px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-success:hover {
+  background: #229954;
+}
+
+.btn-secondary {
+  background: #95a5a6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  min-width: 120px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #7f8c8d;
+}
+
+.btn-danger {
+  background: #e74c3c;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 16px;
+  min-width: 120px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: #c0392b;
 }
 
 /* ===== FORM STYLES ===== */
@@ -247,7 +300,7 @@
 /* ===== MODAL FIXED HEIGHT BEHAVIOR ===== */
 /* Generic fixed modal height using a CSS variable */
 :root {
-  --modal-fixed-height: 730px;
+  --modal-fixed-height: 720px;
 }
 
 .modal-fixed .dns-modal-content {
