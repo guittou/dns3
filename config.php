@@ -5,7 +5,7 @@
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'dns3_db');
 define('DB_USER', 'dns3_user');
-define('DB_PASS', 'dns3_pass');
+define('DB_PASS', 'your_password_here');
 
 // Active Directory configuration
 define('AD_SERVER', 'ldap://ad.example.com');

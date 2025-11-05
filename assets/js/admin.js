@@ -564,9 +564,6 @@
         
         const zones = await getZoneFilesMaster();
         
-        // Cache all zones for filtering
-        let allZones = zones;
-        
         // Function to populate select with filtered zones
         function populateOptions(filteredZones) {
             select.innerHTML = '<option value="">Sélectionner un fichier de zone...</option>';
@@ -582,14 +579,18 @@
         }
         
         // Initial population
-        populateOptions(allZones);
+        populateOptions(zones);
         
-        // Bind search input to filter options
+        // Bind search input to filter options (remove old listener first to avoid duplicates)
         if (searchInput) {
-            searchInput.value = '';
-            searchInput.addEventListener('input', function() {
+            // Clone and replace to remove all event listeners
+            const newSearchInput = searchInput.cloneNode(true);
+            searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+            
+            newSearchInput.value = '';
+            newSearchInput.addEventListener('input', function() {
                 const searchTerm = this.value.toLowerCase();
-                const filteredZones = allZones.filter(zone => {
+                const filteredZones = zones.filter(zone => {
                     const name = (zone.name || '').toLowerCase();
                     const filename = (zone.filename || '').toLowerCase();
                     return name.includes(searchTerm) || filename.includes(searchTerm);
