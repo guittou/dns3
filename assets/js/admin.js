@@ -728,6 +728,12 @@
     };
 
     /**
+     * Backward-compatible wrapper for editing domain modal
+     * Alias for editDomain function
+     */
+    window.openEditDomainModal = window.editDomain;
+
+    /**
      * Submit domain form (create or update)
      */
     window.submitDomainForm = async function(event) {
