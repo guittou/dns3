@@ -1,4 +1,4 @@
--- Migration 013: Create Domain List Table
+-- Migration 014: Create Domain List Table
 -- This migration creates a table to manage domains attached to zone files
 
 USE dns3_db;

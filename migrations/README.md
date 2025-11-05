@@ -19,6 +19,7 @@ Migrations are numbered sequentially and should be run in order:
 - `011_create_zone_file_validation.sql` - Zone file validation tables
 - `012_add_validation_command_fields.sql.disabled` - Validation command fields (disabled)
 - `013_remove_legacy_zone_columns.sql` - Remove legacy compatibility columns from dns_records
+- `014_create_domain_list.sql` - Domain list table for managing domains attached to zone files
 
 ## Running Migrations
 
@@ -202,6 +203,53 @@ After running the migration, verify:
 - The backup table `dns_records_legacy_backup` is kept indefinitely for safety
 - API code has been updated to join `zone_files` and return `zone_name` and `zone_filename`
 - Frontend already uses API-provided fields, no changes needed
+
+## Migration 014: Create Domain List Table
+
+### Overview
+
+Migration 014 creates a new table `domaine_list` for managing domains that are attached to zone files. This feature allows administrators to associate domain names with master zone files.
+
+### What It Creates
+
+1. **Table `domaine_list`** with the following columns:
+   - `id` - Primary key
+   - `domain` - Domain name (unique)
+   - `zone_file_id` - Foreign key to zone_files (must be type 'master')
+   - `created_by`, `updated_by` - User tracking
+   - `created_at`, `updated_at` - Timestamp tracking
+   - `status` - ENUM('active', 'deleted') for soft delete
+
+2. **Indexes**:
+   - Unique index on `domain`
+   - Index on `zone_file_id`
+   - Index on `status`
+   - Index on `created_at`
+
+3. **Foreign Key Constraints**:
+   - `zone_file_id` -> `zone_files.id` (RESTRICT on delete)
+   - `created_by` -> `users.id` (SET NULL on delete)
+   - `updated_by` -> `users.id` (SET NULL on delete)
+
+### Running the Migration
+
+```bash
+mysql -u [username] -p dns3_db < migrations/014_create_domain_list.sql
+```
+
+### API and UI
+
+This migration is accompanied by:
+- **Model**: `includes/models/Domain.php` - Domain CRUD operations
+- **API**: `api/domain_api.php` - REST API endpoints
+- **UI**: Admin panel "Domaines" tab with create/edit/delete functionality
+
+### Security Features
+
+- Server-side validation of domain format (regex)
+- Verification that zone_file_id references a 'master' type zone
+- Admin-only access for create/update/delete operations
+- Prepared statements for SQL injection prevention
 
 ## Best Practices
 
