@@ -941,4 +941,49 @@
         `;
         document.head.appendChild(style);
     });
+
+    // Defensive: ensure openCreateDomainModal is exposed and btn bound
+    window.openCreateDomainModal = window.openCreateDomainModal || (async function() {
+        try {
+            if (typeof populateDomainZoneSelect === 'function') {
+                await populateDomainZoneSelect(null);
+            } else {
+                console.debug('[admin] populateDomainZoneSelect not defined, zone select will not be populated');
+            }
+
+            const modal = document.getElementById('modal-domain') || document.getElementById('domain-modal');
+            if (!modal) {
+                console.error('[admin] domain modal element not found');
+                return;
+            }
+            modal.classList.add('show');
+            if (typeof window.ensureModalCentered === 'function') {
+                window.ensureModalCentered(modal);
+            }
+        } catch (err) {
+            console.error('[admin] Error opening domain modal:', err);
+            throw err;
+        }
+    });
+
+    // Defensive binding: attach click handler if not already bound
+    document.addEventListener('DOMContentLoaded', function bindCreateDomainButtonDefensive() {
+        try {
+            const btn = document.getElementById('btn-create-domain');
+            if (!btn) return;
+            if (!btn.dataset.createDomainBound) {
+                btn.addEventListener('click', () => {
+                    if (typeof window.openCreateDomainModal === 'function') {
+                        window.openCreateDomainModal().catch(e => console.error('Error openCreateDomainModal:', e));
+                    } else {
+                        console.error('[admin] openCreateDomainModal not defined');
+                    }
+                });
+                btn.dataset.createDomainBound = '1';
+                console.debug('[admin] defensive binding added to #btn-create-domain');
+            }
+        } catch (e) {
+            console.error('[admin] Error binding create-domain button:', e);
+        }
+    });
 })();
