@@ -115,7 +115,7 @@
 }
 
 /* ===== MODAL ACTION BUTTONS ===== */
-/* Order: Delete (red) / Cancel (gray) / Save (green) */
+/* Standard order: Save/Enregistrer (green) / Cancel/Annuler (gray) / Delete/Supprimer (red) */
 .modal-action-button {
   min-width: 120px;
   padding: 10px 16px;
@@ -127,7 +127,7 @@
   transition: background-color 0.2s ease;
 }
 
-/* Delete button (red) - appears first (left) */
+/* Delete button (red) - appears last (right) when present */
 .btn-delete.modal-action-button {
   background: #e74c3c;
   color: #fff;
@@ -147,7 +147,7 @@
   background: #7f8c8d;
 }
 
-/* Submit/Save button (green) - appears last (right) */
+/* Submit/Save button (green) - appears first (left) */
 .btn-submit.modal-action-button,
 .btn-success.modal-action-button {
   background: #27ae60;
