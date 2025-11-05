@@ -294,7 +294,8 @@
         // Populate roles checkboxes
         populateRolesCheckboxes([]);
         
-        document.getElementById('modal-user').classList.add('show');
+        // Use the new modal helper
+        window.openModalById('modal-user');
     };
 
     /**
@@ -343,7 +344,8 @@
             const userRoleIds = user.roles.map(role => role.id);
             populateRolesCheckboxes(userRoleIds);
             
-            document.getElementById('modal-user').classList.add('show');
+            // Use the new modal helper
+            window.openModalById('modal-user');
         } catch (error) {
             showAlert('Erreur lors du chargement de l\'utilisateur: ' + error.message, 'error');
         }
@@ -353,7 +355,7 @@
      * Close user modal
      */
     window.closeUserModal = function() {
-        document.getElementById('modal-user').classList.remove('show');
+        window.closeModalById('modal-user');
         document.getElementById('form-user').reset();
         currentEditUserId = null;
     };
@@ -462,14 +464,14 @@
         ).join('');
         
         document.getElementById('form-mapping').reset();
-        document.getElementById('modal-mapping').classList.add('show');
+        window.openModalById('modal-mapping');
     };
 
     /**
      * Close mapping modal
      */
     window.closeMappingModal = function() {
-        document.getElementById('modal-mapping').classList.remove('show');
+        window.closeModalById('modal-mapping');
         document.getElementById('form-mapping').reset();
     };
 
@@ -667,7 +669,7 @@
         
         await populateDomainZoneSelect();
         
-        document.getElementById('modal-domain').classList.add('show');
+        window.openModalById('modal-domain');
     };
 
     /**
@@ -712,7 +714,7 @@
             // Show delete button for edit
             document.getElementById('btn-delete-domain').style.display = 'inline-block';
             
-            document.getElementById('modal-domain').classList.add('show');
+            window.openModalById('modal-domain');
         } catch (error) {
             showAlert('Erreur lors du chargement du domaine: ' + error.message, 'error');
         }
@@ -722,7 +724,7 @@
      * Close domain modal
      */
     window.closeDomainModal = function() {
-        document.getElementById('modal-domain').classList.remove('show');
+        window.closeModalById('modal-domain');
     };
 
     /**
@@ -951,14 +953,16 @@
                 console.debug('[admin] populateDomainZoneSelect not defined, zone select will not be populated');
             }
 
-            const modal = document.getElementById('modal-domain') || document.getElementById('domain-modal');
-            if (!modal) {
-                console.error('[admin] domain modal element not found');
-                return;
-            }
-            modal.classList.add('show');
-            if (typeof window.ensureModalCentered === 'function') {
-                window.ensureModalCentered(modal);
+            const modalId = 'modal-domain';
+            if (typeof window.openModalById === 'function') {
+                window.openModalById(modalId);
+            } else {
+                // Fallback if modal-utils.js not loaded
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.add('show');
+                    modal.style.display = 'flex';
+                }
             }
         } catch (err) {
             console.error('[admin] Error opening domain modal:', err);
