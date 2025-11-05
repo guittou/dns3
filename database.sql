@@ -400,6 +400,31 @@ CREATE TABLE `zone_files` (
   CONSTRAINT `zone_files_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=310 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+-- --------------------------------------------------------
+-- Table structure for table `domaine_list`
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `domaine_list`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+CREATE TABLE `domaine_list` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `domain` varchar(255) NOT NULL COMMENT 'Domain name',
+  `zone_file_id` int(11) NOT NULL COMMENT 'Associated zone file (must be type master)',
+  `created_by` int(11) DEFAULT NULL COMMENT 'User who created the domain',
+  `updated_by` int(11) DEFAULT NULL COMMENT 'User who last updated the domain',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `status` enum('active','deleted') DEFAULT 'active' COMMENT 'Domain status',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `ux_domain` (`domain`),
+  KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_created_at` (`created_at`),
+  CONSTRAINT `fk_domaine_list_zone_file` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_domaine_list_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_domaine_list_updated_by` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
