@@ -137,6 +137,10 @@
                     case 'mappings':
                         loadMappings();
                         break;
+                    case 'domains':
+                        loadDomains();
+                        populateDomainZoneSelect();
+                        break;
                 }
             });
         });
@@ -522,6 +526,262 @@
     }
 
     /**
+     * Get master zone files for domain dropdown
+     */
+    async function getZoneFilesMaster() {
+        try {
+            const url = new URL(window.API_BASE + 'zone_api.php', window.location.origin);
+            url.searchParams.append('action', 'list_zones');
+            url.searchParams.append('file_type', 'master');
+            url.searchParams.append('status', 'active');
+            url.searchParams.append('per_page', '1000');
+            
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load zone files');
+            }
+            
+            return data.data || [];
+        } catch (error) {
+            console.error('Error loading zone files:', error);
+            showAlert('Erreur lors du chargement des fichiers de zone: ' + error.message, 'error');
+            return [];
+        }
+    }
+
+    /**
+     * Populate domain zone file dropdown
+     */
+    async function populateDomainZoneSelect(selectedId = null) {
+        const select = document.getElementById('domain-zone-file');
+        const filterSelect = document.getElementById('filter-domain-zone');
+        
+        select.innerHTML = '<option value="">Sélectionner un fichier de zone...</option>';
+        filterSelect.innerHTML = '<option value="">Tous les fichiers de zone</option>';
+        
+        const zones = await getZoneFilesMaster();
+        
+        zones.forEach(zone => {
+            const option = document.createElement('option');
+            option.value = zone.id;
+            option.textContent = `${zone.name} (${zone.filename})`;
+            if (selectedId && zone.id == selectedId) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+            
+            // Also add to filter dropdown
+            const filterOption = document.createElement('option');
+            filterOption.value = zone.id;
+            filterOption.textContent = `${zone.name} (${zone.filename})`;
+            filterSelect.appendChild(filterOption);
+        });
+    }
+
+    /**
+     * Load domains list
+     */
+    async function loadDomains(filters = {}) {
+        const tbody = document.getElementById('domains-tbody');
+        tbody.innerHTML = '<tr><td colspan="6" class="loading">Chargement des domaines...</td></tr>';
+
+        try {
+            const params = { ...filters };
+            const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
+            url.searchParams.append('action', 'list');
+            
+            Object.keys(params).forEach(key => {
+                if (params[key] !== '') {
+                    url.searchParams.append(key, params[key]);
+                }
+            });
+
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load domains');
+            }
+            
+            if (!data.data || data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun domaine trouvé</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.data.map(domain => {
+                return `
+                    <tr>
+                        <td>${domain.id}</td>
+                        <td>${escapeHtml(domain.domain)}</td>
+                        <td>${escapeHtml(domain.zone_name || 'N/A')}</td>
+                        <td>${formatDate(domain.created_at)}</td>
+                        <td>${formatDate(domain.updated_at)}</td>
+                        <td>
+                            <button class="btn btn-edit" onclick="editDomain(${domain.id})">Modifier</button>
+                            <button class="btn btn-danger" onclick="deleteDomain(${domain.id})">Supprimer</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (error) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
+            showAlert('Erreur lors du chargement des domaines: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Open create domain modal
+     */
+    window.openCreateDomainModal = async function() {
+        document.getElementById('modal-domain-title').textContent = 'Créer un domaine';
+        document.getElementById('domain-id').value = '';
+        document.getElementById('form-domain').reset();
+        document.getElementById('domain-created-info').style.display = 'none';
+        document.getElementById('domain-updated-info').style.display = 'none';
+        
+        await populateDomainZoneSelect();
+        
+        document.getElementById('modal-domain').classList.add('show');
+    };
+
+    /**
+     * Open edit domain modal
+     */
+    window.editDomain = async function(domainId) {
+        try {
+            const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
+            url.searchParams.append('action', 'get');
+            url.searchParams.append('id', domainId);
+
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load domain');
+            }
+
+            const domain = data.data;
+            
+            document.getElementById('modal-domain-title').textContent = 'Modifier un domaine';
+            document.getElementById('domain-id').value = domain.id;
+            document.getElementById('domain-name').value = domain.domain;
+            
+            await populateDomainZoneSelect(domain.zone_file_id);
+            
+            // Show created/updated info
+            if (domain.created_at) {
+                document.getElementById('domain-created-at').value = formatDate(domain.created_at);
+                document.getElementById('domain-created-info').style.display = 'block';
+            }
+            
+            if (domain.updated_at) {
+                document.getElementById('domain-updated-at').value = formatDate(domain.updated_at);
+                document.getElementById('domain-updated-info').style.display = 'block';
+            }
+            
+            document.getElementById('modal-domain').classList.add('show');
+        } catch (error) {
+            showAlert('Erreur lors du chargement du domaine: ' + error.message, 'error');
+        }
+    };
+
+    /**
+     * Close domain modal
+     */
+    window.closeDomainModal = function() {
+        document.getElementById('modal-domain').classList.remove('show');
+    };
+
+    /**
+     * Submit domain form (create or update)
+     */
+    window.submitDomainForm = async function(event) {
+        event.preventDefault();
+        
+        const domainId = document.getElementById('domain-id').value;
+        const isEdit = domainId !== '';
+        
+        const formData = {
+            domain: document.getElementById('domain-name').value.trim(),
+            zone_file_id: document.getElementById('domain-zone-file').value
+        };
+
+        try {
+            const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
+            url.searchParams.append('action', isEdit ? 'update' : 'create');
+            if (isEdit) {
+                url.searchParams.append('id', domainId);
+            }
+
+            const response = await fetch(url.toString(), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to save domain');
+            }
+
+            showAlert(isEdit ? 'Domaine modifié avec succès' : 'Domaine créé avec succès', 'success');
+            closeDomainModal();
+            loadDomains();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+
+    /**
+     * Delete domain (set status to deleted)
+     */
+    window.deleteDomain = async function(domainId) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer ce domaine ?')) {
+            return;
+        }
+
+        try {
+            const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
+            url.searchParams.append('action', 'set_status');
+            url.searchParams.append('id', domainId);
+            url.searchParams.append('status', 'deleted');
+
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to delete domain');
+            }
+
+            showAlert('Domaine supprimé avec succès', 'success');
+            loadDomains();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+
+    /**
      * Initialize filter buttons
      */
     function initFilters() {
@@ -546,6 +806,29 @@
             document.getElementById('filter-is-active').value = '';
             loadUsers();
         });
+        
+        // Domain filters
+        document.getElementById('btn-filter-domains').addEventListener('click', () => {
+            const filters = {};
+            
+            const domain = document.getElementById('filter-domain').value.trim();
+            if (domain) filters.domain = domain;
+            
+            const zoneFileId = document.getElementById('filter-domain-zone').value;
+            if (zoneFileId) filters.zone_file_id = zoneFileId;
+            
+            const status = document.getElementById('filter-domain-status').value;
+            if (status) filters.status = status;
+            
+            loadDomains(filters);
+        });
+        
+        document.getElementById('btn-reset-domain-filters').addEventListener('click', () => {
+            document.getElementById('filter-domain').value = '';
+            document.getElementById('filter-domain-zone').value = '';
+            document.getElementById('filter-domain-status').value = '';
+            loadDomains();
+        });
     }
 
     /**
@@ -562,10 +845,12 @@
         // Button event listeners
         document.getElementById('btn-create-user').addEventListener('click', openCreateUserModal);
         document.getElementById('btn-create-mapping').addEventListener('click', openCreateMappingModal);
+        document.getElementById('btn-create-domain').addEventListener('click', openCreateDomainModal);
         
         // Form submissions
         document.getElementById('form-user').addEventListener('submit', saveUser);
         document.getElementById('form-mapping').addEventListener('submit', saveMapping);
+        document.getElementById('form-domain').addEventListener('submit', submitDomainForm);
         
         // Close modals on outside click
         window.addEventListener('click', (e) => {
