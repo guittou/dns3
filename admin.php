@@ -291,10 +291,10 @@ if (!$auth->isAdmin()) {
 </div>
 
 <!-- Modal: Create/Edit Domain -->
-<div id="modal-domain" class="dns-modal">
+<div id="domainModal" class="dns-modal">
     <div class="dns-modal-content modal-medium">
         <div class="dns-modal-header">
-            <h3 id="modal-domain-title">Créer un domaine</h3>
+            <h3 id="domainModalTitle">Créer un domaine</h3>
             <button class="dns-modal-close" onclick="closeDomainModal()">&times;</button>
         </div>
         <div class="dns-modal-body">

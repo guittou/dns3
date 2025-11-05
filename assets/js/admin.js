@@ -660,7 +660,7 @@
      * Open create domain modal
      */
     window.openCreateDomainModal = async function() {
-        document.getElementById('modal-domain-title').textContent = 'Créer un domaine';
+        document.getElementById('domainModalTitle').textContent = 'Créer un domaine';
         document.getElementById('domain-id').value = '';
         document.getElementById('form-domain').reset();
         document.getElementById('domain-created-info').style.display = 'none';
@@ -669,7 +669,7 @@
         
         await populateDomainZoneSelect();
         
-        window.openModalById('modal-domain');
+        window.openModalById('domainModal');
     };
 
     /**
@@ -694,7 +694,7 @@
 
             const domain = data.data;
             
-            document.getElementById('modal-domain-title').textContent = 'Modifier un domaine';
+            document.getElementById('domainModalTitle').textContent = 'Modifier un domaine';
             document.getElementById('domain-id').value = domain.id;
             document.getElementById('domain-name').value = domain.domain;
             
@@ -714,7 +714,7 @@
             // Show delete button for edit
             document.getElementById('btn-delete-domain').style.display = 'inline-block';
             
-            window.openModalById('modal-domain');
+            window.openModalById('domainModal');
         } catch (error) {
             showAlert('Erreur lors du chargement du domaine: ' + error.message, 'error');
         }
@@ -724,8 +724,14 @@
      * Close domain modal
      */
     window.closeDomainModal = function() {
-        window.closeModalById('modal-domain');
+        window.closeModalById('domainModal');
     };
+
+    /**
+     * Backward-compatible wrapper for editing domain modal
+     * Alias for editDomain function
+     */
+    window.openEditDomainModal = window.editDomain;
 
     /**
      * Submit domain form (create or update)
@@ -953,7 +959,7 @@
                 console.debug('[admin] populateDomainZoneSelect not defined, zone select will not be populated');
             }
 
-            const modalId = 'modal-domain';
+            const modalId = 'domainModal';
             if (typeof window.openModalById === 'function') {
                 window.openModalById(modalId);
             } else {
