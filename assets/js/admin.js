@@ -139,7 +139,6 @@
                         break;
                     case 'domains':
                         loadDomains();
-                        populateDomainZoneSelect();
                         break;
                 }
             });
@@ -555,32 +554,50 @@
     }
 
     /**
-     * Populate domain zone file dropdown
+     * Populate domain zone file dropdown with searchable functionality
      */
     async function populateDomainZoneSelect(selectedId = null) {
         const select = document.getElementById('domain-zone-file');
-        const filterSelect = document.getElementById('filter-domain-zone');
+        const searchInput = document.getElementById('domain-zone-search');
         
         select.innerHTML = '<option value="">Sélectionner un fichier de zone...</option>';
-        filterSelect.innerHTML = '<option value="">Tous les fichiers de zone</option>';
         
         const zones = await getZoneFilesMaster();
         
-        zones.forEach(zone => {
-            const option = document.createElement('option');
-            option.value = zone.id;
-            option.textContent = `${zone.name} (${zone.filename})`;
-            if (selectedId && zone.id == selectedId) {
-                option.selected = true;
-            }
-            select.appendChild(option);
+        // Function to populate select with filtered zones
+        function populateOptions(filteredZones) {
+            select.innerHTML = '<option value="">Sélectionner un fichier de zone...</option>';
+            filteredZones.forEach(zone => {
+                const option = document.createElement('option');
+                option.value = zone.id;
+                option.textContent = `${zone.name} (${zone.filename})`;
+                if (selectedId && zone.id == selectedId) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+        
+        // Initial population
+        populateOptions(zones);
+        
+        // Bind search input to filter options (remove old listener first to avoid duplicates)
+        if (searchInput) {
+            // Clone and replace to remove all event listeners
+            const newSearchInput = searchInput.cloneNode(true);
+            searchInput.parentNode.replaceChild(newSearchInput, searchInput);
             
-            // Also add to filter dropdown
-            const filterOption = document.createElement('option');
-            filterOption.value = zone.id;
-            filterOption.textContent = `${zone.name} (${zone.filename})`;
-            filterSelect.appendChild(filterOption);
-        });
+            newSearchInput.value = '';
+            newSearchInput.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const filteredZones = zones.filter(zone => {
+                    const name = (zone.name || '').toLowerCase();
+                    const filename = (zone.filename || '').toLowerCase();
+                    return name.includes(searchTerm) || filename.includes(searchTerm);
+                });
+                populateOptions(filteredZones);
+            });
+        }
     }
 
     /**
@@ -588,7 +605,7 @@
      */
     async function loadDomains(filters = {}) {
         const tbody = document.getElementById('domains-tbody');
-        tbody.innerHTML = '<tr><td colspan="6" class="loading">Chargement des domaines...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="loading">Chargement des domaines...</td></tr>';
 
         try {
             const params = { ...filters };
@@ -613,14 +630,13 @@
             }
             
             if (!data.data || data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Aucun domaine trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun domaine trouvé</td></tr>';
                 return;
             }
 
             tbody.innerHTML = data.data.map(domain => {
                 return `
                     <tr>
-                        <td>${domain.id}</td>
                         <td>${escapeHtml(domain.domain)}</td>
                         <td>${escapeHtml(domain.zone_name || 'N/A')}</td>
                         <td>${formatDate(domain.created_at)}</td>
@@ -633,7 +649,7 @@
                 `;
             }).join('');
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
             showAlert('Erreur lors du chargement des domaines: ' + error.message, 'error');
         }
     }
@@ -647,6 +663,7 @@
         document.getElementById('form-domain').reset();
         document.getElementById('domain-created-info').style.display = 'none';
         document.getElementById('domain-updated-info').style.display = 'none';
+        document.getElementById('btn-delete-domain').style.display = 'none'; // Hide delete button for create
         
         await populateDomainZoneSelect();
         
@@ -691,6 +708,9 @@
                 document.getElementById('domain-updated-at').value = formatDate(domain.updated_at);
                 document.getElementById('domain-updated-info').style.display = 'block';
             }
+            
+            // Show delete button for edit
+            document.getElementById('btn-delete-domain').style.display = 'inline-block';
             
             document.getElementById('modal-domain').classList.add('show');
         } catch (error) {
@@ -782,6 +802,45 @@
     };
 
     /**
+     * Delete domain from modal
+     */
+    window.deleteDomainFromModal = async function() {
+        const domainId = document.getElementById('domain-id').value;
+        if (!domainId) {
+            showAlert('ID du domaine introuvable', 'error');
+            return;
+        }
+        
+        if (!confirm('Êtes-vous sûr de vouloir supprimer ce domaine ?')) {
+            return;
+        }
+
+        try {
+            const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
+            url.searchParams.append('action', 'set_status');
+            url.searchParams.append('id', domainId);
+            url.searchParams.append('status', 'deleted');
+
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to delete domain');
+            }
+
+            showAlert('Domaine supprimé avec succès', 'success');
+            closeDomainModal();
+            loadDomains();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+
+    /**
      * Initialize filter buttons
      */
     function initFilters() {
@@ -814,9 +873,6 @@
             const domain = document.getElementById('filter-domain').value.trim();
             if (domain) filters.domain = domain;
             
-            const zoneFileId = document.getElementById('filter-domain-zone').value;
-            if (zoneFileId) filters.zone_file_id = zoneFileId;
-            
             const status = document.getElementById('filter-domain-status').value;
             if (status) filters.status = status;
             
@@ -825,7 +881,6 @@
         
         document.getElementById('btn-reset-domain-filters').addEventListener('click', () => {
             document.getElementById('filter-domain').value = '';
-            document.getElementById('filter-domain-zone').value = '';
             document.getElementById('filter-domain-status').value = '';
             loadDomains();
         });

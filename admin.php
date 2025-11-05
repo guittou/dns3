@@ -148,9 +148,6 @@ if (!$auth->isAdmin()) {
         
         <div class="filters-section">
             <input type="text" id="filter-domain" placeholder="Rechercher par domaine..." class="filter-input">
-            <select id="filter-domain-zone" class="filter-select">
-                <option value="">Tous les fichiers de zone</option>
-            </select>
             <select id="filter-domain-status" class="filter-select">
                 <option value="">Tous les statuts</option>
                 <option value="active">Actif</option>
@@ -164,7 +161,6 @@ if (!$auth->isAdmin()) {
             <table class="admin-table" id="domains-table">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>Domaine</th>
                         <th>Fichier de Zone</th>
                         <th>Créé le</th>
@@ -174,7 +170,7 @@ if (!$auth->isAdmin()) {
                 </thead>
                 <tbody id="domains-tbody">
                     <tr>
-                        <td colspan="6" class="loading">Chargement des domaines...</td>
+                        <td colspan="5" class="loading">Chargement des domaines...</td>
                     </tr>
                 </tbody>
             </table>
@@ -304,10 +300,16 @@ if (!$auth->isAdmin()) {
                 <input type="hidden" id="domain-id" value="">
                 
                 <div class="form-group">
-                    <label for="domain-name">Domaine *</label>
+                    <label for="domain-name">Nom de domaine *</label>
                     <input type="text" id="domain-name" name="domain" required 
                            placeholder="Ex: example.com">
                     <small class="form-hint">Nom de domaine complet (FQDN)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="domain-zone-search">Rechercher un fichier de zone</label>
+                    <input type="text" id="domain-zone-search" placeholder="Tapez pour filtrer les zones..." class="filter-input">
+                    <small class="form-hint">Filtrez les fichiers de zone par nom ou nom de fichier</small>
                 </div>
                 
                 <div class="form-group">
@@ -330,8 +332,9 @@ if (!$auth->isAdmin()) {
                 </div>
                 
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" id="btn-delete-domain" onclick="deleteDomainFromModal()" style="display: none;">Supprimer</button>
                     <button type="button" class="btn btn-secondary" onclick="closeDomainModal()">Annuler</button>
-                    <button type="submit" class="btn btn-primary" id="btn-save-domain">Enregistrer</button>
+                    <button type="submit" class="btn btn-success" id="btn-save-domain">Enregistrer</button>
                 </div>
             </form>
         </div>
