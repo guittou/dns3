@@ -450,9 +450,9 @@ CREATE TABLE `domaine_list` (
   UNIQUE KEY `uq_domain` (`domain`),
   KEY `idx_zone_file_id` (`zone_file_id`),
   KEY `idx_status` (`status`),
-  CONSTRAINT `domaine_list_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`),
-  CONSTRAINT `domaine_list_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
-  CONSTRAINT `domaine_list_ibfk_3` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`)
+  CONSTRAINT `domaine_list_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `domaine_list_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `domaine_list_ibfk_3` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

@@ -228,9 +228,9 @@ Migration 014 creates a new table `domaine_list` for managing domains that are a
    - Index `idx_status` on `status`
 
 3. **Foreign Key Constraints**:
-   - `domaine_list_ibfk_1`: `zone_file_id` -> `zone_files.id`
-   - `domaine_list_ibfk_2`: `created_by` -> `users.id`
-   - `domaine_list_ibfk_3`: `updated_by` -> `users.id`
+   - `domaine_list_ibfk_1`: `zone_file_id` -> `zone_files.id` (ON DELETE RESTRICT, ON UPDATE CASCADE)
+   - `domaine_list_ibfk_2`: `created_by` -> `users.id` (ON DELETE RESTRICT, ON UPDATE CASCADE)
+   - `domaine_list_ibfk_3`: `updated_by` -> `users.id` (ON DELETE SET NULL, ON UPDATE CASCADE)
 
 ### Running the Migration
 
