@@ -175,6 +175,18 @@ class DnsRecord {
                 if (!isset($record['zone_file_name']) || $record['zone_file_name'] === null) {
                     $record['zone_file_name'] = '';
                 }
+                
+                // Try to get domain_name for this record
+                $record['domain_name'] = '';
+                if (isset($record['zone_file_id']) && $record['zone_file_id']) {
+                    $topMaster = $this->getTopMasterForZone($record['zone_file_id']);
+                    if ($topMaster) {
+                        $domainResult = $this->getDomainByZoneFileId($topMaster);
+                        if ($domainResult) {
+                            $record['domain_name'] = $domainResult['domain'];
+                        }
+                    }
+                }
             }
             
             return $record ?: null;

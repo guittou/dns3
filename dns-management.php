@@ -26,7 +26,7 @@ if (!$auth->isAdmin()) {
     <h1 style="margin-bottom: 20px;">Gestion des enregistrements DNS</h1>
     
     <!-- Comboboxes pour Domaine et Fichier de zone -->
-    <div class="dns-combobox-container" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+    <div class="dns-combobox-container" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
         <!-- Combobox Domaine -->
         <div class="combobox-wrapper" style="flex: 1; min-width: 250px;">
             <label for="dns-domain-input" style="display: block; margin-bottom: 5px; font-weight: 500;">Domaine:</label>
@@ -45,6 +45,11 @@ if (!$auth->isAdmin()) {
                 <input type="hidden" id="dns-zone-id">
                 <ul id="dns-zone-list" class="combobox-list" style="display: none;"></ul>
             </div>
+        </div>
+        
+        <!-- Reset Button -->
+        <div style="flex: 0 0 auto;">
+            <button id="dns-reset-filters-btn" class="btn-reset">Réinitialiser</button>
         </div>
     </div>
     

@@ -531,6 +531,28 @@ body {
   background: #2980b9;
 }
 
+.btn-create:disabled {
+  background: #bdc3c7;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-reset {
+  padding: 10px 16px;
+  background: #95a5a6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background-color 0.2s;
+}
+
+.btn-reset:hover {
+  background: #7f8c8d;
+}
+
 .btn-edit {
   background: #3498db;
   color: #fff;
@@ -1214,13 +1236,15 @@ body {
 }
 
 /* Empty state */
-.combobox-item.empty {
+.combobox-item.empty,
+.combobox-empty {
   color: #999;
   font-style: italic;
   cursor: default;
 }
 
-.combobox-item.empty:hover {
+.combobox-item.empty:hover,
+.combobox-empty:hover {
   background-color: white;
 }
 
