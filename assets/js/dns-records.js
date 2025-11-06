@@ -551,11 +551,13 @@
     }
 
     /**
-     * Initialize modal zone file select (no longer needed as combobox, but kept for consistency)
+     * Initialize modal zone file select
+     * Note: This function is now a no-op since we're using a simple select element.
+     * The select element is populated dynamically when the modal opens.
+     * Kept for compatibility with existing initialization code.
      */
     async function initModalZoneCombobox() {
-        // This function is now a no-op since we're using a simple select element
-        // The select will be populated when the modal opens
+        // No initialization needed for select element
     }
 
     /**
@@ -573,7 +575,7 @@
             const selectElement = document.getElementById('record-zone-file');
             
             if (!selectElement) {
-                console.error('[populateZoneFileCombobox] Zone file select not found');
+                console.error('[populateZoneFileSelect] Zone file select not found');
                 return;
             }
             
@@ -588,21 +590,21 @@
                     
                     // If the zone isn't in the list (due to pagination/filtering), fetch it specifically
                     if (!zoneExists) {
-                        console.debug('[populateZoneFileCombobox] Zone', zoneIdNum, 'not in list, fetching specifically');
+                        console.debug('[populateZoneFileSelect] Zone', zoneIdNum, 'not in list, fetching specifically');
                         try {
                             const specificZoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
                             // API throws on error, but verify data exists before using
                             if (specificZoneResult && specificZoneResult.data) {
                                 // Add the specific zone to our list
                                 zones.push(specificZoneResult.data);
-                                console.debug('[populateZoneFileCombobox] Added zone', specificZoneResult.data.name, 'to select');
+                                console.debug('[populateZoneFileSelect] Added zone', specificZoneResult.data.name, 'to select');
                             }
                         } catch (fetchError) {
-                            console.warn('[populateZoneFileCombobox] Failed to fetch specific zone:', fetchError);
+                            console.warn('[populateZoneFileSelect] Failed to fetch specific zone:', fetchError);
                         }
                     }
                 } else {
-                    console.warn('[populateZoneFileCombobox] Invalid zone_file_id:', selectedZoneFileId);
+                    console.warn('[populateZoneFileSelect] Invalid zone_file_id:', selectedZoneFileId);
                 }
             }
             
@@ -626,9 +628,9 @@
                 
                 if (selectedZone) {
                     selectElement.value = selectedZone.id;
-                    console.debug('[populateZoneFileCombobox] Successfully set zone_file_id:', selectedZone.id);
+                    console.debug('[populateZoneFileSelect] Successfully set zone_file_id:', selectedZone.id);
                 } else {
-                    console.warn('[populateZoneFileCombobox] zone_file_id', selectedZoneFileId, 'not found after fetch attempt');
+                    console.warn('[populateZoneFileSelect] zone_file_id', selectedZoneFileId, 'not found after fetch attempt');
                     selectElement.value = '';
                 }
             } else {
@@ -636,7 +638,7 @@
                 selectElement.value = '';
             }
         } catch (error) {
-            console.error('[populateZoneFileCombobox] Error:', error);
+            console.error('[populateZoneFileSelect] Error:', error);
             // Don't show message to user, just log it
         }
     }
