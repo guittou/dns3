@@ -1293,25 +1293,6 @@ body {
   background-size: 16px 16px;
 }
 
-/* Filter combobox styling */
-.filter-combobox {
-  min-width: 180px;
-  flex: 0 0 auto;
-}
-
-.filter-combobox .combobox-input {
-  cursor: pointer;
-  padding-right: 30px;
-  background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path d="M1 1l5 5 5-5" fill="none" stroke="%23666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  background-size: 12px 8px;
-}
-
-.filter-combobox .combobox-input:focus {
-  background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="8" viewBox="0 0 12 8"><path d="M1 7l5-5 5 5" fill="none" stroke="%234a90e2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-}
-
 /* Domain display in modal */
 .dns-modal-domain {
   margin-top: 6px;

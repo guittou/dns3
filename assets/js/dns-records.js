@@ -20,34 +20,6 @@
     };
 
     /**
-     * DNS record type filter options
-     * Default: first option (all types)
-     */
-    const DNS_TYPE_OPTIONS = [
-        { value: '', label: 'Tous les types' },
-        { value: 'A', label: 'A' },
-        { value: 'AAAA', label: 'AAAA' },
-        { value: 'CNAME', label: 'CNAME' },
-        { value: 'PTR', label: 'PTR' },
-        { value: 'TXT', label: 'TXT' }
-    ];
-
-    /**
-     * Status filter options
-     * Default: first option (active only) - matches original behavior
-     */
-    const STATUS_OPTIONS = [
-        { value: 'active', label: 'Actif seulement' },
-        { value: 'deleted', label: 'Supprimé seulement' },
-        { value: '', label: 'Tous les statuts' }
-    ];
-
-    /**
-     * Constants
-     */
-    const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding dropdown on blur
-
-    /**
      * Check if a string is a valid IPv4 address
      */
     function isIPv4(str) {
@@ -386,114 +358,6 @@
         } catch (error) {
             console.error('Error initializing zone combobox:', error);
         }
-    }
-
-    /**
-     * Helper function to populate a simple filter combobox dropdown
-     */
-    function populateFilterDropdown(list, options, selectedValue, onSelectCallback) {
-        list.innerHTML = '';
-        options.forEach(option => {
-            const li = document.createElement('li');
-            li.className = 'combobox-item';
-            if (selectedValue === option.value) {
-                li.classList.add('selected');
-            }
-            li.textContent = option.label;
-            li.addEventListener('click', () => {
-                onSelectCallback(option.value, option.label);
-            });
-            list.appendChild(li);
-        });
-        list.style.display = 'block';
-    }
-
-    /**
-     * Initialize type filter combobox
-     */
-    function initTypeFilterCombobox() {
-        const input = document.getElementById('dns-type-input');
-        const hiddenInput = document.getElementById('dns-type-filter');
-        const list = document.getElementById('dns-type-list');
-        
-        if (!input || !hiddenInput || !list) return;
-        
-        // Set default value (first option)
-        const defaultOption = DNS_TYPE_OPTIONS[0];
-        input.value = defaultOption.label;
-        hiddenInput.value = defaultOption.value;
-        
-        // Click/Focus - show list
-        const showList = () => {
-            populateFilterDropdown(list, DNS_TYPE_OPTIONS, hiddenInput.value, (value, label) => {
-                input.value = label;
-                hiddenInput.value = value;
-                list.style.display = 'none';
-                loadDnsTable();
-            });
-        };
-        
-        input.addEventListener('click', showList);
-        input.addEventListener('focus', showList);
-        
-        // Blur - hide list (with delay to allow click)
-        input.addEventListener('blur', () => {
-            setTimeout(() => {
-                list.style.display = 'none';
-            }, COMBOBOX_BLUR_DELAY);
-        });
-        
-        // Escape key - close list
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                list.style.display = 'none';
-                input.blur();
-            }
-        });
-    }
-
-    /**
-     * Initialize status filter combobox
-     */
-    function initStatusFilterCombobox() {
-        const input = document.getElementById('dns-status-input');
-        const hiddenInput = document.getElementById('dns-status-filter');
-        const list = document.getElementById('dns-status-list');
-        
-        if (!input || !hiddenInput || !list) return;
-        
-        // Set default value (first option - active)
-        const defaultOption = STATUS_OPTIONS[0];
-        input.value = defaultOption.label;
-        hiddenInput.value = defaultOption.value;
-        
-        // Click/Focus - show list
-        const showList = () => {
-            populateFilterDropdown(list, STATUS_OPTIONS, hiddenInput.value, (value, label) => {
-                input.value = label;
-                hiddenInput.value = value;
-                list.style.display = 'none';
-                loadDnsTable();
-            });
-        };
-        
-        input.addEventListener('click', showList);
-        input.addEventListener('focus', showList);
-        
-        // Blur - hide list (with delay to allow click)
-        input.addEventListener('blur', () => {
-            setTimeout(() => {
-                list.style.display = 'none';
-            }, COMBOBOX_BLUR_DELAY);
-        });
-        
-        // Escape key - close list
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                list.style.display = 'none';
-                input.blur();
-            }
-        });
     }
 
     /**
@@ -1413,8 +1277,6 @@
         // Initialize comboboxes
         initDomainCombobox();
         initZoneCombobox();
-        initTypeFilterCombobox();
-        initStatusFilterCombobox();
         
         // Search input
         const searchInput = document.getElementById('dns-search');
@@ -1422,6 +1284,18 @@
             searchInput.addEventListener('input', debounce(() => {
                 loadDnsTable();
             }, 300));
+        }
+
+        // Type filter
+        const typeFilter = document.getElementById('dns-type-filter');
+        if (typeFilter) {
+            typeFilter.addEventListener('change', () => loadDnsTable());
+        }
+
+        // Status filter
+        const statusFilter = document.getElementById('dns-status-filter');
+        if (statusFilter) {
+            statusFilter.addEventListener('change', () => loadDnsTable());
         }
 
         // Create button - use prefilled version
