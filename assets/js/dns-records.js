@@ -41,6 +41,11 @@
     ];
 
     /**
+     * Constants
+     */
+    const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding dropdown on blur
+
+    /**
      * Check if a string is a valid IPv4 address
      */
     function isIPv4(str) {
@@ -411,9 +416,10 @@
         
         if (!input || !hiddenInput || !list) return;
         
-        // Set default value
-        input.value = 'Tous les types';
-        hiddenInput.value = '';
+        // Set default value (first option)
+        const defaultOption = DNS_TYPE_OPTIONS[0];
+        input.value = defaultOption.label;
+        hiddenInput.value = defaultOption.value;
         
         // Click/Focus - show list
         const showList = () => {
@@ -432,7 +438,7 @@
         input.addEventListener('blur', () => {
             setTimeout(() => {
                 list.style.display = 'none';
-            }, 200);
+            }, COMBOBOX_BLUR_DELAY);
         });
         
         // Escape key - close list
@@ -454,9 +460,10 @@
         
         if (!input || !hiddenInput || !list) return;
         
-        // Set default value (active)
-        input.value = 'Actif seulement';
-        hiddenInput.value = 'active';
+        // Set default value (first option - active)
+        const defaultOption = STATUS_OPTIONS[0];
+        input.value = defaultOption.label;
+        hiddenInput.value = defaultOption.value;
         
         // Click/Focus - show list
         const showList = () => {
@@ -475,7 +482,7 @@
         input.addEventListener('blur', () => {
             setTimeout(() => {
                 list.style.display = 'none';
-            }, 200);
+            }, COMBOBOX_BLUR_DELAY);
         });
         
         // Escape key - close list
