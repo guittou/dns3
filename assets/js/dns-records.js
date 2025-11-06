@@ -565,12 +565,25 @@
      * Ensures the select is populated before attempting to set the value
      * If a specific zone_file_id is provided, fetches that zone and ensures it's in the list
      * @param {number|string|null} selectedZoneFileId - The zone file ID to select after populating
+     * @param {number|string|null} domainId - Optional domain ID to filter zones by domain
      */
-    async function populateZoneFileCombobox(selectedZoneFileId) {
+    async function populateZoneFileCombobox(selectedZoneFileId, domainId = null) {
         try {
-            // List only active master and include zones
-            const result = await zoneApiCall('list_zones', { status: 'active' });
-            let zones = result.data || [];
+            // List only active master and include zones, optionally filtered by domain
+            // Note: We use dns_api when filtering by domain (list_zones_by_domain includes 
+            // Breadth-First Search traversal to include all descendant zones) and zone_api 
+            // for unfiltered lists (consistent with existing zone operations)
+            let zones;
+            
+            if (domainId) {
+                // Filter zones by domain using DNS API (includes descendant zones via BFS)
+                const result = await apiCall('list_zones_by_domain', { domain_id: domainId });
+                zones = result.data || [];
+            } else {
+                // List all active zones using Zone API (standard zone operations)
+                const result = await zoneApiCall('list_zones', { status: 'active' });
+                zones = result.data || [];
+            }
             
             const selectElement = document.getElementById('record-zone-file');
             
@@ -848,8 +861,8 @@
             deleteBtn.style.display = 'none';
         }
         
-        // Load zone files and preselect the selected zone
-        await populateZoneFileCombobox(selectedZoneId);
+        // Load zone files and preselect the selected zone, filtered by domain if selected
+        await populateZoneFileCombobox(selectedZoneId, selectedDomainId);
 
         // Update field visibility based on default record type
         updateFieldVisibility();
@@ -910,8 +923,8 @@
             }
         }
         
-        // Load zone files for combobox (no selection for new records)
-        await populateZoneFileCombobox(null);
+        // Load zone files for combobox (no selection for new records), filtered by domain if selected
+        await populateZoneFileCombobox(null, selectedDomainId);
 
         // Update field visibility based on default record type
         updateFieldVisibility();
@@ -965,8 +978,8 @@
             form.dataset.mode = 'edit';
             form.dataset.recordId = recordId;
             
-            // Populate zone files combobox and set the selected zone_file_id
-            await populateZoneFileCombobox(record.zone_file_id);
+            // Populate zone files combobox and set the selected zone_file_id, filtered by domain if available
+            await populateZoneFileCombobox(record.zone_file_id, record.domain_id);
 
             document.getElementById('record-type').value = record.record_type;
             document.getElementById('record-name').value = record.name;

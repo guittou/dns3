@@ -177,14 +177,16 @@ class DnsRecord {
                     $record['zone_file_name'] = '';
                 }
                 
-                // Try to get domain_name for this record
+                // Try to get domain_name and domain_id for this record
                 $record['domain_name'] = '';
+                $record['domain_id'] = null;
                 if (isset($record['zone_file_id']) && $record['zone_file_id']) {
                     $topMaster = $this->getTopMasterForZone($record['zone_file_id']);
                     if ($topMaster) {
                         $domainResult = $this->getDomainByZoneFileId($topMaster);
                         if ($domainResult) {
                             $record['domain_name'] = $domainResult['domain'];
+                            $record['domain_id'] = $domainResult['id'];
                         }
                     }
                 }
