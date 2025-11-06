@@ -350,6 +350,45 @@ body {
    DNS Management UI Styles
    --------------------------------------------------------- */
 
+/* DNS domain filter container */
+.dns-domain-filter-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dns-domain-filter-container label {
+  white-space: nowrap;
+  font-weight: 600;
+  color: #333;
+}
+
+#dns-domain-filter {
+  min-width: 250px;
+  max-width: 400px;
+  padding: 8px 12px;
+  border: 1px solid #d7dfe6;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: #222;
+  flex: 1;
+}
+
+/* Responsive behavior for domain filter */
+@media (max-width: 768px) {
+  .dns-domain-filter-container {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  #dns-domain-filter {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 /* DNS message display */
 .dns-message {
   padding: 12px;
