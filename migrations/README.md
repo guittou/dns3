@@ -213,23 +213,24 @@ Migration 014 creates a new table `domaine_list` for managing domains that are a
 ### What It Creates
 
 1. **Table `domaine_list`** with the following columns:
-   - `id` - Primary key
-   - `domain` - Domain name (unique)
-   - `zone_file_id` - Foreign key to zone_files (must be type 'master')
-   - `created_by`, `updated_by` - User tracking
-   - `created_at`, `updated_at` - Timestamp tracking
-   - `status` - ENUM('active', 'deleted') for soft delete
+   - `id` - Primary key (int AUTO_INCREMENT)
+   - `domain` - Domain name (varchar 255, unique, NOT NULL)
+   - `zone_file_id` - Foreign key to zone_files (int, NOT NULL)
+   - `created_by` - User who created the domain (int, NOT NULL)
+   - `updated_by` - User who last updated the domain (int, NULL)
+   - `created_at` - Creation timestamp (timestamp, default CURRENT_TIMESTAMP)
+   - `updated_at` - Last update timestamp (timestamp, NULL, auto-update on change)
+   - `status` - ENUM('active', 'deleted') DEFAULT 'active' for soft delete
 
 2. **Indexes**:
-   - Unique index on `domain`
-   - Index on `zone_file_id`
-   - Index on `status`
-   - Index on `created_at`
+   - Unique index `uq_domain` on `domain`
+   - Index `idx_zone_file_id` on `zone_file_id`
+   - Index `idx_status` on `status`
 
 3. **Foreign Key Constraints**:
-   - `zone_file_id` -> `zone_files.id` (RESTRICT on delete)
-   - `created_by` -> `users.id` (SET NULL on delete)
-   - `updated_by` -> `users.id` (SET NULL on delete)
+   - `domaine_list_ibfk_1`: `zone_file_id` -> `zone_files.id`
+   - `domaine_list_ibfk_2`: `created_by` -> `users.id`
+   - `domaine_list_ibfk_3`: `updated_by` -> `users.id`
 
 ### Running the Migration
 
