@@ -1293,6 +1293,17 @@ body {
   background-size: 16px 16px;
 }
 
+/* Modal combobox adjustments */
+.modal-combobox {
+  position: relative;
+  width: 100%;
+}
+
+.modal-combobox .combobox-list {
+  max-height: 200px;
+  z-index: 10001;
+}
+
 /* Domain display in modal */
 .dns-modal-domain {
   margin-top: 6px;
