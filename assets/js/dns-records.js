@@ -20,6 +20,27 @@
     };
 
     /**
+     * DNS record type filter options
+     */
+    const DNS_TYPE_OPTIONS = [
+        { value: '', label: 'Tous les types' },
+        { value: 'A', label: 'A' },
+        { value: 'AAAA', label: 'AAAA' },
+        { value: 'CNAME', label: 'CNAME' },
+        { value: 'PTR', label: 'PTR' },
+        { value: 'TXT', label: 'TXT' }
+    ];
+
+    /**
+     * Status filter options
+     */
+    const STATUS_OPTIONS = [
+        { value: 'active', label: 'Actif seulement' },
+        { value: 'deleted', label: 'Supprimé seulement' },
+        { value: '', label: 'Tous les statuts' }
+    ];
+
+    /**
      * Check if a string is a valid IPv4 address
      */
     function isIPv4(str) {
@@ -361,18 +382,29 @@
     }
 
     /**
+     * Helper function to populate a simple filter combobox dropdown
+     */
+    function populateFilterDropdown(list, options, selectedValue, onSelectCallback) {
+        list.innerHTML = '';
+        options.forEach(option => {
+            const li = document.createElement('li');
+            li.className = 'combobox-item';
+            if (selectedValue === option.value) {
+                li.classList.add('selected');
+            }
+            li.textContent = option.label;
+            li.addEventListener('click', () => {
+                onSelectCallback(option.value, option.label);
+            });
+            list.appendChild(li);
+        });
+        list.style.display = 'block';
+    }
+
+    /**
      * Initialize type filter combobox
      */
     function initTypeFilterCombobox() {
-        const typeOptions = [
-            { value: '', label: 'Tous les types' },
-            { value: 'A', label: 'A' },
-            { value: 'AAAA', label: 'AAAA' },
-            { value: 'CNAME', label: 'CNAME' },
-            { value: 'PTR', label: 'PTR' },
-            { value: 'TXT', label: 'TXT' }
-        ];
-        
         const input = document.getElementById('dns-type-input');
         const hiddenInput = document.getElementById('dns-type-filter');
         const list = document.getElementById('dns-type-list');
@@ -385,23 +417,12 @@
         
         // Click/Focus - show list
         const showList = () => {
-            list.innerHTML = '';
-            typeOptions.forEach(option => {
-                const li = document.createElement('li');
-                li.className = 'combobox-item';
-                if (hiddenInput.value === option.value) {
-                    li.classList.add('selected');
-                }
-                li.textContent = option.label;
-                li.addEventListener('click', () => {
-                    input.value = option.label;
-                    hiddenInput.value = option.value;
-                    list.style.display = 'none';
-                    loadDnsTable();
-                });
-                list.appendChild(li);
+            populateFilterDropdown(list, DNS_TYPE_OPTIONS, hiddenInput.value, (value, label) => {
+                input.value = label;
+                hiddenInput.value = value;
+                list.style.display = 'none';
+                loadDnsTable();
             });
-            list.style.display = 'block';
         };
         
         input.addEventListener('click', showList);
@@ -427,12 +448,6 @@
      * Initialize status filter combobox
      */
     function initStatusFilterCombobox() {
-        const statusOptions = [
-            { value: 'active', label: 'Actif seulement' },
-            { value: 'deleted', label: 'Supprimé seulement' },
-            { value: '', label: 'Tous les statuts' }
-        ];
-        
         const input = document.getElementById('dns-status-input');
         const hiddenInput = document.getElementById('dns-status-filter');
         const list = document.getElementById('dns-status-list');
@@ -445,23 +460,12 @@
         
         // Click/Focus - show list
         const showList = () => {
-            list.innerHTML = '';
-            statusOptions.forEach(option => {
-                const li = document.createElement('li');
-                li.className = 'combobox-item';
-                if (hiddenInput.value === option.value) {
-                    li.classList.add('selected');
-                }
-                li.textContent = option.label;
-                li.addEventListener('click', () => {
-                    input.value = option.label;
-                    hiddenInput.value = option.value;
-                    list.style.display = 'none';
-                    loadDnsTable();
-                });
-                list.appendChild(li);
+            populateFilterDropdown(list, STATUS_OPTIONS, hiddenInput.value, (value, label) => {
+                input.value = label;
+                hiddenInput.value = value;
+                list.style.display = 'none';
+                loadDnsTable();
             });
-            list.style.display = 'block';
         };
         
         input.addEventListener('click', showList);
