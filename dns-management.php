@@ -118,12 +118,10 @@ if (!$auth->isAdmin()) {
                     <!-- Left column: Zone selector, Name, TTL, Type, IP Address field -->
                     <div class="modal-column-left">
                         <div class="form-group">
-                            <label for="record-zone-input">Fichier de zone *</label>
-                            <div class="combobox modal-combobox">
-                                <input type="text" id="record-zone-input" class="combobox-input" placeholder="Rechercher une zone..." autocomplete="off" required>
-                                <input type="hidden" id="record-zone-file" name="zone_file_id">
-                                <ul id="record-zone-list" class="combobox-list" style="display: none;"></ul>
-                            </div>
+                            <label for="record-zone-file">Fichier de zone *</label>
+                            <select id="record-zone-file" name="zone_file_id" required>
+                                <option value="">Sélectionner une zone...</option>
+                            </select>
                         </div>
 
                         <div class="form-group">
