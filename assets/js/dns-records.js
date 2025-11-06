@@ -731,7 +731,7 @@
                     <td class="col-class">${escapeHtml(record.class || 'IN')}</td>
                     <td class="col-type">${escapeHtml(record.record_type)}</td>
                     <td class="col-value">${escapeHtml(record.value)}</td>
-                    <td class="col-updated">${record.updated_at ? formatDateTime(record.updated_at) : '-'}</td>
+                    <td class="col-updated">${record.updated_at ? formatDateTime(record.updated_at) : (record.created_at ? formatDateTime(record.created_at) : '-')}</td>
                     <td class="col-lastseen">${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
                     <td class="col-status"><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
                     <td class="col-actions">
