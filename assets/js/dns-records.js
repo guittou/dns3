@@ -21,6 +21,7 @@
 
     /**
      * DNS record type filter options
+     * Default: first option (all types)
      */
     const DNS_TYPE_OPTIONS = [
         { value: '', label: 'Tous les types' },
@@ -33,6 +34,7 @@
 
     /**
      * Status filter options
+     * Default: first option (active only) - matches original behavior
      */
     const STATUS_OPTIONS = [
         { value: 'active', label: 'Actif seulement' },
