@@ -15,6 +15,9 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/DnsRecord.php';
 
+// Constants
+define('MAX_ZONE_TRAVERSAL_DEPTH', 100); // Maximum iterations for zone tree traversal to prevent infinite loops
+
 // Set JSON header
 header('Content-Type: application/json');
 
@@ -594,10 +597,9 @@ try {
                 // Traverse upward via zone_file_includes to find the top master
                 $currentZoneId = $zone_id;
                 $visited = [$currentZoneId => true];
-                $maxIterations = 100; // Safety limit to prevent infinite loops
                 $iteration = 0;
                 
-                while ($iteration < $maxIterations) {
+                while ($iteration < MAX_ZONE_TRAVERSAL_DEPTH) {
                     // Check if current zone has a parent
                     $sql = "SELECT parent_id FROM zone_file_includes WHERE include_id = ? LIMIT 1";
                     $stmt = $dnsRecord->getConnection()->prepare($sql);

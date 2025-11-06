@@ -7,6 +7,9 @@
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../lib/DnsValidator.php';
 
+// Constants for zone traversal
+define('MAX_ZONE_TRAVERSAL_DEPTH', 100); // Maximum iterations for zone tree traversal to prevent infinite loops
+
 class DnsRecord {
     private $db;
 
@@ -746,10 +749,9 @@ class DnsRecord {
         try {
             $currentZoneId = $zone_file_id;
             $visited = [$currentZoneId => true];
-            $maxIterations = 100;
             $iteration = 0;
             
-            while ($iteration < $maxIterations) {
+            while ($iteration < MAX_ZONE_TRAVERSAL_DEPTH) {
                 // Check if current zone has a parent
                 $sql = "SELECT parent_id FROM zone_file_includes WHERE include_id = ? LIMIT 1";
                 $stmt = $this->db->prepare($sql);
