@@ -1,41 +1,26 @@
 -- Migration 014: Create Domain List Table
 -- This migration creates a table to manage domains attached to zone files
+-- Purpose: Fix the 1146 error "Table 'dns3_db.domaine_list' doesn't exist"
+--          by creating the domaine_list table with proper structure,
+--          foreign keys, and constraints.
 
 USE dns3_db;
 
 -- Create domaine_list table
-CREATE TABLE IF NOT EXISTS domaine_list (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    domain VARCHAR(255) NOT NULL COMMENT 'Domain name',
-    zone_file_id INT NOT NULL COMMENT 'Associated zone file (must be type master)',
-    created_by INT NULL COMMENT 'User who created the domain',
-    updated_by INT NULL COMMENT 'User who last updated the domain',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    status ENUM('active', 'deleted') DEFAULT 'active' COMMENT 'Domain status',
-    
-    -- Indexes
-    UNIQUE KEY ux_domain (domain),
-    INDEX idx_zone_file_id (zone_file_id),
-    INDEX idx_status (status),
-    INDEX idx_created_at (created_at),
-    
-    -- Foreign key constraints
-    CONSTRAINT fk_domaine_list_zone_file 
-        FOREIGN KEY (zone_file_id) 
-        REFERENCES zone_files(id) 
-        ON DELETE RESTRICT 
-        ON UPDATE CASCADE,
-    
-    CONSTRAINT fk_domaine_list_created_by 
-        FOREIGN KEY (created_by) 
-        REFERENCES users(id) 
-        ON DELETE SET NULL 
-        ON UPDATE CASCADE,
-    
-    CONSTRAINT fk_domaine_list_updated_by 
-        FOREIGN KEY (updated_by) 
-        REFERENCES users(id) 
-        ON DELETE SET NULL 
-        ON UPDATE CASCADE
+CREATE TABLE IF NOT EXISTS `domaine_list` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `domain` varchar(255) NOT NULL,
+  `zone_file_id` int(11) NOT NULL,
+  `created_by` int(11) NOT NULL,
+  `status` enum('active','deleted') DEFAULT 'active',
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_by` int(11) DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_domain` (`domain`),
+  KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_status` (`status`),
+  CONSTRAINT `domaine_list_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `domaine_list_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `domaine_list_ibfk_3` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
