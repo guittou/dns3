@@ -1324,3 +1324,25 @@ body {
     font-size: 20px;
   }
 }
+
+/* ==========================================================================
+   Modal Title and Domain Size Overrides
+   Force specific sizes and neutralize conflicting rules
+   ========================================================================== */
+
+/* Force modal title size with higher specificity */
+.dns-modal-header .dns-modal-title-wrapper h2,
+#dns-modal .dns-modal-header .dns-modal-title-wrapper h2 {
+  font-size: 1.8rem !important;
+}
+
+/* Force domain size with higher specificity */
+.dns-modal-header .dns-modal-domain,
+#dns-modal .dns-modal-header .dns-modal-domain {
+  font-size: 24px !important;
+}
+
+/* Neutralize any h3 rules that might conflict with modal header */
+.dns-modal-header h3 {
+  font-size: inherit !important;
+}
