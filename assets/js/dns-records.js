@@ -942,25 +942,13 @@
             
             if (!modal || !form || !title) return;
 
-            // Try to get domain name for the title
-            let domainName = record.domain_name || '';
-            if (!domainName && selectedDomainId) {
-                const domainInput = document.getElementById('dns-domain-input');
-                if (domainInput) {
-                    domainName = domainInput.value;
-                }
-            }
+            // Set fixed title without domain
+            title.textContent = 'Modifier l\'enregistrement DNS';
             
-            if (domainName) {
-                title.textContent = `Modifier l'enregistrement DNS - ${domainName}`;
-            } else {
-                title.textContent = 'Modifier l\'enregistrement DNS';
-            }
-            
-            // Populate domain name in separate line with priority order
+            // Populate domain name in separate line - only use record.domain_name (strict)
             if (domainDiv) {
                 try {
-                    const displayDomain = record.domain_name || record.top_master_name || record.zone_name || '';
+                    const displayDomain = record.domain_name || '';
                     
                     if (displayDomain) {
                         domainDiv.textContent = displayDomain;

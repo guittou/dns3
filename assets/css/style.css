@@ -1286,3 +1286,46 @@ body {
   line-height: 1.2;
   word-break: break-word;
 }
+
+/* ==========================================================================
+   Modal Header Centered with Close Button on Right
+   ========================================================================== */
+
+.dns-modal-header {
+  position: relative;
+  padding: 18px 48px 14px 48px;
+  border-bottom: none;
+  text-align: center;
+}
+
+.dns-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dns-modal-title-wrapper {
+  display: inline-block;
+  text-align: center;
+  max-width: calc(100% - 80px);
+}
+
+.dns-modal-title-wrapper h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #212529;
+}
+
+.dns-modal-domain {
+  margin-top: 6px;
+  font-size: 15px;
+  color: #2f3b43;
+  font-weight: 500;
+  line-height: 1.25;
+  word-break: break-word;
+}
