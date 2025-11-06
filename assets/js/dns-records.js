@@ -551,84 +551,16 @@
     }
 
     /**
-     * Initialize modal zone file combobox
+     * Initialize modal zone file select (no longer needed as combobox, but kept for consistency)
      */
     async function initModalZoneCombobox() {
-        try {
-            // Load all active zones
-            const result = await zoneApiCall('list_zones', { status: 'active' });
-            const zones = (result.data || []).filter(z => z.file_type === 'master' || z.file_type === 'include');
-            
-            const input = document.getElementById('record-zone-input');
-            const hiddenInput = document.getElementById('record-zone-file');
-            const list = document.getElementById('record-zone-list');
-            
-            if (!input || !hiddenInput || !list) return;
-            
-            // Store zones for filtering
-            const modalZones = zones;
-            
-            // Input event - filter and show list
-            input.addEventListener('input', () => {
-                const query = input.value.toLowerCase().trim();
-                const filtered = modalZones.filter(z => 
-                    z.name.toLowerCase().includes(query) || 
-                    z.filename.toLowerCase().includes(query)
-                );
-                
-                populateComboboxList(list, filtered, (zone) => ({
-                    id: zone.id,
-                    text: `${zone.name} (${zone.file_type})`
-                }), (zone) => {
-                    selectModalZone(zone.id, zone.name, zone.file_type);
-                });
-            });
-            
-            // Focus - show full list
-            input.addEventListener('focus', () => {
-                populateComboboxList(list, modalZones, (zone) => ({
-                    id: zone.id,
-                    text: `${zone.name} (${zone.file_type})`
-                }), (zone) => {
-                    selectModalZone(zone.id, zone.name, zone.file_type);
-                });
-            });
-            
-            // Blur - hide list (with delay to allow click)
-            input.addEventListener('blur', () => {
-                setTimeout(() => {
-                    list.style.display = 'none';
-                }, COMBOBOX_BLUR_DELAY);
-            });
-            
-            // Escape key - close list
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    list.style.display = 'none';
-                    input.blur();
-                }
-            });
-        } catch (error) {
-            console.error('Error initializing modal zone combobox:', error);
-        }
-    }
-    
-    /**
-     * Select a zone in the modal combobox
-     */
-    function selectModalZone(zoneId, zoneName, zoneType) {
-        const input = document.getElementById('record-zone-input');
-        const hiddenInput = document.getElementById('record-zone-file');
-        const list = document.getElementById('record-zone-list');
-        
-        if (input) input.value = `${zoneName} (${zoneType})`;
-        if (hiddenInput) hiddenInput.value = zoneId;
-        if (list) list.style.display = 'none';
+        // This function is now a no-op since we're using a simple select element
+        // The select will be populated when the modal opens
     }
 
     /**
-     * Helper function to populate zone file combobox and set selected value
-     * Ensures the combobox is populated before attempting to set the value
+     * Helper function to populate zone file select and set selected value
+     * Ensures the select is populated before attempting to set the value
      * If a specific zone_file_id is provided, fetches that zone and ensures it's in the list
      * @param {number|string|null} selectedZoneFileId - The zone file ID to select after populating
      */
@@ -638,11 +570,10 @@
             const result = await zoneApiCall('list_zones', { status: 'active' });
             let zones = result.data || [];
             
-            const input = document.getElementById('record-zone-input');
-            const hiddenInput = document.getElementById('record-zone-file');
+            const selectElement = document.getElementById('record-zone-file');
             
-            if (!input || !hiddenInput) {
-                console.error('[populateZoneFileCombobox] Zone file combobox not found');
+            if (!selectElement) {
+                console.error('[populateZoneFileCombobox] Zone file select not found');
                 return;
             }
             
@@ -664,7 +595,7 @@
                             if (specificZoneResult && specificZoneResult.data) {
                                 // Add the specific zone to our list
                                 zones.push(specificZoneResult.data);
-                                console.debug('[populateZoneFileCombobox] Added zone', specificZoneResult.data.name, 'to combobox');
+                                console.debug('[populateZoneFileCombobox] Added zone', specificZoneResult.data.name, 'to select');
                             }
                         } catch (fetchError) {
                             console.warn('[populateZoneFileCombobox] Failed to fetch specific zone:', fetchError);
@@ -678,24 +609,31 @@
             // Filter to show only master and include types
             const filteredZones = zones.filter(z => z.file_type === 'master' || z.file_type === 'include');
             
+            // Clear and populate the select element
+            selectElement.innerHTML = '<option value="">Sélectionner une zone...</option>';
+            
+            filteredZones.forEach(zone => {
+                const option = document.createElement('option');
+                option.value = zone.id;
+                option.textContent = `${zone.name} (${zone.file_type})`;
+                selectElement.appendChild(option);
+            });
+            
             // Set the selected value if provided
             if (selectedZoneFileId) {
                 const zoneIdNum = parseInt(selectedZoneFileId, 10);
                 const selectedZone = filteredZones.find(z => parseInt(z.id, 10) === zoneIdNum);
                 
                 if (selectedZone) {
-                    input.value = `${selectedZone.name} (${selectedZone.file_type})`;
-                    hiddenInput.value = selectedZone.id;
+                    selectElement.value = selectedZone.id;
                     console.debug('[populateZoneFileCombobox] Successfully set zone_file_id:', selectedZone.id);
                 } else {
                     console.warn('[populateZoneFileCombobox] zone_file_id', selectedZoneFileId, 'not found after fetch attempt');
-                    input.value = '';
-                    hiddenInput.value = '';
+                    selectElement.value = '';
                 }
             } else {
-                // Clear the combobox
-                input.value = '';
-                hiddenInput.value = '';
+                // Clear the selection
+                selectElement.value = '';
             }
         } catch (error) {
             console.error('[populateZoneFileCombobox] Error:', error);
