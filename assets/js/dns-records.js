@@ -570,15 +570,17 @@
     async function populateZoneFileCombobox(selectedZoneFileId, domainId = null) {
         try {
             // List only active master and include zones, optionally filtered by domain
+            // Note: We use dns_api when filtering by domain (list_zones_by_domain includes BFS traversal)
+            // and zone_api for unfiltered lists (consistent with existing zone operations)
             let result;
             let zones;
             
             if (domainId) {
-                // Filter zones by domain
+                // Filter zones by domain using DNS API (includes descendant zones via BFS)
                 result = await apiCall('list_zones_by_domain', { domain_id: domainId });
                 zones = result.data || [];
             } else {
-                // List all active zones
+                // List all active zones using Zone API (standard zone operations)
                 result = await zoneApiCall('list_zones', { status: 'active' });
                 zones = result.data || [];
             }
