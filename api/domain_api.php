@@ -15,6 +15,9 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/Domain.php';
 
+// Domain validation regex (same as Domain model)
+define('DOMAIN_REGEX', '/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/');
+
 // Set JSON header
 header('Content-Type: application/json');
 
@@ -44,6 +47,71 @@ function requireAdmin() {
         echo json_encode(['error' => 'Admin privileges required']);
         exit;
     }
+}
+
+/**
+ * Parse request data from JSON or POST
+ * 
+ * @return array Parsed request data
+ */
+function parseRequestData() {
+    $input = file_get_contents('php://input');
+    $data = json_decode($input, true);
+    
+    // Fallback to $_POST if JSON decode fails
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $data = $_POST;
+    }
+    
+    return $data;
+}
+
+/**
+ * Validate domain data
+ * 
+ * @param array $data Domain data to validate
+ * @return array|null Returns error array if validation fails, null if valid
+ */
+function validateDomainData($data) {
+    // Validate required fields
+    if (empty($data['domain'])) {
+        return ['error' => 'Domain name is required', 'code' => 400];
+    }
+    
+    if (empty($data['zone_file_id'])) {
+        return ['error' => 'Zone file ID is required', 'code' => 400];
+    }
+    
+    // Validate zone_file_id is a positive integer
+    if (!is_numeric($data['zone_file_id']) || (int)$data['zone_file_id'] <= 0) {
+        return ['error' => 'Zone file ID must be a positive integer', 'code' => 400];
+    }
+    
+    // Validate domain format
+    if (!preg_match(DOMAIN_REGEX, $data['domain'])) {
+        return ['error' => 'Invalid domain format', 'code' => 400];
+    }
+    
+    // Verify zone file exists and is type 'master' and active
+    require_once __DIR__ . '/../includes/db.php';
+    $db = Database::getInstance()->getConnection();
+    $zoneStmt = $db->prepare("SELECT id, file_type, status FROM zone_files WHERE id = ? LIMIT 1");
+    $zoneStmt->execute([(int)$data['zone_file_id']]);
+    $zone = $zoneStmt->fetch();
+    
+    if (!$zone) {
+        return ['error' => 'Zone file not found', 'code' => 400];
+    }
+    
+    if ($zone['status'] !== 'active') {
+        return ['error' => 'Zone file is not active', 'code' => 400];
+    }
+    
+    if ($zone['file_type'] !== 'master') {
+        return ['error' => 'Zone file must be of type master', 'code' => 400];
+    }
+    
+    return null; // Validation passed
 }
 
 // Get action from request
@@ -122,64 +190,14 @@ try {
             requireAdmin();
 
             try {
-                // Get input from JSON or POST data
-                $input = file_get_contents('php://input');
-                $data = json_decode($input, true);
+                // Parse request data
+                $data = parseRequestData();
                 
-                // Fallback to $_POST if JSON decode fails
-                if (!$data) {
-                    $data = $_POST;
-                }
-                
-                // Validate required fields
-                if (empty($data['domain'])) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Domain name is required']);
-                    exit;
-                }
-                
-                if (empty($data['zone_file_id'])) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file ID is required']);
-                    exit;
-                }
-                
-                // Validate zone_file_id is a positive integer
-                if (!is_numeric($data['zone_file_id']) || (int)$data['zone_file_id'] <= 0) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file ID must be a positive integer']);
-                    exit;
-                }
-                
-                // Validate domain format
-                if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/', $data['domain'])) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Invalid domain format']);
-                    exit;
-                }
-                
-                // Verify zone file exists and is type 'master' and active
-                require_once __DIR__ . '/../includes/db.php';
-                $db = Database::getInstance()->getConnection();
-                $zoneStmt = $db->prepare("SELECT id, file_type, status FROM zone_files WHERE id = ? LIMIT 1");
-                $zoneStmt->execute([(int)$data['zone_file_id']]);
-                $zone = $zoneStmt->fetch();
-                
-                if (!$zone) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file not found']);
-                    exit;
-                }
-                
-                if ($zone['status'] !== 'active') {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file is not active']);
-                    exit;
-                }
-                
-                if ($zone['file_type'] !== 'master') {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file must be of type master']);
+                // Validate domain data
+                $validationError = validateDomainData($data);
+                if ($validationError) {
+                    http_response_code($validationError['code']);
+                    echo json_encode(['error' => $validationError['error']]);
                     exit;
                 }
                 
@@ -218,64 +236,14 @@ try {
             }
 
             try {
-                // Get input from JSON or POST data
-                $input = file_get_contents('php://input');
-                $data = json_decode($input, true);
+                // Parse request data
+                $data = parseRequestData();
                 
-                // Fallback to $_POST if JSON decode fails
-                if (!$data) {
-                    $data = $_POST;
-                }
-                
-                // Validate required fields
-                if (empty($data['domain'])) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Domain name is required']);
-                    exit;
-                }
-                
-                if (empty($data['zone_file_id'])) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file ID is required']);
-                    exit;
-                }
-                
-                // Validate zone_file_id is a positive integer
-                if (!is_numeric($data['zone_file_id']) || (int)$data['zone_file_id'] <= 0) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file ID must be a positive integer']);
-                    exit;
-                }
-                
-                // Validate domain format
-                if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/', $data['domain'])) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Invalid domain format']);
-                    exit;
-                }
-                
-                // Verify zone file exists and is type 'master' and active
-                require_once __DIR__ . '/../includes/db.php';
-                $db = Database::getInstance()->getConnection();
-                $zoneStmt = $db->prepare("SELECT id, file_type, status FROM zone_files WHERE id = ? LIMIT 1");
-                $zoneStmt->execute([(int)$data['zone_file_id']]);
-                $zone = $zoneStmt->fetch();
-                
-                if (!$zone) {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file not found']);
-                    exit;
-                }
-                
-                if ($zone['status'] !== 'active') {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file is not active']);
-                    exit;
-                }
-                
-                if ($zone['file_type'] !== 'master') {
-                    http_response_code(400);
-                    echo json_encode(['error' => 'Zone file must be of type master']);
+                // Validate domain data
+                $validationError = validateDomainData($data);
+                if ($validationError) {
+                    http_response_code($validationError['code']);
+                    echo json_encode(['error' => $validationError['error']]);
                     exit;
                 }
 
