@@ -202,7 +202,8 @@ try {
                     exit;
                 }
                 
-                $userId = $auth->getUserId();
+                $currentUser = $auth->getCurrentUser();
+                $userId = isset($currentUser['id']) ? $currentUser['id'] : null;
                 $result = $domain->create($data, $userId);
 
                 if (!$result['success']) {
@@ -248,7 +249,8 @@ try {
                     exit;
                 }
 
-                $userId = $auth->getUserId();
+                $currentUser = $auth->getCurrentUser();
+                $userId = isset($currentUser['id']) ? $currentUser['id'] : null;
                 $result = $domain->update($id, $data, $userId);
 
                 if (!$result['success']) {
@@ -288,7 +290,8 @@ try {
                 exit;
             }
 
-            $userId = $auth->getUserId();
+            $currentUser = $auth->getCurrentUser();
+            $userId = isset($currentUser['id']) ? $currentUser['id'] : null;
             $result = $domain->setStatus($id, $status, $userId);
 
             if (!$result['success']) {
