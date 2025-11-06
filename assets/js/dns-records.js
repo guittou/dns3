@@ -335,6 +335,33 @@
     }
 
     /**
+     * Load available domains for domain filter
+     */
+    async function populateDomainSelect() {
+        try {
+            const result = await apiCall('list_domains');
+            const domains = result.data || [];
+            
+            const selector = document.getElementById('dns-domain-filter');
+            if (!selector) return;
+            
+            // Clear existing options except the first placeholder
+            selector.innerHTML = '<option value="">Tous les domaines</option>';
+            
+            // Add domains to selector
+            domains.forEach(domain => {
+                const option = document.createElement('option');
+                option.value = domain.id;
+                option.textContent = domain.domain;
+                selector.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading domains:', error);
+            // Don't show message to user, just log it
+        }
+    }
+
+    /**
      * Load and display DNS records table
      */
     async function loadDnsTable(filters = {}) {
@@ -354,6 +381,11 @@
                 filters.status = statusFilter.value;
             }
 
+            const domainFilter = document.getElementById('dns-domain-filter');
+            if (domainFilter && domainFilter.value) {
+                filters.domain_id = domainFilter.value;
+            }
+
             const result = await apiCall('list', filters);
             currentRecords = result.data || [];
 
@@ -363,29 +395,26 @@
             tbody.innerHTML = '';
 
             if (currentRecords.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="14" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; padding: 20px;">Aucun enregistrement trouvé</td></tr>';
                 return;
             }
 
-            // Generate table rows with semantic classes matching the header
+            // Generate table rows with semantic classes matching the new header order
             currentRecords.forEach(record => {
                 const row = document.createElement('tr');
                 // Store record ID in dataset for use by actions
                 row.dataset.recordId = record.id;
                 row.innerHTML = `
-                    <td class="col-zone">${escapeHtml(record.zone_name || '-')}</td>
+                    <td class="col-domain">${escapeHtml(record.domain_name || '-')}</td>
+                    <td class="col-zonefile">${escapeHtml(record.zone_name || '-')}</td>
                     <td class="col-name">${escapeHtml(record.name)}</td>
                     <td class="col-ttl">${escapeHtml(record.ttl)}</td>
                     <td class="col-class">${escapeHtml(record.class || 'IN')}</td>
                     <td class="col-type">${escapeHtml(record.record_type)}</td>
                     <td class="col-value">${escapeHtml(record.value)}</td>
-                    <td class="col-requester">${escapeHtml(record.requester || '-')}</td>
-                    <td class="col-expires">${record.expires_at ? formatDateTime(record.expires_at) : '-'}</td>
-                    <td class="col-lastseen">${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
-                    <td class="col-created">${record.created_at ? formatDateTime(record.created_at) : '-'}</td>
                     <td class="col-updated">${record.updated_at ? formatDateTime(record.updated_at) : '-'}</td>
+                    <td class="col-lastseen">${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
                     <td class="col-status"><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
-                    <td class="col-id">${escapeHtml(record.id)}</td>
                     <td class="col-actions">
                         <button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Modifier</button>
                         ${record.status !== 'deleted' ? `<button class="btn-small btn-delete" onclick="dnsRecords.deleteRecord(${record.id})">Supprimer</button>` : ''}
@@ -841,6 +870,12 @@
             statusFilter.addEventListener('change', () => loadDnsTable());
         }
 
+        // Domain filter
+        const domainFilter = document.getElementById('dns-domain-filter');
+        if (domainFilter) {
+            domainFilter.addEventListener('change', () => loadDnsTable());
+        }
+
         // Create button
         const createBtn = document.getElementById('dns-create-btn');
         if (createBtn) {
@@ -878,7 +913,13 @@
         // Initial load
         const tableBody = document.getElementById('dns-table-body');
         if (tableBody) {
-            loadDnsTable();
+            // First populate domain select, then load table
+            populateDomainSelect().then(() => {
+                loadDnsTable();
+            }).catch(err => {
+                console.error('Error in initial load:', err);
+                loadDnsTable(); // Still load table even if domain population fails
+            });
         }
     }
 

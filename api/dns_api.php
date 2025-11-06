@@ -175,6 +175,15 @@ try {
                     exit;
                 }
             }
+            if (isset($_GET['domain_id']) && $_GET['domain_id'] !== '') {
+                $domainId = (int)$_GET['domain_id'];
+                if ($domainId <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Invalid domain_id: must be a positive integer']);
+                    exit;
+                }
+                $filters['domain_id'] = $domainId;
+            }
 
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
             $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
@@ -449,6 +458,34 @@ try {
             } else {
                 http_response_code(500);
                 echo json_encode(['error' => 'Failed to change DNS record status']);
+            }
+            break;
+
+        case 'list_domains':
+            // List domains from domaine_list (requires authentication)
+            requireAuth();
+
+            try {
+                $sql = "SELECT dl.id, dl.domain, dl.zone_file_id, 
+                               COALESCE(zf.name, '') as zone_name,
+                               COALESCE(zf.filename, '') as zone_filename
+                        FROM domaine_list dl
+                        LEFT JOIN zone_files zf ON dl.zone_file_id = zf.id
+                        WHERE dl.status = 'active'
+                        ORDER BY dl.domain ASC";
+                
+                $stmt = $dnsRecord->getConnection()->prepare($sql);
+                $stmt->execute();
+                $domains = $stmt->fetchAll();
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $domains
+                ]);
+            } catch (Exception $e) {
+                error_log("Error fetching domains: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to fetch domains']);
             }
             break;
 
