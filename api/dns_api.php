@@ -176,7 +176,13 @@ try {
                 }
             }
             if (isset($_GET['domain_id']) && $_GET['domain_id'] !== '') {
-                $filters['domain_id'] = (int)$_GET['domain_id'];
+                $domainId = (int)$_GET['domain_id'];
+                if ($domainId <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Invalid domain_id: must be a positive integer']);
+                    exit;
+                }
+                $filters['domain_id'] = $domainId;
             }
 
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;

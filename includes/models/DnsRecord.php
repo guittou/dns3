@@ -36,30 +36,23 @@ class DnsRecord {
                        u2.username as updated_by_username,
                        dr.zone_file_id,
                        COALESCE(zf.name, '') as zone_name,
-                       COALESCE(zf.filename, '') as zone_file_name";
-        
-        // If domain_id filter is provided, add domain_name to select
-        if (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
-            $sql .= ", COALESCE(dl.domain, '') as domain_name";
-        }
-        
-        $sql .= " FROM dns_records dr
+                       COALESCE(zf.filename, '') as zone_file_name
+                FROM dns_records dr
                 LEFT JOIN users u1 ON dr.created_by = u1.id
                 LEFT JOIN users u2 ON dr.updated_by = u2.id
-                LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id";
-        
-        // If domain_id filter is provided, join with domaine_list
-        if (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
-            $sql .= " LEFT JOIN domaine_list dl ON dl.id = ?";
-        }
-        
-        $sql .= " WHERE 1=1";
+                LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id
+                WHERE 1=1";
         
         $params = [];
+        $domainName = '';
         
         // Handle domain_id filter by finding all allowed zone_file_ids
         if (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
-            $params[] = $filters['domain_id']; // for the LEFT JOIN above
+            // Get domain name for later use
+            $domainResult = $this->getDomainById($filters['domain_id']);
+            if ($domainResult) {
+                $domainName = $domainResult['domain'];
+            }
             
             $allowedZoneFileIds = $this->getZoneFileIdsForDomain($filters['domain_id']);
             if (empty($allowedZoneFileIds)) {
@@ -110,10 +103,8 @@ class DnsRecord {
                     $record['zone_file_name'] = '';
                 }
                 
-                // Ensure domain_name is present (empty if not filtered by domain)
-                if (!isset($record['domain_name'])) {
-                    $record['domain_name'] = '';
-                }
+                // Add domain_name field (populated if filtering by domain)
+                $record['domain_name'] = $domainName;
             }
             
             return $records;
@@ -668,6 +659,12 @@ class DnsRecord {
             
             $masterZoneFileId = $domain['zone_file_id'];
             
+            // Check if zone_file_id is null (domain has no associated zone file)
+            if ($masterZoneFileId === null || $masterZoneFileId === '') {
+                error_log("Domain {$domain_id} has no associated zone file");
+                return [];
+            }
+            
             // Start with the master zone file
             $allowedZoneFileIds = [$masterZoneFileId];
             $visited = [$masterZoneFileId => true];
@@ -699,6 +696,25 @@ class DnsRecord {
         } catch (Exception $e) {
             error_log("Error getting zone file IDs for domain: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Get domain by ID
+     * 
+     * @param int $domain_id Domain ID
+     * @return array|null Domain data or null if not found
+     */
+    private function getDomainById($domain_id) {
+        try {
+            $sql = "SELECT id, domain, zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$domain_id]);
+            $domain = $stmt->fetch();
+            return $domain ?: null;
+        } catch (Exception $e) {
+            error_log("Error getting domain by ID: " . $e->getMessage());
+            return null;
         }
     }
 }
