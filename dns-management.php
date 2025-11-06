@@ -58,19 +58,20 @@ if (!$auth->isAdmin()) {
     <div class="dns-toolbar">
         <div class="dns-filters">
             <input type="text" id="dns-search" placeholder="Rechercher par nom ou valeur..." aria-label="Rechercher par nom ou valeur" />
-            <select id="dns-type-filter">
-                <option value="">Tous les types</option>
-                <option value="A">A</option>
-                <option value="AAAA">AAAA</option>
-                <option value="CNAME">CNAME</option>
-                <option value="PTR">PTR</option>
-                <option value="TXT">TXT</option>
-            </select>
-            <select id="dns-status-filter">                
-                <option value="active">Actif seulement</option>
-                <option value="deleted">Supprimé seulement</option>
-                <option value="">Tous les statuts</option>
-            </select>
+            
+            <!-- Combobox Type filter -->
+            <div class="combobox filter-combobox">
+                <input type="text" id="dns-type-input" class="combobox-input" placeholder="Tous les types" autocomplete="off" readonly>
+                <input type="hidden" id="dns-type-filter">
+                <ul id="dns-type-list" class="combobox-list" style="display: none;"></ul>
+            </div>
+            
+            <!-- Combobox Status filter -->
+            <div class="combobox filter-combobox">
+                <input type="text" id="dns-status-input" class="combobox-input" placeholder="Tous les statuts" autocomplete="off" readonly>
+                <input type="hidden" id="dns-status-filter">
+                <ul id="dns-status-list" class="combobox-list" style="display: none;"></ul>
+            </div>
         </div>
         <button id="dns-create-btn" class="btn-create" disabled>+ Créer un enregistrement</button>
     </div>

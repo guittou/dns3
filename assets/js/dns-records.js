@@ -361,6 +361,129 @@
     }
 
     /**
+     * Initialize type filter combobox
+     */
+    function initTypeFilterCombobox() {
+        const typeOptions = [
+            { value: '', label: 'Tous les types' },
+            { value: 'A', label: 'A' },
+            { value: 'AAAA', label: 'AAAA' },
+            { value: 'CNAME', label: 'CNAME' },
+            { value: 'PTR', label: 'PTR' },
+            { value: 'TXT', label: 'TXT' }
+        ];
+        
+        const input = document.getElementById('dns-type-input');
+        const hiddenInput = document.getElementById('dns-type-filter');
+        const list = document.getElementById('dns-type-list');
+        
+        if (!input || !hiddenInput || !list) return;
+        
+        // Set default value
+        input.value = 'Tous les types';
+        hiddenInput.value = '';
+        
+        // Click/Focus - show list
+        const showList = () => {
+            list.innerHTML = '';
+            typeOptions.forEach(option => {
+                const li = document.createElement('li');
+                li.className = 'combobox-item';
+                if (hiddenInput.value === option.value) {
+                    li.classList.add('selected');
+                }
+                li.textContent = option.label;
+                li.addEventListener('click', () => {
+                    input.value = option.label;
+                    hiddenInput.value = option.value;
+                    list.style.display = 'none';
+                    loadDnsTable();
+                });
+                list.appendChild(li);
+            });
+            list.style.display = 'block';
+        };
+        
+        input.addEventListener('click', showList);
+        input.addEventListener('focus', showList);
+        
+        // Blur - hide list (with delay to allow click)
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                list.style.display = 'none';
+            }, 200);
+        });
+        
+        // Escape key - close list
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                list.style.display = 'none';
+                input.blur();
+            }
+        });
+    }
+
+    /**
+     * Initialize status filter combobox
+     */
+    function initStatusFilterCombobox() {
+        const statusOptions = [
+            { value: 'active', label: 'Actif seulement' },
+            { value: 'deleted', label: 'Supprimé seulement' },
+            { value: '', label: 'Tous les statuts' }
+        ];
+        
+        const input = document.getElementById('dns-status-input');
+        const hiddenInput = document.getElementById('dns-status-filter');
+        const list = document.getElementById('dns-status-list');
+        
+        if (!input || !hiddenInput || !list) return;
+        
+        // Set default value (active)
+        input.value = 'Actif seulement';
+        hiddenInput.value = 'active';
+        
+        // Click/Focus - show list
+        const showList = () => {
+            list.innerHTML = '';
+            statusOptions.forEach(option => {
+                const li = document.createElement('li');
+                li.className = 'combobox-item';
+                if (hiddenInput.value === option.value) {
+                    li.classList.add('selected');
+                }
+                li.textContent = option.label;
+                li.addEventListener('click', () => {
+                    input.value = option.label;
+                    hiddenInput.value = option.value;
+                    list.style.display = 'none';
+                    loadDnsTable();
+                });
+                list.appendChild(li);
+            });
+            list.style.display = 'block';
+        };
+        
+        input.addEventListener('click', showList);
+        input.addEventListener('focus', showList);
+        
+        // Blur - hide list (with delay to allow click)
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                list.style.display = 'none';
+            }, 200);
+        });
+        
+        // Escape key - close list
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                list.style.display = 'none';
+                input.blur();
+            }
+        });
+    }
+
+    /**
      * Generic function to populate combobox list
      */
     function populateComboboxList(listElement, items, mapFn, onClickFn) {
@@ -1277,6 +1400,8 @@
         // Initialize comboboxes
         initDomainCombobox();
         initZoneCombobox();
+        initTypeFilterCombobox();
+        initStatusFilterCombobox();
         
         // Search input
         const searchInput = document.getElementById('dns-search');
@@ -1284,18 +1409,6 @@
             searchInput.addEventListener('input', debounce(() => {
                 loadDnsTable();
             }, 300));
-        }
-
-        // Type filter
-        const typeFilter = document.getElementById('dns-type-filter');
-        if (typeFilter) {
-            typeFilter.addEventListener('change', () => loadDnsTable());
-        }
-
-        // Status filter
-        const statusFilter = document.getElementById('dns-status-filter');
-        if (statusFilter) {
-            statusFilter.addEventListener('change', () => loadDnsTable());
         }
 
         // Create button - use prefilled version
