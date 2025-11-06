@@ -623,22 +623,10 @@ body {
 
 .dns-modal-header {
   position: relative;
-  padding: 18px 48px 14px 48px;
-  border-bottom: none;
+  padding: 20px 56px 12px 56px;
+  border-bottom: 1px solid #e9ecef;
   text-align: center;
-  margin-bottom: 20px;
-}
-
-.dns-modal-title-wrapper {
-  display: inline-block;
-  text-align: center;
-  max-width: calc(100% - 80px);
-}
-
-.dns-modal-title-wrapper h2 {
-  margin: 0;
-  font-size: 20px;
-  color: #212529;
+  background: #fff;
 }
 
 .dns-modal-close {
@@ -648,15 +636,33 @@ body {
   background: transparent;
   border: none;
   font-size: 22px;
-  font-weight: 700;
-  color: #aaa;
   cursor: pointer;
-  padding: 0;
-  line-height: 1;
+  z-index: 20;
+  color: #6c757d;
 }
 
 .dns-modal-close:hover {
   color: #000;
+}
+
+.dns-modal-title-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: calc(100% - 120px);
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.dns-modal-title-wrapper h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: #212529;
+  line-height: 1.2;
+  text-align: center;
 }
 
 /* Two-column layout for modal form */
@@ -1290,9 +1296,31 @@ body {
 /* Domain display in modal */
 .dns-modal-domain {
   margin-top: 6px;
-  font-size: 15px;
+  font-size: 16px;
   color: #2f3b43;
   font-weight: 500;
   line-height: 1.25;
   word-break: break-word;
+  text-align: center;
+}
+
+/* Responsive adjustments for modal header */
+@media (max-width: 640px) {
+  .dns-modal-header {
+    padding: 14px 40px 10px 40px;
+  }
+  
+  .dns-modal-title-wrapper h2 {
+    font-size: 18px;
+  }
+  
+  .dns-modal-domain {
+    font-size: 14px;
+  }
+  
+  .dns-modal-close {
+    top: 8px;
+    right: 8px;
+    font-size: 20px;
+  }
 }
