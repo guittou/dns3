@@ -23,13 +23,28 @@ if (!$auth->isAdmin()) {
 ?>
 
 <div class="content-section">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h1 style="margin: 0;">Gestion des enregistrements DNS</h1>
-        <div class="dns-domain-filter-container">
-            <label for="dns-domain-filter">Domaine:</label>
-            <select id="dns-domain-filter">
-                <option value="">Tous les domaines</option>
-            </select>
+    <h1 style="margin-bottom: 20px;">Gestion des enregistrements DNS</h1>
+    
+    <!-- Comboboxes pour Domaine et Fichier de zone -->
+    <div class="dns-combobox-container" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+        <!-- Combobox Domaine -->
+        <div class="combobox-wrapper" style="flex: 1; min-width: 250px;">
+            <label for="dns-domain-input" style="display: block; margin-bottom: 5px; font-weight: 500;">Domaine:</label>
+            <div class="combobox">
+                <input type="text" id="dns-domain-input" class="combobox-input" placeholder="Rechercher un domaine..." autocomplete="off">
+                <input type="hidden" id="dns-domain-id">
+                <ul id="dns-domain-list" class="combobox-list" style="display: none;"></ul>
+            </div>
+        </div>
+        
+        <!-- Combobox Fichier de zone -->
+        <div class="combobox-wrapper" style="flex: 1; min-width: 250px;">
+            <label for="dns-zone-input" style="display: block; margin-bottom: 5px; font-weight: 500;">Fichier de zone:</label>
+            <div class="combobox">
+                <input type="text" id="dns-zone-input" class="combobox-input" placeholder="Rechercher une zone..." autocomplete="off">
+                <input type="hidden" id="dns-zone-id">
+                <ul id="dns-zone-list" class="combobox-list" style="display: none;"></ul>
+            </div>
         </div>
     </div>
     
@@ -52,7 +67,7 @@ if (!$auth->isAdmin()) {
                 <option value="">Tous les statuts</option>
             </select>
         </div>
-        <button id="dns-create-btn" class="btn-create">+ Créer un enregistrement</button>
+        <button id="dns-create-btn" class="btn-create" disabled>+ Créer un enregistrement</button>
     </div>
 
     <div class="dns-table-container">

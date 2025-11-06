@@ -7,6 +7,9 @@
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../lib/DnsValidator.php';
 
+// Constants for zone traversal
+define('MAX_ZONE_TRAVERSAL_DEPTH', 100); // Maximum iterations for zone tree traversal to prevent infinite loops
+
 class DnsRecord {
     private $db;
 
@@ -46,8 +49,26 @@ class DnsRecord {
         $params = [];
         $domainName = '';
         
+        // Handle zone_file_id filter (exact match) - takes priority over domain_id
+        if (isset($filters['zone_file_id']) && $filters['zone_file_id'] > 0) {
+            $sql .= " AND dr.zone_file_id = ?";
+            $params[] = $filters['zone_file_id'];
+            
+            // Try to get domain name for this zone (for display)
+            $zoneResult = $this->getZoneById($filters['zone_file_id']);
+            if ($zoneResult) {
+                // Try to find the top master and get domain
+                $topMaster = $this->getTopMasterForZone($filters['zone_file_id']);
+                if ($topMaster) {
+                    $domainResult = $this->getDomainByZoneFileId($topMaster);
+                    if ($domainResult) {
+                        $domainName = $domainResult['domain'];
+                    }
+                }
+            }
+        }
         // Handle domain_id filter by finding all allowed zone_file_ids
-        if (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
+        elseif (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
             // Get domain name for later use
             $domainResult = $this->getDomainById($filters['domain_id']);
             if ($domainResult) {
@@ -696,6 +717,88 @@ class DnsRecord {
         } catch (Exception $e) {
             error_log("Error getting zone file IDs for domain: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Get zone file by ID
+     * 
+     * @param int $zone_file_id Zone file ID
+     * @return array|null Zone data or null if not found
+     */
+    private function getZoneById($zone_file_id) {
+        try {
+            $sql = "SELECT id, name, filename FROM zone_files WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$zone_file_id]);
+            $zone = $stmt->fetch();
+            return $zone ?: null;
+        } catch (Exception $e) {
+            error_log("Error getting zone by ID: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get top master zone for a given zone (traverses upward via zone_file_includes)
+     * 
+     * @param int $zone_file_id Zone file ID
+     * @return int|null Top master zone ID or null if not found
+     */
+    private function getTopMasterForZone($zone_file_id) {
+        try {
+            $currentZoneId = $zone_file_id;
+            $visited = [$currentZoneId => true];
+            $iteration = 0;
+            
+            while ($iteration < MAX_ZONE_TRAVERSAL_DEPTH) {
+                // Check if current zone has a parent
+                $sql = "SELECT parent_id FROM zone_file_includes WHERE include_id = ? LIMIT 1";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$currentZoneId]);
+                $parent = $stmt->fetch();
+                
+                if (!$parent) {
+                    // No parent found, currentZoneId is the top master
+                    return $currentZoneId;
+                }
+                
+                $parentId = $parent['parent_id'];
+                
+                // Avoid cycles
+                if (isset($visited[$parentId])) {
+                    error_log("Cycle detected in zone_file_includes for zone_id {$zone_file_id}");
+                    return $currentZoneId;
+                }
+                
+                $visited[$parentId] = true;
+                $currentZoneId = $parentId;
+                $iteration++;
+            }
+            
+            return $currentZoneId;
+        } catch (Exception $e) {
+            error_log("Error getting top master for zone: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get domain by zone_file_id (master zone)
+     * 
+     * @param int $zone_file_id Zone file ID
+     * @return array|null Domain data or null if not found
+     */
+    private function getDomainByZoneFileId($zone_file_id) {
+        try {
+            $sql = "SELECT id, domain FROM domaine_list WHERE zone_file_id = ? AND status = 'active' LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$zone_file_id]);
+            $domain = $stmt->fetch();
+            return $domain ?: null;
+        } catch (Exception $e) {
+            error_log("Error getting domain by zone_file_id: " . $e->getMessage());
+            return null;
         }
     }
 
