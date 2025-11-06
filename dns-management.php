@@ -57,7 +57,7 @@ if (!$auth->isAdmin()) {
 
     <div class="dns-toolbar">
         <div class="dns-filters">
-            <input type="text" id="dns-search" placeholder="Rechercher par nom..." />
+            <input type="text" id="dns-search" placeholder="Rechercher par nom ou valeur..." aria-label="Rechercher par nom ou valeur" />
             <select id="dns-type-filter">
                 <option value="">Tous les types</option>
                 <option value="A">A</option>
