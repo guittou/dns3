@@ -15,9 +15,17 @@ class DnsRecord {
     }
 
     /**
+     * Get database connection for direct queries
+     * @return PDO Database connection
+     */
+    public function getConnection() {
+        return $this->db;
+    }
+
+    /**
      * Search DNS records with filters
      * 
-     * @param array $filters Optional filters (name, type, status)
+     * @param array $filters Optional filters (name, type, status, domain_id)
      * @param int $limit Maximum number of results
      * @param int $offset Pagination offset
      * @return array Array of DNS records
@@ -28,14 +36,41 @@ class DnsRecord {
                        u2.username as updated_by_username,
                        dr.zone_file_id,
                        COALESCE(zf.name, '') as zone_name,
-                       COALESCE(zf.filename, '') as zone_file_name
-                FROM dns_records dr
+                       COALESCE(zf.filename, '') as zone_file_name";
+        
+        // If domain_id filter is provided, add domain_name to select
+        if (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
+            $sql .= ", COALESCE(dl.domain, '') as domain_name";
+        }
+        
+        $sql .= " FROM dns_records dr
                 LEFT JOIN users u1 ON dr.created_by = u1.id
                 LEFT JOIN users u2 ON dr.updated_by = u2.id
-                LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id
-                WHERE 1=1";
+                LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id";
+        
+        // If domain_id filter is provided, join with domaine_list
+        if (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
+            $sql .= " LEFT JOIN domaine_list dl ON dl.id = ?";
+        }
+        
+        $sql .= " WHERE 1=1";
         
         $params = [];
+        
+        // Handle domain_id filter by finding all allowed zone_file_ids
+        if (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
+            $params[] = $filters['domain_id']; // for the LEFT JOIN above
+            
+            $allowedZoneFileIds = $this->getZoneFileIdsForDomain($filters['domain_id']);
+            if (empty($allowedZoneFileIds)) {
+                // No zone files for this domain, return empty result
+                return [];
+            }
+            
+            $placeholders = implode(',', array_fill(0, count($allowedZoneFileIds), '?'));
+            $sql .= " AND dr.zone_file_id IN ($placeholders)";
+            $params = array_merge($params, $allowedZoneFileIds);
+        }
         
         if (isset($filters['name']) && $filters['name'] !== '') {
             $sql .= " AND dr.name LIKE ?";
@@ -73,6 +108,11 @@ class DnsRecord {
                 }
                 if (!isset($record['zone_file_name']) || $record['zone_file_name'] === null) {
                     $record['zone_file_name'] = '';
+                }
+                
+                // Ensure domain_name is present (empty if not filtered by domain)
+                if (!isset($record['domain_name'])) {
+                    $record['domain_name'] = '';
                 }
             }
             
@@ -605,6 +645,61 @@ class DnsRecord {
         }
         
         return $fields;
+    }
+
+    /**
+     * Get all zone_file_ids for a domain (master + all descendants via includes)
+     * Uses BFS (breadth-first search) to traverse zone_file_includes table
+     * 
+     * @param int $domain_id Domain ID from domaine_list
+     * @return array Array of zone_file_ids
+     */
+    private function getZoneFileIdsForDomain($domain_id) {
+        try {
+            // Get the master zone_file_id for this domain
+            $sql = "SELECT zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$domain_id]);
+            $domain = $stmt->fetch();
+            
+            if (!$domain) {
+                return [];
+            }
+            
+            $masterZoneFileId = $domain['zone_file_id'];
+            
+            // Start with the master zone file
+            $allowedZoneFileIds = [$masterZoneFileId];
+            $visited = [$masterZoneFileId => true];
+            $queue = [$masterZoneFileId];
+            
+            // BFS to find all descendant zone files via zone_file_includes
+            while (!empty($queue)) {
+                $currentZoneFileId = array_shift($queue);
+                
+                // Find all zone files included by the current zone file
+                $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([$currentZoneFileId]);
+                $includes = $stmt->fetchAll();
+                
+                foreach ($includes as $include) {
+                    $includeId = $include['include_id'];
+                    
+                    // Avoid cycles (shouldn't happen in a well-formed tree, but be safe)
+                    if (!isset($visited[$includeId])) {
+                        $visited[$includeId] = true;
+                        $allowedZoneFileIds[] = $includeId;
+                        $queue[] = $includeId;
+                    }
+                }
+            }
+            
+            return $allowedZoneFileIds;
+        } catch (Exception $e) {
+            error_log("Error getting zone file IDs for domain: " . $e->getMessage());
+            return [];
+        }
     }
 }
 ?>

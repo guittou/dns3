@@ -23,7 +23,15 @@ if (!$auth->isAdmin()) {
 ?>
 
 <div class="content-section">
-    <h1>Gestion des enregistrements DNS</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="margin: 0;">Gestion des enregistrements DNS</h1>
+        <div>
+            <label for="dns-domain-filter" style="margin-right: 10px;">Domaine:</label>
+            <select id="dns-domain-filter" style="min-width: 200px;">
+                <option value="">Tous les domaines</option>
+            </select>
+        </div>
+    </div>
     
     <div id="dns-message" class="dns-message" style="display: none;"></div>
 
@@ -51,26 +59,22 @@ if (!$auth->isAdmin()) {
         <table class="dns-table">
             <thead>
                 <tr>
-                    <!-- Zone column as first column -->
-                    <th class="col-zone">Zone</th>
+                    <th class="col-domain">Domaine</th>
+                    <th class="col-zonefile">Fichier de zone</th>
                     <th class="col-name">Nom</th>
                     <th class="col-ttl">TTL</th>
                     <th class="col-class">Classe</th>
                     <th class="col-type">Type</th>
                     <th class="col-value">Valeur</th>
-                    <th class="col-requester">Demandeur</th>
-                    <th class="col-expires">Expire</th>
-                    <th class="col-lastseen">Vu le</th>
-                    <th class="col-created">Créé le</th>
                     <th class="col-updated">Modifié le</th>
+                    <th class="col-lastseen">Vu le</th>
                     <th class="col-status">Statut</th>
-                    <th class="col-id">ID</th>
                     <th class="col-actions">Actions</th>
                 </tr>
             </thead>
             <tbody id="dns-table-body">
                 <tr>
-                    <td colspan="14" style="text-align: center; padding: 20px;">Chargement...</td>
+                    <td colspan="11" style="text-align: center; padding: 20px;">Chargement...</td>
                 </tr>
             </tbody>
         </table>
