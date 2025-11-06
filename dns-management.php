@@ -25,9 +25,9 @@ if (!$auth->isAdmin()) {
 <div class="content-section">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h1 style="margin: 0;">Gestion des enregistrements DNS</h1>
-        <div>
-            <label for="dns-domain-filter" style="margin-right: 10px;">Domaine:</label>
-            <select id="dns-domain-filter" style="min-width: 200px;">
+        <div class="dns-domain-filter-container">
+            <label for="dns-domain-filter">Domaine:</label>
+            <select id="dns-domain-filter">
                 <option value="">Tous les domaines</option>
             </select>
         </div>
