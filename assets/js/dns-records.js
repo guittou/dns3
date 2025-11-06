@@ -873,6 +873,7 @@
         const title = document.getElementById('dns-modal-title');
         const lastSeenGroup = document.getElementById('record-last-seen-group');
         const deleteBtn = document.getElementById('record-delete-btn');
+        const domainDiv = document.getElementById('dns-modal-domain');
         
         if (!modal || !form || !title) return;
 
@@ -889,6 +890,25 @@
         // Hide delete button for create mode
         if (deleteBtn) {
             deleteBtn.style.display = 'none';
+        }
+        
+        // Populate domain name from combobox if selected
+        if (domainDiv) {
+            try {
+                const domainInput = document.getElementById('dns-domain-input');
+                const domainValue = domainInput ? domainInput.value.trim() : '';
+                
+                if (domainValue) {
+                    domainDiv.textContent = domainValue;
+                    domainDiv.style.display = 'block';
+                } else {
+                    domainDiv.style.display = 'none';
+                }
+            } catch (error) {
+                // Silently handle error, don't block modal opening
+                console.error('Error populating domain in modal:', error);
+                domainDiv.style.display = 'none';
+            }
         }
         
         // Load zone files for selector (no selection for new records)
@@ -918,6 +938,7 @@
             const form = document.getElementById('dns-form');
             const title = document.getElementById('dns-modal-title');
             const lastSeenGroup = document.getElementById('record-last-seen-group');
+            const domainDiv = document.getElementById('dns-modal-domain');
             
             if (!modal || !form || !title) return;
 
@@ -934,6 +955,24 @@
                 title.textContent = `Modifier l'enregistrement DNS - ${domainName}`;
             } else {
                 title.textContent = 'Modifier l\'enregistrement DNS';
+            }
+            
+            // Populate domain name in separate line with priority order
+            if (domainDiv) {
+                try {
+                    const displayDomain = record.domain_name || record.top_master_name || record.zone_name || '';
+                    
+                    if (displayDomain) {
+                        domainDiv.textContent = displayDomain;
+                        domainDiv.style.display = 'block';
+                    } else {
+                        domainDiv.style.display = 'none';
+                    }
+                } catch (error) {
+                    // Silently handle error, don't block modal opening
+                    console.error('Error populating domain in modal:', error);
+                    domainDiv.style.display = 'none';
+                }
             }
             
             form.dataset.mode = 'edit';
