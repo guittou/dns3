@@ -87,7 +87,8 @@ class DnsRecord {
         }
         
         if (isset($filters['name']) && $filters['name'] !== '') {
-            $sql .= " AND dr.name LIKE ?";
+            $sql .= " AND (dr.name LIKE ? OR dr.value LIKE ?)";
+            $params[] = '%' . $filters['name'] . '%';
             $params[] = '%' . $filters['name'] . '%';
         }
         
