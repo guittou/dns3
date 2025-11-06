@@ -152,7 +152,7 @@ try {
                 }
                 
                 // Validate domain format
-                if (!preg_match('/^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$/', $data['domain'])) {
+                if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/', $data['domain'])) {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid domain format']);
                     exit;
@@ -248,7 +248,7 @@ try {
                 }
                 
                 // Validate domain format
-                if (!preg_match('/^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$/', $data['domain'])) {
+                if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/', $data['domain'])) {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid domain format']);
                     exit;
