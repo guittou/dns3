@@ -234,6 +234,8 @@
     
     let allDomains = [];
     let allZones = [];
+    let ALL_ZONES = [];  // Complete list of all zones
+    let CURRENT_ZONE_LIST = [];  // Currently filtered zones (by domain or all)
     let selectedDomainId = null;
     let selectedZoneId = null;
 
@@ -304,6 +306,8 @@
             // Load all active zones
             const result = await zoneApiCall('list_zones', { status: 'active' });
             allZones = (result.data || []).filter(z => z.file_type === 'master' || z.file_type === 'include');
+            ALL_ZONES = [...allZones];  // Keep a copy of all zones
+            CURRENT_ZONE_LIST = [...allZones];  // Initialize current list
             
             const input = document.getElementById('dns-zone-input');
             const hiddenInput = document.getElementById('dns-zone-id');
@@ -311,10 +315,10 @@
             
             if (!input || !hiddenInput || !list) return;
             
-            // Input event - filter and show list
+            // Input event - filter CURRENT_ZONE_LIST and show list
             input.addEventListener('input', () => {
                 const query = input.value.toLowerCase().trim();
-                const filtered = allZones.filter(z => 
+                const filtered = CURRENT_ZONE_LIST.filter(z => 
                     z.name.toLowerCase().includes(query) || 
                     z.filename.toLowerCase().includes(query)
                 );
@@ -327,20 +331,14 @@
                 });
             });
             
-            // Focus - show filtered list based on domain
+            // Focus - show CURRENT_ZONE_LIST (filtered by domain if domain selected)
             input.addEventListener('focus', () => {
-                if (selectedDomainId) {
-                    // Show only zones for this domain
-                    populateZoneComboboxForDomain(selectedDomainId);
-                } else {
-                    // Show all zones
-                    populateComboboxList(list, allZones, (zone) => ({
-                        id: zone.id,
-                        text: `${zone.name} (${zone.file_type})`
-                    }), (zone) => {
-                        selectZone(zone.id, zone.name, zone.file_type);
-                    });
-                }
+                populateComboboxList(list, CURRENT_ZONE_LIST, (zone) => ({
+                    id: zone.id,
+                    text: `${zone.name} (${zone.file_type})`
+                }), (zone) => {
+                    selectZone(zone.id, zone.name, zone.file_type);
+                });
             });
             
             // Blur - hide list (with delay to allow click)
@@ -433,8 +431,7 @@
         if (list) list.style.display = 'none';
         
         // Enable create button
-        const createBtn = document.getElementById('dns-create-btn');
-        if (createBtn) createBtn.disabled = false;
+        updateCreateBtnState();
         
         // When zone is selected, auto-select the associated domain
         await setDomainForZone(zoneId);
@@ -455,30 +452,27 @@
         if (input) input.value = '';
         if (hiddenInput) hiddenInput.value = '';
         
-        // Disable create button
-        const createBtn = document.getElementById('dns-create-btn');
-        if (createBtn) createBtn.disabled = true;
+        // Update create button state
+        updateCreateBtnState();
     }
 
     /**
      * Populate zone combobox for a specific domain
+     * This updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
      */
     async function populateZoneComboboxForDomain(domainId) {
         try {
             const result = await apiCall('list_zones_by_domain', { domain_id: domainId });
             const zones = result.data || [];
             
-            const list = document.getElementById('dns-zone-list');
-            if (!list) return;
+            // Update CURRENT_ZONE_LIST with filtered zones
+            CURRENT_ZONE_LIST = zones;
             
-            populateComboboxList(list, zones, (zone) => ({
-                id: zone.id,
-                text: `${zone.name} (${zone.file_type})`
-            }), (zone) => {
-                selectZone(zone.id, zone.name, zone.file_type);
-            });
+            // DO NOT open the combobox list - user must click/focus to see it
+            // DO NOT auto-select a zone - zone selection must be explicit
         } catch (error) {
             console.error('Error populating zones for domain:', error);
+            CURRENT_ZONE_LIST = [];
         }
     }
 
@@ -498,10 +492,57 @@
                 
                 if (input) input.value = domain.domain;
                 if (hiddenInput) hiddenInput.value = domain.id;
+                
+                // Update CURRENT_ZONE_LIST to show zones for this domain
+                // but do NOT auto-open the list
+                await populateZoneComboboxForDomain(domain.id);
             }
         } catch (error) {
             console.error('Error setting domain for zone:', error);
         }
+    }
+
+    /**
+     * Update create button state based on zone selection
+     */
+    function updateCreateBtnState() {
+        const createBtn = document.getElementById('dns-create-btn');
+        const zoneId = document.getElementById('dns-zone-id');
+        
+        if (createBtn && zoneId) {
+            // Enable only if zone is selected (has non-empty value)
+            createBtn.disabled = !zoneId.value || zoneId.value === '';
+        }
+    }
+
+    /**
+     * Reset domain and zone filters
+     */
+    function resetDomainZoneFilters() {
+        // Clear domain selection
+        selectedDomainId = null;
+        const domainInput = document.getElementById('dns-domain-input');
+        const domainHidden = document.getElementById('dns-domain-id');
+        if (domainInput) domainInput.value = '';
+        if (domainHidden) domainHidden.value = '';
+        
+        // Clear zone selection
+        clearZoneSelection();
+        
+        // Restore CURRENT_ZONE_LIST to ALL_ZONES
+        CURRENT_ZONE_LIST = [...ALL_ZONES];
+        
+        // Close any open lists
+        const domainList = document.getElementById('dns-domain-list');
+        const zoneList = document.getElementById('dns-zone-list');
+        if (domainList) domainList.style.display = 'none';
+        if (zoneList) zoneList.style.display = 'none';
+        
+        // Disable create button
+        updateCreateBtnState();
+        
+        // Reload table with no filters
+        loadDnsTable();
     }
 
     /**
@@ -1227,6 +1268,14 @@
         const createBtn = document.getElementById('dns-create-btn');
         if (createBtn) {
             createBtn.addEventListener('click', openCreateModalPrefilled);
+            // Set initial state (disabled by default until zone is selected)
+            updateCreateBtnState();
+        }
+
+        // Reset button
+        const resetBtn = document.getElementById('dns-reset-filters-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', resetDomainZoneFilters);
         }
 
         // Form submit
