@@ -184,6 +184,16 @@ try {
                 }
                 $filters['domain_id'] = $domainId;
             }
+            // zone_file_id filter takes priority over domain_id
+            if (isset($_GET['zone_file_id']) && $_GET['zone_file_id'] !== '') {
+                $zoneFileId = (int)$_GET['zone_file_id'];
+                if ($zoneFileId <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Invalid zone_file_id: must be a positive integer']);
+                    exit;
+                }
+                $filters['zone_file_id'] = $zoneFileId;
+            }
 
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
             $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
@@ -486,6 +496,153 @@ try {
                 error_log("Error fetching domains: " . $e->getMessage());
                 http_response_code(500);
                 echo json_encode(['error' => 'Failed to fetch domains']);
+            }
+            break;
+
+        case 'list_zones_by_domain':
+            // List zones (master + includes descendants) for a given domain (requires authentication)
+            // Uses BFS on zone_file_includes to find all descendant zones
+            requireAuth();
+
+            $domain_id = isset($_GET['domain_id']) ? (int)$_GET['domain_id'] : 0;
+            if ($domain_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid domain_id']);
+                exit;
+            }
+
+            try {
+                // Get the master zone_file_id for this domain
+                $sql = "SELECT zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
+                $stmt = $dnsRecord->getConnection()->prepare($sql);
+                $stmt->execute([$domain_id]);
+                $domain = $stmt->fetch();
+                
+                if (!$domain || $domain['zone_file_id'] === null) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                    exit;
+                }
+                
+                $masterZoneFileId = $domain['zone_file_id'];
+                
+                // BFS to collect master + all descendant zone files via zone_file_includes
+                $zoneFileIds = [$masterZoneFileId];
+                $visited = [$masterZoneFileId => true];
+                $queue = [$masterZoneFileId];
+                
+                while (!empty($queue)) {
+                    $currentZoneFileId = array_shift($queue);
+                    
+                    // Find all zone files included by the current zone file
+                    $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
+                    $stmt = $dnsRecord->getConnection()->prepare($sql);
+                    $stmt->execute([$currentZoneFileId]);
+                    $includes = $stmt->fetchAll();
+                    
+                    foreach ($includes as $include) {
+                        $includeId = $include['include_id'];
+                        
+                        // Avoid cycles
+                        if (!isset($visited[$includeId])) {
+                            $visited[$includeId] = true;
+                            $zoneFileIds[] = $includeId;
+                            $queue[] = $includeId;
+                        }
+                    }
+                }
+                
+                // Fetch zone file details for all collected IDs
+                $zones = [];
+                if (!empty($zoneFileIds)) {
+                    $placeholders = implode(',', array_fill(0, count($zoneFileIds), '?'));
+                    $sql = "SELECT id, name, filename, file_type 
+                            FROM zone_files 
+                            WHERE id IN ($placeholders) AND status = 'active'
+                            ORDER BY file_type DESC, name ASC"; // master first, then includes
+                    $stmt = $dnsRecord->getConnection()->prepare($sql);
+                    $stmt->execute($zoneFileIds);
+                    $zones = $stmt->fetchAll();
+                }
+                
+                echo json_encode([
+                    'success' => true,
+                    'data' => $zones
+                ]);
+            } catch (Exception $e) {
+                error_log("Error listing zones by domain: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to list zones for domain']);
+            }
+            break;
+
+        case 'get_domain_for_zone':
+            // Get the domain associated with the top master of a zone (requires authentication)
+            // Traverses zone_file_includes upward to find the top master, then finds domain in domaine_list
+            requireAuth();
+
+            $zone_id = isset($_GET['zone_id']) ? (int)$_GET['zone_id'] : 0;
+            if ($zone_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid zone_id']);
+                exit;
+            }
+
+            try {
+                // Traverse upward via zone_file_includes to find the top master
+                $currentZoneId = $zone_id;
+                $visited = [$currentZoneId => true];
+                $maxIterations = 100; // Safety limit to prevent infinite loops
+                $iteration = 0;
+                
+                while ($iteration < $maxIterations) {
+                    // Check if current zone has a parent
+                    $sql = "SELECT parent_id FROM zone_file_includes WHERE include_id = ? LIMIT 1";
+                    $stmt = $dnsRecord->getConnection()->prepare($sql);
+                    $stmt->execute([$currentZoneId]);
+                    $parent = $stmt->fetch();
+                    
+                    if (!$parent) {
+                        // No parent found, currentZoneId is the top master
+                        break;
+                    }
+                    
+                    $parentId = $parent['parent_id'];
+                    
+                    // Avoid cycles
+                    if (isset($visited[$parentId])) {
+                        error_log("Cycle detected in zone_file_includes for zone_id {$zone_id}");
+                        break;
+                    }
+                    
+                    $visited[$parentId] = true;
+                    $currentZoneId = $parentId;
+                    $iteration++;
+                }
+                
+                // Now currentZoneId is the top master, find the domain
+                $sql = "SELECT id, domain FROM domaine_list WHERE zone_file_id = ? AND status = 'active' LIMIT 1";
+                $stmt = $dnsRecord->getConnection()->prepare($sql);
+                $stmt->execute([$currentZoneId]);
+                $domain = $stmt->fetch();
+                
+                if ($domain) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => $domain
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => null
+                    ]);
+                }
+            } catch (Exception $e) {
+                error_log("Error getting domain for zone: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to get domain for zone']);
             }
             break;
 

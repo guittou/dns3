@@ -228,6 +228,282 @@
         }
     }
 
+    // =========================================================================
+    // Combobox Component State
+    // =========================================================================
+    
+    let allDomains = [];
+    let allZones = [];
+    let selectedDomainId = null;
+    let selectedZoneId = null;
+
+    /**
+     * Initialize domain combobox
+     */
+    async function initDomainCombobox() {
+        try {
+            // Load all domains
+            const result = await apiCall('list_domains');
+            allDomains = result.data || [];
+            
+            const input = document.getElementById('dns-domain-input');
+            const hiddenInput = document.getElementById('dns-domain-id');
+            const list = document.getElementById('dns-domain-list');
+            
+            if (!input || !hiddenInput || !list) return;
+            
+            // Input event - filter and show list
+            input.addEventListener('input', () => {
+                const query = input.value.toLowerCase().trim();
+                const filtered = allDomains.filter(d => 
+                    d.domain.toLowerCase().includes(query)
+                );
+                
+                populateComboboxList(list, filtered, (domain) => ({
+                    id: domain.id,
+                    text: domain.domain
+                }), (domain) => {
+                    selectDomain(domain.id, domain.domain);
+                });
+            });
+            
+            // Focus - show full list
+            input.addEventListener('focus', () => {
+                populateComboboxList(list, allDomains, (domain) => ({
+                    id: domain.id,
+                    text: domain.domain
+                }), (domain) => {
+                    selectDomain(domain.id, domain.domain);
+                });
+            });
+            
+            // Blur - hide list (with delay to allow click)
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    list.style.display = 'none';
+                }, 200);
+            });
+            
+            // Escape key - close list
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    list.style.display = 'none';
+                    input.blur();
+                }
+            });
+        } catch (error) {
+            console.error('Error initializing domain combobox:', error);
+        }
+    }
+
+    /**
+     * Initialize zone combobox
+     */
+    async function initZoneCombobox() {
+        try {
+            // Load all active zones
+            const result = await zoneApiCall('list_zones', { status: 'active' });
+            allZones = (result.data || []).filter(z => z.file_type === 'master' || z.file_type === 'include');
+            
+            const input = document.getElementById('dns-zone-input');
+            const hiddenInput = document.getElementById('dns-zone-id');
+            const list = document.getElementById('dns-zone-list');
+            
+            if (!input || !hiddenInput || !list) return;
+            
+            // Input event - filter and show list
+            input.addEventListener('input', () => {
+                const query = input.value.toLowerCase().trim();
+                const filtered = allZones.filter(z => 
+                    z.name.toLowerCase().includes(query) || 
+                    z.filename.toLowerCase().includes(query)
+                );
+                
+                populateComboboxList(list, filtered, (zone) => ({
+                    id: zone.id,
+                    text: `${zone.name} (${zone.file_type})`
+                }), (zone) => {
+                    selectZone(zone.id, zone.name, zone.file_type);
+                });
+            });
+            
+            // Focus - show filtered list based on domain
+            input.addEventListener('focus', () => {
+                if (selectedDomainId) {
+                    // Show only zones for this domain
+                    populateZoneComboboxForDomain(selectedDomainId);
+                } else {
+                    // Show all zones
+                    populateComboboxList(list, allZones, (zone) => ({
+                        id: zone.id,
+                        text: `${zone.name} (${zone.file_type})`
+                    }), (zone) => {
+                        selectZone(zone.id, zone.name, zone.file_type);
+                    });
+                }
+            });
+            
+            // Blur - hide list (with delay to allow click)
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    list.style.display = 'none';
+                }, 200);
+            });
+            
+            // Escape key - close list
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    list.style.display = 'none';
+                    input.blur();
+                }
+            });
+        } catch (error) {
+            console.error('Error initializing zone combobox:', error);
+        }
+    }
+
+    /**
+     * Generic function to populate combobox list
+     */
+    function populateComboboxList(listElement, items, mapFn, onClickFn) {
+        listElement.innerHTML = '';
+        
+        if (items.length === 0) {
+            const li = document.createElement('li');
+            li.className = 'combobox-item empty';
+            li.textContent = 'Aucun résultat';
+            listElement.appendChild(li);
+            listElement.style.display = 'block';
+            return;
+        }
+        
+        items.forEach(item => {
+            const mapped = mapFn(item);
+            const li = document.createElement('li');
+            li.className = 'combobox-item';
+            li.textContent = mapped.text;
+            li.dataset.id = mapped.id;
+            
+            li.addEventListener('click', () => {
+                onClickFn(item);
+            });
+            
+            listElement.appendChild(li);
+        });
+        
+        listElement.style.display = 'block';
+    }
+
+    /**
+     * Select a domain
+     */
+    function selectDomain(domainId, domainName) {
+        selectedDomainId = domainId;
+        
+        const input = document.getElementById('dns-domain-input');
+        const hiddenInput = document.getElementById('dns-domain-id');
+        const list = document.getElementById('dns-domain-list');
+        
+        if (input) input.value = domainName;
+        if (hiddenInput) hiddenInput.value = domainId;
+        if (list) list.style.display = 'none';
+        
+        // When domain is selected, filter zones
+        populateZoneComboboxForDomain(domainId);
+        
+        // Clear zone selection (user must re-select)
+        clearZoneSelection();
+        
+        // Reload table with domain filter
+        loadDnsTable();
+    }
+
+    /**
+     * Select a zone
+     */
+    async function selectZone(zoneId, zoneName, zoneType) {
+        selectedZoneId = zoneId;
+        
+        const input = document.getElementById('dns-zone-input');
+        const hiddenInput = document.getElementById('dns-zone-id');
+        const list = document.getElementById('dns-zone-list');
+        
+        if (input) input.value = `${zoneName} (${zoneType})`;
+        if (hiddenInput) hiddenInput.value = zoneId;
+        if (list) list.style.display = 'none';
+        
+        // Enable create button
+        const createBtn = document.getElementById('dns-create-btn');
+        if (createBtn) createBtn.disabled = false;
+        
+        // When zone is selected, auto-select the associated domain
+        await setDomainForZone(zoneId);
+        
+        // Reload table with zone filter
+        loadDnsTable();
+    }
+
+    /**
+     * Clear zone selection
+     */
+    function clearZoneSelection() {
+        selectedZoneId = null;
+        
+        const input = document.getElementById('dns-zone-input');
+        const hiddenInput = document.getElementById('dns-zone-id');
+        
+        if (input) input.value = '';
+        if (hiddenInput) hiddenInput.value = '';
+        
+        // Disable create button
+        const createBtn = document.getElementById('dns-create-btn');
+        if (createBtn) createBtn.disabled = true;
+    }
+
+    /**
+     * Populate zone combobox for a specific domain
+     */
+    async function populateZoneComboboxForDomain(domainId) {
+        try {
+            const result = await apiCall('list_zones_by_domain', { domain_id: domainId });
+            const zones = result.data || [];
+            
+            const list = document.getElementById('dns-zone-list');
+            if (!list) return;
+            
+            populateComboboxList(list, zones, (zone) => ({
+                id: zone.id,
+                text: `${zone.name} (${zone.file_type})`
+            }), (zone) => {
+                selectZone(zone.id, zone.name, zone.file_type);
+            });
+        } catch (error) {
+            console.error('Error populating zones for domain:', error);
+        }
+    }
+
+    /**
+     * Set domain for a given zone (auto-complete domain based on zone)
+     */
+    async function setDomainForZone(zoneId) {
+        try {
+            const result = await apiCall('get_domain_for_zone', { zone_id: zoneId });
+            const domain = result.data;
+            
+            if (domain) {
+                selectedDomainId = domain.id;
+                
+                const input = document.getElementById('dns-domain-input');
+                const hiddenInput = document.getElementById('dns-domain-id');
+                
+                if (input) input.value = domain.domain;
+                if (hiddenInput) hiddenInput.value = domain.id;
+            }
+        } catch (error) {
+            console.error('Error setting domain for zone:', error);
+        }
+    }
+
     /**
      * Load available zone files for selector
      */
@@ -381,9 +657,11 @@
                 filters.status = statusFilter.value;
             }
 
-            const domainFilter = document.getElementById('dns-domain-filter');
-            if (domainFilter && domainFilter.value) {
-                filters.domain_id = domainFilter.value;
+            // Priority: zone filter takes precedence over domain filter
+            if (selectedZoneId) {
+                filters.zone_file_id = selectedZoneId;
+            } else if (selectedDomainId) {
+                filters.domain_id = selectedDomainId;
             }
 
             const result = await apiCall('list', filters);
@@ -489,6 +767,63 @@
     }
 
     /**
+     * Open modal to create a new record (with prefilled zone and domain in title)
+     */
+    async function openCreateModalPrefilled() {
+        const modal = document.getElementById('dns-modal');
+        const form = document.getElementById('dns-form');
+        const title = document.getElementById('dns-modal-title');
+        const lastSeenGroup = document.getElementById('record-last-seen-group');
+        const deleteBtn = document.getElementById('record-delete-btn');
+        
+        if (!modal || !form || !title) return;
+
+        // Get the selected domain name for the title
+        let domainName = '';
+        if (selectedDomainId) {
+            const domainInput = document.getElementById('dns-domain-input');
+            if (domainInput) {
+                domainName = domainInput.value;
+            }
+        }
+        
+        // Set title with domain name
+        if (domainName) {
+            title.textContent = `Créer un enregistrement DNS - ${domainName}`;
+        } else {
+            title.textContent = 'Créer un enregistrement DNS';
+        }
+        
+        form.reset();
+        form.dataset.mode = 'create';
+        delete form.dataset.recordId;
+        
+        // Hide last_seen field for new records (server-managed)
+        if (lastSeenGroup) {
+            lastSeenGroup.style.display = 'none';
+        }
+        
+        // Hide delete button for create mode
+        if (deleteBtn) {
+            deleteBtn.style.display = 'none';
+        }
+        
+        // Load zone files and preselect the selected zone
+        await populateZoneFileSelect(selectedZoneId);
+
+        // Update field visibility based on default record type
+        updateFieldVisibility();
+
+        modal.style.display = 'block';
+        modal.classList.add('open');
+        
+        // Call centering helper if available
+        if (typeof window.ensureModalCentered === 'function') {
+            window.ensureModalCentered(modal);
+        }
+    }
+
+    /**
      * Open modal to create a new record
      */
     async function openCreateModal() {
@@ -545,7 +880,21 @@
             
             if (!modal || !form || !title) return;
 
-            title.textContent = 'Modifier l\'enregistrement DNS';
+            // Try to get domain name for the title
+            let domainName = record.domain_name || '';
+            if (!domainName && selectedDomainId) {
+                const domainInput = document.getElementById('dns-domain-input');
+                if (domainInput) {
+                    domainName = domainInput.value;
+                }
+            }
+            
+            if (domainName) {
+                title.textContent = `Modifier l'enregistrement DNS - ${domainName}`;
+            } else {
+                title.textContent = 'Modifier l\'enregistrement DNS';
+            }
+            
             form.dataset.mode = 'edit';
             form.dataset.recordId = recordId;
             
@@ -850,6 +1199,10 @@
      * Initialize event listeners
      */
     function init() {
+        // Initialize comboboxes
+        initDomainCombobox();
+        initZoneCombobox();
+        
         // Search input
         const searchInput = document.getElementById('dns-search');
         if (searchInput) {
@@ -870,16 +1223,10 @@
             statusFilter.addEventListener('change', () => loadDnsTable());
         }
 
-        // Domain filter
-        const domainFilter = document.getElementById('dns-domain-filter');
-        if (domainFilter) {
-            domainFilter.addEventListener('change', () => loadDnsTable());
-        }
-
-        // Create button
+        // Create button - use prefilled version
         const createBtn = document.getElementById('dns-create-btn');
         if (createBtn) {
-            createBtn.addEventListener('click', openCreateModal);
+            createBtn.addEventListener('click', openCreateModalPrefilled);
         }
 
         // Form submit
@@ -913,13 +1260,8 @@
         // Initial load
         const tableBody = document.getElementById('dns-table-body');
         if (tableBody) {
-            // First populate domain select, then load table
-            populateDomainSelect().then(() => {
-                loadDnsTable();
-            }).catch(err => {
-                console.error('Error in initial load:', err);
-                loadDnsTable(); // Still load table even if domain population fails
-            });
+            // Load table immediately (comboboxes initialized asynchronously)
+            loadDnsTable();
         }
     }
 
