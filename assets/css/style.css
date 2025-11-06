@@ -1277,3 +1277,12 @@ body {
   background-position: right 10px center;
   background-size: 16px 16px;
 }
+
+/* Domain display in modal */
+.dns-modal-domain {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #6c757d;
+  line-height: 1.2;
+  word-break: break-word;
+}
