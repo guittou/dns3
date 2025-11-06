@@ -660,7 +660,7 @@ class DnsRecord {
             $masterZoneFileId = $domain['zone_file_id'];
             
             // Check if zone_file_id is null (domain has no associated zone file)
-            if ($masterZoneFileId === null || $masterZoneFileId === '') {
+            if ($masterZoneFileId === null) {
                 error_log("Domain {$domain_id} has no associated zone file");
                 return [];
             }
