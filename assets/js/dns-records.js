@@ -7,6 +7,11 @@
     'use strict';
 
     let currentRecords = [];
+    
+    /**
+     * Constants
+     */
+    const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
 
     /**
      * Required fields by DNS record type
@@ -283,7 +288,7 @@
             input.addEventListener('blur', () => {
                 setTimeout(() => {
                     list.style.display = 'none';
-                }, 200);
+                }, COMBOBOX_BLUR_DELAY);
             });
             
             // Escape key - close list
@@ -345,7 +350,7 @@
             input.addEventListener('blur', () => {
                 setTimeout(() => {
                     list.style.display = 'none';
-                }, 200);
+                }, COMBOBOX_BLUR_DELAY);
             });
             
             // Escape key - close list
@@ -561,7 +566,7 @@
             if (!input || !hiddenInput || !list) return;
             
             // Store zones for filtering
-            let modalZones = zones;
+            const modalZones = zones;
             
             // Input event - filter and show list
             input.addEventListener('input', () => {
@@ -593,7 +598,7 @@
             input.addEventListener('blur', () => {
                 setTimeout(() => {
                     list.style.display = 'none';
-                }, 200);
+                }, COMBOBOX_BLUR_DELAY);
             });
             
             // Escape key - close list
