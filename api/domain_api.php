@@ -14,6 +14,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/Domain.php';
+require_once __DIR__ . '/../includes/db.php';
 
 // Domain validation regex (same as Domain model)
 define('DOMAIN_REGEX', '/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/');
@@ -63,7 +64,8 @@ function parseRequestData() {
         $data = $_POST;
     }
     
-    return $data;
+    // Ensure we always return an array
+    return $data ?: [];
 }
 
 /**
@@ -93,7 +95,6 @@ function validateDomainData($data) {
     }
     
     // Verify zone file exists and is type 'master' and active
-    require_once __DIR__ . '/../includes/db.php';
     $db = Database::getInstance()->getConnection();
     $zoneStmt = $db->prepare("SELECT id, file_type, status FROM zone_files WHERE id = ? LIMIT 1");
     $zoneStmt->execute([(int)$data['zone_file_id']]);
