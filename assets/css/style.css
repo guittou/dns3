@@ -622,26 +622,35 @@ body {
 }
 
 .dns-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  position: relative;
+  padding: 18px 48px 14px 48px;
+  border-bottom: none;
+  text-align: center;
   margin-bottom: 20px;
 }
 
-.dns-modal-header h2 {
-  margin: 0;
-  color: #1F2E3B;
+.dns-modal-title-wrapper {
+  display: inline-block;
   text-align: center;
-  width: 100%;
+  max-width: calc(100% - 80px);
+}
+
+.dns-modal-title-wrapper h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #212529;
 }
 
 .dns-modal-close {
-  font-size: 28px;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
   font-weight: 700;
   color: #aaa;
   cursor: pointer;
-  background: none;
-  border: none;
   padding: 0;
   line-height: 1;
 }
@@ -1281,8 +1290,9 @@ body {
 /* Domain display in modal */
 .dns-modal-domain {
   margin-top: 6px;
-  font-size: 14px;
-  color: #6c757d;
-  line-height: 1.2;
+  font-size: 15px;
+  color: #2f3b43;
+  font-weight: 500;
+  line-height: 1.25;
   word-break: break-word;
 }

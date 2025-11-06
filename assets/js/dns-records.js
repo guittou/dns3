@@ -808,7 +808,7 @@
     }
 
     /**
-     * Open modal to create a new record (with prefilled zone and domain in title)
+     * Open modal to create a new record (with prefilled zone)
      */
     async function openCreateModalPrefilled() {
         const modal = document.getElementById('dns-modal');
@@ -816,23 +816,30 @@
         const title = document.getElementById('dns-modal-title');
         const lastSeenGroup = document.getElementById('record-last-seen-group');
         const deleteBtn = document.getElementById('record-delete-btn');
+        const domainDiv = document.getElementById('dns-modal-domain');
         
         if (!modal || !form || !title) return;
 
-        // Get the selected domain name for the title
-        let domainName = '';
-        if (selectedDomainId) {
-            const domainInput = document.getElementById('dns-domain-input');
-            if (domainInput) {
-                domainName = domainInput.value;
-            }
-        }
+        // Set fixed title without domain
+        title.textContent = 'Créer un enregistrement DNS';
         
-        // Set title with domain name
-        if (domainName) {
-            title.textContent = `Créer un enregistrement DNS - ${domainName}`;
-        } else {
-            title.textContent = 'Créer un enregistrement DNS';
+        // Populate domain name from combobox if selected
+        if (domainDiv) {
+            try {
+                const domainInput = document.getElementById('dns-domain-input');
+                const domainValue = domainInput ? domainInput.value.trim() : '';
+                
+                if (domainValue) {
+                    domainDiv.textContent = domainValue;
+                    domainDiv.style.display = 'block';
+                } else {
+                    domainDiv.style.display = 'none';
+                }
+            } catch (error) {
+                // Silently handle error, don't block modal opening
+                console.error('Error populating domain in modal:', error);
+                domainDiv.style.display = 'none';
+            }
         }
         
         form.reset();
@@ -942,25 +949,13 @@
             
             if (!modal || !form || !title) return;
 
-            // Try to get domain name for the title
-            let domainName = record.domain_name || '';
-            if (!domainName && selectedDomainId) {
-                const domainInput = document.getElementById('dns-domain-input');
-                if (domainInput) {
-                    domainName = domainInput.value;
-                }
-            }
+            // Set fixed title without domain
+            title.textContent = 'Modifier l\'enregistrement DNS';
             
-            if (domainName) {
-                title.textContent = `Modifier l'enregistrement DNS - ${domainName}`;
-            } else {
-                title.textContent = 'Modifier l\'enregistrement DNS';
-            }
-            
-            // Populate domain name in separate line with priority order
+            // Populate domain name in separate line - only use record.domain_name (strict)
             if (domainDiv) {
                 try {
-                    const displayDomain = record.domain_name || record.top_master_name || record.zone_name || '';
+                    const displayDomain = record.domain_name || '';
                     
                     if (displayDomain) {
                         domainDiv.textContent = displayDomain;

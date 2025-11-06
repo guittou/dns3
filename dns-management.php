@@ -105,13 +105,11 @@ if (!$auth->isAdmin()) {
 <div id="dns-modal" class="dns-modal">
     <div class="dns-modal-content">
         <div class="dns-modal-header">
-            <div style="display:flex; align-items:flex-start; justify-content:space-between; width:100%;">
-                <div>
-                    <h2 id="dns-modal-title">Créer un enregistrement DNS</h2>
-                    <div id="dns-modal-domain" class="dns-modal-domain" style="display:none;"></div>
-                </div>
-                <button id="dns-modal-close" class="dns-modal-close">&times;</button>
+            <div class="dns-modal-title-wrapper">
+                <h2 id="dns-modal-title">Créer un enregistrement DNS</h2>
+                <div id="dns-modal-domain" class="dns-modal-domain" style="display:none;"></div>
             </div>
+            <button id="dns-modal-close" class="dns-modal-close">&times;</button>
         </div>
         <div class="dns-modal-body">
             <form id="dns-form">
