@@ -763,7 +763,17 @@
                 body: JSON.stringify(formData)
             });
 
-            const data = await response.json();
+            // Read response as text first to handle non-JSON responses
+            const responseText = await response.text();
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (jsonError) {
+                // If response is not JSON, show raw text or generic error
+                const errorMsg = responseText.trim() || `HTTP ${response.status}: ${response.statusText}`;
+                throw new Error(errorMsg);
+            }
 
             if (!response.ok) {
                 throw new Error(data.error || 'Failed to save domain');

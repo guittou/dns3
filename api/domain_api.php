@@ -121,27 +121,88 @@ try {
             // Create new domain (requires admin)
             requireAdmin();
 
-            // Get JSON body
-            $input = file_get_contents('php://input');
-            $data = json_decode($input, true);
+            try {
+                // Get input from JSON or POST data
+                $input = file_get_contents('php://input');
+                $data = json_decode($input, true);
+                
+                // Fallback to $_POST if JSON decode fails
+                if (!$data) {
+                    $data = $_POST;
+                }
+                
+                // Validate required fields
+                if (empty($data['domain'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Domain name is required']);
+                    exit;
+                }
+                
+                if (empty($data['zone_file_id'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file ID is required']);
+                    exit;
+                }
+                
+                // Validate zone_file_id is a positive integer
+                if (!is_numeric($data['zone_file_id']) || (int)$data['zone_file_id'] <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file ID must be a positive integer']);
+                    exit;
+                }
+                
+                // Validate domain format
+                if (!preg_match('/^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$/', $data['domain'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Invalid domain format']);
+                    exit;
+                }
+                
+                // Verify zone file exists and is type 'master' and active
+                require_once __DIR__ . '/../includes/db.php';
+                $db = Database::getInstance()->getConnection();
+                $zoneStmt = $db->prepare("SELECT id, file_type, status FROM zone_files WHERE id = ? LIMIT 1");
+                $zoneStmt->execute([(int)$data['zone_file_id']]);
+                $zone = $zoneStmt->fetch();
+                
+                if (!$zone) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file not found']);
+                    exit;
+                }
+                
+                if ($zone['status'] !== 'active') {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file is not active']);
+                    exit;
+                }
+                
+                if ($zone['file_type'] !== 'master') {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file must be of type master']);
+                    exit;
+                }
+                
+                $userId = $auth->getUserId();
+                $result = $domain->create($data, $userId);
 
-            if (!$data) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Invalid JSON data']);
-                exit;
-            }
+                if (!$result['success']) {
+                    http_response_code(400);
+                    echo json_encode($result);
+                    exit;
+                }
 
-            $userId = $auth->getUserId();
-            $result = $domain->create($data, $userId);
-
-            if (!$result['success']) {
-                http_response_code(400);
+                http_response_code(201);
                 echo json_encode($result);
-                exit;
+            } catch (PDOException $e) {
+                error_log("Domain API create error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Database error occurred']);
+            } catch (Exception $e) {
+                error_log("Domain API create error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Internal server error']);
             }
-
-            http_response_code(201);
-            echo json_encode($result);
             break;
 
         case 'update':
@@ -156,26 +217,87 @@ try {
                 exit;
             }
 
-            // Get JSON body
-            $input = file_get_contents('php://input');
-            $data = json_decode($input, true);
+            try {
+                // Get input from JSON or POST data
+                $input = file_get_contents('php://input');
+                $data = json_decode($input, true);
+                
+                // Fallback to $_POST if JSON decode fails
+                if (!$data) {
+                    $data = $_POST;
+                }
+                
+                // Validate required fields
+                if (empty($data['domain'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Domain name is required']);
+                    exit;
+                }
+                
+                if (empty($data['zone_file_id'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file ID is required']);
+                    exit;
+                }
+                
+                // Validate zone_file_id is a positive integer
+                if (!is_numeric($data['zone_file_id']) || (int)$data['zone_file_id'] <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file ID must be a positive integer']);
+                    exit;
+                }
+                
+                // Validate domain format
+                if (!preg_match('/^(?!-)(?:[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$/', $data['domain'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Invalid domain format']);
+                    exit;
+                }
+                
+                // Verify zone file exists and is type 'master' and active
+                require_once __DIR__ . '/../includes/db.php';
+                $db = Database::getInstance()->getConnection();
+                $zoneStmt = $db->prepare("SELECT id, file_type, status FROM zone_files WHERE id = ? LIMIT 1");
+                $zoneStmt->execute([(int)$data['zone_file_id']]);
+                $zone = $zoneStmt->fetch();
+                
+                if (!$zone) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file not found']);
+                    exit;
+                }
+                
+                if ($zone['status'] !== 'active') {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file is not active']);
+                    exit;
+                }
+                
+                if ($zone['file_type'] !== 'master') {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Zone file must be of type master']);
+                    exit;
+                }
 
-            if (!$data) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Invalid JSON data']);
-                exit;
-            }
+                $userId = $auth->getUserId();
+                $result = $domain->update($id, $data, $userId);
 
-            $userId = $auth->getUserId();
-            $result = $domain->update($id, $data, $userId);
+                if (!$result['success']) {
+                    http_response_code(400);
+                    echo json_encode($result);
+                    exit;
+                }
 
-            if (!$result['success']) {
-                http_response_code(400);
                 echo json_encode($result);
-                exit;
+            } catch (PDOException $e) {
+                error_log("Domain API update error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Database error occurred']);
+            } catch (Exception $e) {
+                error_log("Domain API update error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Internal server error']);
             }
-
-            echo json_encode($result);
             break;
 
         case 'set_status':
