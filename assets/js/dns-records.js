@@ -847,17 +847,14 @@
                         
                         // Provide temporary visual highlight on domain input (no focus)
                         if (domainInput) {
-                            // Save original inline style (empty string if not set)
+                            // Save original inline style (empty string if no inline style is set)
+                            // Note: This captures inline styles only, not CSS-defined backgrounds
                             const originalInlineStyle = domainInput.style.backgroundColor;
                             // Apply highlight
                             domainInput.style.backgroundColor = AUTOFILL_HIGHLIGHT_COLOR;
                             setTimeout(() => {
-                                // Restore original inline style (removes inline style if was empty)
-                                if (originalInlineStyle) {
-                                    domainInput.style.backgroundColor = originalInlineStyle;
-                                } else {
-                                    domainInput.style.backgroundColor = '';
-                                }
+                                // Restore original inline style (empty string removes the inline style)
+                                domainInput.style.backgroundColor = originalInlineStyle;
                             }, AUTOFILL_HIGHLIGHT_DURATION);
                         }
                     } catch (err) {
