@@ -828,14 +828,29 @@
                             await populateZoneFileSelect(zoneFileId);
                         }
 
-                        // 5) Focus only domain input, hide zone list, and blur zone input to prevent auto-opening
+                        // 5) Provide visual feedback without focusing - prevent lists from opening
                         const domainInput = document.getElementById('dns-domain-input');
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
-                        if (domainInput) domainInput.focus();
-
-                        const zoneListEl = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
-                        if (zoneListEl) setTimeout(() => { zoneListEl.style.display = 'none'; }, FOCUS_TRANSITION_DELAY);
+                        
+                        // Explicitly hide both combobox lists to prevent auto-opening
+                        setTimeout(() => {
+                            const domainList = document.getElementById('dns-domain-list');
+                            const zoneList = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
+                            if (domainList) domainList.style.display = 'none';
+                            if (zoneList) zoneList.style.display = 'none';
+                        }, FOCUS_TRANSITION_DELAY);
+                        
+                        // Blur zone input if currently focused to prevent list opening
                         if (zoneInput && document.activeElement === zoneInput) zoneInput.blur();
+                        
+                        // Provide temporary visual highlight on domain input (no focus)
+                        if (domainInput) {
+                            const originalBg = domainInput.style.backgroundColor;
+                            domainInput.style.backgroundColor = '#fffacd'; // Light yellow highlight
+                            setTimeout(() => {
+                                domainInput.style.backgroundColor = originalBg;
+                            }, 900);
+                        }
                     } catch (err) {
                         console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
                     }
