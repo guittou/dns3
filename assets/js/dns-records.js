@@ -845,10 +845,17 @@
                         
                         // Provide temporary visual highlight on domain input (no focus)
                         if (domainInput) {
-                            const originalBg = domainInput.style.backgroundColor;
+                            // Save original inline style (empty string if not set)
+                            const originalInlineStyle = domainInput.style.backgroundColor;
+                            // Apply highlight
                             domainInput.style.backgroundColor = '#fffacd'; // Light yellow highlight
                             setTimeout(() => {
-                                domainInput.style.backgroundColor = originalBg;
+                                // Restore original inline style (removes inline style if was empty)
+                                if (originalInlineStyle) {
+                                    domainInput.style.backgroundColor = originalInlineStyle;
+                                } else {
+                                    domainInput.style.backgroundColor = '';
+                                }
                             }, 900);
                         }
                     } catch (err) {
