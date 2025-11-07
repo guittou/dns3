@@ -659,6 +659,10 @@
                 // Clear the selection
                 selectElement.value = '';
             }
+            
+            // Hide zone combobox list to prevent it from opening automatically after programmatic set
+            const listEl = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
+            if (listEl) setTimeout(() => { listEl.style.display = 'none'; }, 50);
         } catch (error) {
             console.error('[populateZoneFileSelect] Error:', error);
             // Don't show message to user, just log it
@@ -824,11 +828,14 @@
                             await populateZoneFileSelect(zoneFileId);
                         }
 
-                        // 5) Focus visuel sur domaine puis zone pour retour UX
+                        // 5) Focus only domain input, hide zone list, and blur zone input to prevent auto-opening
                         const domainInput = document.getElementById('dns-domain-input');
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
                         if (domainInput) domainInput.focus();
-                        if (zoneInput) zoneInput.focus();
+
+                        const zoneListEl = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
+                        if (zoneListEl) setTimeout(() => { zoneListEl.style.display = 'none'; }, 50);
+                        if (zoneInput && document.activeElement === zoneInput) zoneInput.blur();
                     } catch (err) {
                         console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
                     }
