@@ -13,8 +13,9 @@
      */
     const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
     const FOCUS_TRANSITION_DELAY = 50; // Delay in ms between sequential focus calls for visual feedback
-    const AUTOFILL_HIGHLIGHT_COLOR = '#fffacd'; // Light yellow color for autofill visual feedback
+    const AUTOFILL_HIGHLIGHT_COLOR = '#fff7d6'; // Light cream color for autofill visual feedback
     const AUTOFILL_HIGHLIGHT_DURATION = 900; // Duration in ms for autofill highlight
+    const AUTOFILL_TRANSITION_DURATION = 220; // Duration in ms for autofill highlight transition
 
     /**
      * Required fields by DNS record type
@@ -107,9 +108,9 @@
      */
     function hideComboboxListForInput(input) {
         if (!input) return;
+        // Try to find the associated list element using multiple strategies
         let list = document.getElementById(input.id + '-list')
-                || input.parentElement?.querySelector('.combobox-list')
-                || document.querySelector('.combobox-list');
+                || input.parentElement?.querySelector('.combobox-list');
         if (list) {
             list.style.display = 'none';
             list.classList.remove('open', 'visible', 'show');
@@ -881,12 +882,12 @@
                         // Temporary visual feedback on domain input WITHOUT focusing it
                         if (domainInput) {
                             const prevBg = domainInput.style.backgroundColor;
-                            domainInput.style.transition = 'background-color 220ms';
-                            domainInput.style.backgroundColor = '#fff7d6';
+                            domainInput.style.transition = `background-color ${AUTOFILL_TRANSITION_DURATION}ms`;
+                            domainInput.style.backgroundColor = AUTOFILL_HIGHLIGHT_COLOR;
                             setTimeout(() => {
                                 domainInput.style.backgroundColor = prevBg || '';
-                                setTimeout(() => { domainInput.style.transition = ''; }, 250);
-                            }, 900);
+                                setTimeout(() => { domainInput.style.transition = ''; }, AUTOFILL_TRANSITION_DURATION + 30);
+                            }, AUTOFILL_HIGHLIGHT_DURATION);
                         }
                     } catch (err) {
                         console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
