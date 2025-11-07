@@ -12,6 +12,7 @@
      * Constants
      */
     const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
+    const FOCUS_TRANSITION_DELAY = 50; // Delay in ms between sequential focus calls for visual feedback
 
     /**
      * Required fields by DNS record type
@@ -799,7 +800,7 @@
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
                         if (domainInput) domainInput.focus();
                         // Brief delay to ensure zone gets final focus after domain
-                        if (zoneInput) setTimeout(() => zoneInput.focus(), 50);
+                        if (zoneInput) setTimeout(() => zoneInput.focus(), FOCUS_TRANSITION_DELAY);
                     } catch (err) {
                         console.error('Error autocompleting domain/zone from row:', err);
                     }
