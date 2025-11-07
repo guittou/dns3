@@ -726,11 +726,15 @@
             // Generate table rows with semantic classes matching the new header order
             currentRecords.forEach(record => {
                 const row = document.createElement('tr');
-                // Store record ID in dataset for use by actions
                 row.dataset.recordId = record.id;
+                if (record.zone_file_id) row.dataset.zoneFileId = record.zone_file_id;
+
+                const domainDisplay = escapeHtml(record.domain_name || '-');
+                const zoneDisplay = escapeHtml(record.zone_name || '-');
+
                 row.innerHTML = `
-                    <td class="col-domain">${escapeHtml(record.domain_name || '-')}</td>
-                    <td class="col-zonefile">${escapeHtml(record.zone_name || '-')}</td>
+                    <td class="col-domain">${domainDisplay}</td>
+                    <td class="col-zonefile">${zoneDisplay}</td>
                     <td class="col-name">${escapeHtml(record.name)}</td>
                     <td class="col-ttl">${escapeHtml(record.ttl)}</td>
                     <td class="col-class">${escapeHtml(record.class || 'IN')}</td>
@@ -745,6 +749,29 @@
                         ${record.status === 'deleted' ? `<button class="btn-small btn-restore" onclick="dnsRecords.restoreRecord(${record.id})">Restaurer</button>` : ''}
                     </td>
                 `;
+
+                row.addEventListener('click', async (e) => {
+                    if (e.target.closest('.col-actions') || e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
+
+                    const zoneFileId = record.zone_file_id || row.dataset.zoneFileId;
+                    if (!zoneFileId) return;
+
+                    try {
+                        if (typeof setDomainForZone === 'function') await setDomainForZone(zoneFileId);
+                        if (typeof populateZoneFileCombobox === 'function') await populateZoneFileCombobox(zoneFileId);
+                        else if (typeof populateZoneFileSelect === 'function') await populateZoneFileSelect(zoneFileId);
+
+                        selectedZoneId = zoneFileId;
+                        if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
+
+                        // Focus zone input (final destination after autocomplete)
+                        const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
+                        if (zoneInput) zoneInput.focus();
+                    } catch (err) {
+                        console.error('Erreur lors de l\'autocomplétion du domaine/zone depuis la ligne:', err);
+                    }
+                });
+
                 tbody.appendChild(row);
             });
         } catch (error) {
