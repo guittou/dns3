@@ -570,34 +570,23 @@
      */
     async function populateZoneFileCombobox(selectedZoneFileId, domainId = null) {
         try {
-            // Determine modalDomainId: prioritize hidden field in modal, fallback to selectedDomainId, then legacy domainId param
             const modalDomainIdEl = document.getElementById('dns-modal-domain-id');
-            const modalDomainId = modalDomainIdEl?.value || selectedDomainId || domainId || null;
-            
-            // List only active master and include zones, optionally filtered by domain
-            // Note: We use dns_api when filtering by domain (list_zones_by_domain includes 
-            // Breadth-First Search traversal to include all descendant zones) and zone_api 
-            // for unfiltered lists (consistent with existing zone operations)
-            let zones;
-            
+            let modalDomainId = modalDomainIdEl && modalDomainIdEl.value ? modalDomainIdEl.value : null;
+            if (!modalDomainId && typeof selectedDomainId !== 'undefined' && selectedDomainId) modalDomainId = selectedDomainId;
+            let zones = [];
             if (modalDomainId) {
-                // Filter zones by domain using DNS API (includes descendant zones via BFS)
-                // Use CURRENT_ZONE_LIST if already filtered for this domain
-                const currentDomainId = selectedDomainId || (document.getElementById('dns-domain-id')?.value);
-                if (currentDomainId && String(currentDomainId) === String(modalDomainId) && CURRENT_ZONE_LIST.length > 0) {
-                    // Use already-filtered CURRENT_ZONE_LIST
-                    zones = [...CURRENT_ZONE_LIST];
+                if (Array.isArray(CURRENT_ZONE_LIST) && CURRENT_ZONE_LIST.length > 0) {
+                    zones = CURRENT_ZONE_LIST;
                 } else {
-                    // Fetch zones for this domain
-                    const result = await apiCall('list_zones_by_domain', { domain_id: modalDomainId });
-                    zones = result.data || [];
-                    // Update CURRENT_ZONE_LIST with the fetched zones
-                    CURRENT_ZONE_LIST = [...zones];
+                    const res = await apiCall('list_zones_by_domain', { domain_id: modalDomainId });
+                    zones = (res && res.data ? res.data : []).filter(z => z.file_type === 'master' || z.file_type === 'include');
+                    CURRENT_ZONE_LIST = zones;
                 }
             } else {
-                // List all active zones using Zone API (standard zone operations)
-                const result = await zoneApiCall('list_zones', { status: 'active' });
-                zones = result.data || [];
+                const res = await zoneApiCall('list_zones', { status: 'active' });
+                zones = (res && res.data ? res.data : []).filter(z => z.file_type === 'master' || z.file_type === 'include');
+                ALL_ZONES = zones;
+                CURRENT_ZONE_LIST = [...ALL_ZONES];
             }
             
             const selectElement = document.getElementById('record-zone-file');
@@ -770,19 +759,62 @@
                     </td>
                 `;
 
-                // On row click: autocomplete domain + zone (ignore clicks on actions)
+                // Au clic sur la ligne : autocomplete domain + zone (ignorer clics sur actions)
                 row.addEventListener('click', async (e) => {
+                    // Ignore clicks sur la colonne d'actions / boutons
                     if (e.target.closest('.col-actions') || e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
 
                     const zoneFileId = record.zone_file_id || row.dataset.zoneFileId;
                     if (!zoneFileId) return;
 
                     try {
+                        // 1) remplir la combobox Domaine en fonction de la zone (met selectedDomainId)
                         if (typeof setDomainForZone === 'function') {
                             await setDomainForZone(zoneFileId);
                         }
 
-                        // Write domain ID to modal hidden field if present
+                        // 2) s'assurer que CURRENT_ZONE_LIST est filtré pour le domaine (important)
+                        try {
+                            if (typeof populateZoneComboboxForDomain === 'function' && (selectedDomainId || document.getElementById('dns-modal-domain-id')?.value)) {
+                                const domainToUse = selectedDomainId || document.getElementById('dns-modal-domain-id')?.value;
+                                if (domainToUse) await populateZoneComboboxForDomain(domainToUse);
+                            }
+                        } catch (ee) {
+                            console.warn('populateZoneComboboxForDomain failed (click row):', ee);
+                        }
+
+                        // 3) Remplir la combobox de la PAGE (dns-zone-input / dns-zone-id) si elle existe
+                        const pageZoneInput = document.getElementById('dns-zone-input');
+                        const pageZoneHidden = document.getElementById('dns-zone-id');
+                        if (pageZoneInput && pageZoneHidden) {
+                            // Rechercher la zone dans CURRENT_ZONE_LIST
+                            let zone = (CURRENT_ZONE_LIST || []).find(z => String(z.id) === String(zoneFileId));
+
+                            // Si pas trouvée, tenter de la récupérer via l'API
+                            if (!zone) {
+                                try {
+                                    const res = await zoneApiCall('get_zone', { id: zoneFileId });
+                                    if (res && res.data) zone = res.data;
+                                } catch (e) {
+                                    console.warn('get_zone fallback failed:', e);
+                                }
+                            }
+
+                            if (zone) {
+                                pageZoneInput.value = `${zone.name} (${zone.file_type})`;
+                                pageZoneHidden.value = zone.id;
+                                selectedZoneId = zone.id;
+                                if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
+                                // reload table if you want the table to reflect the zone filter
+                                if (typeof loadDnsTable === 'function') loadDnsTable();
+                            } else {
+                                // Clear if not found
+                                pageZoneInput.value = '';
+                                pageZoneHidden.value = '';
+                            }
+                        }
+
+                        // 4) Si tu veux aussi remplir le modal (si ouvert), appelle populateZoneFileCombobox
                         const modalDomainIdEl = document.getElementById('dns-modal-domain-id');
                         if (modalDomainIdEl) modalDomainIdEl.value = selectedDomainId || (document.getElementById('dns-domain-id')?.value || '');
 
@@ -792,17 +824,13 @@
                             await populateZoneFileSelect(zoneFileId);
                         }
 
-                        selectedZoneId = zoneFileId;
-                        if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
-
-                        // Focus inputs for visual feedback - zone input gets final focus
+                        // 5) Focus visuel sur domaine puis zone pour retour UX
                         const domainInput = document.getElementById('dns-domain-input');
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
                         if (domainInput) domainInput.focus();
-                        // Brief delay to ensure zone gets final focus after domain
-                        if (zoneInput) setTimeout(() => zoneInput.focus(), FOCUS_TRANSITION_DELAY);
+                        if (zoneInput) zoneInput.focus();
                     } catch (err) {
-                        console.error('Error autocompleting domain/zone from row:', err);
+                        console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
                     }
                 });
 
