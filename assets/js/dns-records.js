@@ -662,7 +662,7 @@
             
             // Hide zone combobox list to prevent it from opening automatically after programmatic set
             const listEl = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
-            if (listEl) setTimeout(() => { listEl.style.display = 'none'; }, 50);
+            if (listEl) setTimeout(() => { listEl.style.display = 'none'; }, FOCUS_TRANSITION_DELAY);
         } catch (error) {
             console.error('[populateZoneFileSelect] Error:', error);
             // Don't show message to user, just log it
@@ -834,7 +834,7 @@
                         if (domainInput) domainInput.focus();
 
                         const zoneListEl = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
-                        if (zoneListEl) setTimeout(() => { zoneListEl.style.display = 'none'; }, 50);
+                        if (zoneListEl) setTimeout(() => { zoneListEl.style.display = 'none'; }, FOCUS_TRANSITION_DELAY);
                         if (zoneInput && document.activeElement === zoneInput) zoneInput.blur();
                     } catch (err) {
                         console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
