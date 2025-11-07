@@ -794,10 +794,12 @@
                         selectedZoneId = zoneFileId;
                         if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
 
+                        // Focus inputs for visual feedback - zone input gets final focus
                         const domainInput = document.getElementById('dns-domain-input');
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
                         if (domainInput) domainInput.focus();
-                        if (zoneInput) zoneInput.focus();
+                        // Brief delay to ensure zone gets final focus after domain
+                        if (zoneInput) setTimeout(() => zoneInput.focus(), 50);
                     } catch (err) {
                         console.error('Error autocompleting domain/zone from row:', err);
                     }
