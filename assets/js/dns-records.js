@@ -769,7 +769,7 @@
                     </td>
                 `;
 
-                // Au clic sur la ligne : autocomplete domain + zone (ignorer clics sur actions)
+                // On row click: autocomplete domain + zone (ignore clicks on actions)
                 row.addEventListener('click', async (e) => {
                     if (e.target.closest('.col-actions') || e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
 
@@ -781,7 +781,7 @@
                             await setDomainForZone(zoneFileId);
                         }
 
-                        // écrire l'id du domaine dans le hidden du modal si présent
+                        // Write domain ID to modal hidden field if present
                         const modalDomainIdEl = document.getElementById('dns-modal-domain-id');
                         if (modalDomainIdEl) modalDomainIdEl.value = selectedDomainId || (document.getElementById('dns-domain-id')?.value || '');
 
@@ -799,7 +799,7 @@
                         if (domainInput) domainInput.focus();
                         if (zoneInput) zoneInput.focus();
                     } catch (err) {
-                        console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
+                        console.error('Error autocompleting domain/zone from row:', err);
                     }
                 });
 
