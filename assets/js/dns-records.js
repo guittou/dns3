@@ -13,8 +13,9 @@
      */
     const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
     const FOCUS_TRANSITION_DELAY = 50; // Delay in ms between sequential focus calls for visual feedback
-    const AUTOFILL_HIGHLIGHT_COLOR = '#fffacd'; // Light yellow color for autofill visual feedback
+    const AUTOFILL_HIGHLIGHT_COLOR = '#fff7d6'; // Light cream color for autofill visual feedback
     const AUTOFILL_HIGHLIGHT_DURATION = 900; // Duration in ms for autofill highlight
+    const AUTOFILL_TRANSITION_DURATION = 220; // Duration in ms for autofill highlight transition
 
     /**
      * Required fields by DNS record type
@@ -100,6 +101,60 @@
         }
         
         return { valid: true, error: null };
+    }
+
+    /**
+     * Helper: hide a combobox list related to an input (robust selector + aria/class cleanup)
+     */
+    function hideComboboxListForInput(input) {
+        if (!input || !input.id) return;
+        // Try to find the associated list element using multiple strategies
+        let list = document.getElementById(input.id + '-list')
+                || input.parentElement?.querySelector('.combobox-list');
+        if (list) {
+            list.style.display = 'none';
+            list.classList.remove('open', 'visible', 'show');
+            try { 
+                list.setAttribute('aria-hidden', 'true'); 
+            } catch(e) { 
+                // Silently ignore ARIA errors for older browsers
+            }
+        }
+        try { 
+            input.setAttribute('aria-expanded', 'false'); 
+        } catch(e) { 
+            // Silently ignore ARIA errors for older browsers
+        }
+        if (document.activeElement === input) input.blur();
+    }
+
+    /**
+     * Helper: hide all combobox lists on the page (failsafe)
+     * Uses broad selectors intentionally to catch all potential combobox lists
+     */
+    function hideAllComboboxLists() {
+        // Broad selector is intentional - catches all combobox lists including dynamic ones
+        document.querySelectorAll('.combobox-list, .dns-combobox-list, [id$="-list"]').forEach(list => {
+            try {
+                list.style.display = 'none';
+                list.classList.remove('open', 'visible', 'show');
+                list.setAttribute('aria-hidden', 'true');
+            } catch (e) {
+                // Silently ignore errors for elements that don't support these operations
+            }
+        });
+
+        ['dns-domain-input', 'record-zone-input', 'dns-zone-input', 'dns-domain-search'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                try { 
+                    el.setAttribute('aria-expanded', 'false'); 
+                } catch(e) {
+                    // Silently ignore ARIA errors for older browsers
+                }
+                if (document.activeElement === el) el.blur();
+            }
+        });
     }
 
     /**
@@ -663,8 +718,11 @@
             }
             
             // Hide zone combobox list to prevent it from opening automatically after programmatic set
-            const listEl = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
-            if (listEl) setTimeout(() => { listEl.style.display = 'none'; }, FOCUS_TRANSITION_DELAY);
+            const input = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
+            try {
+                hideComboboxListForInput(input);
+                setTimeout(() => { hideAllComboboxLists(); }, 20);
+            } catch (e) { /* silent */ }
         } catch (error) {
             console.error('[populateZoneFileSelect] Error:', error);
             // Don't show message to user, just log it
@@ -830,32 +888,21 @@
                             await populateZoneFileSelect(zoneFileId);
                         }
 
-                        // 5) Provide visual feedback without focusing - prevent lists from opening
+                        // 5) Visual feedback WITHOUT focusing the inputs (avoid opening combobox lists)
                         const domainInput = document.getElementById('dns-domain-input');
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
                         
-                        // Explicitly hide both combobox lists to prevent auto-opening
-                        setTimeout(() => {
-                            const domainList = document.getElementById('dns-domain-list');
-                            const zoneList = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
-                            if (domainList) domainList.style.display = 'none';
-                            if (zoneList) zoneList.style.display = 'none';
-                        }, FOCUS_TRANSITION_DELAY);
+                        // Hide all combobox lists robustly (small timeout to let other handlers run)
+                        setTimeout(() => { hideAllComboboxLists(); }, 20);
                         
-                        // Blur zone input if currently focused to prevent list opening
-                        if (zoneInput && document.activeElement === zoneInput) zoneInput.blur();
-                        
-                        // Provide temporary visual highlight on domain input (no focus)
+                        // Temporary visual feedback on domain input WITHOUT focusing it
                         if (domainInput) {
-                            // Save original inline style (empty string if no inline style is set)
-                            // Note: This captures inline styles only, not CSS-defined backgrounds
-                            // Empty string correctly removes the inline style on restoration
-                            const originalInlineStyle = domainInput.style.backgroundColor;
-                            // Apply highlight
+                            const prevBg = domainInput.style.backgroundColor;
+                            domainInput.style.transition = `background-color ${AUTOFILL_TRANSITION_DURATION}ms`;
                             domainInput.style.backgroundColor = AUTOFILL_HIGHLIGHT_COLOR;
                             setTimeout(() => {
-                                // Restore original inline style (empty string removes the inline style)
-                                domainInput.style.backgroundColor = originalInlineStyle;
+                                domainInput.style.backgroundColor = prevBg || '';
+                                setTimeout(() => { domainInput.style.transition = ''; }, AUTOFILL_TRANSITION_DURATION + 30);
                             }, AUTOFILL_HIGHLIGHT_DURATION);
                         }
                     } catch (err) {
