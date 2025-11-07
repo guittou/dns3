@@ -13,6 +13,8 @@
      */
     const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
     const FOCUS_TRANSITION_DELAY = 50; // Delay in ms between sequential focus calls for visual feedback
+    const AUTOFILL_HIGHLIGHT_COLOR = '#fffacd'; // Light yellow color for autofill visual feedback
+    const AUTOFILL_HIGHLIGHT_DURATION = 900; // Duration in ms for autofill highlight
 
     /**
      * Required fields by DNS record type
@@ -828,14 +830,34 @@
                             await populateZoneFileSelect(zoneFileId);
                         }
 
-                        // 5) Focus only domain input, hide zone list, and blur zone input to prevent auto-opening
+                        // 5) Provide visual feedback without focusing - prevent lists from opening
                         const domainInput = document.getElementById('dns-domain-input');
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
-                        if (domainInput) domainInput.focus();
-
-                        const zoneListEl = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
-                        if (zoneListEl) setTimeout(() => { zoneListEl.style.display = 'none'; }, FOCUS_TRANSITION_DELAY);
+                        
+                        // Explicitly hide both combobox lists to prevent auto-opening
+                        setTimeout(() => {
+                            const domainList = document.getElementById('dns-domain-list');
+                            const zoneList = document.getElementById('record-zone-list') || document.getElementById('dns-zone-list');
+                            if (domainList) domainList.style.display = 'none';
+                            if (zoneList) zoneList.style.display = 'none';
+                        }, FOCUS_TRANSITION_DELAY);
+                        
+                        // Blur zone input if currently focused to prevent list opening
                         if (zoneInput && document.activeElement === zoneInput) zoneInput.blur();
+                        
+                        // Provide temporary visual highlight on domain input (no focus)
+                        if (domainInput) {
+                            // Save original inline style (empty string if no inline style is set)
+                            // Note: This captures inline styles only, not CSS-defined backgrounds
+                            // Empty string correctly removes the inline style on restoration
+                            const originalInlineStyle = domainInput.style.backgroundColor;
+                            // Apply highlight
+                            domainInput.style.backgroundColor = AUTOFILL_HIGHLIGHT_COLOR;
+                            setTimeout(() => {
+                                // Restore original inline style (empty string removes the inline style)
+                                domainInput.style.backgroundColor = originalInlineStyle;
+                            }, AUTOFILL_HIGHLIGHT_DURATION);
+                        }
                     } catch (err) {
                         console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
                     }
