@@ -849,6 +849,7 @@
                         if (domainInput) {
                             // Save original inline style (empty string if no inline style is set)
                             // Note: This captures inline styles only, not CSS-defined backgrounds
+                            // Empty string correctly removes the inline style on restoration
                             const originalInlineStyle = domainInput.style.backgroundColor;
                             // Apply highlight
                             domainInput.style.backgroundColor = AUTOFILL_HIGHLIGHT_COLOR;
