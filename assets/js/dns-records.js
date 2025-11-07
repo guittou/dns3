@@ -107,35 +107,51 @@
      * Helper: hide a combobox list related to an input (robust selector + aria/class cleanup)
      */
     function hideComboboxListForInput(input) {
-        if (!input) return;
+        if (!input || !input.id) return;
         // Try to find the associated list element using multiple strategies
         let list = document.getElementById(input.id + '-list')
                 || input.parentElement?.querySelector('.combobox-list');
         if (list) {
             list.style.display = 'none';
             list.classList.remove('open', 'visible', 'show');
-            try { list.setAttribute('aria-hidden', 'true'); } catch(e) {}
+            try { 
+                list.setAttribute('aria-hidden', 'true'); 
+            } catch(e) { 
+                // Silently ignore ARIA errors for older browsers
+            }
         }
-        try { input.setAttribute('aria-expanded', 'false'); } catch(e) {}
+        try { 
+            input.setAttribute('aria-expanded', 'false'); 
+        } catch(e) { 
+            // Silently ignore ARIA errors for older browsers
+        }
         if (document.activeElement === input) input.blur();
     }
 
     /**
      * Helper: hide all combobox lists on the page (failsafe)
+     * Uses broad selectors intentionally to catch all potential combobox lists
      */
     function hideAllComboboxLists() {
+        // Broad selector is intentional - catches all combobox lists including dynamic ones
         document.querySelectorAll('.combobox-list, .dns-combobox-list, [id$="-list"]').forEach(list => {
             try {
                 list.style.display = 'none';
                 list.classList.remove('open', 'visible', 'show');
                 list.setAttribute('aria-hidden', 'true');
-            } catch (e) {}
+            } catch (e) {
+                // Silently ignore errors for elements that don't support these operations
+            }
         });
 
         ['dns-domain-input', 'record-zone-input', 'dns-zone-input', 'dns-domain-search'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                try { el.setAttribute('aria-expanded', 'false'); } catch(e) {}
+                try { 
+                    el.setAttribute('aria-expanded', 'false'); 
+                } catch(e) {
+                    // Silently ignore ARIA errors for older browsers
+                }
                 if (document.activeElement === el) el.blur();
             }
         });
