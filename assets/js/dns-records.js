@@ -764,12 +764,11 @@
                         selectedZoneId = zoneFileId;
                         if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
 
-                        const domainInput = document.getElementById('dns-domain-input');
+                        // Focus zone input (final destination after autocomplete)
                         const zoneInput = document.getElementById('record-zone-input') || document.getElementById('dns-zone-input');
-                        if (domainInput) domainInput.focus();
                         if (zoneInput) zoneInput.focus();
                     } catch (err) {
-                        console.error('Erreur autocomplétion domaine/zone depuis ligne:', err);
+                        console.error('Erreur lors de l\'autocomplétion du domaine/zone depuis la ligne:', err);
                     }
                 });
 
