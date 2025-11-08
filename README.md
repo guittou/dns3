@@ -2,6 +2,25 @@
 
 Application web développée en PHP sans framework avec support MariaDB et authentification multi-sources (Base de données, Active Directory, OpenLDAP).
 
+## ⚠️ Breaking Changes (Migration 016)
+
+**Version actuelle nécessite migration 016** : La table `domaine_list` a été supprimée. Les domaines sont maintenant gérés directement dans la table `zone_files` via le champ `domain`.
+
+**Actions requises avant mise à jour** :
+1. **Créer un backup de la base de données** : `mysqldump -u [username] -p dns3_db > backup_$(date +%Y%m%d_%H%M%S).sql`
+2. **Appliquer migration 015** si pas encore fait : `mysql -u [username] -p dns3_db < migrations/015_add_domain_to_zone_files.sql`
+3. **Vérifier les données** : `SELECT id,name,domain FROM zone_files WHERE domain IS NOT NULL LIMIT 10;`
+4. **Appliquer migration 016** : `mysql -u [username] -p dns3_db < migrations/016_drop_domaine_list.sql`
+
+**Changements majeurs** :
+- **Interface admin** : L'onglet "Domaines" a été supprimé. Les domaines sont maintenant gérés dans l'interface "Fichiers de zone"
+- **API** : `api/domain_api.php` supprimé. Utiliser `api/zone_api.php` à la place
+- **Modèle** : `includes/models/Domain.php` supprimé. Utiliser `includes/models/ZoneFile.php` avec le champ `domain`
+
+**Rollback** : En cas de problème, restaurer depuis le backup : `mysql -u [username] -p dns3_db < backup_file.sql` puis `git revert <commit-hash>`
+
+Pour plus de détails, consultez [migrations/README.md](migrations/README.md#migration-016-drop-domaine_list-table).
+
 ## Fonctionnalités
 
 - **Authentification multi-sources** :

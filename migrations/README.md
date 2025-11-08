@@ -342,6 +342,158 @@ This migration is accompanied by:
 - Domain can only be set on master zone files (file_type = 'master')
 - The migration is fully reversible using the documented rollback procedure
 
+## Migration 016: Drop domaine_list Table
+
+### Overview
+
+Migration 016 completes the consolidation of domain information into `zone_files.domain` by dropping the legacy `domaine_list` table. This should only be run after migration 015 has been verified in production and a full database backup has been created.
+
+### What It Does
+
+1. **Drops `domaine_list` table** if it exists (idempotent)
+2. **Verifies table existence** before attempting to drop for safety
+3. **Uses transaction** for atomic execution
+
+### ⚠️ CRITICAL WARNINGS
+
+- **DESTRUCTIVE MIGRATION**: This permanently deletes the `domaine_list` table
+- **MUST have database backup** before running
+- **MUST verify** migration 015 completed successfully
+- **MUST test** in staging environment first
+- **NO automatic rollback** - must restore from backup
+
+### Prerequisites
+
+1. Migration 015 has been successfully applied
+2. Full database backup created: `mysqldump -u [username] -p dns3_db > backup_$(date +%Y%m%d_%H%M%S).sql`
+3. Verified domain data exists in zone_files:
+   ```sql
+   SELECT COUNT(*) FROM zone_files WHERE domain IS NOT NULL;
+   SELECT id, name, domain FROM zone_files WHERE domain IS NOT NULL LIMIT 10;
+   ```
+4. Application tested with `zone_files.domain` in staging
+5. All code changes from PR deployed and tested
+
+### Running the Migration
+
+```bash
+# 1. Create backup
+mysqldump -u [username] -p dns3_db > backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 2. Verify migration 015 data
+mysql -u [username] -p dns3_db -e "SELECT COUNT(*) as zones_with_domains FROM zone_files WHERE domain IS NOT NULL;"
+
+# 3. Run migration
+mysql -u [username] -p dns3_db < migrations/016_drop_domaine_list.sql
+
+# 4. Verify table is gone
+mysql -u [username] -p dns3_db -e "SHOW TABLES LIKE 'domaine_list';"
+# Should return empty result
+```
+
+### Post-Migration Verification
+
+After running the migration, verify:
+
+1. **Table is dropped:**
+   ```sql
+   SELECT COUNT(*) FROM information_schema.tables 
+   WHERE table_schema = 'dns3_db' AND table_name = 'domaine_list';
+   -- Expected: 0
+   ```
+
+2. **Domain data still accessible:**
+   ```sql
+   SELECT id, name, domain, file_type 
+   FROM zone_files 
+   WHERE domain IS NOT NULL 
+   LIMIT 10;
+   ```
+
+3. **APIs still work:**
+   - Test: `GET /api/dns_api.php?action=list_domains`
+   - Test: `GET /api/zone_api.php?action=get_zone&id=1`
+   - Verify domain field is present
+
+4. **UI still works:**
+   - Zone create/edit shows domain field for master zones
+   - DNS records page loads and shows domain information
+   - No JavaScript errors in browser console
+
+### Rollback Procedure
+
+If issues occur after migration:
+
+#### 1. Stop the Application
+
+```bash
+sudo systemctl stop apache2  # or nginx, php-fpm, etc.
+```
+
+#### 2. Restore Database from Backup
+
+```bash
+# Restore full backup
+mysql -u [username] -p dns3_db < backup_YYYYMMDD_HHMMSS.sql
+
+# Verify domaine_list is restored
+mysql -u [username] -p dns3_db -e "SHOW TABLES LIKE 'domaine_list';"
+mysql -u [username] -p dns3_db -e "SELECT COUNT(*) FROM domaine_list;"
+```
+
+#### 3. Revert Code Changes
+
+```bash
+# Revert the commit
+git revert <commit-hash>
+
+# Or restore previous version
+git checkout <previous-commit>
+
+# Deploy reverted code
+```
+
+#### 4. Restart Application
+
+```bash
+sudo systemctl start apache2  # or nginx, php-fpm, etc.
+```
+
+#### 5. Verify Rollback
+
+- Check domain admin tab is back in admin.php
+- Verify domain_api.php endpoints work
+- Test creating/editing domains in UI
+
+### Code Changes Included
+
+This migration is accompanied by:
+
+- **Removed**: `api/domain_api.php` - Domain API endpoints (replaced by zone_api.php)
+- **Removed**: `includes/models/Domain.php` - Domain model (replaced by ZoneFile model)
+- **Removed**: Domain admin tab and modal from `admin.php`
+- **Added**: Domain field to zone create/edit modals in `zone-files.php`
+- **Updated**: `api/dns_api.php` - List domains from zone_files.domain
+- **Updated**: `includes/models/DnsRecord.php` - Read domain from zone_files.domain
+- **Updated**: `assets/js/zone-files.js` - Handle domain field in zone forms
+- **Updated**: `assets/js/admin.js` - Removed domain management functions
+- **Updated**: `assets/js/dns-records.js` - Use zone.domain, renamed dns-domain-id to dns-zone-file-id
+
+### Breaking Changes
+
+- **Domain Admin UI removed**: Domains are now managed as part of zone files
+- **domain_api.php removed**: Use zone_api.php instead
+- **Domain model removed**: Use ZoneFile model with domain field
+- **Backward compatibility**: `dns-domain-id` field still exists but maps to `dns-zone-file-id`
+
+### Notes
+
+- The migration is idempotent and can be safely re-run
+- If `domaine_list` table doesn't exist, migration succeeds without error
+- Domain information is preserved in `zone_files.domain` column
+- All references to `domaine_list` have been removed from code
+- Domain display is now read from `zone_files.domain` field
+
 ## Best Practices
 
 1. **Always backup your database** before running migrations:

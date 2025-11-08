@@ -32,6 +32,8 @@ if (!$auth->isAdmin()) {
             <label for="dns-domain-input" style="display: block; margin-bottom: 5px; font-weight: 500;">Domaine:</label>
             <div class="combobox">
                 <input type="text" id="dns-domain-input" class="combobox-input" placeholder="Rechercher un domaine..." autocomplete="off">
+                <input type="hidden" id="dns-zone-file-id">
+                <!-- Backward compatibility: dns-domain-id is now mapped to dns-zone-file-id -->
                 <input type="hidden" id="dns-domain-id">
                 <ul id="dns-domain-list" class="combobox-list" style="display: none;"></ul>
             </div>
