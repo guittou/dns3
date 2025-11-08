@@ -138,6 +138,9 @@ if (!$auth->isAdmin()) {
     </div>
     
     <!-- Tab Content: Domains -->
+    <!-- NOTE: Domains admin is being deprecated. Domain management has been migrated to zone_files.domain.
+         Future updates should use Zone Files management for domain configuration. This tab is kept for
+         backward compatibility only and will be removed in a future release. -->
     <div class="admin-tab-content" id="tab-domains">
         <div class="tab-header">
             <h2>Gestion des Domaines</h2>
