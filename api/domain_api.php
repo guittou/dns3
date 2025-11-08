@@ -118,20 +118,23 @@ function validateDomainData($data) {
 // Get action from request
 $action = $_GET['action'] ?? '';
 
-// Initialize model
+// Initialize models
 $domain = new Domain();
+require_once __DIR__ . '/../includes/models/ZoneFile.php';
+$zoneFile = new ZoneFile();
 
 try {
     switch ($action) {
         case 'list':
             // List domains with pagination (requires authentication)
+            // COMPATIBILITY WRAPPER: reads from zone_files.domain instead of domaine_list
             requireAuth();
 
             $filters = [];
             
-            // Domain name filter
+            // Domain name filter (search in zone_files.domain)
             if (isset($_GET['domain']) && $_GET['domain'] !== '') {
-                $filters['domain'] = $_GET['domain'];
+                $filters['q'] = $_GET['domain']; // Use 'q' to search in name/filename/domain
             }
             
             // Zone file filter
@@ -139,19 +142,37 @@ try {
                 $filters['zone_file_id'] = (int)$_GET['zone_file_id'];
             }
             
-            // Status filter
-            if (isset($_GET['status']) && $_GET['status'] !== '') {
-                $allowed_statuses = ['active', 'deleted'];
-                if (in_array($_GET['status'], $allowed_statuses)) {
-                    $filters['status'] = $_GET['status'];
-                }
-            }
+            // Only master zones with domain set
+            $filters['file_type'] = 'master';
+            $filters['status'] = isset($_GET['status']) && $_GET['status'] === 'deleted' ? 'deleted' : 'active';
 
             // Pagination parameters
             $limit = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 100;
             $offset = isset($_GET['offset']) ? max(0, (int)$_GET['offset']) : 0;
 
-            $domains = $domain->list($filters, $limit, $offset);
+            // Get zones from ZoneFile model
+            $zones = $zoneFile->search($filters, $limit, $offset);
+            
+            // Filter to only include zones with domain set and transform to domain format
+            $domains = [];
+            foreach ($zones as $zone) {
+                if (!empty($zone['domain'])) {
+                    $domains[] = [
+                        'id' => $zone['id'], // Use zone_file_id as domain id for compatibility
+                        'domain' => $zone['domain'],
+                        'zone_file_id' => $zone['id'],
+                        'zone_name' => $zone['name'],
+                        'zone_file_type' => $zone['file_type'],
+                        'created_by' => $zone['created_by'],
+                        'created_by_username' => $zone['created_by_username'] ?? null,
+                        'updated_by' => $zone['updated_by'],
+                        'updated_by_username' => $zone['updated_by_username'] ?? null,
+                        'created_at' => $zone['created_at'],
+                        'updated_at' => $zone['updated_at'],
+                        'status' => $zone['status']
+                    ];
+                }
+            }
 
             echo json_encode([
                 'success' => true,
@@ -162,6 +183,7 @@ try {
 
         case 'get':
             // Get specific domain (requires authentication)
+            // COMPATIBILITY WRAPPER: reads from zone_files.domain
             requireAuth();
 
             $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -172,13 +194,30 @@ try {
                 exit;
             }
 
-            $domainData = $domain->getById($id);
+            // Get zone by ID (zone_file_id is used as domain id)
+            $zone = $zoneFile->getById($id);
 
-            if (!$domainData) {
+            if (!$zone || $zone['file_type'] !== 'master' || empty($zone['domain'])) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Domain not found']);
                 exit;
             }
+            
+            // Transform zone to domain format
+            $domainData = [
+                'id' => $zone['id'],
+                'domain' => $zone['domain'],
+                'zone_file_id' => $zone['id'],
+                'zone_name' => $zone['name'],
+                'zone_file_type' => $zone['file_type'],
+                'created_by' => $zone['created_by'],
+                'created_by_username' => $zone['created_by_username'] ?? null,
+                'updated_by' => $zone['updated_by'],
+                'updated_by_username' => $zone['updated_by_username'] ?? null,
+                'created_at' => $zone['created_at'],
+                'updated_at' => $zone['updated_at'],
+                'status' => $zone['status']
+            ];
 
             echo json_encode([
                 'success' => true,
@@ -188,7 +227,10 @@ try {
 
         case 'create':
             // Create new domain (requires admin)
+            // DEPRECATED: Use zone_api.php to create master zones with domain field
             requireAdmin();
+            
+            error_log("DEPRECATION WARNING: domain_api.php create endpoint is deprecated. Use zone_api.php instead.");
 
             try {
                 // Parse request data
@@ -227,7 +269,10 @@ try {
 
         case 'update':
             // Update domain (requires admin)
+            // DEPRECATED: Use zone_api.php to update master zones with domain field
             requireAdmin();
+            
+            error_log("DEPRECATION WARNING: domain_api.php update endpoint is deprecated. Use zone_api.php instead.");
 
             $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
             
@@ -273,7 +318,10 @@ try {
 
         case 'set_status':
             // Set domain status (requires admin)
+            // DEPRECATED: Use zone_api.php to manage zone status
             requireAdmin();
+            
+            error_log("DEPRECATION WARNING: domain_api.php set_status endpoint is deprecated. Use zone_api.php instead.");
 
             $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
             $status = isset($_GET['status']) ? $_GET['status'] : '';

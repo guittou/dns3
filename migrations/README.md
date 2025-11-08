@@ -20,6 +20,7 @@ Migrations are numbered sequentially and should be run in order:
 - `012_add_validation_command_fields.sql.disabled` - Validation command fields (disabled)
 - `013_remove_legacy_zone_columns.sql` - Remove legacy compatibility columns from dns_records
 - `014_create_domain_list.sql` - Domain list table for managing domains attached to zone files
+- `015_add_domain_to_zone_files.sql` - Add domain column to zone_files and migrate data from domaine_list
 
 ## Running Migrations
 
@@ -251,6 +252,95 @@ This migration is accompanied by:
 - Verification that zone_file_id references a 'master' type zone
 - Admin-only access for create/update/delete operations
 - Prepared statements for SQL injection prevention
+
+## Migration 015: Add Domain Column to Zone Files
+
+### Overview
+
+Migration 015 adds a `domain` column directly to the `zone_files` table and migrates existing domain data from `domaine_list`. This consolidates domain information into the zone files table for a simpler data model.
+
+### What It Does
+
+1. **Adds `domain` column** to `zone_files` table (VARCHAR 255, nullable)
+2. **Creates index** `idx_domain` on the new domain column for performance
+3. **Migrates data** from `domaine_list` to `zone_files.domain` for master zones
+4. **Preserves `domaine_list`** table for backward compatibility (not dropped)
+
+### Running the Migration
+
+```bash
+mysql -u [username] -p dns3_db < migrations/015_add_domain_to_zone_files.sql
+```
+
+### Post-Migration Verification
+
+After running the migration, verify:
+
+1. **Check domain column exists:**
+   ```sql
+   DESCRIBE zone_files;
+   ```
+
+2. **Check migrated domains:**
+   ```sql
+   SELECT COUNT(*) as migrated_domains FROM zone_files WHERE domain IS NOT NULL;
+   SELECT z.id, z.name, z.domain, z.file_type FROM zone_files WHERE domain IS NOT NULL LIMIT 10;
+   ```
+
+3. **Verify API includes domain:**
+   - Test zone list: `GET /api/zone_api.php?action=list_zones`
+   - Test zone get: `GET /api/zone_api.php?action=get_zone&id=1`
+   - Verify response includes `domain` field for master zones
+
+4. **Test domain compatibility API:**
+   - Test domain list: `GET /api/domain_api.php?action=list`
+   - Should return domains from zone_files.domain
+
+### Rollback Procedure
+
+If you need to rollback this migration:
+
+#### 1. Stop the Application
+
+```bash
+sudo systemctl stop apache2  # or nginx, php-fpm, etc.
+```
+
+#### 2. Remove Domain Column
+
+```sql
+USE dns3_db;
+ALTER TABLE zone_files DROP INDEX idx_domain;
+ALTER TABLE zone_files DROP COLUMN domain;
+```
+
+#### 3. Revert Code Changes
+
+```bash
+git revert [commit-hash]
+```
+
+#### 4. Restart the Application
+
+```bash
+sudo systemctl start apache2  # or nginx, php-fpm, etc.
+```
+
+### API and Frontend Changes
+
+This migration is accompanied by:
+- **Backend API**: `api/zone_api.php` - Returns `domain` field in zone responses, accepts domain in create/update for master zones
+- **Backend API**: `api/domain_api.php` - Modified to act as compatibility wrapper reading from zone_files.domain
+- **Model**: `includes/models/ZoneFile.php` - Includes domain field in queries
+- **Frontend**: `assets/js/dns-records.js` - Updated to use zone.domain instead of separate domain lookups
+- **Frontend**: `assets/js/admin.js` - Updated to display zone.domain in admin UI
+
+### Notes
+
+- The `domaine_list` table is **NOT dropped** in this migration for safety and backward compatibility
+- All code changes are defensive with fallbacks for null domain values
+- Domain can only be set on master zone files (file_type = 'master')
+- The migration is fully reversible using the documented rollback procedure
 
 ## Best Practices
 
