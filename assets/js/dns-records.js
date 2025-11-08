@@ -513,37 +513,30 @@
      */
     async function setDomainForZone(zoneId) {
         try {
-            // Get zone data which includes domain field for master zones
-            const zoneResult = await zoneApiCall('get_zone', { id: zoneId });
-            const zone = zoneResult.data;
-            
-            if (zone) {
-                // Use zone_id as domain_id for compatibility
-                selectedDomainId = zone.id;
-                
-                const input = document.getElementById('dns-domain-input');
-                const zoneFileIdInput = document.getElementById('dns-zone-file-id');
-                const domainIdInput = document.getElementById('dns-domain-id'); // Backward compat
-                
-                // Set domain name if available, otherwise clear
-                if (input) input.value = zone.domain || '';
-                if (zoneFileIdInput) zoneFileIdInput.value = zone.id;
-                if (domainIdInput) domainIdInput.value = zone.id; // Map to zone_file_id
-                
-                // Update CURRENT_ZONE_LIST if domain is set
-                if (zone.domain) {
-                    await populateZoneComboboxForDomain(zone.id);
+            const res = await zoneApiCall('get_zone', { id: zoneId });
+            const zone = res && res.data ? res.data : null;
+            if (!zone) {
+                // clear defensively
+                const input = document.getElementById('dns-domain-input'); if (input) input.value = '';
+                const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); if (zoneHidden) zoneHidden.value = '';
+                const legacy = document.getElementById('dns-domain-id'); if (legacy) legacy.value = '';
+                return;
+            }
+
+            const domainName = zone.domain || zone.name || '';
+            const domainInput = document.getElementById('dns-domain-input'); if (domainInput) domainInput.value = domainName;
+            const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); if (zoneHidden) zoneHidden.value = zone.id || '';
+            const legacyDomainId = document.getElementById('dns-domain-id'); if (legacyDomainId) legacyDomainId.value = zone.id || '';
+
+            if (zone.domain && typeof populateZoneComboboxForDomain === 'function') {
+                try { await populateZoneComboboxForDomain(zone.id); } catch (e) {
+                    if (Array.isArray(window.ALL_ZONES)) window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === zone.domain);
                 }
             }
-        } catch (error) {
-            console.error('Error setting domain for zone:', error);
-            // Fail gracefully - clear domain if zone load fails
-            const input = document.getElementById('dns-domain-input');
-            const zoneFileIdInput = document.getElementById('dns-zone-file-id');
-            const domainIdInput = document.getElementById('dns-domain-id');
-            if (input) input.value = '';
-            if (zoneFileIdInput) zoneFileIdInput.value = '';
-            if (domainIdInput) domainIdInput.value = '';
+
+            if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
+        } catch (e) {
+            console.error('setDomainForZone error', e);
         }
     }
 

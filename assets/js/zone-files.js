@@ -344,78 +344,75 @@ let currentZoneId = null;
  */
 async function openZoneModal(zoneId) {
     try {
+        const res = await zoneApiCall('get_zone', { params: { id: zoneId } });
+        if (!res || !res.data) return;
+        const zone = res.data;
+
+        const zoneIdEl = document.getElementById('zoneId'); if (zoneIdEl) zoneIdEl.value = zone.id || '';
+        const zoneNameEl = document.getElementById('zoneName'); if (zoneNameEl) zoneNameEl.value = zone.name || '';
+        const zoneFilenameEl = document.getElementById('zoneFilename'); if (zoneFilenameEl) zoneFilenameEl.value = zone.filename || '';
+        const zoneDirectoryEl = document.getElementById('zoneDirectory'); if (zoneDirectoryEl) zoneDirectoryEl.value = zone.directory || '';
+        const zoneContentEl = document.getElementById('zoneContent') || document.getElementById('zoneContentTextarea'); if (zoneContentEl) zoneContentEl.value = zone.content || '';
+
+        // populate domain
+        const zoneDomainEl = document.getElementById('zoneDomain');
+        if (zoneDomainEl) zoneDomainEl.value = zone.domain || '';
+
+        // toggle visibility for domain group
+        const group = document.getElementById('zoneDomainGroup') || document.getElementById('zone-domain-group');
+        if (group) {
+            group.style.display = ((zone.file_type || 'master') === 'master') ? 'block' : 'none';
+        }
+
+        if (typeof populateZoneIncludes === 'function') try { await populateZoneIncludes(zone.id); } catch (e) {}
+        
+        // Store current zone ID and data (maintain existing functionality)
+        currentZoneId = zoneId;
+        currentZone = zone;
+        originalZoneData = JSON.parse(JSON.stringify(zone));
+        hasUnsavedChanges = false;
+        
         // Clear any previous errors
         clearModalError('zoneModal');
         
-        // Store current zone ID
-        currentZoneId = zoneId;
+        // Populate remaining fields that the new implementation doesn't cover
+        const zoneModalTitle = document.getElementById('zoneModalTitle'); if (zoneModalTitle) zoneModalTitle.textContent = zone.name;
+        const zoneFileTypeEl = document.getElementById('zoneFileType'); if (zoneFileTypeEl) zoneFileTypeEl.value = zone.file_type;
+        const zoneStatusEl = document.getElementById('zoneStatus'); if (zoneStatusEl) zoneStatusEl.value = zone.status;
         
-        // Load zone data
-        const response = await zoneApiCall('get_zone', { params: { id: zoneId } });
-        
-        if (response.success) {
-            currentZone = response.data;
-            originalZoneData = JSON.parse(JSON.stringify(response.data));
-            hasUnsavedChanges = false;
-            
-            // Populate modal
-            document.getElementById('zoneId').value = currentZone.id;
-            document.getElementById('zoneModalTitle').textContent = currentZone.name;
-            document.getElementById('zoneName').value = currentZone.name;
-            document.getElementById('zoneFilename').value = currentZone.filename;
-            document.getElementById('zoneDirectory').value = currentZone.directory || '';
-            document.getElementById('zoneFileType').value = currentZone.file_type;
-            document.getElementById('zoneStatus').value = currentZone.status;
-            
-            // Handle domain field - only show for master zones
-            const domainGroup = document.getElementById('zoneDomainGroup');
-            const domainInput = document.getElementById('zoneDomain');
-            if (currentZone.file_type === 'master') {
-                domainGroup.style.display = 'block';
-                domainInput.value = currentZone.domain || '';
-            } else {
-                domainGroup.style.display = 'none';
-                domainInput.value = '';
-            }
-            
-            // Set textarea content directly (no CodeMirror)
-            document.getElementById('zoneContent').value = currentZone.content || '';
-            
-            // Show parent select only for includes
-            const parentGroup = document.getElementById('parentGroup');
-            if (currentZone.file_type === 'include') {
-                parentGroup.style.display = 'block';
-                await loadParentOptions(currentZone.parent_id);
-            } else {
-                parentGroup.style.display = 'none';
-            }
-            
-            // Load includes list
-            loadIncludesList(response.includes || []);
-            
-            // Show modal
-            document.getElementById('zoneModal').style.display = 'block';
-            document.getElementById('zoneModal').classList.add('open');
-            
-            // Call centering helper if available
-            const zoneModal = document.getElementById('zoneModal');
-            if (typeof window.ensureModalCentered === 'function') {
-                window.ensureModalCentered(zoneModal);
-            }
-            
-            switchTab('details');
-            
-            // Setup change detection
-            setupChangeDetection();
-            
-            // Apply fixed modal height after modal is displayed
-            setTimeout(() => {
-                applyFixedModalHeight();
-            }, 150);
+        // Show parent select only for includes
+        const parentGroup = document.getElementById('parentGroup');
+        if (zone.file_type === 'include') {
+            if (parentGroup) parentGroup.style.display = 'block';
+            await loadParentOptions(zone.parent_id);
+        } else {
+            if (parentGroup) parentGroup.style.display = 'none';
         }
-    } catch (error) {
-        console.error('Failed to load zone:', error);
-        showError('Erreur lors du chargement de la zone: ' + error.message);
+        
+        // Load includes list
+        loadIncludesList(res.includes || []);
+        
+        // Show modal
+        document.getElementById('zoneModal').style.display = 'block';
+        document.getElementById('zoneModal').classList.add('open');
+        
+        // Call centering helper if available
+        const zoneModal = document.getElementById('zoneModal');
+        if (typeof window.ensureModalCentered === 'function') {
+            window.ensureModalCentered(zoneModal);
+        }
+        
+        switchTab('details');
+        
+        // Setup change detection
+        setupChangeDetection();
+        
+        // Apply fixed modal height after modal is displayed
+        setTimeout(() => {
+            applyFixedModalHeight();
+        }, 150);
+    } catch (err) {
+        console.error('openZoneModal error', err);
     }
 }
 
