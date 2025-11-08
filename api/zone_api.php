@@ -257,6 +257,28 @@ try {
                 }
             }
 
+            // Validate domain field (only for master zones)
+            if (isset($input['domain']) && $input['domain'] !== null && $input['domain'] !== '') {
+                $fileType = $input['file_type'] ?? 'master';
+                if ($fileType === 'master') {
+                    $domain = trim($input['domain']);
+                    if (strlen($domain) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Domain name too long (max 255 characters)']);
+                        exit;
+                    }
+                    // Basic domain validation
+                    if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/', $domain)) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Invalid domain format']);
+                        exit;
+                    }
+                } else {
+                    // Log warning if domain provided for non-master zone (but don't fail)
+                    error_log("Warning: domain parameter ignored for non-master zone (file_type: {$fileType})");
+                }
+            }
+
             $user = $auth->getCurrentUser();
             
             try {
@@ -329,6 +351,36 @@ try {
                     http_response_code(400);
                     echo json_encode(['error' => 'Directory path cannot contain ".."']);
                     exit;
+                }
+            }
+
+            // Validate domain field (only for master zones)
+            if (isset($input['domain']) && $input['domain'] !== null && $input['domain'] !== '') {
+                // Get current zone to check file_type
+                $currentZone = $zoneFile->getById($id);
+                if (!$currentZone) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'Zone file not found']);
+                    exit;
+                }
+                
+                $fileType = $input['file_type'] ?? $currentZone['file_type'];
+                if ($fileType === 'master') {
+                    $domain = trim($input['domain']);
+                    if (strlen($domain) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Domain name too long (max 255 characters)']);
+                        exit;
+                    }
+                    // Basic domain validation
+                    if (!preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/', $domain)) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Invalid domain format']);
+                        exit;
+                    }
+                } else {
+                    // Log warning if domain provided for non-master zone (but don't fail)
+                    error_log("Warning: domain parameter ignored for non-master zone (file_type: {$fileType})");
                 }
             }
 

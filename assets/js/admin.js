@@ -572,7 +572,11 @@
             filteredZones.forEach(zone => {
                 const option = document.createElement('option');
                 option.value = zone.id;
-                option.textContent = `${zone.name} (${zone.filename})`;
+                // Show domain if available, otherwise show name and filename
+                const displayText = zone.domain 
+                    ? `${zone.domain} (${zone.name})`
+                    : `${zone.name} (${zone.filename})`;
+                option.textContent = displayText;
                 if (selectedId && zone.id == selectedId) {
                     option.selected = true;
                 }
@@ -595,7 +599,8 @@
                 const filteredZones = zones.filter(zone => {
                     const name = (zone.name || '').toLowerCase();
                     const filename = (zone.filename || '').toLowerCase();
-                    return name.includes(searchTerm) || filename.includes(searchTerm);
+                    const domain = (zone.domain || '').toLowerCase();
+                    return name.includes(searchTerm) || filename.includes(searchTerm) || domain.includes(searchTerm);
                 });
                 populateOptions(filteredZones);
             });
@@ -660,6 +665,8 @@
      * Open create domain modal
      */
     window.openCreateDomainModal = async function() {
+        console.warn('DEPRECATION WARNING: Domain management UI is deprecated. Domains are now managed as part of zone files. Use zone file management instead.');
+        
         document.getElementById('domainModalTitle').textContent = 'Créer un domaine';
         document.getElementById('domain-id').value = '';
         document.getElementById('form-domain').reset();
@@ -676,6 +683,8 @@
      * Open edit domain modal
      */
     window.editDomain = async function(domainId) {
+        console.warn('DEPRECATION WARNING: Domain management UI is deprecated. Domains are now managed as part of zone files. Use zone file management instead.');
+        
         try {
             const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
             url.searchParams.append('action', 'get');

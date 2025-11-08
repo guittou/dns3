@@ -215,8 +215,17 @@ class ZoneFile {
             
             $this->db->beginTransaction();
             
-            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
+            
+            // Only set domain if file_type is 'master' and domain is provided
+            $domain = null;
+            if (isset($data['domain']) && ($data['file_type'] ?? 'master') === 'master') {
+                $domain = trim($data['domain']);
+                if ($domain === '') {
+                    $domain = null;
+                }
+            }
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
@@ -225,6 +234,7 @@ class ZoneFile {
                 $data['directory'] ?? null,
                 $data['content'] ?? null,
                 $data['file_type'] ?? 'master',
+                $domain,
                 $user_id
             ]);
             
@@ -270,9 +280,21 @@ class ZoneFile {
             }
             
             $sql = "UPDATE zone_files 
-                    SET name = ?, filename = ?, directory = ?, content = ?, file_type = ?,
+                    SET name = ?, filename = ?, directory = ?, content = ?, file_type = ?, domain = ?,
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
+            
+            // Only allow domain for master zones
+            $domain = $current['domain'] ?? null;
+            if (isset($data['domain'])) {
+                $fileType = $data['file_type'] ?? $current['file_type'];
+                if ($fileType === 'master') {
+                    $domain = trim($data['domain']);
+                    if ($domain === '') {
+                        $domain = null;
+                    }
+                }
+            }
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
@@ -281,6 +303,7 @@ class ZoneFile {
                 isset($data['directory']) ? $data['directory'] : $current['directory'],
                 isset($data['content']) ? $data['content'] : $current['content'],
                 $data['file_type'] ?? $current['file_type'],
+                $domain,
                 $user_id,
                 $id
             ]);

@@ -523,9 +523,18 @@
      * Populate zone combobox for a specific domain
      * This updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
      */
-    async function populateZoneComboboxForDomain(domainId) {
+    async function populateZoneComboboxForDomain(domainIdOrZoneId) {
         try {
-            const result = await apiCall('list_zones_by_domain', { domain_id: domainId });
+            // Try new API first (accepts zone_id) with fallback to old API (domain_id)
+            let result;
+            try {
+                // Try zone_id parameter (new API)
+                result = await apiCall('list_zones_by_domain', { zone_id: domainIdOrZoneId });
+            } catch (e) {
+                // Fallback to domain_id parameter (old API)
+                result = await apiCall('list_zones_by_domain', { domain_id: domainIdOrZoneId });
+            }
+            
             const zones = result.data || [];
             
             // Update CURRENT_ZONE_LIST with filtered zones
@@ -544,21 +553,40 @@
      */
     async function setDomainForZone(zoneId) {
         try {
-            const result = await apiCall('get_domain_for_zone', { zone_id: zoneId });
-            const domain = result.data;
+            // Try the new approach: get zone directly and read domain from it
+            const zoneResult = await zoneApiCall('get_zone', { id: zoneId });
+            const zone = zoneResult.data;
             
-            if (domain) {
-                selectedDomainId = domain.id;
+            if (zone && zone.domain) {
+                // Zone has domain field, use it directly
+                selectedDomainId = zone.id; // Use zone_id as domain_id for compatibility
                 
                 const input = document.getElementById('dns-domain-input');
                 const hiddenInput = document.getElementById('dns-domain-id');
                 
-                if (input) input.value = domain.domain;
-                if (hiddenInput) hiddenInput.value = domain.id;
+                if (input) input.value = zone.domain;
+                if (hiddenInput) hiddenInput.value = zone.id;
                 
                 // Update CURRENT_ZONE_LIST to show zones for this domain
-                // but do NOT auto-open the list
-                await populateZoneComboboxForDomain(domain.id);
+                // Use zone_id to list zones by domain (new API parameter)
+                await populateZoneComboboxForDomain(zone.id);
+            } else {
+                // Fallback to old API for backward compatibility
+                const result = await apiCall('get_domain_for_zone', { zone_id: zoneId });
+                const domain = result.data;
+                
+                if (domain) {
+                    selectedDomainId = domain.id;
+                    
+                    const input = document.getElementById('dns-domain-input');
+                    const hiddenInput = document.getElementById('dns-domain-id');
+                    
+                    if (input) input.value = domain.domain;
+                    if (hiddenInput) hiddenInput.value = domain.id;
+                    
+                    // Update CURRENT_ZONE_LIST to show zones for this domain
+                    await populateZoneComboboxForDomain(domain.id);
+                }
             }
         } catch (error) {
             console.error('Error setting domain for zone:', error);

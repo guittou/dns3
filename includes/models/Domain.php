@@ -2,6 +2,13 @@
 /**
  * Domain Model
  * Handles CRUD operations for domains attached to zone files
+ * 
+ * DEPRECATION NOTICE: This model reads from domaine_list table which is deprecated.
+ * Domain information has been migrated to zone_files.domain column.
+ * This model is kept for backward compatibility only.
+ * New code should use ZoneFile model and zone_files.domain field directly.
+ * 
+ * @deprecated Use ZoneFile model with domain field instead
  */
 
 require_once __DIR__ . '/../db.php';
