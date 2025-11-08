@@ -137,9 +137,6 @@
                     case 'mappings':
                         loadMappings();
                         break;
-                    case 'domains':
-                        loadDomains();
-                        break;
                 }
             });
         });
@@ -897,20 +894,18 @@
         document.getElementById('btn-filter-domains').addEventListener('click', () => {
             const filters = {};
             
-            const domain = document.getElementById('filter-domain').value.trim();
-            if (domain) filters.domain = domain;
+            const mapping_id = document.getElementById('filter-mapping').value;
+            if (mapping_id) filters.id = mapping_id;
             
-            const status = document.getElementById('filter-domain-status').value;
-            if (status) filters.status = status;
-            
-            loadDomains(filters);
+            loadMappings(filters);
         });
         
-        document.getElementById('btn-reset-domain-filters').addEventListener('click', () => {
-            document.getElementById('filter-domain').value = '';
-            document.getElementById('filter-domain-status').value = '';
-            loadDomains();
+        document.getElementById('btn-reset-mapping-filters').addEventListener('click', () => {
+            document.getElementById('filter-mapping').value = '';
+            loadMappings();
         });
+        
+        // Domain filter buttons removed - domains are now managed via zone files
     }
 
     /**
@@ -927,12 +922,12 @@
         // Button event listeners
         document.getElementById('btn-create-user').addEventListener('click', openCreateUserModal);
         document.getElementById('btn-create-mapping').addEventListener('click', openCreateMappingModal);
-        document.getElementById('btn-create-domain').addEventListener('click', openCreateDomainModal);
+        // Domain button removed - domains are now managed via zone files
         
         // Form submissions
         document.getElementById('form-user').addEventListener('submit', saveUser);
         document.getElementById('form-mapping').addEventListener('submit', saveMapping);
-        document.getElementById('form-domain').addEventListener('submit', submitDomainForm);
+        // Domain form removed - domains are now managed via zone files
         
         // Close modals on outside click
         window.addEventListener('click', (e) => {
@@ -969,50 +964,5 @@
         document.head.appendChild(style);
     });
 
-    // Defensive: ensure openCreateDomainModal is exposed and btn bound
-    window.openCreateDomainModal = window.openCreateDomainModal || (async function() {
-        try {
-            if (typeof populateDomainZoneSelect === 'function') {
-                await populateDomainZoneSelect(null);
-            } else {
-                console.debug('[admin] populateDomainZoneSelect not defined, zone select will not be populated');
-            }
-
-            const modalId = 'domainModal';
-            if (typeof window.openModalById === 'function') {
-                window.openModalById(modalId);
-            } else {
-                // Fallback if modal-utils.js not loaded
-                const modal = document.getElementById(modalId);
-                if (modal) {
-                    modal.classList.add('show');
-                    modal.style.display = 'flex';
-                }
-            }
-        } catch (err) {
-            console.error('[admin] Error opening domain modal:', err);
-            throw err;
-        }
-    });
-
-    // Defensive binding: attach click handler if not already bound
-    document.addEventListener('DOMContentLoaded', function bindCreateDomainButtonDefensive() {
-        try {
-            const btn = document.getElementById('btn-create-domain');
-            if (!btn) return;
-            if (!btn.dataset.createDomainBound) {
-                btn.addEventListener('click', () => {
-                    if (typeof window.openCreateDomainModal === 'function') {
-                        window.openCreateDomainModal().catch(e => console.error('Error openCreateDomainModal:', e));
-                    } else {
-                        console.error('[admin] openCreateDomainModal not defined');
-                    }
-                });
-                btn.dataset.createDomainBound = '1';
-                console.debug('[admin] defensive binding added to #btn-create-domain');
-            }
-        } catch (e) {
-            console.error('[admin] Error binding create-domain button:', e);
-        }
-    });
+    // Domain modal functions removed - domains are now managed via zone files
 })();
