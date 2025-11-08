@@ -4,8 +4,8 @@
 // Database configuration
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'dns3_db');
-define('DB_USER', 'dns3_user');
-define('DB_PASS', 'your_password_here');
+define('DB_USER', 'root');
+define('DB_PASS', '5e31WW7QI59AK4KBE6aF');
 
 // Active Directory configuration
 define('AD_SERVER', 'ldap://ad.example.com');
@@ -22,7 +22,7 @@ define('LDAP_BIND_PASS', 'your_ldap_password');
 
 // Application configuration
 define('SITE_NAME', 'DNS3');
-define('BASE_URL', '/');
+define('BASE_URL', '/dns3/');
 
 // Zone validation configuration
 define('ZONE_VALIDATE_SYNC', false); // Set to true to run named-checkzone synchronously
