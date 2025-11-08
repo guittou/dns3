@@ -505,31 +505,41 @@ try {
         case 'list_zones_by_domain':
             // List zones (master + includes descendants) for a given domain (requires authentication)
             // Uses BFS on zone_file_includes to find all descendant zones
+            // Now accepts either domain_id (legacy) or zone_id (new) parameter
             requireAuth();
 
             $domain_id = isset($_GET['domain_id']) ? (int)$_GET['domain_id'] : 0;
-            if ($domain_id <= 0) {
+            $zone_id = isset($_GET['zone_id']) ? (int)$_GET['zone_id'] : 0;
+            
+            if ($domain_id <= 0 && $zone_id <= 0) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid domain_id']);
+                echo json_encode(['error' => 'Invalid domain_id or zone_id']);
                 exit;
             }
 
             try {
-                // Get the master zone_file_id for this domain
-                $sql = "SELECT zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
-                $stmt = $dnsRecord->getConnection()->prepare($sql);
-                $stmt->execute([$domain_id]);
-                $domain = $stmt->fetch();
+                $masterZoneFileId = null;
                 
-                if (!$domain || $domain['zone_file_id'] === null) {
-                    echo json_encode([
-                        'success' => true,
-                        'data' => []
-                    ]);
-                    exit;
+                if ($zone_id > 0) {
+                    // Direct zone_id provided (new way)
+                    $masterZoneFileId = $zone_id;
+                } else {
+                    // Legacy: domain_id provided, lookup zone_file_id from domaine_list
+                    $sql = "SELECT zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
+                    $stmt = $dnsRecord->getConnection()->prepare($sql);
+                    $stmt->execute([$domain_id]);
+                    $domain = $stmt->fetch();
+                    
+                    if (!$domain || $domain['zone_file_id'] === null) {
+                        echo json_encode([
+                            'success' => true,
+                            'data' => []
+                        ]);
+                        exit;
+                    }
+                    
+                    $masterZoneFileId = $domain['zone_file_id'];
                 }
-                
-                $masterZoneFileId = $domain['zone_file_id'];
                 
                 // BFS to collect master + all descendant zone files via zone_file_includes
                 $zoneFileIds = [$masterZoneFileId];
@@ -624,16 +634,20 @@ try {
                     $iteration++;
                 }
                 
-                // Now currentZoneId is the top master, find the domain
-                $sql = "SELECT id, domain FROM domaine_list WHERE zone_file_id = ? AND status = 'active' LIMIT 1";
+                // Now currentZoneId is the top master, get the zone with domain
+                $sql = "SELECT id, domain FROM zone_files WHERE id = ? AND status = 'active' LIMIT 1";
                 $stmt = $dnsRecord->getConnection()->prepare($sql);
                 $stmt->execute([$currentZoneId]);
-                $domain = $stmt->fetch();
+                $zone = $stmt->fetch();
                 
-                if ($domain) {
+                if ($zone && !empty($zone['domain'])) {
+                    // Return domain info in same format as before for compatibility
                     echo json_encode([
                         'success' => true,
-                        'data' => $domain
+                        'data' => [
+                            'id' => $zone['id'], // Use zone_file_id as domain id
+                            'domain' => $zone['domain']
+                        ]
                     ]);
                 } else {
                     echo json_encode([
