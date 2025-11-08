@@ -367,6 +367,17 @@ async function openZoneModal(zoneId) {
             document.getElementById('zoneFileType').value = currentZone.file_type;
             document.getElementById('zoneStatus').value = currentZone.status;
             
+            // Handle domain field - only show for master zones
+            const domainGroup = document.getElementById('zoneDomainGroup');
+            const domainInput = document.getElementById('zoneDomain');
+            if (currentZone.file_type === 'master') {
+                domainGroup.style.display = 'block';
+                domainInput.value = currentZone.domain || '';
+            } else {
+                domainGroup.style.display = 'none';
+                domainInput.value = '';
+            }
+            
             // Set textarea content directly (no CodeMirror)
             document.getElementById('zoneContent').value = currentZone.content || '';
             
@@ -645,6 +656,11 @@ async function saveZone() {
             content: content
         };
         
+        // Add domain field only for master zones
+        if (currentZone.file_type === 'master') {
+            data.domain = document.getElementById('zoneDomain').value || null;
+        }
+        
         // Handle status change separately if needed
         const newStatus = document.getElementById('zoneStatus').value;
         if (newStatus !== originalZoneData.status) {
@@ -835,7 +851,8 @@ async function createZone() {
             name: document.getElementById('createName').value,
             filename: document.getElementById('createFilename').value,
             file_type: 'master', // Always create as master from "Nouvelle zone" button
-            content: document.getElementById('createContent').value
+            content: document.getElementById('createContent').value,
+            domain: document.getElementById('createDomain').value || null
         };
 
         const response = await zoneApiCall('create_zone', {

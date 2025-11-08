@@ -120,6 +120,11 @@ if (!$auth->isAdmin()) {
                     <input id="createFilename" class="form-control" type="text" required>
                 </div>
                 <div class="form-group">
+                    <label for="createDomain">Domaine</label>
+                    <input id="createDomain" class="form-control" type="text" placeholder="ex: example.com">
+                    <small class="form-text text-muted">Nom de domaine associé à cette zone master (optionnel)</small>
+                </div>
+                <div class="form-group">
                     <label for="createFileType">Type *</label>
                     <select id="createFileType" class="form-control" required disabled>
                         <option value="master" selected>Master</option>
@@ -177,6 +182,11 @@ if (!$auth->isAdmin()) {
                             <div class="form-group">
                                 <label for="zoneFilename">Nom de fichier *</label>
                                 <input type="text" id="zoneFilename" class="form-control" required>
+                            </div>
+                            <div class="form-group" id="zoneDomainGroup">
+                                <label for="zoneDomain">Domaine</label>
+                                <input type="text" id="zoneDomain" class="form-control" placeholder="ex: example.com">
+                                <small class="form-text text-muted">Nom de domaine associé à cette zone master (optionnel)</small>
                             </div>
                             <div class="form-group">
                                 <label for="zoneDirectory">Répertoire</label>
