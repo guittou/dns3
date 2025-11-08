@@ -475,17 +475,20 @@ try {
             break;
 
         case 'list_domains':
-            // List domains from domaine_list (requires authentication)
+            // List domains from zone_files.domain (requires authentication)
+            // COMPATIBILITY: Returns zone files with domain field set, formatted like legacy domaine_list
             requireAuth();
 
             try {
-                $sql = "SELECT dl.id, dl.domain, dl.zone_file_id, 
-                               COALESCE(zf.name, '') as zone_name,
-                               COALESCE(zf.filename, '') as zone_filename
-                        FROM domaine_list dl
-                        LEFT JOIN zone_files zf ON dl.zone_file_id = zf.id
-                        WHERE dl.status = 'active'
-                        ORDER BY dl.domain ASC";
+                $sql = "SELECT zf.id, zf.domain, zf.id as zone_file_id, 
+                               zf.name as zone_name,
+                               zf.filename as zone_filename
+                        FROM zone_files zf
+                        WHERE zf.domain IS NOT NULL 
+                          AND zf.domain != ''
+                          AND zf.status = 'active'
+                          AND zf.file_type = 'master'
+                        ORDER BY zf.domain ASC";
                 
                 $stmt = $dnsRecord->getConnection()->prepare($sql);
                 $stmt->execute();
@@ -503,9 +506,9 @@ try {
             break;
 
         case 'list_zones_by_domain':
-            // List zones (master + includes descendants) for a given domain (requires authentication)
+            // List zones (master + includes descendants) for a given zone (requires authentication)
             // Uses BFS on zone_file_includes to find all descendant zones
-            // Now accepts either domain_id (legacy) or zone_id (new) parameter
+            // Now accepts zone_id parameter (domain_id is deprecated but mapped to zone_id for compatibility)
             requireAuth();
 
             $domain_id = isset($_GET['domain_id']) ? (int)$_GET['domain_id'] : 0;
@@ -518,28 +521,8 @@ try {
             }
 
             try {
-                $masterZoneFileId = null;
-                
-                if ($zone_id > 0) {
-                    // Direct zone_id provided (new way)
-                    $masterZoneFileId = $zone_id;
-                } else {
-                    // Legacy: domain_id provided, lookup zone_file_id from domaine_list
-                    $sql = "SELECT zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
-                    $stmt = $dnsRecord->getConnection()->prepare($sql);
-                    $stmt->execute([$domain_id]);
-                    $domain = $stmt->fetch();
-                    
-                    if (!$domain || $domain['zone_file_id'] === null) {
-                        echo json_encode([
-                            'success' => true,
-                            'data' => []
-                        ]);
-                        exit;
-                    }
-                    
-                    $masterZoneFileId = $domain['zone_file_id'];
-                }
+                // Use zone_id directly, or use domain_id as zone_id for backward compatibility
+                $masterZoneFileId = $zone_id > 0 ? $zone_id : $domain_id;
                 
                 // BFS to collect master + all descendant zone files via zone_file_includes
                 $zoneFileIds = [$masterZoneFileId];
@@ -593,7 +576,7 @@ try {
 
         case 'get_domain_for_zone':
             // Get the domain associated with the top master of a zone (requires authentication)
-            // Traverses zone_file_includes upward to find the top master, then finds domain in domaine_list
+            // Traverses zone_file_includes upward to find the top master, then reads domain from zone_files.domain
             requireAuth();
 
             $zone_id = isset($_GET['zone_id']) ? (int)$_GET['zone_id'] : 0;

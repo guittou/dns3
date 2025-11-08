@@ -681,25 +681,17 @@ class DnsRecord {
      * @param int $domain_id Domain ID from domaine_list
      * @return array Array of zone_file_ids
      */
-    private function getZoneFileIdsForDomain($domain_id) {
+    /**
+     * Get all zone_file_ids for a domain (master + all descendants via includes)
+     * Uses BFS (breadth-first search) to traverse zone_file_includes table
+     * 
+     * @param int $zone_file_id Zone file ID (previously called domain_id, now uses zone_file_id directly)
+     * @return array Array of zone_file_ids
+     */
+    private function getZoneFileIdsForDomain($zone_file_id) {
         try {
-            // Get the master zone_file_id for this domain
-            $sql = "SELECT zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([$domain_id]);
-            $domain = $stmt->fetch();
-            
-            if (!$domain) {
-                return [];
-            }
-            
-            $masterZoneFileId = $domain['zone_file_id'];
-            
-            // Check if zone_file_id is null (domain has no associated zone file)
-            if ($masterZoneFileId === null) {
-                error_log("Domain {$domain_id} has no associated zone file");
-                return [];
-            }
+            // Use zone_file_id directly as the master zone
+            $masterZoneFileId = $zone_file_id;
             
             // Start with the master zone file
             $allowedZoneFileIds = [$masterZoneFileId];
@@ -804,13 +796,20 @@ class DnsRecord {
      * @param int $zone_file_id Zone file ID
      * @return array|null Domain data or null if not found
      */
+    /**
+     * Get domain information by zone file ID
+     * Reads domain from zone_files.domain field
+     * 
+     * @param int $zone_file_id Zone file ID
+     * @return array|null Domain data or null if not found
+     */
     private function getDomainByZoneFileId($zone_file_id) {
         try {
-            $sql = "SELECT id, domain FROM domaine_list WHERE zone_file_id = ? AND status = 'active' LIMIT 1";
+            $sql = "SELECT id, domain FROM zone_files WHERE id = ? AND status = 'active' AND domain IS NOT NULL LIMIT 1";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$zone_file_id]);
-            $domain = $stmt->fetch();
-            return $domain ?: null;
+            $zone = $stmt->fetch();
+            return $zone ?: null;
         } catch (Exception $e) {
             error_log("Error getting domain by zone_file_id: " . $e->getMessage());
             return null;
@@ -818,18 +817,20 @@ class DnsRecord {
     }
 
     /**
-     * Get domain by ID
+     * Get domain by ID (zone_file_id)
+     * Reads domain from zone_files.domain field
+     * For backward compatibility, domain_id is treated as zone_file_id
      * 
-     * @param int $domain_id Domain ID
-     * @return array|null Domain data or null if not found
+     * @param int $zone_file_id Zone file ID (previously called domain_id)
+     * @return array|null Domain data with id, domain, and zone_file_id or null if not found
      */
-    private function getDomainById($domain_id) {
+    private function getDomainById($zone_file_id) {
         try {
-            $sql = "SELECT id, domain, zone_file_id FROM domaine_list WHERE id = ? AND status = 'active'";
+            $sql = "SELECT id, domain, id as zone_file_id FROM zone_files WHERE id = ? AND status = 'active' AND domain IS NOT NULL LIMIT 1";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$domain_id]);
-            $domain = $stmt->fetch();
-            return $domain ?: null;
+            $stmt->execute([$zone_file_id]);
+            $zone = $stmt->fetch();
+            return $zone ?: null;
         } catch (Exception $e) {
             error_log("Error getting domain by ID: " . $e->getMessage());
             return null;

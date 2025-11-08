@@ -21,7 +21,6 @@ if (!$auth->isAdmin()) {
         <button class="admin-tab-button active" data-tab="users">Utilisateurs</button>
         <button class="admin-tab-button" data-tab="roles">Rôles</button>
         <button class="admin-tab-button" data-tab="mappings">Mappings AD/LDAP</button>
-        <button class="admin-tab-button" data-tab="domains">Domaines</button>
     </div>
     
     <!-- Tab Content: Users -->
@@ -136,46 +135,6 @@ if (!$auth->isAdmin()) {
             </table>
         </div>
     </div>
-    
-    <!-- Tab Content: Domains -->
-    <div class="admin-tab-content" id="tab-domains">
-        <div class="tab-header">
-            <h2>Gestion des Domaines</h2>
-            <button class="btn btn-primary" id="btn-create-domain">
-                <span class="icon">+</span> Créer un domaine
-            </button>
-        </div>
-        
-        <div class="filters-section">
-            <input type="text" id="filter-domain" placeholder="Rechercher par domaine..." class="filter-input">
-            <select id="filter-domain-status" class="filter-select">
-                <option value="">Tous les statuts</option>
-                <option value="active">Actif</option>
-                <option value="deleted">Supprimé</option>
-            </select>
-            <button class="btn btn-secondary" id="btn-filter-domains">Filtrer</button>
-            <button class="btn btn-secondary" id="btn-reset-domain-filters">Réinitialiser</button>
-        </div>
-        
-        <div class="table-container">
-            <table class="admin-table" id="domains-table">
-                <thead>
-                    <tr>
-                        <th>Domaine</th>
-                        <th>Fichier de Zone</th>
-                        <th>Créé le</th>
-                        <th>Modifié le</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="domains-tbody">
-                    <tr>
-                        <td colspan="5" class="loading">Chargement des domaines...</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 
 <!-- Modal: Create/Edit User -->
@@ -285,60 +244,6 @@ if (!$auth->isAdmin()) {
             <div class="modal-action-bar">
                 <button type="submit" class="btn-success modal-action-button" form="form-mapping">Créer</button>
                 <button type="button" class="btn-cancel modal-action-button" onclick="closeMappingModal()">Annuler</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal: Create/Edit Domain -->
-<div id="domainModal" class="dns-modal">
-    <div class="dns-modal-content modal-medium">
-        <div class="dns-modal-header">
-            <h3 id="domainModalTitle">Créer un domaine</h3>
-            <button class="dns-modal-close" onclick="closeDomainModal()">&times;</button>
-        </div>
-        <div class="dns-modal-body">
-            <form id="form-domain">
-                <input type="hidden" id="domain-id" value="">
-                
-                <div class="form-group">
-                    <label for="domain-name">Nom de domaine *</label>
-                    <input type="text" id="domain-name" name="domain" required 
-                           placeholder="Ex: example.com">
-                    <small class="form-hint">Nom de domaine complet (FQDN)</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="domain-zone-search">Rechercher un fichier de zone</label>
-                    <input type="text" id="domain-zone-search" placeholder="Tapez pour filtrer les zones..." class="filter-input">
-                    <small class="form-hint">Filtrez les fichiers de zone par nom ou nom de fichier</small>
-                </div>
-                
-                <div class="form-group">
-                    <label for="domain-zone-file">Fichier de Zone *</label>
-                    <select id="domain-zone-file" name="zone_file_id" required>
-                        <option value="">Sélectionner un fichier de zone...</option>
-                        <!-- Will be populated dynamically with master zones only -->
-                    </select>
-                    <small class="form-hint">Seuls les fichiers de zone de type "master" sont disponibles</small>
-                </div>
-                
-                <div class="form-group" id="domain-created-info" style="display: none;">
-                    <label>Créé le</label>
-                    <input type="text" id="domain-created-at" readonly disabled>
-                </div>
-                
-                <div class="form-group" id="domain-updated-info" style="display: none;">
-                    <label>Modifié le</label>
-                    <input type="text" id="domain-updated-at" readonly disabled>
-                </div>
-            </form>
-        </div>
-        <div class="dns-modal-footer">
-            <div class="modal-action-bar">
-                <button type="submit" class="btn-success modal-action-button" id="btn-save-domain" form="form-domain">Enregistrer</button>
-                <button type="button" class="btn-cancel modal-action-button" onclick="closeDomainModal()">Annuler</button>
-                <button type="button" class="btn-danger modal-action-button" id="btn-delete-domain" onclick="deleteDomainFromModal()" style="display: none;">Supprimer</button>
             </div>
         </div>
     </div>
