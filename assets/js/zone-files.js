@@ -346,7 +346,9 @@ async function loadZonesList() {
             params.per_page = MAX_INCLUDES_PER_FETCH;
         }
         
-        if (filterType) {
+        // Allow filterType to override only if explicitly set by user
+        // Note: When domain is selected, we always filter to includes regardless of filterType
+        if (filterType && !selectedDomainId) {
             params.file_type = filterType;
         }
         if (filterStatus) {
@@ -363,7 +365,12 @@ async function loadZonesList() {
             // Performance note: Works well for up to MAX_INCLUDES_PER_FETCH (1000) includes
             // TODO: Consider adding parent_id parameter to the API for server-side filtering
             if (selectedDomainId) {
-                filteredData = filteredData.filter(zone => zone.parent_id === selectedDomainId);
+                // Ensure both values are numbers for comparison
+                const selectedId = parseInt(selectedDomainId, 10);
+                filteredData = filteredData.filter(zone => {
+                    const parentId = parseInt(zone.parent_id, 10);
+                    return !isNaN(parentId) && parentId === selectedId;
+                });
                 totalCount = filteredData.length;
                 totalPages = Math.ceil(totalCount / perPage);
             } else {
@@ -1074,13 +1081,13 @@ async function openCreateIncludeModal() {
     // Open the zone modal for the selected master, which has the includes tab
     await openZoneModal(selectedDomainId);
     
-    // Wait for modal to be fully rendered using Promise
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    // Wait for modal to be fully rendered
+    await new Promise(resolve => requestAnimationFrame(resolve));
     
     // Switch to includes tab
     switchTab('includes');
     
-    // Wait for tab content to be visible
+    // Wait for tab switch to complete
     await new Promise(resolve => requestAnimationFrame(resolve));
     
     // Open the create include form if the button exists
