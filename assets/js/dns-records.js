@@ -304,17 +304,67 @@
 
     /**
      * Initialize domain combobox
-     * Note: Domain combobox is now read-only and auto-populated from selected zone's domain field
-     * Domains are no longer managed separately - they are part of zone files
+     * Loads all available domains from masters and makes the combobox interactive for filtering
      */
     async function initDomainCombobox() {
-        // Domain input is now informational only and populated automatically from zone selection
-        // No interactive combobox needed
-        const input = document.getElementById('dns-domain-input');
-        if (input) {
-            input.readOnly = true;
-            input.placeholder = 'Sélectionnez d\'abord une zone';
-            input.title = 'Le domaine est automatiquement défini depuis la zone sélectionnée';
+        try {
+            // Load all domains from master zones
+            const result = await apiCall('list_domains');
+            allDomains = result.data || [];
+            
+            const input = document.getElementById('dns-domain-input');
+            const list = document.getElementById('dns-domain-list');
+            const zoneFileIdInput = document.getElementById('dns-zone-file-id');
+            const domainIdInput = document.getElementById('dns-domain-id');
+            
+            if (!input || !list) return;
+            
+            // Make input interactive
+            input.readOnly = false;
+            input.placeholder = 'Rechercher un domaine...';
+            input.title = 'Sélectionnez un domaine pour filtrer les zones';
+            
+            // Input event - filter domains and show list
+            input.addEventListener('input', () => {
+                const query = input.value.toLowerCase().trim();
+                const filtered = allDomains.filter(d => 
+                    d.domain.toLowerCase().includes(query)
+                );
+                
+                populateComboboxList(list, filtered, (domain) => ({
+                    id: domain.id,
+                    text: domain.domain
+                }), (domain) => {
+                    selectDomain(domain.id, domain.domain);
+                });
+            });
+            
+            // Focus - show all domains
+            input.addEventListener('focus', () => {
+                populateComboboxList(list, allDomains, (domain) => ({
+                    id: domain.id,
+                    text: domain.domain
+                }), (domain) => {
+                    selectDomain(domain.id, domain.domain);
+                });
+            });
+            
+            // Blur - hide list (with delay to allow click)
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    list.style.display = 'none';
+                }, COMBOBOX_BLUR_DELAY);
+            });
+            
+            // Escape key - close list
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    list.style.display = 'none';
+                    input.blur();
+                }
+            });
+        } catch (error) {
+            console.error('Error initializing domain combobox:', error);
         }
     }
 
