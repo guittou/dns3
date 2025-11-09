@@ -520,6 +520,8 @@
                 const input = document.getElementById('dns-domain-input'); if (input) input.value = '';
                 const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); if (zoneHidden) zoneHidden.value = '';
                 const legacy = document.getElementById('dns-domain-id'); if (legacy) legacy.value = '';
+                const zoneInput = document.getElementById('dns-zone-input'); if (zoneInput) zoneInput.value = '';
+                const recordZoneFile = document.getElementById('record-zone-file'); if (recordZoneFile) recordZoneFile.value = '';
                 return;
             }
 
@@ -527,6 +529,34 @@
             const domainInput = document.getElementById('dns-domain-input'); if (domainInput) domainInput.value = domainName;
             const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); if (zoneHidden) zoneHidden.value = zone.id || '';
             const legacyDomainId = document.getElementById('dns-domain-id'); if (legacyDomainId) legacyDomainId.value = zone.id || '';
+
+            // Update #dns-zone-input text display
+            const zoneInput = document.getElementById('dns-zone-input');
+            if (zoneInput) {
+                zoneInput.value = `${zone.name} (${zone.file_type})`;
+            }
+
+            // Update #record-zone-file select - populate and select the zone
+            const recordZoneFile = document.getElementById('record-zone-file');
+            if (recordZoneFile) {
+                // Check if option exists, if not add it
+                let optionExists = false;
+                for (let i = 0; i < recordZoneFile.options.length; i++) {
+                    if (recordZoneFile.options[i].value == zone.id) {
+                        optionExists = true;
+                        break;
+                    }
+                }
+                
+                if (!optionExists) {
+                    const option = document.createElement('option');
+                    option.value = zone.id;
+                    option.textContent = `${zone.name} (${zone.file_type})`;
+                    recordZoneFile.appendChild(option);
+                }
+                
+                recordZoneFile.value = zone.id;
+            }
 
             if (zone.domain && typeof populateZoneComboboxForDomain === 'function') {
                 try { await populateZoneComboboxForDomain(zone.id); } catch (e) {
@@ -1426,6 +1456,11 @@
         initZoneCombobox();
         initModalZoneCombobox();
         
+        // Populate domain select (if element exists)
+        if (document.getElementById('dns-domain-filter')) {
+            populateDomainSelect();
+        }
+        
         // Search input
         const searchInput = document.getElementById('dns-search');
         if (searchInput) {
@@ -1521,6 +1556,11 @@
         deleteRecord,
         restoreRecord
     };
+
+    // Expose helper functions globally for event handlers
+    window.setDomainForZone = setDomainForZone;
+    window.populateZoneFileCombobox = populateZoneFileCombobox;
+    window.populateZoneComboboxForDomain = populateZoneComboboxForDomain;
 
     // Initialize on DOM ready
     if (document.readyState === 'loading') {
