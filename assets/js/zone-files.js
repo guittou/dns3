@@ -15,6 +15,9 @@ let searchTimeout = null;
 let selectedDomainId = null;
 let allMasters = [];
 
+// Constants
+const MAX_INCLUDES_PER_FETCH = 1000; // Maximum includes to fetch when filtering by domain
+
 // API base URL
 const API_BASE = window.API_BASE || '/api/zone_api.php';
 
@@ -337,8 +340,10 @@ async function loadZonesList() {
             params.file_type = 'include';
         } else {
             // When domain is selected, fetch all includes to filter by parent
+            // Note: Client-side filtering is used here because the API doesn't support parent_id parameter
+            // Consider adding parent_id support to the API for better performance with large datasets
             params.file_type = 'include';
-            params.per_page = 1000; // Fetch more to filter client-side
+            params.per_page = MAX_INCLUDES_PER_FETCH;
         }
         
         if (filterType) {
@@ -353,7 +358,10 @@ async function loadZonesList() {
         if (response.success) {
             let filteredData = response.data;
             
-            // If a domain is selected, filter includes by parent_id
+            // Client-side filtering by parent_id when domain is selected
+            // This is done client-side because the API doesn't currently support parent_id parameter
+            // Performance note: Works well for up to MAX_INCLUDES_PER_FETCH (1000) includes
+            // TODO: Consider adding parent_id parameter to the API for server-side filtering
             if (selectedDomainId) {
                 filteredData = filteredData.filter(zone => zone.parent_id === selectedDomainId);
                 totalCount = filteredData.length;
@@ -436,10 +444,19 @@ function renderZonesTable(zones) {
  * Handle zone row click - select parent domain if include
  */
 async function handleZoneRowClick(zoneId, parentId) {
-    if (parentId && parentId !== 'null') {
+    // Check if this zone has a parent (is an include)
+    // parentId can be a number, null, or the string 'null' from onclick attribute
+    const hasParent = parentId && parentId !== null && parentId !== 'null' && parentId !== '';
+    
+    if (hasParent) {
         // This is an include - select its parent domain
-        onDomainSelected(parentId);
+        // Ensure parentId is a number
+        const parentIdNum = typeof parentId === 'number' ? parentId : parseInt(parentId, 10);
+        if (!isNaN(parentIdNum)) {
+            onDomainSelected(parentIdNum);
+        }
     }
+    
     // Open the zone modal
     openZoneModal(zoneId);
 }
@@ -1048,26 +1065,29 @@ async function openEditMasterModal() {
 /**
  * Open create include modal for selected domain
  */
-function openCreateIncludeModal() {
+async function openCreateIncludeModal() {
     if (!selectedDomainId) {
         showError('Veuillez sélectionner un domaine d\'abord');
         return;
     }
     
     // Open the zone modal for the selected master, which has the includes tab
-    openZoneModal(selectedDomainId);
+    await openZoneModal(selectedDomainId);
     
-    // Switch to includes tab after a short delay to ensure modal is loaded
-    setTimeout(() => {
-        switchTab('includes');
-        // Open the create include form
-        setTimeout(() => {
-            const createBtn = document.querySelector('#includesTab button[onclick*="openCreateIncludeForm"]');
-            if (createBtn) {
-                createBtn.click();
-            }
-        }, 100);
-    }, 200);
+    // Wait for modal to be fully rendered using Promise
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    
+    // Switch to includes tab
+    switchTab('includes');
+    
+    // Wait for tab content to be visible
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    
+    // Open the create include form if the button exists
+    const createBtn = document.querySelector('#includesTab button[onclick*="openCreateIncludeForm"]');
+    if (createBtn) {
+        createBtn.click();
+    }
 }
 
 /**
