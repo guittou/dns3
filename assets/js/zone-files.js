@@ -1345,3 +1345,6 @@ function displayValidationResults(validation) {
     const output = validation.output || 'Aucune sortie disponible';
     validationOutput.textContent = output;
 }
+
+// Expose openZoneModal globally for inline event handlers
+window.openZoneModal = openZoneModal;
