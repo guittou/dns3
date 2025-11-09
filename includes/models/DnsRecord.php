@@ -39,7 +39,8 @@ class DnsRecord {
                        u2.username as updated_by_username,
                        dr.zone_file_id,
                        COALESCE(zf.name, '') as zone_name,
-                       COALESCE(zf.filename, '') as zone_file_name
+                       COALESCE(zf.filename, '') as zone_file_name,
+                       zf.domain as domain
                 FROM dns_records dr
                 LEFT JOIN users u1 ON dr.created_by = u1.id
                 LEFT JOIN users u2 ON dr.updated_by = u2.id
@@ -125,8 +126,10 @@ class DnsRecord {
                     $record['zone_file_name'] = '';
                 }
                 
-                // Add domain_name field (populated if filtering by domain)
-                $record['domain_name'] = $domainName;
+                // Add domain_name field: use zone_files.domain with fallback to zone_name
+                $record['domain_name'] = (isset($record['domain']) && $record['domain'] !== null && $record['domain'] !== '') 
+                    ? $record['domain'] 
+                    : ($record['zone_name'] ?? '');
             }
             
             return $records;
@@ -150,7 +153,8 @@ class DnsRecord {
                            u2.username as updated_by_username,
                            dr.zone_file_id,
                            COALESCE(zf.name, '') as zone_name,
-                           COALESCE(zf.filename, '') as zone_file_name
+                           COALESCE(zf.filename, '') as zone_file_name,
+                           zf.domain as domain
                     FROM dns_records dr
                     LEFT JOIN users u1 ON dr.created_by = u1.id
                     LEFT JOIN users u2 ON dr.updated_by = u2.id
@@ -177,19 +181,13 @@ class DnsRecord {
                     $record['zone_file_name'] = '';
                 }
                 
-                // Try to get domain_name and domain_id for this record
-                $record['domain_name'] = '';
-                $record['domain_id'] = null;
-                if (isset($record['zone_file_id']) && $record['zone_file_id']) {
-                    $topMaster = $this->getTopMasterForZone($record['zone_file_id']);
-                    if ($topMaster) {
-                        $domainResult = $this->getDomainByZoneFileId($topMaster);
-                        if ($domainResult) {
-                            $record['domain_name'] = $domainResult['domain'];
-                            $record['domain_id'] = $domainResult['id'];
-                        }
-                    }
-                }
+                // Add domain_name field: use zone_files.domain with fallback to zone_name
+                $record['domain_name'] = (isset($record['domain']) && $record['domain'] !== null && $record['domain'] !== '') 
+                    ? $record['domain'] 
+                    : ($record['zone_name'] ?? '');
+                
+                // Set domain_id to zone_file_id for compatibility
+                $record['domain_id'] = $record['zone_file_id'];
             }
             
             return $record ?: null;

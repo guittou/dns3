@@ -1561,6 +1561,7 @@
     window.setDomainForZone = setDomainForZone;
     window.populateZoneFileCombobox = populateZoneFileCombobox;
     window.populateZoneComboboxForDomain = populateZoneComboboxForDomain;
+    window.populateDomainSelect = populateDomainSelect;
 
     // Initialize on DOM ready
     if (document.readyState === 'loading') {
