@@ -336,8 +336,9 @@ async function loadZonesList() {
         if (!selectedDomainId) {
             params.file_type = 'include';
         } else {
-            // When domain is selected, show includes for that domain
+            // When domain is selected, fetch all includes to filter by parent
             params.file_type = 'include';
+            params.per_page = 1000; // Fetch more to filter client-side
         }
         
         if (filterType) {
