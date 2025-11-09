@@ -40,11 +40,15 @@ class DnsRecord {
                        dr.zone_file_id,
                        COALESCE(zf.name, '') as zone_name,
                        COALESCE(zf.filename, '') as zone_file_name,
-                       zf.domain as domain
+                       zf.domain as zone_domain,
+                       zf.file_type as zone_file_type,
+                       p.domain as parent_domain
                 FROM dns_records dr
                 LEFT JOIN users u1 ON dr.created_by = u1.id
                 LEFT JOIN users u2 ON dr.updated_by = u2.id
                 LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id
+                LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                LEFT JOIN zone_files p ON zfi.parent_id = p.id
                 WHERE 1=1";
         
         $params = [];
@@ -126,10 +130,20 @@ class DnsRecord {
                     $record['zone_file_name'] = '';
                 }
                 
-                // Add domain_name field: use zone_files.domain with fallback to zone_name
-                $record['domain_name'] = (isset($record['domain']) && $record['domain'] !== null && $record['domain'] !== '') 
-                    ? $record['domain'] 
-                    : ($record['zone_name'] ?? '');
+                // Calculate domain_name based on zone type:
+                // - For master zones: use zone_domain (can be null, no fallback)
+                // - For include zones: use parent_domain (can be null, no fallback)
+                $fileType = $record['zone_file_type'] ?? 'master';
+                if ($fileType === 'master') {
+                    // Master zone: use zone_domain directly (no fallback to zone_name)
+                    $record['domain_name'] = (!empty($record['zone_domain'])) ? $record['zone_domain'] : null;
+                } else {
+                    // Include zone: use parent_domain (no fallback)
+                    $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                }
+                
+                // Keep 'domain' field for backward compatibility
+                $record['domain'] = $record['zone_domain'];
             }
             
             return $records;
@@ -154,11 +168,15 @@ class DnsRecord {
                            dr.zone_file_id,
                            COALESCE(zf.name, '') as zone_name,
                            COALESCE(zf.filename, '') as zone_file_name,
-                           zf.domain as domain
+                           zf.domain as zone_domain,
+                           zf.file_type as zone_file_type,
+                           p.domain as parent_domain
                     FROM dns_records dr
                     LEFT JOIN users u1 ON dr.created_by = u1.id
                     LEFT JOIN users u2 ON dr.updated_by = u2.id
                     LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id
+                    LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                    LEFT JOIN zone_files p ON zfi.parent_id = p.id
                     WHERE dr.id = ?";
             
             if (!$includeDeleted) {
@@ -181,10 +199,20 @@ class DnsRecord {
                     $record['zone_file_name'] = '';
                 }
                 
-                // Add domain_name field: use zone_files.domain with fallback to zone_name
-                $record['domain_name'] = (isset($record['domain']) && $record['domain'] !== null && $record['domain'] !== '') 
-                    ? $record['domain'] 
-                    : ($record['zone_name'] ?? '');
+                // Calculate domain_name based on zone type:
+                // - For master zones: use zone_domain (can be null, no fallback)
+                // - For include zones: use parent_domain (can be null, no fallback)
+                $fileType = $record['zone_file_type'] ?? 'master';
+                if ($fileType === 'master') {
+                    // Master zone: use zone_domain directly (no fallback to zone_name)
+                    $record['domain_name'] = (!empty($record['zone_domain'])) ? $record['zone_domain'] : null;
+                } else {
+                    // Include zone: use parent_domain (no fallback)
+                    $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                }
+                
+                // Keep 'domain' field for backward compatibility
+                $record['domain'] = $record['zone_domain'];
                 
                 // Set domain_id to zone_file_id for compatibility
                 $record['domain_id'] = $record['zone_file_id'];
