@@ -12,6 +12,11 @@ let searchQuery = '';
 let filterType = '';
 let filterStatus = 'active';
 let searchTimeout = null;
+let selectedDomainId = null;
+let allMasters = [];
+
+// Constants
+const MAX_INCLUDES_PER_FETCH = 1000; // Maximum includes to fetch when filtering by domain
 
 // API base URL
 const API_BASE = window.API_BASE || '/api/zone_api.php';
@@ -21,7 +26,7 @@ const API_BASE = window.API_BASE || '/api/zone_api.php';
  */
 document.addEventListener('DOMContentLoaded', function() {
     setupEventHandlers();
-    loadZonesList();
+    initZonesPage();
     setupDelegatedHandlers();
 });
 
@@ -122,6 +127,143 @@ function setupEventHandlers() {
             handleZoneModalResize();
         }, 200);
     });
+    
+    // Domain filter input click handler
+    const domainFilterInput = document.getElementById('zone-domain-filter');
+    if (domainFilterInput) {
+        domainFilterInput.addEventListener('click', function() {
+            const dropdown = document.getElementById('zone-domain-list');
+            if (dropdown) {
+                const isVisible = dropdown.style.display !== 'none';
+                dropdown.style.display = isVisible ? 'none' : 'block';
+            }
+        });
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const domainWrapper = document.querySelector('.domain-input-wrapper');
+        const dropdown = document.getElementById('zone-domain-list');
+        if (dropdown && !domainWrapper.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Initialize zones page - load domains and zones
+ */
+async function initZonesPage() {
+    await populateDomainSelect();
+    await loadZonesList();
+}
+
+/**
+ * Populate domain select with all master zones that have a domain
+ */
+async function populateDomainSelect() {
+    try {
+        const response = await zoneApiCall('list_zones', {
+            params: {
+                file_type: 'master',
+                status: 'active',
+                per_page: 1000
+            }
+        });
+        
+        if (response.success) {
+            // Filter masters that have a domain and sort by domain name
+            allMasters = response.data
+                .filter(zone => zone.domain && zone.domain.trim() !== '')
+                .sort((a, b) => (a.domain || '').localeCompare(b.domain || ''));
+            
+            const dropdown = document.getElementById('zone-domain-list');
+            if (!dropdown) return;
+            
+            if (allMasters.length === 0) {
+                dropdown.innerHTML = '<div class="domain-dropdown-item" style="padding: 1rem; text-align: center; color: #999;">Aucun domaine disponible</div>';
+                return;
+            }
+            
+            // Add "All" option
+            dropdown.innerHTML = `
+                <div class="domain-dropdown-item" data-id="" onclick="handleDomainClick('')">
+                    <strong>Tous les domaines</strong>
+                    <small>Afficher tous les includes</small>
+                </div>
+            `;
+            
+            // Add master domains
+            dropdown.innerHTML += allMasters.map(master => `
+                <div class="domain-dropdown-item" data-id="${master.id}" onclick="handleDomainClick(${master.id})">
+                    <strong>${escapeHtml(master.domain)}</strong>
+                    <small>${escapeHtml(master.name)} (${escapeHtml(master.filename)})</small>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Failed to populate domain select:', error);
+        showError('Erreur lors du chargement des domaines: ' + error.message);
+    }
+}
+
+/**
+ * Handle domain selection from dropdown
+ */
+function handleDomainClick(masterId) {
+    const dropdown = document.getElementById('zone-domain-list');
+    if (dropdown) {
+        dropdown.style.display = 'none';
+    }
+    
+    if (masterId === '') {
+        onDomainSelected(null);
+    } else {
+        onDomainSelected(parseInt(masterId));
+    }
+}
+
+/**
+ * Handle domain selection - update UI and filter table
+ */
+function onDomainSelected(masterZoneId) {
+    selectedDomainId = masterZoneId;
+    
+    // Update input display
+    const filterInput = document.getElementById('zone-domain-filter');
+    if (filterInput) {
+        if (masterZoneId) {
+            const master = allMasters.find(m => m.id === masterZoneId);
+            if (master) {
+                filterInput.value = master.domain;
+            }
+        } else {
+            filterInput.value = '';
+            filterInput.placeholder = 'Sélectionner un domaine...';
+        }
+    }
+    
+    // Show/hide buttons based on selection
+    const btnNewInclude = document.getElementById('btnNewInclude');
+    const btnEditDomain = document.getElementById('btnEditDomain');
+    
+    if (masterZoneId) {
+        if (btnNewInclude) btnNewInclude.style.display = 'inline-flex';
+        if (btnEditDomain) btnEditDomain.style.display = 'inline-flex';
+    } else {
+        if (btnNewInclude) btnNewInclude.style.display = 'none';
+        if (btnEditDomain) btnEditDomain.style.display = 'none';
+    }
+    
+    // Show/hide Actions column header
+    const actionsHeader = document.getElementById('actionsHeader');
+    if (actionsHeader) {
+        actionsHeader.style.display = masterZoneId ? 'table-cell' : 'none';
+    }
+    
+    // Reload zones list with new filter
+    currentPage = 1;
+    loadZonesList();
 }
 
 /**
@@ -192,7 +334,21 @@ async function loadZonesList() {
         if (searchQuery) {
             params.q = searchQuery;
         }
-        if (filterType) {
+        
+        // Default to showing only includes
+        if (!selectedDomainId) {
+            params.file_type = 'include';
+        } else {
+            // When domain is selected, fetch all includes to filter by parent
+            // Note: Client-side filtering is used here because the API doesn't support parent_id parameter
+            // Consider adding parent_id support to the API for better performance with large datasets
+            params.file_type = 'include';
+            params.per_page = MAX_INCLUDES_PER_FETCH;
+        }
+        
+        // Allow filterType to override only if explicitly set by user
+        // Note: When domain is selected, we always filter to includes regardless of filterType
+        if (filterType && !selectedDomainId) {
             params.file_type = filterType;
         }
         if (filterStatus) {
@@ -202,9 +358,27 @@ async function loadZonesList() {
         const response = await zoneApiCall('list_zones', { params });
 
         if (response.success) {
-            totalCount = response.total;
-            totalPages = response.total_pages || 1;
-            renderZonesTable(response.data);
+            let filteredData = response.data;
+            
+            // Client-side filtering by parent_id when domain is selected
+            // This is done client-side because the API doesn't currently support parent_id parameter
+            // Performance note: Works well for up to MAX_INCLUDES_PER_FETCH (1000) includes
+            // TODO: Consider adding parent_id parameter to the API for server-side filtering
+            if (selectedDomainId) {
+                // Ensure both values are numbers for comparison
+                const selectedId = parseInt(selectedDomainId, 10);
+                filteredData = filteredData.filter(zone => {
+                    const parentId = parseInt(zone.parent_id, 10);
+                    return !isNaN(parentId) && parentId === selectedId;
+                });
+                totalCount = filteredData.length;
+                totalPages = Math.ceil(totalCount / perPage);
+            } else {
+                totalCount = response.total;
+                totalPages = response.total_pages || 1;
+            }
+            
+            renderZonesTable(filteredData);
             updatePaginationControls();
             updateResultsInfo();
         }
@@ -220,11 +394,13 @@ async function loadZonesList() {
  */
 function renderZonesTable(zones) {
     const tbody = document.getElementById('zonesTableBody');
+    const showActions = selectedDomainId !== null;
+    const colspanValue = showActions ? 8 : 7;
 
     if (zones.length === 0) {
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" class="empty-cell">
+                <td colspan="${colspanValue}" class="empty-cell">
                     <div class="empty-state">
                         <i class="fas fa-inbox"></i>
                         <p>Aucune zone trouvée</p>
@@ -242,8 +418,22 @@ function renderZonesTable(zones) {
             '<span class="badge badge-include">Include</span>';
         const parentDisplay = zone.parent_name ? escapeHtml(zone.parent_name) : '-';
         
+        let actionsHtml = '';
+        if (showActions) {
+            actionsHtml = `
+                <td class="actions-cell">
+                    <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); openZoneModal(${zone.id})" title="Modifier">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); confirmDeleteZone(${zone.id})" title="Supprimer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+        }
+        
         return `
-            <tr class="zone-row" data-id="${zone.id}" onclick="openZoneModal(${zone.id})" style="cursor: pointer;">
+            <tr class="zone-row" data-id="${zone.id}" data-parent-id="${zone.parent_id || ''}" onclick="handleZoneRowClick(${zone.id}, ${zone.parent_id || 'null'})" style="cursor: pointer;">
                 <td><strong>${escapeHtml(zone.name)}</strong></td>
                 <td>${typeBadge}</td>
                 <td><code>${escapeHtml(zone.filename)}</code></td>
@@ -251,9 +441,52 @@ function renderZonesTable(zones) {
                 <td>${escapeHtml(zone.created_by_username || 'N/A')}</td>
                 <td>${statusBadge}</td>
                 <td>${formatDate(zone.updated_at || zone.created_at)}</td>
+                ${actionsHtml}
             </tr>
         `;
     }).join('');
+}
+
+/**
+ * Handle zone row click - select parent domain if include
+ */
+async function handleZoneRowClick(zoneId, parentId) {
+    // Check if this zone has a parent (is an include)
+    // parentId can be a number, null, or the string 'null' from onclick attribute
+    const hasParent = parentId && parentId !== null && parentId !== 'null' && parentId !== '';
+    
+    if (hasParent) {
+        // This is an include - select its parent domain
+        // Ensure parentId is a number
+        const parentIdNum = typeof parentId === 'number' ? parentId : parseInt(parentId, 10);
+        if (!isNaN(parentIdNum)) {
+            onDomainSelected(parentIdNum);
+        }
+    }
+    
+    // Open the zone modal
+    openZoneModal(zoneId);
+}
+
+/**
+ * Confirm delete zone
+ */
+async function confirmDeleteZone(zoneId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette zone?')) {
+        return;
+    }
+    
+    try {
+        await zoneApiCall('set_status_zone', {
+            params: { id: zoneId, status: 'deleted' }
+        });
+        
+        showSuccess('Zone supprimée avec succès');
+        await loadZonesList();
+    } catch (error) {
+        console.error('Failed to delete zone:', error);
+        showError('Erreur lors de la suppression: ' + error.message);
+    }
 }
 
 /**
@@ -261,9 +494,10 @@ function renderZonesTable(zones) {
  */
 function renderErrorState() {
     const tbody = document.getElementById('zonesTableBody');
+    const colspanValue = selectedDomainId ? 8 : 7;
     tbody.innerHTML = `
         <tr>
-            <td colspan="7" class="error-cell">
+            <td colspan="${colspanValue}" class="error-cell">
                 <div class="error-state">
                     <i class="fas fa-exclamation-triangle"></i>
                     <p>Erreur lors du chargement des zones</p>
@@ -690,6 +924,12 @@ async function saveZone() {
         
         showSuccess('Zone mise à jour avec succès');
         hasUnsavedChanges = false;
+        
+        // Refresh domain list if this is a master zone
+        if (currentZone.file_type === 'master') {
+            await populateDomainSelect();
+        }
+        
         closeZoneModal();
         await loadZonesList();
     } catch (error) {
@@ -806,6 +1046,58 @@ async function removeIncludeFromZone(includeId) {
 }
 
 /**
+ * Open create master modal (new domain)
+ */
+function openCreateMasterModal() {
+    openCreateZoneModal();
+}
+
+/**
+ * Open edit master modal for selected domain
+ */
+async function openEditMasterModal() {
+    if (!selectedDomainId) {
+        showError('Aucun domaine sélectionné');
+        return;
+    }
+    
+    try {
+        await openZoneModal(selectedDomainId);
+    } catch (error) {
+        console.error('Failed to open edit modal:', error);
+        showError('Erreur lors de l\'ouverture du modal: ' + error.message);
+    }
+}
+
+/**
+ * Open create include modal for selected domain
+ */
+async function openCreateIncludeModal() {
+    if (!selectedDomainId) {
+        showError('Veuillez sélectionner un domaine d\'abord');
+        return;
+    }
+    
+    // Open the zone modal for the selected master, which has the includes tab
+    await openZoneModal(selectedDomainId);
+    
+    // Wait for modal to be fully rendered
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    
+    // Switch to includes tab
+    switchTab('includes');
+    
+    // Wait for tab switch to complete
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    
+    // Open the create include form if the button exists
+    const createBtn = document.querySelector('#includesTab button[onclick*="openCreateIncludeForm"]');
+    if (createBtn) {
+        createBtn.click();
+    }
+}
+
+/**
  * Open create zone modal
  */
 function openCreateZoneModal() {
@@ -859,6 +1151,16 @@ async function createZone() {
 
         showSuccess('Zone créée avec succès');
         closeCreateZoneModal();
+        
+        // Refresh domain list if a domain was set
+        if (data.domain) {
+            await populateDomainSelect();
+            // Optionally select the newly created domain
+            if (response.id) {
+                onDomainSelected(response.id);
+            }
+        }
+        
         await loadZonesList();
         
         // Open the new zone in the modal instead of navigating
@@ -1346,5 +1648,13 @@ function displayValidationResults(validation) {
     validationOutput.textContent = output;
 }
 
-// Expose openZoneModal globally for inline event handlers
+// Expose functions globally for inline event handlers
 window.openZoneModal = openZoneModal;
+window.onDomainSelected = onDomainSelected;
+window.populateDomainSelect = populateDomainSelect;
+window.handleDomainClick = handleDomainClick;
+window.handleZoneRowClick = handleZoneRowClick;
+window.openCreateMasterModal = openCreateMasterModal;
+window.openEditMasterModal = openEditMasterModal;
+window.openCreateIncludeModal = openCreateIncludeModal;
+window.confirmDeleteZone = confirmDeleteZone;

@@ -19,7 +19,10 @@ if (!$auth->isAdmin()) {
     <div class="header-bar">
         <h1>Gestion des fichiers de zone</h1>
         <div class="header-actions">
-            <button class="btn btn-primary" onclick="openCreateZoneModal()">
+            <button class="btn btn-secondary" id="btnNewDomain" onclick="openCreateMasterModal()">
+                <i class="fas fa-plus"></i> Nouveau domaine
+            </button>
+            <button class="btn btn-primary" id="btnNewInclude" onclick="openCreateIncludeModal()" style="display: none;">
                 <i class="fas fa-plus"></i> Nouvelle zone
             </button>
         </div>
@@ -27,6 +30,18 @@ if (!$auth->isAdmin()) {
 </div>
 
 <div class="content-section zone-list-container">
+    <!-- Domain Selection -->
+    <div class="domain-selection-section">
+        <label for="zone-domain-filter">Domaine:</label>
+        <div class="domain-input-wrapper">
+            <input type="text" id="zone-domain-filter" class="form-control" placeholder="Sélectionner un domaine..." readonly>
+            <button class="btn btn-sm btn-secondary" id="btnEditDomain" onclick="openEditMasterModal()" style="display: none;" title="Éditer le domaine">
+                <i class="fas fa-edit"></i> Éditer
+            </button>
+            <div id="zone-domain-list" class="domain-dropdown" style="display: none;"></div>
+        </div>
+    </div>
+    
     <!-- Search and Filters -->
     <div class="filters-section">
         <div class="search-box">
@@ -69,6 +84,7 @@ if (!$auth->isAdmin()) {
                     <th>Propriétaire</th>
                     <th>Statut</th>
                     <th>Modifié le</th>
+                    <th id="actionsHeader" style="display: none;">Actions</th>
                 </tr>
             </thead>
             <tbody id="zonesTableBody">
