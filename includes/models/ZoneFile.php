@@ -145,7 +145,8 @@ class ZoneFile {
                            u1.username as created_by_username,
                            u2.username as updated_by_username,
                            zfi.parent_id,
-                           parent_zf.name as parent_name
+                           parent_zf.name as parent_name,
+                           parent_zf.domain as parent_domain
                     FROM zone_files zf
                     LEFT JOIN users u1 ON zf.created_by = u1.id
                     LEFT JOIN users u2 ON zf.updated_by = u2.id

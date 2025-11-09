@@ -510,6 +510,7 @@
     /**
      * Set domain for a given zone (auto-complete domain based on zone)
      * Now reads from zone_files.domain field directly
+     * For include zones, uses parent_domain from get_zone response
      */
     async function setDomainForZone(zoneId) {
         try {
@@ -525,7 +526,18 @@
                 return;
             }
 
-            const domainName = zone.domain || zone.name || '';
+            // Calculate domain based on zone type:
+            // - For master zones: use zone.domain (no fallback to zone.name)
+            // - For include zones: use zone.parent_domain (no fallback)
+            let domainName = '';
+            if (zone.file_type === 'master') {
+                // Master zone: use domain field directly (can be empty)
+                domainName = zone.domain || '';
+            } else {
+                // Include zone: use parent_domain (can be empty)
+                domainName = zone.parent_domain || '';
+            }
+
             const domainInput = document.getElementById('dns-domain-input'); if (domainInput) domainInput.value = domainName;
             const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); if (zoneHidden) zoneHidden.value = zone.id || '';
             const legacyDomainId = document.getElementById('dns-domain-id'); if (legacyDomainId) legacyDomainId.value = zone.id || '';
@@ -558,9 +570,9 @@
                 recordZoneFile.value = zone.id;
             }
 
-            if (zone.domain && typeof populateZoneComboboxForDomain === 'function') {
+            if (domainName && typeof populateZoneComboboxForDomain === 'function') {
                 try { await populateZoneComboboxForDomain(zone.id); } catch (e) {
-                    if (Array.isArray(window.ALL_ZONES)) window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === zone.domain);
+                    if (Array.isArray(window.ALL_ZONES)) window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
                 }
             }
 
