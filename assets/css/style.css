@@ -504,6 +504,13 @@ body {
   display: none !important;
 }
 
+/* Actions column styling */
+.col-actions {
+  text-align: right;
+  width: 170px;
+  white-space: nowrap;
+}
+
 /* Buttons */
 .btn-small {
   padding: 6px 10px;

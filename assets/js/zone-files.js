@@ -321,12 +321,6 @@ function onZoneDomainSelected(masterZoneId) {
         clearZoneFileSelection();
     }
     
-    // Show/hide Actions column header
-    const actionsHeader = document.getElementById('zones-table-header-actions');
-    if (actionsHeader) {
-        actionsHeader.style.display = masterZoneId ? 'table-cell' : 'none';
-    }
-    
     // Hide combobox list
     const list = document.getElementById('zone-domain-list');
     if (list) {
@@ -715,8 +709,7 @@ async function renderZonesTable() {
     const paginatedZones = filteredZones.slice(startIndex, endIndex);
     
     // Render
-    const showActions = window.ZONES_SELECTED_MASTER_ID !== null;
-    const colspanValue = showActions ? 6 : 5;
+    const colspanValue = 6; // Always 6 columns including Actions
 
     if (paginatedZones.length === 0) {
         tbody.innerHTML = `
@@ -738,19 +731,17 @@ async function renderZonesTable() {
         const statusBadge = getStatusBadge(zone.status);
         const parentDisplay = zone.parent_name ? escapeHtml(zone.parent_name) : '-';
         
-        let actionsHtml = '';
-        if (showActions) {
-            actionsHtml = `
-                <td class="actions-cell">
-                    <button class="btn-small btn-edit" onclick="event.stopPropagation(); openZoneModal(${zone.id})" title="Modifier">
-                        <i class="fas fa-edit"></i> Modifier
-                    </button>
-                    <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteZone(${zone.id})" title="Supprimer">
-                        <i class="fas fa-trash"></i> Supprimer
-                    </button>
-                </td>
-            `;
-        }
+        // Always render action buttons
+        const actionsHtml = `
+            <td class="actions-cell col-actions">
+                <button class="btn-small btn-edit" onclick="event.stopPropagation(); openZoneModal(${zone.id})" title="Modifier">
+                    <i class="fas fa-edit"></i> Modifier
+                </button>
+                <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteZone(${zone.id})" title="Supprimer">
+                    <i class="fas fa-trash"></i> Supprimer
+                </button>
+            </td>
+        `;
         
         return `
             <tr class="zone-row" data-zone-id="${zone.id}" data-file-type="${zone.file_type || 'include'}" data-parent-id="${zone.parent_id || ''}" onclick="handleZoneRowClick(${zone.id}, ${zone.parent_id || 'null'})" style="cursor: pointer;">

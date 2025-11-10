@@ -88,7 +88,7 @@ if (!$auth->isAdmin()) {
                     <th>Parent</th>
                     <th>Modifié le</th>
                     <th>Statut</th>
-                    <th id="zones-table-header-actions" style="display: none;">Actions</th>
+                    <th id="zones-table-header-actions">Actions</th>
                 </tr>
             </thead>
             <tbody id="zones-table-body">
