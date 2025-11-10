@@ -401,19 +401,21 @@ async function initZoneFileCombobox() {
  */
 function getFilteredZonesForCombobox() {
     if (!window.ZONES_SELECTED_MASTER_ID) {
-        // No domain selected - show all zones
-        return window.ZONES_ALL || [];
+        // No domain selected - show all zones (masters + includes)
+        return [...allMasters, ...(window.ZONES_ALL || [])];
     }
     
     // Domain selected - show master and its includes
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-    return (window.ZONES_ALL || []).filter(zone => {
-        // Show the master itself
-        if (parseInt(zone.id, 10) === masterId) return true;
+    const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
+    const includeZones = (window.ZONES_ALL || []).filter(zone => {
         // Show includes that belong to this master
         if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
         return false;
     });
+    
+    // Return master first, then includes
+    return masterZone ? [masterZone, ...includeZones] : includeZones;
 }
 
 /**
@@ -428,10 +430,10 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
             return;
         }
         
-        // Get zones from cache
+        // Get zones from cache (includes from ZONES_ALL, master from allMasters)
         const masterId = parseInt(masterZoneId, 10);
-        const zones = (window.ZONES_ALL || []).filter(zone => {
-            if (parseInt(zone.id, 10) === masterId) return true;
+        const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
+        const includeZones = (window.ZONES_ALL || []).filter(zone => {
             if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
             return false;
         });
@@ -443,15 +445,22 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
         
         // If selectedZoneFileId is provided, select it
         if (selectedZoneFileId) {
-            const selectedZone = zones.find(z => parseInt(z.id, 10) === parseInt(selectedZoneFileId, 10));
-            if (selectedZone) {
-                input.value = `${selectedZone.name} (${selectedZone.filename})`;
+            const selectedId = parseInt(selectedZoneFileId, 10);
+            // Check if it's the master or an include
+            if (masterZone && selectedId === masterId) {
+                input.value = `${masterZone.name} (${masterZone.filename})`;
                 if (hiddenInput) hiddenInput.value = selectedZoneFileId;
                 window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
+            } else {
+                const selectedZone = includeZones.find(z => parseInt(z.id, 10) === selectedId);
+                if (selectedZone) {
+                    input.value = `${selectedZone.name} (${selectedZone.filename})`;
+                    if (hiddenInput) hiddenInput.value = selectedZoneFileId;
+                    window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
+                }
             }
         } else {
             // Default: select the master zone itself
-            const masterZone = zones.find(z => parseInt(z.id, 10) === masterId);
             if (masterZone) {
                 input.value = `${masterZone.name} (${masterZone.filename})`;
                 if (hiddenInput) hiddenInput.value = masterId;
@@ -480,7 +489,16 @@ function onZoneFileSelected(zoneFileId) {
     const domainInput = document.getElementById('zone-domain-input');
     
     if (zoneFileId) {
-        const zone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === parseInt(zoneFileId, 10));
+        const zoneId = parseInt(zoneFileId, 10);
+        
+        // Try to find in includes first
+        let zone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === zoneId);
+        
+        // If not found, try to find in masters
+        if (!zone) {
+            zone = allMasters.find(m => parseInt(m.id, 10) === zoneId);
+        }
+        
         if (zone) {
             // Set selected zone file ID
             window.ZONES_SELECTED_ZONEFILE_ID = zoneFileId;
