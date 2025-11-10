@@ -1405,9 +1405,14 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
             hiddenField.value = defaultParentId;
         }
         
+        // Remove old event listeners by cloning the input element
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        const inputEl = document.getElementById('include-parent-input'); // Get the new reference
+        
         // Input event - filter zones and show list
-        input.addEventListener('input', () => {
-            const query = input.value.toLowerCase().trim();
+        inputEl.addEventListener('input', () => {
+            const query = inputEl.value.toLowerCase().trim();
             const filtered = zones.filter(z => 
                 z.name.toLowerCase().includes(query) || 
                 z.filename.toLowerCase().includes(query)
@@ -1417,36 +1422,36 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
-                input.value = `${zone.name} (${zone.file_type})`;
+                inputEl.value = `${zone.name} (${zone.file_type})`;
                 hiddenField.value = zone.id;
                 list.style.display = 'none';
             });
         });
         
         // Focus - show all zones
-        input.addEventListener('focus', () => {
+        inputEl.addEventListener('focus', () => {
             populateComboboxList(list, zones, (zone) => ({
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
-                input.value = `${zone.name} (${zone.file_type})`;
+                inputEl.value = `${zone.name} (${zone.file_type})`;
                 hiddenField.value = zone.id;
                 list.style.display = 'none';
             });
         });
         
         // Blur - hide list (with delay to allow click)
-        input.addEventListener('blur', () => {
+        inputEl.addEventListener('blur', () => {
             setTimeout(() => {
                 list.style.display = 'none';
             }, COMBOBOX_BLUR_DELAY);
         });
         
         // Escape key - close list
-        input.addEventListener('keydown', (e) => {
+        inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 list.style.display = 'none';
-                input.blur();
+                inputEl.blur();
             }
         });
     } catch (error) {
