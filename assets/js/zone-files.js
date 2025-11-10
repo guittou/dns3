@@ -9,14 +9,17 @@ let perPage = 25;
 let totalPages = 1;
 let totalCount = 0;
 let searchQuery = '';
-let filterType = '';
 let filterStatus = 'active';
 let searchTimeout = null;
-let selectedDomainId = null;
 let allMasters = [];
+
+// Add to window object for global access
+window.ZONES_SELECTED_MASTER_ID = null;
+window.ZONES_ALL = [];
 
 // Constants
 const MAX_INCLUDES_PER_FETCH = 1000; // Maximum includes to fetch when filtering by domain
+const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
 
 // API base URL
 const API_BASE = window.API_BASE || '/api/zone_api.php';
@@ -67,34 +70,60 @@ function setupDelegatedHandlers() {
  */
 function setupEventHandlers() {
     // Search with debounce
-    document.getElementById('searchInput').addEventListener('input', function(e) {
-        clearTimeout(searchTimeout);
-        searchQuery = e.target.value;
-        searchTimeout = setTimeout(() => {
-            currentPage = 1;
-            loadZonesList();
-        }, 300);
-    });
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchQuery = e.target.value;
+            searchTimeout = setTimeout(() => {
+                currentPage = 1;
+                renderZonesTable();
+            }, 300);
+        });
+    }
 
     // Filter handlers
-    document.getElementById('filterType').addEventListener('change', function(e) {
-        filterType = e.target.value;
-        currentPage = 1;
-        loadZonesList();
-    });
-
-    document.getElementById('filterStatus').addEventListener('change', function(e) {
-        filterStatus = e.target.value;
-        currentPage = 1;
-        loadZonesList();
-    });
+    const filterStatusEl = document.getElementById('filterStatus');
+    if (filterStatusEl) {
+        filterStatusEl.addEventListener('change', function(e) {
+            filterStatus = e.target.value;
+            currentPage = 1;
+            renderZonesTable();
+        });
+    }
 
     // Per page selector
-    document.getElementById('perPageSelect').addEventListener('change', function(e) {
-        perPage = parseInt(e.target.value);
-        currentPage = 1;
-        loadZonesList();
-    });
+    const perPageSelect = document.getElementById('perPageSelect');
+    if (perPageSelect) {
+        perPageSelect.addEventListener('change', function(e) {
+            perPage = parseInt(e.target.value);
+            currentPage = 1;
+            renderZonesTable();
+        });
+    }
+
+    // Reset domain button
+    const btnResetDomain = document.getElementById('btn-reset-domain');
+    if (btnResetDomain) {
+        btnResetDomain.addEventListener('click', function() {
+            resetZoneDomainSelection();
+        });
+    }
+
+    // New zone file button
+    const btnNewZoneFile = document.getElementById('btn-new-zone-file');
+    if (btnNewZoneFile) {
+        btnNewZoneFile.addEventListener('click', function() {
+            if (window.ZONES_SELECTED_MASTER_ID) {
+                // Open create include modal with parent ID
+                if (typeof openCreateIncludeModal === 'function') {
+                    openCreateIncludeModal(window.ZONES_SELECTED_MASTER_ID);
+                } else {
+                    console.warn('openCreateIncludeModal function not found');
+                }
+            }
+        });
+    }
 
     // Modal close on outside click
     window.onclick = function(event) {
@@ -127,41 +156,22 @@ function setupEventHandlers() {
             handleZoneModalResize();
         }, 200);
     });
-    
-    // Domain filter input click handler
-    const domainFilterInput = document.getElementById('zone-domain-filter');
-    if (domainFilterInput) {
-        domainFilterInput.addEventListener('click', function() {
-            const dropdown = document.getElementById('zone-domain-list');
-            if (dropdown) {
-                const isVisible = dropdown.style.display !== 'none';
-                dropdown.style.display = isVisible ? 'none' : 'block';
-            }
-        });
-    }
-    
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-        const domainWrapper = document.querySelector('.domain-input-wrapper');
-        const dropdown = document.getElementById('zone-domain-list');
-        if (dropdown && !domainWrapper.contains(e.target)) {
-            dropdown.style.display = 'none';
-        }
-    });
 }
 
 /**
  * Initialize zones page - load domains and zones
  */
 async function initZonesPage() {
-    await populateDomainSelect();
-    await loadZonesList();
+    await populateZoneDomainSelect();
+    await loadZonesData();
+    renderZonesTable();
 }
 
 /**
- * Populate domain select with all master zones that have a domain
+ * Populate domain combobox with all master zones that have a domain
+ * Makes combobox searchable like DNS page
  */
-async function populateDomainSelect() {
+async function populateZoneDomainSelect() {
     try {
         const response = await zoneApiCall('list_zones', {
             params: {
@@ -177,29 +187,54 @@ async function populateDomainSelect() {
                 .filter(zone => zone.domain && zone.domain.trim() !== '')
                 .sort((a, b) => (a.domain || '').localeCompare(b.domain || ''));
             
-            const dropdown = document.getElementById('zone-domain-list');
-            if (!dropdown) return;
+            const input = document.getElementById('zone-domain-input');
+            const list = document.getElementById('zone-domain-list');
             
-            if (allMasters.length === 0) {
-                dropdown.innerHTML = '<div class="domain-dropdown-item" style="padding: 1rem; text-align: center; color: #999;">Aucun domaine disponible</div>';
-                return;
-            }
+            if (!input || !list) return;
             
-            // Add "All" option
-            dropdown.innerHTML = `
-                <div class="domain-dropdown-item" data-id="" onclick="handleDomainClick('')">
-                    <strong>Tous les domaines</strong>
-                    <small>Afficher tous les includes</small>
-                </div>
-            `;
+            // Make input interactive (not readonly)
+            input.readOnly = false;
+            input.placeholder = 'Rechercher un domaine...';
             
-            // Add master domains
-            dropdown.innerHTML += allMasters.map(master => `
-                <div class="domain-dropdown-item" data-id="${master.id}" onclick="handleDomainClick(${master.id})">
-                    <strong>${escapeHtml(master.domain)}</strong>
-                    <small>${escapeHtml(master.name)} (${escapeHtml(master.filename)})</small>
-                </div>
-            `).join('');
+            // Input event - filter domains and show list
+            input.addEventListener('input', () => {
+                const query = input.value.toLowerCase().trim();
+                const filtered = allMasters.filter(d => 
+                    d.domain.toLowerCase().includes(query)
+                );
+                
+                populateComboboxList(list, filtered, (domain) => ({
+                    id: domain.id,
+                    text: domain.domain
+                }), (domain) => {
+                    onZoneDomainSelected(domain.id);
+                });
+            });
+            
+            // Focus - show all domains
+            input.addEventListener('focus', () => {
+                populateComboboxList(list, allMasters, (domain) => ({
+                    id: domain.id,
+                    text: domain.domain
+                }), (domain) => {
+                    onZoneDomainSelected(domain.id);
+                });
+            });
+            
+            // Blur - hide list (with delay to allow click)
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    list.style.display = 'none';
+                }, COMBOBOX_BLUR_DELAY);
+            });
+            
+            // Escape key - close list
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    list.style.display = 'none';
+                    input.blur();
+                }
+            });
         }
     } catch (error) {
         console.error('Failed to populate domain select:', error);
@@ -208,62 +243,98 @@ async function populateDomainSelect() {
 }
 
 /**
- * Handle domain selection from dropdown
+ * Populate a combobox list with items
  */
-function handleDomainClick(masterId) {
-    const dropdown = document.getElementById('zone-domain-list');
-    if (dropdown) {
-        dropdown.style.display = 'none';
+function populateComboboxList(listElement, items, itemMapper, onSelect) {
+    if (!listElement) return;
+    
+    if (items.length === 0) {
+        listElement.innerHTML = '<li class="combobox-item combobox-empty">Aucun domaine trouvé</li>';
+        listElement.style.display = 'block';
+        return;
     }
     
-    if (masterId === '') {
-        onDomainSelected(null);
-    } else {
-        onDomainSelected(parseInt(masterId));
-    }
+    listElement.innerHTML = items.map(item => {
+        const mapped = itemMapper(item);
+        return `<li class="combobox-item" data-id="${mapped.id}">${escapeHtml(mapped.text)}</li>`;
+    }).join('');
+    
+    // Add click handlers
+    listElement.querySelectorAll('.combobox-item:not(.combobox-empty)').forEach((li, index) => {
+        li.addEventListener('click', () => {
+            onSelect(items[index]);
+        });
+    });
+    
+    listElement.style.display = 'block';
 }
 
 /**
  * Handle domain selection - update UI and filter table
  */
-function onDomainSelected(masterZoneId) {
-    selectedDomainId = masterZoneId;
+function onZoneDomainSelected(masterZoneId) {
+    window.ZONES_SELECTED_MASTER_ID = masterZoneId;
     
     // Update input display
-    const filterInput = document.getElementById('zone-domain-filter');
-    if (filterInput) {
+    const input = document.getElementById('zone-domain-input');
+    const hiddenInput = document.getElementById('zone-master-id');
+    if (input) {
         if (masterZoneId) {
             const master = allMasters.find(m => m.id === masterZoneId);
             if (master) {
-                filterInput.value = master.domain;
+                input.value = master.domain;
             }
         } else {
-            filterInput.value = '';
-            filterInput.placeholder = 'Sélectionner un domaine...';
+            input.value = '';
+            input.placeholder = 'Rechercher un domaine...';
         }
+    }
+    if (hiddenInput) {
+        hiddenInput.value = masterZoneId || '';
     }
     
     // Show/hide buttons based on selection
-    const btnNewInclude = document.getElementById('btnNewInclude');
-    const btnEditDomain = document.getElementById('btnEditDomain');
+    const btnNewZoneFile = document.getElementById('btn-new-zone-file');
+    const btnEditDomain = document.getElementById('btn-edit-domain');
     
     if (masterZoneId) {
-        if (btnNewInclude) btnNewInclude.style.display = 'inline-flex';
-        if (btnEditDomain) btnEditDomain.style.display = 'inline-flex';
+        if (btnNewZoneFile) {
+            btnNewZoneFile.disabled = false;
+        }
+        if (btnEditDomain) {
+            btnEditDomain.style.display = 'inline-block';
+        }
     } else {
-        if (btnNewInclude) btnNewInclude.style.display = 'none';
-        if (btnEditDomain) btnEditDomain.style.display = 'none';
+        if (btnNewZoneFile) {
+            btnNewZoneFile.disabled = true;
+        }
+        if (btnEditDomain) {
+            btnEditDomain.style.display = 'none';
+        }
     }
     
     // Show/hide Actions column header
-    const actionsHeader = document.getElementById('actionsHeader');
+    const actionsHeader = document.getElementById('zones-table-header-actions');
     if (actionsHeader) {
         actionsHeader.style.display = masterZoneId ? 'table-cell' : 'none';
     }
     
-    // Reload zones list with new filter
+    // Hide combobox list
+    const list = document.getElementById('zone-domain-list');
+    if (list) {
+        list.style.display = 'none';
+    }
+    
+    // Re-render table with filter
     currentPage = 1;
-    loadZonesList();
+    renderZonesTable();
+}
+
+/**
+ * Reset domain selection
+ */
+function resetZoneDomainSelection() {
+    onZoneDomainSelected(null);
 }
 
 /**
@@ -322,35 +393,15 @@ async function zoneApiCall(action, options = {}) {
 }
 
 /**
- * Load zones list with pagination
+ * Load all zones data from API and cache it
  */
-async function loadZonesList() {
+async function loadZonesData() {
     try {
         const params = {
-            page: currentPage,
-            per_page: perPage
+            file_type: 'include',
+            per_page: MAX_INCLUDES_PER_FETCH
         };
 
-        if (searchQuery) {
-            params.q = searchQuery;
-        }
-        
-        // Default to showing only includes
-        if (!selectedDomainId) {
-            params.file_type = 'include';
-        } else {
-            // When domain is selected, fetch all includes to filter by parent
-            // Note: Client-side filtering is used here because the API doesn't support parent_id parameter
-            // Consider adding parent_id support to the API for better performance with large datasets
-            params.file_type = 'include';
-            params.per_page = MAX_INCLUDES_PER_FETCH;
-        }
-        
-        // Allow filterType to override only if explicitly set by user
-        // Note: When domain is selected, we always filter to includes regardless of filterType
-        if (filterType && !selectedDomainId) {
-            params.file_type = filterType;
-        }
         if (filterStatus) {
             params.status = filterStatus;
         }
@@ -358,46 +409,62 @@ async function loadZonesList() {
         const response = await zoneApiCall('list_zones', { params });
 
         if (response.success) {
-            let filteredData = response.data;
-            
-            // Client-side filtering by parent_id when domain is selected
-            // This is done client-side because the API doesn't currently support parent_id parameter
-            // Performance note: Works well for up to MAX_INCLUDES_PER_FETCH (1000) includes
-            // TODO: Consider adding parent_id parameter to the API for server-side filtering
-            if (selectedDomainId) {
-                // Ensure both values are numbers for comparison
-                const selectedId = parseInt(selectedDomainId, 10);
-                filteredData = filteredData.filter(zone => {
-                    const parentId = parseInt(zone.parent_id, 10);
-                    return !isNaN(parentId) && parentId === selectedId;
-                });
-                totalCount = filteredData.length;
-                totalPages = Math.ceil(totalCount / perPage);
-            } else {
-                totalCount = response.total;
-                totalPages = response.total_pages || 1;
-            }
-            
-            renderZonesTable(filteredData);
-            updatePaginationControls();
-            updateResultsInfo();
+            window.ZONES_ALL = response.data || [];
+            totalCount = window.ZONES_ALL.length;
         }
     } catch (error) {
         console.error('Failed to load zones:', error);
         showError('Erreur lors du chargement des zones: ' + error.message);
-        renderErrorState();
+        window.ZONES_ALL = [];
     }
 }
 
 /**
- * Render zones table
+ * Render zones table with filtering and pagination
  */
-function renderZonesTable(zones) {
-    const tbody = document.getElementById('zonesTableBody');
-    const showActions = selectedDomainId !== null;
-    const colspanValue = showActions ? 8 : 7;
+async function renderZonesTable() {
+    const tbody = document.getElementById('zones-table-body');
+    if (!tbody) return;
+    
+    // Ensure data is loaded
+    if (window.ZONES_ALL.length === 0 && filterStatus === 'active') {
+        await loadZonesData();
+    }
+    
+    let filteredZones = [...window.ZONES_ALL];
+    
+    // Filter by search query
+    if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filteredZones = filteredZones.filter(zone => 
+            (zone.name && zone.name.toLowerCase().includes(query)) ||
+            (zone.filename && zone.filename.toLowerCase().includes(query))
+        );
+    }
+    
+    // Filter by selected domain (parent_id)
+    if (window.ZONES_SELECTED_MASTER_ID) {
+        const selectedId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
+        filteredZones = filteredZones.filter(zone => {
+            const parentId = parseInt(zone.parent_id, 10);
+            return !isNaN(parentId) && parentId === selectedId;
+        });
+    }
+    
+    // Update counts
+    totalCount = filteredZones.length;
+    totalPages = Math.ceil(totalCount / perPage);
+    
+    // Paginate
+    const startIndex = (currentPage - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    const paginatedZones = filteredZones.slice(startIndex, endIndex);
+    
+    // Render
+    const showActions = window.ZONES_SELECTED_MASTER_ID !== null;
+    const colspanValue = showActions ? 6 : 5;
 
-    if (zones.length === 0) {
+    if (paginatedZones.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="${colspanValue}" class="empty-cell">
@@ -408,25 +475,24 @@ function renderZonesTable(zones) {
                 </td>
             </tr>
         `;
+        updatePaginationControls();
+        updateResultsInfo();
         return;
     }
 
-    tbody.innerHTML = zones.map(zone => {
+    tbody.innerHTML = paginatedZones.map(zone => {
         const statusBadge = getStatusBadge(zone.status);
-        const typeBadge = zone.file_type === 'master' ? 
-            '<span class="badge badge-master">Master</span>' : 
-            '<span class="badge badge-include">Include</span>';
         const parentDisplay = zone.parent_name ? escapeHtml(zone.parent_name) : '-';
         
         let actionsHtml = '';
         if (showActions) {
             actionsHtml = `
                 <td class="actions-cell">
-                    <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); openZoneModal(${zone.id})" title="Modifier">
-                        <i class="fas fa-edit"></i>
+                    <button class="btn-small btn-edit" onclick="event.stopPropagation(); openZoneModal(${zone.id})" title="Modifier">
+                        <i class="fas fa-edit"></i> Modifier
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); confirmDeleteZone(${zone.id})" title="Supprimer">
-                        <i class="fas fa-trash"></i>
+                    <button class="btn-small btn-delete" onclick="event.stopPropagation(); deleteZone(${zone.id})" title="Supprimer">
+                        <i class="fas fa-trash"></i> Supprimer
                     </button>
                 </td>
             `;
@@ -435,16 +501,17 @@ function renderZonesTable(zones) {
         return `
             <tr class="zone-row" data-id="${zone.id}" data-parent-id="${zone.parent_id || ''}" onclick="handleZoneRowClick(${zone.id}, ${zone.parent_id || 'null'})" style="cursor: pointer;">
                 <td><strong>${escapeHtml(zone.name)}</strong></td>
-                <td>${typeBadge}</td>
                 <td><code>${escapeHtml(zone.filename)}</code></td>
                 <td>${parentDisplay}</td>
-                <td>${escapeHtml(zone.created_by_username || 'N/A')}</td>
-                <td>${statusBadge}</td>
                 <td>${formatDate(zone.updated_at || zone.created_at)}</td>
+                <td>${statusBadge}</td>
                 ${actionsHtml}
             </tr>
         `;
     }).join('');
+    
+    updatePaginationControls();
+    updateResultsInfo();
 }
 
 /**
@@ -460,18 +527,15 @@ async function handleZoneRowClick(zoneId, parentId) {
         // Ensure parentId is a number
         const parentIdNum = typeof parentId === 'number' ? parentId : parseInt(parentId, 10);
         if (!isNaN(parentIdNum)) {
-            onDomainSelected(parentIdNum);
+            onZoneDomainSelected(parentIdNum);
         }
     }
-    
-    // Open the zone modal
-    openZoneModal(zoneId);
 }
 
 /**
- * Confirm delete zone
+ * Delete zone - wrapper for confirmDeleteZone
  */
-async function confirmDeleteZone(zoneId) {
+async function deleteZone(zoneId) {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette zone?')) {
         return;
     }
@@ -482,29 +546,12 @@ async function confirmDeleteZone(zoneId) {
         });
         
         showSuccess('Zone supprimée avec succès');
-        await loadZonesList();
+        await loadZonesData();
+        renderZonesTable();
     } catch (error) {
         console.error('Failed to delete zone:', error);
         showError('Erreur lors de la suppression: ' + error.message);
     }
-}
-
-/**
- * Render error state
- */
-function renderErrorState() {
-    const tbody = document.getElementById('zonesTableBody');
-    const colspanValue = selectedDomainId ? 8 : 7;
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="${colspanValue}" class="error-cell">
-                <div class="error-state">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <p>Erreur lors du chargement des zones</p>
-                </div>
-            </td>
-        </tr>
-    `;
 }
 
 /**
@@ -551,7 +598,7 @@ function getStatusBadge(status) {
 function previousPage() {
     if (currentPage > 1) {
         currentPage--;
-        loadZonesList();
+        renderZonesTable();
     }
 }
 
@@ -561,7 +608,7 @@ function previousPage() {
 function nextPage() {
     if (currentPage < totalPages) {
         currentPage++;
-        loadZonesList();
+        renderZonesTable();
     }
 }
 
@@ -931,7 +978,8 @@ async function saveZone() {
         }
         
         closeZoneModal();
-        await loadZonesList();
+        await loadZonesData();
+        await renderZonesTable();
     } catch (error) {
         console.error('Failed to save zone:', error);
         
@@ -958,7 +1006,8 @@ async function deleteZone() {
         
         showSuccess('Zone supprimée avec succès');
         closeZoneModal();
-        await loadZonesList();
+        await loadZonesData();
+        await renderZonesTable();
     } catch (error) {
         console.error('Failed to delete zone:', error);
         showError('Erreur lors de la suppression: ' + error.message);
@@ -1056,13 +1105,13 @@ function openCreateMasterModal() {
  * Open edit master modal for selected domain
  */
 async function openEditMasterModal() {
-    if (!selectedDomainId) {
+    if (!window.ZONES_SELECTED_MASTER_ID) {
         showError('Aucun domaine sélectionné');
         return;
     }
     
     try {
-        await openZoneModal(selectedDomainId);
+        await openZoneModal(window.ZONES_SELECTED_MASTER_ID);
     } catch (error) {
         console.error('Failed to open edit modal:', error);
         showError('Erreur lors de l\'ouverture du modal: ' + error.message);
@@ -1071,15 +1120,18 @@ async function openEditMasterModal() {
 
 /**
  * Open create include modal for selected domain
+ * @param {number} parentId - Optional parent master zone ID (defaults to currently selected)
  */
-async function openCreateIncludeModal() {
-    if (!selectedDomainId) {
+async function openCreateIncludeModal(parentId) {
+    const masterId = parentId || window.ZONES_SELECTED_MASTER_ID;
+    
+    if (!masterId) {
         showError('Veuillez sélectionner un domaine d\'abord');
         return;
     }
     
     // Open the zone modal for the selected master, which has the includes tab
-    await openZoneModal(selectedDomainId);
+    await openZoneModal(masterId);
     
     // Wait for modal to be fully rendered
     await new Promise(resolve => requestAnimationFrame(resolve));
@@ -1161,7 +1213,8 @@ async function createZone() {
             }
         }
         
-        await loadZonesList();
+        await loadZonesData();
+        await renderZonesTable();
         
         // Open the new zone in the modal instead of navigating
         if (response.id) {
@@ -1648,13 +1701,14 @@ function displayValidationResults(validation) {
     validationOutput.textContent = output;
 }
 
-// Expose functions globally for inline event handlers
+// Expose functions globally for inline event handlers and external access
 window.openZoneModal = openZoneModal;
-window.onDomainSelected = onDomainSelected;
-window.populateDomainSelect = populateDomainSelect;
-window.handleDomainClick = handleDomainClick;
+window.populateZoneDomainSelect = populateZoneDomainSelect;
+window.onZoneDomainSelected = onZoneDomainSelected;
+window.resetZoneDomainSelection = resetZoneDomainSelection;
 window.handleZoneRowClick = handleZoneRowClick;
+window.deleteZone = deleteZone;
 window.openCreateMasterModal = openCreateMasterModal;
 window.openEditMasterModal = openEditMasterModal;
 window.openCreateIncludeModal = openCreateIncludeModal;
-window.confirmDeleteZone = confirmDeleteZone;
+window.renderZonesTable = renderZonesTable;

@@ -18,52 +18,51 @@ if (!$auth->isAdmin()) {
 <div class="content-section">
     <div class="header-bar">
         <h1>Gestion des fichiers de zone</h1>
-        <div class="header-actions">
-            <button class="btn btn-secondary" id="btnNewDomain" onclick="openCreateMasterModal()">
-                <i class="fas fa-plus"></i> Nouveau domaine
-            </button>
-            <button class="btn btn-primary" id="btnNewInclude" onclick="openCreateIncludeModal()" style="display: none;">
-                <i class="fas fa-plus"></i> Nouvelle zone
-            </button>
-        </div>
     </div>
 </div>
 
 <div class="content-section zone-list-container">
-    <!-- Domain Selection -->
-    <div class="domain-selection-section">
-        <label for="zone-domain-filter">Domaine:</label>
-        <div class="domain-input-wrapper">
-            <input type="text" id="zone-domain-filter" class="form-control" placeholder="Sélectionner un domaine..." readonly>
-            <button class="btn btn-sm btn-secondary" id="btnEditDomain" onclick="openEditMasterModal()" style="display: none;" title="Éditer le domaine">
+    <!-- Toolbar with Domain Combobox and Buttons -->
+    <div class="dns-combobox-container" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
+        <!-- Domain Combobox -->
+        <div class="combobox-wrapper" style="flex: 1; min-width: 250px;">
+            <label for="zone-domain-input" style="display: block; margin-bottom: 5px; font-weight: 500;">Domaine:</label>
+            <div class="combobox">
+                <input type="text" id="zone-domain-input" class="combobox-input" placeholder="Rechercher un domaine..." autocomplete="off">
+                <input type="hidden" id="zone-master-id">
+                <ul id="zone-domain-list" class="combobox-list" style="display: none;"></ul>
+            </div>
+        </div>
+        
+        <!-- Toolbar Buttons -->
+        <div style="flex: 0 0 auto; display: flex; gap: 10px;">
+            <button id="btn-reset-domain" class="btn-reset" style="display: inline-block;">Réinitialiser</button>
+            <button id="btn-new-domain" class="btn btn-secondary" onclick="openCreateMasterModal()" style="display: inline-block;">
+                <i class="fas fa-plus"></i> Nouveau domaine
+            </button>
+            <button id="btn-edit-domain" class="btn btn-secondary" onclick="openEditMasterModal()" style="display: none;">
                 <i class="fas fa-edit"></i> Éditer
             </button>
-            <div id="zone-domain-list" class="domain-dropdown" style="display: none;"></div>
         </div>
     </div>
     
     <!-- Search and Filters -->
-    <div class="filters-section">
-        <div class="search-box">
+    <div class="filters-section" style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center;">
+        <div class="search-box" style="flex: 1;">
             <input type="text" id="searchInput" class="form-control" placeholder="Rechercher par nom ou fichier...">
         </div>
-        <div class="filter-controls">
-            <select id="filterType" class="form-control">
-                <option value="">Tous les types</option>
-                <option value="master">Master</option>
-                <option value="include">Include</option>
-            </select>
+        <div style="flex: 0 0 auto;">
             <select id="filterStatus" class="form-control">
                 <option value="active">Actifs</option>
                 <option value="inactive">Inactifs</option>
                 <option value="deleted">Supprimés</option>
                 <option value="">Tous</option>
             </select>
-            <select id="perPageSelect" class="form-control">
-                <option value="25">25 par page</option>
-                <option value="50">50 par page</option>
-                <option value="100">100 par page</option>
-            </select>
+        </div>
+        <div style="flex: 0 0 auto;">
+            <button id="btn-new-zone-file" class="btn-create" disabled>
+                <i class="fas fa-plus"></i> Nouveau fichier de zone
+            </button>
         </div>
     </div>
 
@@ -75,21 +74,19 @@ if (!$auth->isAdmin()) {
     <!-- Zones Table -->
     <div class="table-wrapper">
         <table class="zones-table">
-            <thead>
+            <thead id="zones-table-head">
                 <tr>
                     <th>Zone</th>
-                    <th>Type</th>
                     <th>Nom de fichier</th>
                     <th>Parent</th>
-                    <th>Propriétaire</th>
-                    <th>Statut</th>
                     <th>Modifié le</th>
-                    <th id="actionsHeader" style="display: none;">Actions</th>
+                    <th>Statut</th>
+                    <th id="zones-table-header-actions" style="display: none;">Actions</th>
                 </tr>
             </thead>
-            <tbody id="zonesTableBody">
+            <tbody id="zones-table-body">
                 <tr>
-                    <td colspan="7" class="loading-cell">
+                    <td colspan="6" class="loading-cell">
                         <div class="loading">Chargement des zones...</div>
                     </td>
                 </tr>
@@ -98,16 +95,25 @@ if (!$auth->isAdmin()) {
     </div>
 
     <!-- Pagination Controls -->
-    <div class="pagination-controls">
-        <button id="prevPage" class="btn btn-secondary" onclick="previousPage()" disabled>
-            <i class="fas fa-chevron-left"></i> Précédent
-        </button>
-        <div class="page-info">
+    <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; gap: 20px;">
+        <div>
+            <select id="perPageSelect" class="form-control" style="width: auto; display: inline-block;">
+                <option value="25">25 par page</option>
+                <option value="50">50 par page</option>
+                <option value="100">100 par page</option>
+            </select>
+        </div>
+        <div id="zones-pagination-info" class="page-info">
             Page <span id="currentPage">1</span> sur <span id="totalPages">1</span>
         </div>
-        <button id="nextPage" class="btn btn-secondary" onclick="nextPage()" disabled>
-            Suivant <i class="fas fa-chevron-right"></i>
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button id="prevPage" class="btn btn-secondary" onclick="previousPage()" disabled>
+                <i class="fas fa-chevron-left"></i> Précédent
+            </button>
+            <button id="nextPage" class="btn btn-secondary" onclick="nextPage()" disabled>
+                Suivant <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
     </div>
 </div>
 
