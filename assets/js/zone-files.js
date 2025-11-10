@@ -26,6 +26,116 @@ const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on b
 const API_BASE = window.API_BASE || '/api/zone_api.php';
 
 /**
+ * Validation helper: Validate domain label
+ * Each label (separated by dots) must contain only letters [A-Za-z], digits [0-9], and hyphens '-'
+ * No underscores or other characters allowed
+ * @param {string} domain - The domain to validate
+ * @returns {boolean} - True if valid, false otherwise
+ */
+function validateDomainLabel(domain) {
+    if (!domain || typeof domain !== 'string') {
+        return false;
+    }
+    
+    const trimmed = domain.trim();
+    if (trimmed === '') {
+        return false;
+    }
+    
+    // Split by dots and validate each label
+    const labels = trimmed.split('.');
+    
+    // Each label must match: only letters, digits, and hyphens (no underscores)
+    const labelRegex = /^[A-Za-z0-9-]+$/;
+    
+    for (const label of labels) {
+        if (label === '' || !labelRegex.test(label)) {
+            return false;
+        }
+        
+        // Label cannot start or end with a hyphen
+        if (label.startsWith('-') || label.endsWith('-')) {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * Validation helper: Validate filename
+ * Must not contain spaces and must end with .db (case insensitive)
+ * @param {string} filename - The filename to validate
+ * @returns {object} - {valid: boolean, error: string|null}
+ */
+function validateFilename(filename) {
+    if (!filename || typeof filename !== 'string') {
+        return { valid: false, error: 'Le nom du fichier de zone est requis.' };
+    }
+    
+    const trimmed = filename.trim();
+    if (trimmed === '') {
+        return { valid: false, error: 'Le nom du fichier de zone est requis.' };
+    }
+    
+    // Check for spaces
+    if (trimmed.includes(' ')) {
+        return { valid: false, error: 'Le nom du fichier ne doit pas contenir d\'espaces.' };
+    }
+    
+    // Check for .db extension (case insensitive)
+    if (!trimmed.toLowerCase().endsWith('.db')) {
+        return { valid: false, error: 'Le nom du fichier doit se terminer par .db.' };
+    }
+    
+    return { valid: true, error: null };
+}
+
+/**
+ * Show error banner in a modal (enhanced version)
+ * @param {string} modalKey - Modal key (e.g., 'createZone' or 'includeCreate')
+ * @param {string} message - Error message to display
+ */
+function showModalError(modalKey, message) {
+    try {
+        const banner = document.getElementById(modalKey + 'ErrorBanner');
+        const msgEl = document.getElementById(modalKey + 'ErrorMessage');
+        if (!banner || !msgEl) {
+            console.warn('Banner elements not found for', modalKey);
+            showError('Erreur : ' + (message || 'Une erreur est survenue'));
+            return;
+        }
+        msgEl.textContent = message || "Erreur de validation : vérifiez les champs du formulaire.";
+        banner.style.display = 'block';
+        banner.focus();
+    } catch (e) {
+        console.error('showModalError failed', e);
+    }
+}
+
+/**
+ * Clear error banner in a modal (enhanced version)
+ * @param {string} modalKey - Modal key (e.g., 'createZone' or 'includeCreate')
+ */
+function clearModalError(modalKey) {
+    try {
+        const banner = document.getElementById(modalKey + 'ErrorBanner');
+        const msgEl = document.getElementById(modalKey + 'ErrorMessage');
+        if (!banner) return;
+        banner.style.display = 'none';
+        if (msgEl) msgEl.textContent = '';
+    } catch (e) {
+        console.error('clearModalError failed', e);
+    }
+}
+
+// Export validation helpers to window for reusability
+window.__validateDomainLabel = validateDomainLabel;
+window.__validateFilename = validateFilename;
+window.__showModalError = showModalError;
+window.__clearModalError = clearModalError;
+
+/**
  * Initialize page on load
  */
 document.addEventListener('DOMContentLoaded', function() {
@@ -1554,17 +1664,25 @@ async function saveInclude() {
         clearModalError('includeCreate');
         
         // Get form values
-        const name = document.getElementById('include-name').value.trim();
-        const filename = document.getElementById('include-filename').value.trim();
+        const name = document.getElementById('include-name').value?.trim() || '';
+        const filename = document.getElementById('include-filename').value?.trim() || '';
         const parentId = document.getElementById('include-parent-zone-id').value;
-        const directory = document.getElementById('include-directory').value.trim() || null;
+        const directory = document.getElementById('include-directory').value?.trim() || null;
         
-        // Validate required fields
-        if (!name || !filename) {
-            showModalError('includeCreate', 'Veuillez remplir tous les champs requis');
+        // Validate name field (required only, no format validation)
+        if (!name) {
+            showModalError('includeCreate', 'Le Nom de la zone est requis.');
             return;
         }
         
+        // Validate filename (required, no spaces, must end with .db)
+        const filenameValidation = validateFilename(filename);
+        if (!filenameValidation.valid) {
+            showModalError('includeCreate', filenameValidation.error);
+            return;
+        }
+        
+        // Validate parent selection
         if (!parentId) {
             showModalError('includeCreate', 'Veuillez sélectionner un fichier de zone parent');
             return;
@@ -1652,13 +1770,39 @@ async function createZone() {
         // Clear any previous errors
         clearModalError('createZone');
         
+        // Get field values
+        const domain = document.getElementById('master-domain').value?.trim() || '';
+        const name = document.getElementById('master-zone-name').value?.trim() || '';
+        const filename = document.getElementById('master-filename').value?.trim() || '';
+        const directory = document.getElementById('master-directory').value?.trim() || null;
+        
+        // Validate zone name (required only, no format validation)
+        if (!name) {
+            showModalError('createZone', 'Le Nom de la zone est requis.');
+            return;
+        }
+        
+        // Validate domain field (strict validation on labels only if not empty)
+        if (domain && !validateDomainLabel(domain)) {
+            showModalError('createZone', 'Le domaine contient des caractères invalides (seules les lettres, chiffres et tirets sont autorisés dans chaque label ; pas d\'underscore).');
+            return;
+        }
+        
+        // Validate filename (required, no spaces, must end with .db)
+        const filenameValidation = validateFilename(filename);
+        if (!filenameValidation.valid) {
+            showModalError('createZone', filenameValidation.error);
+            return;
+        }
+        
+        // Prepare data for API call
         const data = {
-            name: document.getElementById('master-zone-name').value,
-            filename: document.getElementById('master-filename').value,
+            name: name,
+            filename: filename,
             file_type: 'master', // Always create as master from "Nouveau domaine" button
-            content: '', // Empty content for new master zones
-            domain: document.getElementById('master-domain').value || null,
-            directory: document.getElementById('master-directory').value || null
+            content: '', // Empty content for new master zones - content omitted
+            domain: domain || null,
+            directory: directory
         };
 
         const response = await zoneApiCall('create_zone', {
@@ -1689,7 +1833,7 @@ async function createZone() {
         console.error('Failed to create zone:', error);
         
         // Show error in modal banner instead of global error
-        const errorMessage = error.message || 'Erreur lors de la création de la zone';
+        const errorMessage = error.message || 'Erreur lors de la création du domaine';
         showModalError('createZone', errorMessage);
     }
 }
@@ -1717,44 +1861,6 @@ function showSuccess(message) {
 function showError(message) {
     // Simple alert for now - can be enhanced with toast notifications
     alert('Erreur: ' + message);
-}
-
-/**
- * Show error banner in a modal
- * @param {string} modalKey - Modal key (e.g., 'createZone' or 'zoneModal')
- * @param {string} message - Error message to display
- */
-function showModalError(modalKey, message) {
-    try {
-        const banner = document.getElementById(modalKey + 'ErrorBanner');
-        const msgEl = document.getElementById(modalKey + 'ErrorMessage');
-        if (!banner || !msgEl) {
-            console.warn('Banner elements not found for', modalKey);
-            showError('Erreur : ' + (message || 'Une erreur est survenue'));
-            return;
-        }
-        msgEl.textContent = message || "Erreur de validation : vérifiez les champs du formulaire.";
-        banner.style.display = 'block';
-        banner.focus();
-    } catch (e) {
-        console.error('showModalError failed', e);
-    }
-}
-
-/**
- * Clear error banner in a modal
- * @param {string} modalKey - Modal key (e.g., 'createZone' or 'zoneModal')
- */
-function clearModalError(modalKey) {
-    try {
-        const banner = document.getElementById(modalKey + 'ErrorBanner');
-        const msgEl = document.getElementById(modalKey + 'ErrorMessage');
-        if (!banner) return;
-        banner.style.display = 'none';
-        if (msgEl) msgEl.textContent = '';
-    } catch (e) {
-        console.error('clearModalError failed', e);
-    }
 }
 
 /**
