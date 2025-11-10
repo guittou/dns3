@@ -1394,36 +1394,44 @@ function cancelCreateInclude() {
  * Submit create include
  */
 async function submitCreateInclude() {
+    clearModalError && clearModalError('createInclude');
+
+    const name = document.getElementById('include-name').value?.trim() || '';
+    const filename = document.getElementById('include-filename').value?.trim() || '';
+    const parentId = document.getElementById('include-parent-id').value || document.getElementById('include-domain-id').value;
+
+    // Validate name: REQUIRED only (no format validation)
+    if (!name) {
+        showModalError && showModalError('createInclude', 'Le Nom de la zone est requis.');
+        return;
+    }
+
+    // Validate filename (reuse existing helper)
+    if (typeof validateFilename === 'function') {
+        const vf = validateFilename(filename);
+        if (!vf.valid) { showModalError && showModalError('createInclude', vf.error); return; }
+    }
+
+    // Build payload and call API
     try {
-        const name = document.getElementById('includeNameInput').value.trim();
-        const filename = document.getElementById('includeFilenameInput').value.trim();
-        const content = document.getElementById('includeContentInput').value;
-        
-        if (!name || !filename) {
-            showError('Veuillez remplir tous les champs requis');
-            return;
+        const payload = { name: name, filename: filename, parent_id: parentId, file_type: 'include' };
+        let res;
+        if (typeof apiCall === 'function') res = await apiCall('create_zone', payload);
+        else if (typeof zoneApiCall === 'function') res = await zoneApiCall('create_zone', payload);
+        else res = await fetch('/api/zone_api.php?action=create_zone', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json());
+
+        if (res && (res.success || res.id)) {
+            const modal = document.getElementById('createIncludeModal');
+            if (modal) modal.style.display = 'none';
+            populateZoneDomainSelect && populateZoneDomainSelect();
+            showSuccess && showSuccess('Fichier de zone créé');
+        } else {
+            const err = (res && (res.error || res.message)) ? (res.error || res.message) : 'Erreur création';
+            showModalError && showModalError('createInclude', err);
         }
-        
-        const parentId = currentZone.id;
-        
-        const response = await zoneApiCall('create_and_assign_include', {
-            method: 'POST',
-            body: {
-                name: name,
-                filename: filename,
-                content: content,
-                parent_id: parentId
-            }
-        });
-        
-        showSuccess('Include créé et assigné avec succès');
-        cancelCreateInclude();
-        
-        // Reload zone data to refresh includes list
-        await openZoneModal(currentZone.id);
-    } catch (error) {
-        console.error('Failed to create include:', error);
-        showError('Erreur lors de la création de l\'include: ' + error.message);
+    } catch (err) {
+        console.error('submitCreateInclude', err);
+        showModalError && showModalError('createInclude', 'Erreur réseau ou serveur.');
     }
 }
 
