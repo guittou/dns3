@@ -16,13 +16,16 @@ if (!$auth->isAdmin()) {
 <link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/zone-files.css">
 
 <div class="content-section">
-    <div class="header-bar">
+    <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center;">
         <h1>Gestion des fichiers de zone</h1>
+        <button id="btn-new-domain" class="btn-create" onclick="openCreateMasterModal()">
+            <i class="fas fa-plus"></i> Nouveau domaine
+        </button>
     </div>
 </div>
 
 <div class="content-section zone-list-container">
-    <!-- Toolbar with Domain Combobox and Buttons -->
+    <!-- Toolbar with Domain and Zone File Comboboxes -->
     <div class="dns-combobox-container" style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end;">
         <!-- Domain Combobox -->
         <div class="combobox-wrapper" style="flex: 1; min-width: 250px;">
@@ -34,15 +37,19 @@ if (!$auth->isAdmin()) {
             </div>
         </div>
         
-        <!-- Toolbar Buttons -->
-        <div style="flex: 0 0 auto; display: flex; gap: 10px;">
+        <!-- Zone File Combobox -->
+        <div class="combobox-wrapper" style="flex: 1; min-width: 250px;">
+            <label for="zone-file-input" style="display: block; margin-bottom: 5px; font-weight: 500;">Fichier de zone:</label>
+            <div class="combobox">
+                <input type="text" id="zone-file-input" class="combobox-input" placeholder="Rechercher une zone..." autocomplete="off">
+                <input type="hidden" id="zone-file-id">
+                <ul id="zone-file-list" class="combobox-list" style="display: none;"></ul>
+            </div>
+        </div>
+        
+        <!-- Reset Button -->
+        <div style="flex: 0 0 auto;">
             <button id="btn-reset-domain" class="btn-reset" style="display: inline-block;">Réinitialiser</button>
-            <button id="btn-new-domain" class="btn btn-secondary" onclick="openCreateMasterModal()" style="display: inline-block;">
-                <i class="fas fa-plus"></i> Nouveau domaine
-            </button>
-            <button id="btn-edit-domain" class="btn btn-secondary" onclick="openEditMasterModal()" style="display: none;">
-                <i class="fas fa-edit"></i> Éditer
-            </button>
         </div>
     </div>
     

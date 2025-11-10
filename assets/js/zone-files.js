@@ -163,6 +163,7 @@ function setupEventHandlers() {
  */
 async function initZonesPage() {
     await populateZoneDomainSelect();
+    await initZoneFileCombobox();
     await loadZonesData();
     renderZonesTable();
 }
@@ -304,6 +305,9 @@ function onZoneDomainSelected(masterZoneId) {
         if (btnEditDomain) {
             btnEditDomain.style.display = 'inline-block';
         }
+        
+        // Populate zone file combobox for the selected domain
+        populateZoneFileComboboxForDomain(masterZoneId);
     } else {
         if (btnNewZoneFile) {
             btnNewZoneFile.disabled = true;
@@ -311,6 +315,9 @@ function onZoneDomainSelected(masterZoneId) {
         if (btnEditDomain) {
             btnEditDomain.style.display = 'none';
         }
+        
+        // Clear zone file combobox
+        clearZoneFileSelection();
     }
     
     // Show/hide Actions column header
@@ -331,10 +338,171 @@ function onZoneDomainSelected(masterZoneId) {
 }
 
 /**
+ * Initialize zone file combobox
+ */
+async function initZoneFileCombobox() {
+    const input = document.getElementById('zone-file-input');
+    const list = document.getElementById('zone-file-list');
+    const hiddenInput = document.getElementById('zone-file-id');
+    
+    if (!input || !list || !hiddenInput) return;
+    
+    // Make input interactive
+    input.readOnly = false;
+    input.placeholder = 'Rechercher une zone...';
+    
+    // Input event - filter zones and show list
+    input.addEventListener('input', () => {
+        const query = input.value.toLowerCase().trim();
+        const zones = getFilteredZonesForCombobox();
+        const filtered = zones.filter(z => 
+            z.name.toLowerCase().includes(query) || 
+            z.filename.toLowerCase().includes(query)
+        );
+        
+        populateComboboxList(list, filtered, (zone) => ({
+            id: zone.id,
+            text: `${zone.name} (${zone.file_type})`
+        }), (zone) => {
+            onZoneFileSelected(zone.id);
+        });
+    });
+    
+    // Focus - show available zones
+    input.addEventListener('focus', () => {
+        const zones = getFilteredZonesForCombobox();
+        populateComboboxList(list, zones, (zone) => ({
+            id: zone.id,
+            text: `${zone.name} (${zone.file_type})`
+        }), (zone) => {
+            onZoneFileSelected(zone.id);
+        });
+    });
+    
+    // Blur - hide list (with delay to allow click)
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            list.style.display = 'none';
+        }, COMBOBOX_BLUR_DELAY);
+    });
+    
+    // Escape key - close list
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            list.style.display = 'none';
+            input.blur();
+        }
+    });
+}
+
+/**
+ * Get filtered zones for combobox based on selected domain
+ */
+function getFilteredZonesForCombobox() {
+    if (!window.ZONES_SELECTED_MASTER_ID) {
+        // No domain selected - show all zones
+        return window.ZONES_ALL || [];
+    }
+    
+    // Domain selected - show master and its includes
+    const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
+    return (window.ZONES_ALL || []).filter(zone => {
+        // Show the master itself
+        if (parseInt(zone.id, 10) === masterId) return true;
+        // Show includes that belong to this master
+        if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
+        return false;
+    });
+}
+
+/**
+ * Populate zone file combobox for a specific domain
+ */
+async function populateZoneFileComboboxForDomain(masterZoneId) {
+    try {
+        // Fetch zones for this domain
+        const response = await zoneApiCall('list_zones', {
+            params: {
+                status: 'active',
+                per_page: 1000
+            }
+        });
+        
+        if (response.success) {
+            // Filter to master and its includes
+            const masterId = parseInt(masterZoneId, 10);
+            const zones = (response.data || []).filter(zone => {
+                if (parseInt(zone.id, 10) === masterId) return true;
+                if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
+                return false;
+            });
+            
+            // Update the combobox (don't auto-select)
+            const input = document.getElementById('zone-file-input');
+            const list = document.getElementById('zone-file-list');
+            
+            if (input && list) {
+                // Clear current selection
+                input.value = '';
+                input.placeholder = 'Rechercher une zone...';
+                
+                // Store zones for later use
+                // (will be filtered by getFilteredZonesForCombobox)
+            }
+        }
+    } catch (error) {
+        console.error('Failed to populate zone file combobox:', error);
+    }
+}
+
+/**
+ * Handle zone file selection
+ */
+function onZoneFileSelected(zoneId) {
+    const input = document.getElementById('zone-file-input');
+    const hiddenInput = document.getElementById('zone-file-id');
+    const list = document.getElementById('zone-file-list');
+    
+    if (zoneId) {
+        const zone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === parseInt(zoneId, 10));
+        if (zone) {
+            if (input) input.value = `${zone.name} (${zone.file_type})`;
+            if (hiddenInput) hiddenInput.value = zoneId;
+        }
+    } else {
+        if (input) input.value = '';
+        if (hiddenInput) hiddenInput.value = '';
+    }
+    
+    if (list) list.style.display = 'none';
+    
+    // Re-render table if needed (optional - depends on requirements)
+    // currentPage = 1;
+    // renderZonesTable();
+}
+
+/**
+ * Clear zone file selection
+ */
+function clearZoneFileSelection() {
+    const input = document.getElementById('zone-file-input');
+    const hiddenInput = document.getElementById('zone-file-id');
+    
+    if (input) {
+        input.value = '';
+        input.placeholder = 'Rechercher une zone...';
+    }
+    if (hiddenInput) {
+        hiddenInput.value = '';
+    }
+}
+
+/**
  * Reset domain selection
  */
 function resetZoneDomainSelection() {
     onZoneDomainSelected(null);
+    clearZoneFileSelection();
 }
 
 /**
@@ -499,7 +667,7 @@ async function renderZonesTable() {
         }
         
         return `
-            <tr class="zone-row" data-id="${zone.id}" data-parent-id="${zone.parent_id || ''}" onclick="handleZoneRowClick(${zone.id}, ${zone.parent_id || 'null'})" style="cursor: pointer;">
+            <tr class="zone-row" data-zone-id="${zone.id}" data-file-type="${zone.file_type || 'include'}" data-parent-id="${zone.parent_id || ''}" onclick="handleZoneRowClick(${zone.id}, ${zone.parent_id || 'null'})" style="cursor: pointer;">
                 <td><strong>${escapeHtml(zone.name)}</strong></td>
                 <td><code>${escapeHtml(zone.filename)}</code></td>
                 <td>${parentDisplay}</td>
@@ -515,7 +683,7 @@ async function renderZonesTable() {
 }
 
 /**
- * Handle zone row click - select parent domain if include
+ * Handle zone row click - select parent domain and zone file
  */
 async function handleZoneRowClick(zoneId, parentId) {
     // Check if this zone has a parent (is an include)
@@ -523,12 +691,16 @@ async function handleZoneRowClick(zoneId, parentId) {
     const hasParent = parentId && parentId !== null && parentId !== 'null' && parentId !== '';
     
     if (hasParent) {
-        // This is an include - select its parent domain
-        // Ensure parentId is a number
+        // This is an include - select its parent domain first
         const parentIdNum = typeof parentId === 'number' ? parentId : parseInt(parentId, 10);
         if (!isNaN(parentIdNum)) {
             onZoneDomainSelected(parentIdNum);
         }
+    }
+    
+    // Also select the zone file itself
+    if (zoneId) {
+        onZoneFileSelected(zoneId);
     }
 }
 
@@ -1233,9 +1405,14 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
             hiddenField.value = defaultParentId;
         }
         
+        // Remove old event listeners by cloning the input element
+        const newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        const inputEl = document.getElementById('include-parent-input'); // Get the new reference
+        
         // Input event - filter zones and show list
-        input.addEventListener('input', () => {
-            const query = input.value.toLowerCase().trim();
+        inputEl.addEventListener('input', () => {
+            const query = inputEl.value.toLowerCase().trim();
             const filtered = zones.filter(z => 
                 z.name.toLowerCase().includes(query) || 
                 z.filename.toLowerCase().includes(query)
@@ -1245,36 +1422,36 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
-                input.value = `${zone.name} (${zone.file_type})`;
+                inputEl.value = `${zone.name} (${zone.file_type})`;
                 hiddenField.value = zone.id;
                 list.style.display = 'none';
             });
         });
         
         // Focus - show all zones
-        input.addEventListener('focus', () => {
+        inputEl.addEventListener('focus', () => {
             populateComboboxList(list, zones, (zone) => ({
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
-                input.value = `${zone.name} (${zone.file_type})`;
+                inputEl.value = `${zone.name} (${zone.file_type})`;
                 hiddenField.value = zone.id;
                 list.style.display = 'none';
             });
         });
         
         // Blur - hide list (with delay to allow click)
-        input.addEventListener('blur', () => {
+        inputEl.addEventListener('blur', () => {
             setTimeout(() => {
                 list.style.display = 'none';
             }, COMBOBOX_BLUR_DELAY);
         });
         
         // Escape key - close list
-        input.addEventListener('keydown', (e) => {
+        inputEl.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 list.style.display = 'none';
-                input.blur();
+                inputEl.blur();
             }
         });
     } catch (error) {
