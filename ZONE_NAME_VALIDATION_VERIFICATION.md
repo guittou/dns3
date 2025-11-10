@@ -106,6 +106,13 @@ The zone name field validation already meets all requirements:
 
 **No code changes needed** - implementation is already correct per specifications.
 
+## Branch Information
+
+- **Requested branch**: `fix/ui-no-validate-zone-name`
+- **Current branch**: `copilot/remove-zone-name-format-validation`
+- Both branches point to the same verified commits
+- PR can be created from either branch
+
 ## Manual Testing Recommendation
 
 To verify behavior:
