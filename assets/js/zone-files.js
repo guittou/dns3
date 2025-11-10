@@ -1412,18 +1412,21 @@ async function submitCreateInclude() {
         if (!vf.valid) { showModalError && showModalError('createInclude', vf.error); return; }
     }
 
-    // Build payload and call API
+    // Build payload and call API (preserve existing wrappers)
     try {
         const payload = { name: name, filename: filename, parent_id: parentId, file_type: 'include' };
         let res;
         if (typeof apiCall === 'function') res = await apiCall('create_zone', payload);
         else if (typeof zoneApiCall === 'function') res = await zoneApiCall('create_zone', payload);
-        else res = await fetch('/api/zone_api.php?action=create_zone', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }).then(r=>r.json());
+        else res = await fetch('/api/zone_api.php?action=create_zone', {
+            method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+        }).then(r=>r.json());
 
         if (res && (res.success || res.id)) {
             const modal = document.getElementById('createIncludeModal');
             if (modal) modal.style.display = 'none';
             populateZoneDomainSelect && populateZoneDomainSelect();
+            renderZonesTable && renderZonesTable();
             showSuccess && showSuccess('Fichier de zone créé');
         } else {
             const err = (res && (res.error || res.message)) ? (res.error || res.message) : 'Erreur création';
@@ -1784,7 +1787,7 @@ async function createZone() {
         const filename = document.getElementById('master-filename').value?.trim() || '';
         const directory = document.getElementById('master-directory').value?.trim() || null;
         
-        // Validate zone name (required only, no format validation)
+        // Validate zone name: REQUIRED only (no format validation)
         if (!name) {
             showModalError('createZone', 'Le Nom de la zone est requis.');
             return;
