@@ -129,7 +129,7 @@ function setupEventHandlers() {
     // Modal close on outside click
     window.onclick = function(event) {
         if (event.target.classList.contains('modal')) {
-            if (event.target.id === 'createZoneModal') {
+            if (event.target.id === 'master-create-modal') {
                 closeCreateZoneModal();
             } else if (event.target.id === 'zoneModal') {
                 closeZoneModal();
@@ -1624,11 +1624,8 @@ function openCreateZoneModal() {
     clearModalError('createZone');
     
     document.getElementById('createZoneForm').reset();
-    // Force master type and disable the select
-    document.getElementById('createFileType').value = 'master';
-    document.getElementById('createFileType').disabled = true;
     
-    const modal = document.getElementById('createZoneModal');
+    const modal = document.getElementById('master-create-modal');
     modal.style.display = 'block';
     modal.classList.add('open');
     
@@ -1642,7 +1639,7 @@ function openCreateZoneModal() {
  * Close create zone modal
  */
 function closeCreateZoneModal() {
-    const modal = document.getElementById('createZoneModal');
+    const modal = document.getElementById('master-create-modal');
     modal.classList.remove('open');
     modal.style.display = 'none';
 }
@@ -1656,11 +1653,12 @@ async function createZone() {
         clearModalError('createZone');
         
         const data = {
-            name: document.getElementById('createName').value,
-            filename: document.getElementById('createFilename').value,
-            file_type: 'master', // Always create as master from "Nouvelle zone" button
-            content: document.getElementById('createContent').value,
-            domain: document.getElementById('createDomain').value || null
+            name: document.getElementById('master-zone-name').value,
+            filename: document.getElementById('master-filename').value,
+            file_type: 'master', // Always create as master from "Nouveau domaine" button
+            content: '', // Empty content for new master zones
+            domain: document.getElementById('master-domain').value || null,
+            directory: document.getElementById('master-directory').value || null
         };
 
         const response = await zoneApiCall('create_zone', {
@@ -1673,10 +1671,10 @@ async function createZone() {
         
         // Refresh domain list if a domain was set
         if (data.domain) {
-            await populateDomainSelect();
+            await populateZoneDomainSelect();
             // Optionally select the newly created domain
             if (response.id) {
-                onDomainSelected(response.id);
+                onZoneDomainSelected(response.id);
             }
         }
         
