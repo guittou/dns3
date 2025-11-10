@@ -331,6 +331,76 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
+<!-- Include Create Modal -->
+<div id="include-create-modal" class="dns-modal">
+    <div class="dns-modal-content">
+        <div class="dns-modal-header">
+            <h2 style="text-align: center; margin-bottom: 0.25rem;">
+                <span id="include-modal-domain">-</span>
+            </h2>
+            <h3 style="text-align: center; font-weight: normal; font-size: 1rem; color: #666; margin-top: 0;">
+                <span id="include-modal-title">Nouveau fichier de zone</span>
+            </h3>
+            <button class="dns-modal-close" onclick="closeIncludeCreateModal()" aria-label="Fermer">&times;</button>
+        </div>
+        <div class="dns-modal-body">
+            <!-- Error banner -->
+            <div id="includeCreateErrorBanner" class="modal-error-banner" role="alert" tabindex="-1" style="display:none;">
+                <button class="modal-error-close" aria-label="Fermer" onclick="clearModalError('includeCreate')">&times;</button>
+                <strong class="modal-error-title">Erreur&nbsp;:</strong>
+                <div id="includeCreateErrorMessage" class="modal-error-message"></div>
+            </div>
+
+            <form id="includeCreateForm" onsubmit="return false;">
+                <!-- Hidden fields -->
+                <input type="hidden" id="include-domain-id">
+                <input type="hidden" id="include-parent-zone-id">
+
+                <!-- Domain field (disabled, prefilled) -->
+                <div class="form-group">
+                    <label for="include-domain">Domaine</label>
+                    <input id="include-domain" class="form-control" type="text" disabled>
+                </div>
+
+                <!-- Parent zone combobox (searchable) -->
+                <div class="form-group">
+                    <label for="include-parent-input">Fichier de zone parent *</label>
+                    <div class="combobox">
+                        <input type="text" id="include-parent-input" class="combobox-input form-control" placeholder="Rechercher un fichier de zone..." autocomplete="off">
+                        <ul id="include-parent-list" class="combobox-list" style="display: none;"></ul>
+                    </div>
+                </div>
+
+                <!-- Name field (required, empty) -->
+                <div class="form-group">
+                    <label for="include-name">Nom *</label>
+                    <input id="include-name" class="form-control" type="text" required>
+                </div>
+
+                <!-- Filename field (required, empty) -->
+                <div class="form-group">
+                    <label for="include-filename">Nom de fichier *</label>
+                    <input id="include-filename" class="form-control" type="text" required>
+                </div>
+
+                <!-- Directory field (optional) -->
+                <div class="form-group">
+                    <label for="include-directory">Répertoire</label>
+                    <input id="include-directory" class="form-control" type="text" placeholder="/etc/bind/zones">
+                    <small class="form-text text-muted">Répertoire pour les directives $INCLUDE (optionnel)</small>
+                </div>
+
+                <div class="dns-modal-footer">
+                    <div class="modal-action-bar">
+                        <button type="button" id="include-save-btn" class="btn-success modal-action-button" onclick="saveInclude()">Enregistrer</button>
+                        <button type="button" id="include-cancel-btn" class="btn-cancel modal-action-button" onclick="closeIncludeCreateModal()">Annuler</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script src="<?php echo $basePath; ?>assets/js/modal-utils.js"></script>
 <script src="<?php echo $basePath; ?>assets/js/zone-files.js"></script>
 

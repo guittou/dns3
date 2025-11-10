@@ -1130,22 +1130,235 @@ async function openCreateIncludeModal(parentId) {
         return;
     }
     
-    // Open the zone modal for the selected master, which has the includes tab
-    await openZoneModal(masterId);
-    
-    // Wait for modal to be fully rendered
-    await new Promise(resolve => requestAnimationFrame(resolve));
-    
-    // Switch to includes tab
-    switchTab('includes');
-    
-    // Wait for tab switch to complete
-    await new Promise(resolve => requestAnimationFrame(resolve));
-    
-    // Open the create include form if the button exists
-    const createBtn = document.querySelector('#includesTab button[onclick*="openCreateIncludeForm"]');
-    if (createBtn) {
-        createBtn.click();
+    try {
+        // Clear any previous errors
+        clearModalError('includeCreate');
+        
+        // Fetch the master zone data
+        const response = await zoneApiCall('get_zone', { params: { id: masterId } });
+        if (!response || !response.data) {
+            showError('Impossible de charger les données du domaine');
+            return;
+        }
+        
+        const masterZone = response.data;
+        
+        // Store master ID in hidden field
+        document.getElementById('include-domain-id').value = masterId;
+        document.getElementById('include-parent-zone-id').value = masterId;
+        
+        // Prefill domain field (disabled)
+        const domainField = document.getElementById('include-domain');
+        if (domainField) {
+            domainField.value = masterZone.domain || masterZone.name || '-';
+        }
+        
+        // Update modal titles
+        const domainTitle = document.getElementById('include-modal-domain');
+        const fileTitle = document.getElementById('include-modal-title');
+        if (domainTitle) {
+            domainTitle.textContent = masterZone.domain || masterZone.name || '-';
+        }
+        if (fileTitle) {
+            fileTitle.textContent = 'Nouveau fichier de zone';
+        }
+        
+        // Clear input fields (creation mode)
+        document.getElementById('include-name').value = '';
+        document.getElementById('include-filename').value = '';
+        document.getElementById('include-directory').value = '';
+        
+        // Populate parent combobox with domain's zones (master should be default)
+        await populateIncludeParentCombobox(masterZone.domain, masterId);
+        
+        // Show modal
+        const modal = document.getElementById('include-create-modal');
+        modal.style.display = 'block';
+        modal.classList.add('open');
+        
+        // Call centering helper if available
+        if (typeof window.ensureModalCentered === 'function') {
+            window.ensureModalCentered(modal);
+        }
+    } catch (error) {
+        console.error('Failed to open create include modal:', error);
+        showError('Erreur lors de l\'ouverture du modal: ' + error.message);
+    }
+}
+
+/**
+ * Populate parent combobox with zones for the selected domain
+ * @param {string} domain - Domain name
+ * @param {number} defaultParentId - ID of the master zone to preselect
+ */
+async function populateIncludeParentCombobox(domain, defaultParentId) {
+    try {
+        // Fetch all active zones (both master and includes) for this domain
+        const response = await zoneApiCall('list_zones', {
+            params: {
+                status: 'active',
+                per_page: 100
+            }
+        });
+        
+        if (!response.success) {
+            console.error('Failed to load zones for parent combobox');
+            return;
+        }
+        
+        // Filter zones that match the domain
+        const zones = response.data.filter(zone => {
+            // For master zones, match by domain field
+            if (zone.file_type === 'master' && zone.domain === domain) {
+                return true;
+            }
+            // For includes, check if their parent has the same domain
+            if (zone.file_type === 'include' && zone.parent_id == defaultParentId) {
+                return true;
+            }
+            return false;
+        });
+        
+        // Setup combobox
+        const input = document.getElementById('include-parent-input');
+        const list = document.getElementById('include-parent-list');
+        const hiddenField = document.getElementById('include-parent-zone-id');
+        
+        if (!input || !list || !hiddenField) return;
+        
+        // Find default master zone
+        const defaultZone = zones.find(z => z.id == defaultParentId);
+        if (defaultZone) {
+            input.value = `${defaultZone.name} (${defaultZone.file_type})`;
+            hiddenField.value = defaultParentId;
+        }
+        
+        // Input event - filter zones and show list
+        input.addEventListener('input', () => {
+            const query = input.value.toLowerCase().trim();
+            const filtered = zones.filter(z => 
+                z.name.toLowerCase().includes(query) || 
+                z.filename.toLowerCase().includes(query)
+            );
+            
+            populateComboboxList(list, filtered, (zone) => ({
+                id: zone.id,
+                text: `${zone.name} (${zone.file_type})`
+            }), (zone) => {
+                input.value = `${zone.name} (${zone.file_type})`;
+                hiddenField.value = zone.id;
+                list.style.display = 'none';
+            });
+        });
+        
+        // Focus - show all zones
+        input.addEventListener('focus', () => {
+            populateComboboxList(list, zones, (zone) => ({
+                id: zone.id,
+                text: `${zone.name} (${zone.file_type})`
+            }), (zone) => {
+                input.value = `${zone.name} (${zone.file_type})`;
+                hiddenField.value = zone.id;
+                list.style.display = 'none';
+            });
+        });
+        
+        // Blur - hide list (with delay to allow click)
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                list.style.display = 'none';
+            }, COMBOBOX_BLUR_DELAY);
+        });
+        
+        // Escape key - close list
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                list.style.display = 'none';
+                input.blur();
+            }
+        });
+    } catch (error) {
+        console.error('Failed to populate parent combobox:', error);
+    }
+}
+
+/**
+ * Close include create modal
+ */
+function closeIncludeCreateModal() {
+    const modal = document.getElementById('include-create-modal');
+    modal.classList.remove('open');
+    modal.style.display = 'none';
+}
+
+/**
+ * Save include from create modal
+ */
+async function saveInclude() {
+    try {
+        // Clear any previous errors
+        clearModalError('includeCreate');
+        
+        // Get form values
+        const name = document.getElementById('include-name').value.trim();
+        const filename = document.getElementById('include-filename').value.trim();
+        const parentId = document.getElementById('include-parent-zone-id').value;
+        const directory = document.getElementById('include-directory').value.trim() || null;
+        
+        // Validate required fields
+        if (!name || !filename) {
+            showModalError('includeCreate', 'Veuillez remplir tous les champs requis');
+            return;
+        }
+        
+        if (!parentId) {
+            showModalError('includeCreate', 'Veuillez sélectionner un fichier de zone parent');
+            return;
+        }
+        
+        // Create the include zone
+        const data = {
+            name: name,
+            filename: filename,
+            file_type: 'include',
+            directory: directory,
+            content: '' // Empty content for new include
+        };
+        
+        const response = await zoneApiCall('create_zone', {
+            method: 'POST',
+            body: data
+        });
+        
+        if (!response.success) {
+            throw new Error(response.error || 'Erreur lors de la création de l\'include');
+        }
+        
+        const includeId = response.id;
+        
+        // Assign the include to the parent zone
+        await zoneApiCall('assign_include', {
+            method: 'POST',
+            body: {
+                parent_id: parseInt(parentId),
+                include_id: parseInt(includeId),
+                position: 0 // Default position
+            }
+        });
+        
+        showSuccess('Fichier de zone créé et assigné avec succès');
+        closeIncludeCreateModal();
+        
+        // Refresh domain list and zones table
+        await populateZoneDomainSelect();
+        await loadZonesData();
+        await renderZonesTable();
+    } catch (error) {
+        console.error('Failed to save include:', error);
+        
+        // Show error in modal banner
+        const errorMessage = error.message || 'Erreur lors de la création du fichier de zone';
+        showModalError('includeCreate', errorMessage);
     }
 }
 
@@ -1711,4 +1924,6 @@ window.deleteZone = deleteZone;
 window.openCreateMasterModal = openCreateMasterModal;
 window.openEditMasterModal = openEditMasterModal;
 window.openCreateIncludeModal = openCreateIncludeModal;
+window.closeIncludeCreateModal = closeIncludeCreateModal;
+window.saveInclude = saveInclude;
 window.renderZonesTable = renderZonesTable;
