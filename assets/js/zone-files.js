@@ -15,6 +15,7 @@ let allMasters = [];
 
 // Add to window object for global access
 window.ZONES_SELECTED_MASTER_ID = null;
+window.ZONES_SELECTED_ZONEFILE_ID = null;
 window.ZONES_ALL = [];
 
 // Constants
@@ -307,7 +308,7 @@ function onZoneDomainSelected(masterZoneId) {
         }
         
         // Populate zone file combobox for the selected domain
-        populateZoneFileComboboxForDomain(masterZoneId);
+        populateZoneFileCombobox(masterZoneId);
     } else {
         if (btnNewZoneFile) {
             btnNewZoneFile.disabled = true;
@@ -362,7 +363,7 @@ async function initZoneFileCombobox() {
         
         populateComboboxList(list, filtered, (zone) => ({
             id: zone.id,
-            text: `${zone.name} (${zone.file_type})`
+            text: `${zone.name} (${zone.filename})`
         }), (zone) => {
             onZoneFileSelected(zone.id);
         });
@@ -373,7 +374,7 @@ async function initZoneFileCombobox() {
         const zones = getFilteredZonesForCombobox();
         populateComboboxList(list, zones, (zone) => ({
             id: zone.id,
-            text: `${zone.name} (${zone.file_type})`
+            text: `${zone.name} (${zone.filename})`
         }), (zone) => {
             onZoneFileSelected(zone.id);
         });
@@ -400,54 +401,75 @@ async function initZoneFileCombobox() {
  */
 function getFilteredZonesForCombobox() {
     if (!window.ZONES_SELECTED_MASTER_ID) {
-        // No domain selected - show all zones
-        return window.ZONES_ALL || [];
+        // No domain selected - show all zones (masters + includes)
+        return [...allMasters, ...(window.ZONES_ALL || [])];
     }
     
     // Domain selected - show master and its includes
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-    return (window.ZONES_ALL || []).filter(zone => {
-        // Show the master itself
-        if (parseInt(zone.id, 10) === masterId) return true;
+    const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
+    const includeZones = (window.ZONES_ALL || []).filter(zone => {
         // Show includes that belong to this master
         if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
         return false;
     });
+    
+    // Return master first, then includes
+    return masterZone ? [masterZone, ...includeZones] : includeZones;
 }
 
 /**
  * Populate zone file combobox for a specific domain
+ * @param {number} masterZoneId - The master zone ID
+ * @param {number|null} selectedZoneFileId - Optional zone file ID to pre-select
  */
-async function populateZoneFileComboboxForDomain(masterZoneId) {
+async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null) {
     try {
-        // Fetch zones for this domain
-        const response = await zoneApiCall('list_zones', {
-            params: {
-                status: 'active',
-                per_page: 1000
-            }
+        if (!masterZoneId) {
+            clearZoneFileSelection();
+            return;
+        }
+        
+        // Get zones from cache (includes from ZONES_ALL, master from allMasters)
+        const masterId = parseInt(masterZoneId, 10);
+        const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
+        const includeZones = (window.ZONES_ALL || []).filter(zone => {
+            if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
+            return false;
         });
         
-        if (response.success) {
-            // Filter to master and its includes
-            const masterId = parseInt(masterZoneId, 10);
-            const zones = (response.data || []).filter(zone => {
-                if (parseInt(zone.id, 10) === masterId) return true;
-                if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
-                return false;
-            });
-            
-            // Update the combobox (don't auto-select)
-            const input = document.getElementById('zone-file-input');
-            const list = document.getElementById('zone-file-list');
-            
-            if (input && list) {
-                // Clear current selection
+        const input = document.getElementById('zone-file-input');
+        const hiddenInput = document.getElementById('zone-file-id');
+        
+        if (!input) return;
+        
+        // If selectedZoneFileId is provided, select it
+        if (selectedZoneFileId) {
+            const selectedId = parseInt(selectedZoneFileId, 10);
+            // Check if it's the master or an include
+            if (masterZone && selectedId === masterId) {
+                input.value = `${masterZone.name} (${masterZone.filename})`;
+                if (hiddenInput) hiddenInput.value = selectedZoneFileId;
+                window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
+            } else {
+                const selectedZone = includeZones.find(z => parseInt(z.id, 10) === selectedId);
+                if (selectedZone) {
+                    input.value = `${selectedZone.name} (${selectedZone.filename})`;
+                    if (hiddenInput) hiddenInput.value = selectedZoneFileId;
+                    window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
+                }
+            }
+        } else {
+            // Default: select the master zone itself
+            if (masterZone) {
+                input.value = `${masterZone.name} (${masterZone.filename})`;
+                if (hiddenInput) hiddenInput.value = masterId;
+                window.ZONES_SELECTED_ZONEFILE_ID = masterId;
+            } else {
                 input.value = '';
                 input.placeholder = 'Rechercher une zone...';
-                
-                // Store zones for later use
-                // (will be filtered by getFilteredZonesForCombobox)
+                if (hiddenInput) hiddenInput.value = '';
+                window.ZONES_SELECTED_ZONEFILE_ID = null;
             }
         }
     } catch (error) {
@@ -457,28 +479,67 @@ async function populateZoneFileComboboxForDomain(masterZoneId) {
 
 /**
  * Handle zone file selection
+ * Sets ZONES_SELECTED_ZONEFILE_ID, updates ZONES_SELECTED_MASTER_ID if needed,
+ * updates combobox texts, and re-renders the table
  */
-function onZoneFileSelected(zoneId) {
+function onZoneFileSelected(zoneFileId) {
     const input = document.getElementById('zone-file-input');
     const hiddenInput = document.getElementById('zone-file-id');
     const list = document.getElementById('zone-file-list');
+    const domainInput = document.getElementById('zone-domain-input');
     
-    if (zoneId) {
-        const zone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === parseInt(zoneId, 10));
+    if (zoneFileId) {
+        const zoneId = parseInt(zoneFileId, 10);
+        
+        // Try to find in includes first
+        let zone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === zoneId);
+        
+        // If not found, try to find in masters
+        if (!zone) {
+            zone = allMasters.find(m => parseInt(m.id, 10) === zoneId);
+        }
+        
         if (zone) {
-            if (input) input.value = `${zone.name} (${zone.file_type})`;
-            if (hiddenInput) hiddenInput.value = zoneId;
+            // Set selected zone file ID
+            window.ZONES_SELECTED_ZONEFILE_ID = zoneFileId;
+            if (hiddenInput) hiddenInput.value = zoneFileId;
+            
+            // Update zone file input text
+            if (input) input.value = `${zone.name} (${zone.filename})`;
+            
+            // Update master ID - if this is an include, find its parent
+            if (zone.file_type === 'include' && zone.parent_id) {
+                const parentId = parseInt(zone.parent_id, 10);
+                if (!isNaN(parentId)) {
+                    window.ZONES_SELECTED_MASTER_ID = parentId;
+                    
+                    // Update domain combobox text
+                    const parentZone = allMasters.find(m => parseInt(m.id, 10) === parentId);
+                    if (parentZone && domainInput) {
+                        domainInput.value = parentZone.domain;
+                    }
+                }
+            } else if (zone.file_type === 'master') {
+                // This is a master zone
+                window.ZONES_SELECTED_MASTER_ID = zoneFileId;
+                
+                // Update domain combobox text
+                if (zone.domain && domainInput) {
+                    domainInput.value = zone.domain;
+                }
+            }
         }
     } else {
+        window.ZONES_SELECTED_ZONEFILE_ID = null;
         if (input) input.value = '';
         if (hiddenInput) hiddenInput.value = '';
     }
     
     if (list) list.style.display = 'none';
     
-    // Re-render table if needed (optional - depends on requirements)
-    // currentPage = 1;
-    // renderZonesTable();
+    // Re-render table with new filter
+    currentPage = 1;
+    renderZonesTable();
 }
 
 /**
@@ -487,6 +548,8 @@ function onZoneFileSelected(zoneId) {
 function clearZoneFileSelection() {
     const input = document.getElementById('zone-file-input');
     const hiddenInput = document.getElementById('zone-file-id');
+    
+    window.ZONES_SELECTED_ZONEFILE_ID = null;
     
     if (input) {
         input.value = '';
@@ -588,7 +651,21 @@ async function loadZonesData() {
 }
 
 /**
+ * Ensure zones are loaded in cache
+ * @returns {Promise<void>}
+ */
+async function ensureZonesLoaded() {
+    if (!window.ZONES_ALL || window.ZONES_ALL.length === 0) {
+        await loadZonesData();
+    }
+}
+
+/**
  * Render zones table with filtering and pagination
+ * Filtering precedence:
+ * 1. If ZONES_SELECTED_ZONEFILE_ID => show rows with parent_id == zonefileId
+ * 2. Else if ZONES_SELECTED_MASTER_ID => show rows with parent_id == masterId
+ * 3. Else => show all includes
  */
 async function renderZonesTable() {
     const tbody = document.getElementById('zones-table-body');
@@ -601,6 +678,24 @@ async function renderZonesTable() {
     
     let filteredZones = [...window.ZONES_ALL];
     
+    // Filter by selection precedence
+    if (window.ZONES_SELECTED_ZONEFILE_ID) {
+        // Show only includes that are children of the selected zone file
+        const selectedZoneFileId = parseInt(window.ZONES_SELECTED_ZONEFILE_ID, 10);
+        filteredZones = filteredZones.filter(zone => {
+            const parentId = parseInt(zone.parent_id, 10);
+            return !isNaN(parentId) && parentId === selectedZoneFileId;
+        });
+    } else if (window.ZONES_SELECTED_MASTER_ID) {
+        // Show only includes that are children of the selected master
+        const selectedMasterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
+        filteredZones = filteredZones.filter(zone => {
+            const parentId = parseInt(zone.parent_id, 10);
+            return !isNaN(parentId) && parentId === selectedMasterId;
+        });
+    }
+    // else: show all includes (already in filteredZones)
+    
     // Filter by search query
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -608,15 +703,6 @@ async function renderZonesTable() {
             (zone.name && zone.name.toLowerCase().includes(query)) ||
             (zone.filename && zone.filename.toLowerCase().includes(query))
         );
-    }
-    
-    // Filter by selected domain (parent_id)
-    if (window.ZONES_SELECTED_MASTER_ID) {
-        const selectedId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-        filteredZones = filteredZones.filter(zone => {
-            const parentId = parseInt(zone.parent_id, 10);
-            return !isNaN(parentId) && parentId === selectedId;
-        });
     }
     
     // Update counts
@@ -2094,7 +2180,9 @@ function displayValidationResults(validation) {
 // Expose functions globally for inline event handlers and external access
 window.openZoneModal = openZoneModal;
 window.populateZoneDomainSelect = populateZoneDomainSelect;
+window.populateZoneFileCombobox = populateZoneFileCombobox;
 window.onZoneDomainSelected = onZoneDomainSelected;
+window.onZoneFileSelected = onZoneFileSelected;
 window.resetZoneDomainSelection = resetZoneDomainSelection;
 window.handleZoneRowClick = handleZoneRowClick;
 window.deleteZone = deleteZone;
