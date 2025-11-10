@@ -218,17 +218,6 @@ try {
                 exit;
             }
 
-            // Validate zone name using DnsValidator
-            $nameValidation = DnsValidator::validateName(trim($input['name']));
-            if (!$nameValidation['valid']) {
-                http_response_code(422);
-                echo json_encode([
-                    'success' => false,
-                    'error' => $nameValidation['error']
-                ]);
-                exit;
-            }
-
             // Validate file_type
             $valid_types = ['master', 'include'];
             if (isset($input['file_type']) && !in_array($input['file_type'], $valid_types)) {

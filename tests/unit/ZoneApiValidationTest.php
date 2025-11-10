@@ -1,7 +1,10 @@
 <?php
 /**
- * Unit tests for zone_api.php validation
- * Tests the server-side validation using DnsValidator
+ * Unit tests for DnsValidator
+ * 
+ * Note: As of the zone name validation removal, zone_api.php no longer validates
+ * the zone name format using DnsValidator::validateName(). These tests remain to
+ * verify DnsValidator behavior for other use cases (e.g., DNS record validation).
  */
 
 use PHPUnit\Framework\TestCase;
