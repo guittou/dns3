@@ -1103,13 +1103,13 @@ function openCreateMasterModal() {
  * Open edit master modal for selected domain
  */
 async function openEditMasterModal() {
-    if (!selectedDomainId) {
+    if (!window.ZONES_SELECTED_MASTER_ID) {
         showError('Aucun domaine sélectionné');
         return;
     }
     
     try {
-        await openZoneModal(selectedDomainId);
+        await openZoneModal(window.ZONES_SELECTED_MASTER_ID);
     } catch (error) {
         console.error('Failed to open edit modal:', error);
         showError('Erreur lors de l\'ouverture du modal: ' + error.message);
@@ -1120,13 +1120,13 @@ async function openEditMasterModal() {
  * Open create include modal for selected domain
  */
 async function openCreateIncludeModal() {
-    if (!selectedDomainId) {
+    if (!window.ZONES_SELECTED_MASTER_ID) {
         showError('Veuillez sélectionner un domaine d\'abord');
         return;
     }
     
     // Open the zone modal for the selected master, which has the includes tab
-    await openZoneModal(selectedDomainId);
+    await openZoneModal(window.ZONES_SELECTED_MASTER_ID);
     
     // Wait for modal to be fully rendered
     await new Promise(resolve => requestAnimationFrame(resolve));
