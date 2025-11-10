@@ -124,11 +124,11 @@ if (!$auth->isAdmin()) {
     </div>
 </div>
 
-<!-- Create Zone Modal (styled like DNS modal) -->
-<div id="createZoneModal" class="dns-modal">
+<!-- Create Master Modal (Nouveau domaine) -->
+<div id="master-create-modal" class="dns-modal">
     <div class="dns-modal-content">
         <div class="dns-modal-header">
-            <h2>Nouvelle zone</h2>
+            <h2>Nouveau domaine</h2>
             <button class="dns-modal-close" onclick="closeCreateZoneModal()" aria-label="Fermer">&times;</button>
         </div>
         <div class="dns-modal-body">
@@ -141,33 +141,27 @@ if (!$auth->isAdmin()) {
 
             <form id="createZoneForm" onsubmit="return false;">
                 <div class="form-group">
-                    <label for="createName">Nom *</label>
-                    <input id="createName" class="form-control" type="text" required>
-                </div>
-                <div class="form-group">
-                    <label for="createFilename">Nom de fichier *</label>
-                    <input id="createFilename" class="form-control" type="text" required>
-                </div>
-                <div class="form-group">
-                    <label for="createDomain">Domaine</label>
-                    <input id="createDomain" class="form-control" type="text" placeholder="ex: example.com">
+                    <label for="master-domain">Domaine</label>
+                    <input id="master-domain" class="form-control" type="text" placeholder="ex: example.com">
                     <small class="form-text text-muted">Nom de domaine associé à cette zone master (optionnel)</small>
                 </div>
                 <div class="form-group">
-                    <label for="createFileType">Type *</label>
-                    <select id="createFileType" class="form-control" required disabled>
-                        <option value="master" selected>Master</option>
-                    </select>
-                    <small class="form-text text-muted">Les zones master sont créées via "Nouvelle zone". Les includes sont créés depuis le modal d'édition d'une zone.</small>
+                    <label for="master-zone-name">Nom de la zone *</label>
+                    <input id="master-zone-name" class="form-control" type="text" required>
                 </div>
                 <div class="form-group">
-                    <label for="createContent">Contenu</label>
-                    <textarea id="createContent" class="form-control code-editor" rows="10"></textarea>
+                    <label for="master-filename">Nom du fichier de zone *</label>
+                    <input id="master-filename" class="form-control" type="text" required>
+                </div>
+                <div class="form-group">
+                    <label for="master-directory">Répertoire</label>
+                    <input id="master-directory" class="form-control" type="text" placeholder="Exemple: /etc/bind/zones">
+                    <small class="form-text text-muted">Répertoire pour les directives $INCLUDE (optionnel)</small>
                 </div>
                 <div class="dns-modal-footer">
                     <div class="modal-action-bar">
-                        <button type="button" id="zone-create-save-btn" class="btn-success modal-action-button" onclick="createZone()">Créer</button>
-                        <button type="button" id="zone-create-cancel-btn" class="btn-cancel modal-action-button" onclick="closeCreateZoneModal()">Annuler</button>
+                        <button type="button" id="master-save-btn" class="btn-success modal-action-button" onclick="createZone()">Créer</button>
+                        <button type="button" id="master-cancel-btn" class="btn-cancel modal-action-button" onclick="closeCreateZoneModal()">Annuler</button>
                     </div>
                 </div>
             </form>
