@@ -208,12 +208,6 @@ class ZoneFile {
      */
     public function create($data, $user_id) {
         try {
-            // Validate zone name
-            $nameValidation = DnsValidator::validateName($data['name'], true);
-            if (!$nameValidation['valid']) {
-                throw new Exception("Invalid zone name: " . $nameValidation['error']);
-            }
-            
             $this->db->beginTransaction();
             
             $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, status, created_by, created_at)

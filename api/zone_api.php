@@ -273,8 +273,13 @@ try {
             try {
                 $zone_id = $zoneFile->create($input, $user['id']);
                 
-                // Trigger validation after creation
-                $zoneFile->validateZoneFile($zone_id, $user['id']);
+                // Trigger validation after creation (non-blocking - errors are logged but don't prevent creation)
+                try {
+                    $zoneFile->validateZoneFile($zone_id, $user['id']);
+                } catch (Exception $validationError) {
+                    // Log validation error but don't fail the creation
+                    error_log("Post-creation validation error for zone ID {$zone_id}: " . $validationError->getMessage());
+                }
                 
                 http_response_code(201);
                 echo json_encode([
