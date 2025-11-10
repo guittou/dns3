@@ -978,7 +978,8 @@ async function saveZone() {
         }
         
         closeZoneModal();
-        await loadZonesData(); renderZonesTable();
+        await loadZonesData();
+        await renderZonesTable();
     } catch (error) {
         console.error('Failed to save zone:', error);
         
@@ -1005,7 +1006,8 @@ async function deleteZone() {
         
         showSuccess('Zone supprimée avec succès');
         closeZoneModal();
-        await loadZonesData(); renderZonesTable();
+        await loadZonesData();
+        await renderZonesTable();
     } catch (error) {
         console.error('Failed to delete zone:', error);
         showError('Erreur lors de la suppression: ' + error.message);
@@ -1118,15 +1120,18 @@ async function openEditMasterModal() {
 
 /**
  * Open create include modal for selected domain
+ * @param {number} parentId - Optional parent master zone ID (defaults to currently selected)
  */
-async function openCreateIncludeModal() {
-    if (!window.ZONES_SELECTED_MASTER_ID) {
+async function openCreateIncludeModal(parentId) {
+    const masterId = parentId || window.ZONES_SELECTED_MASTER_ID;
+    
+    if (!masterId) {
         showError('Veuillez sélectionner un domaine d\'abord');
         return;
     }
     
     // Open the zone modal for the selected master, which has the includes tab
-    await openZoneModal(window.ZONES_SELECTED_MASTER_ID);
+    await openZoneModal(masterId);
     
     // Wait for modal to be fully rendered
     await new Promise(resolve => requestAnimationFrame(resolve));
@@ -1208,7 +1213,8 @@ async function createZone() {
             }
         }
         
-        await loadZonesData(); renderZonesTable();
+        await loadZonesData();
+        await renderZonesTable();
         
         // Open the new zone in the modal instead of navigating
         if (response.id) {
