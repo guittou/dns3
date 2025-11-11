@@ -899,6 +899,358 @@
     }
 
     /**
+     * Get the top master (root) zone ID for any zone
+     * Recursively traverses up the parent chain until finding a zone with parent_id == null
+     * Uses caches (CURRENT_ZONE_LIST, ALL_ZONES, ZONES_ALL) first, then falls back to API
+     * @param {number|string} zoneId - Zone file ID to start from
+     * @returns {Promise<number|null>} - Top master zone ID or null if not found
+     */
+    async function getTopMasterId(zoneId) {
+        if (!zoneId) return null;
+        
+        const zoneIdNum = parseInt(zoneId, 10);
+        if (isNaN(zoneIdNum) || zoneIdNum <= 0) return null;
+        
+        console.debug('[getTopMasterId] Finding top master for zone:', zoneIdNum);
+        
+        let currentZoneId = zoneIdNum;
+        let iterations = 0;
+        const maxIterations = 20; // Safety limit to prevent infinite loops
+        
+        while (iterations < maxIterations) {
+            iterations++;
+            
+            // Try to find current zone in caches first
+            let zone = null;
+            const cachesToCheck = [
+                window.CURRENT_ZONE_LIST,
+                window.ALL_ZONES,
+                window.ZONES_ALL,
+                allZones
+            ];
+            
+            for (const cache of cachesToCheck) {
+                if (Array.isArray(cache) && cache.length > 0) {
+                    zone = cache.find(z => parseInt(z.id, 10) === currentZoneId);
+                    if (zone) {
+                        console.debug('[getTopMasterId] Found zone in cache:', zone.name, 'type:', zone.file_type, 'parent_id:', zone.parent_id);
+                        break;
+                    }
+                }
+            }
+            
+            // Fallback: fetch from API
+            if (!zone) {
+                try {
+                    console.debug('[getTopMasterId] Zone not in cache, fetching from API:', currentZoneId);
+                    const result = await zoneApiCall('get_zone', { id: currentZoneId });
+                    zone = result && result.data ? result.data : null;
+                    if (zone) {
+                        console.debug('[getTopMasterId] Fetched zone from API:', zone.name, 'type:', zone.file_type, 'parent_id:', zone.parent_id);
+                    }
+                } catch (e) {
+                    console.warn('[getTopMasterId] Failed to fetch zone:', currentZoneId, e);
+                    return null;
+                }
+            }
+            
+            if (!zone) {
+                console.warn('[getTopMasterId] Zone not found:', currentZoneId);
+                return null;
+            }
+            
+            // Check if this is a top master (no parent)
+            if (!zone.parent_id || zone.parent_id === null || zone.parent_id === 0) {
+                console.debug('[getTopMasterId] Found top master:', currentZoneId, 'name:', zone.name);
+                return currentZoneId;
+            }
+            
+            // Move up to parent
+            const parentId = parseInt(zone.parent_id, 10);
+            if (isNaN(parentId) || parentId <= 0) {
+                console.debug('[getTopMasterId] Invalid parent_id, treating as top master:', currentZoneId);
+                return currentZoneId;
+            }
+            
+            console.debug('[getTopMasterId] Moving up to parent:', parentId);
+            currentZoneId = parentId;
+        }
+        
+        console.warn('[getTopMasterId] Max iterations reached, returning current zone:', currentZoneId);
+        return currentZoneId;
+    }
+
+    /**
+     * Fetch zones for a specific master using API with recursive flag
+     * Calls zone_api.php?action=list_zones&master_id=...&recursive=1&per_page=1000
+     * @param {number|string} masterId - Master zone ID
+     * @returns {Promise<Array>} - Array of zone objects (master + all descendants)
+     */
+    async function fetchZonesForMaster(masterId) {
+        if (!masterId) {
+            console.warn('[fetchZonesForMaster] No masterId provided');
+            return [];
+        }
+        
+        const masterIdNum = parseInt(masterId, 10);
+        if (isNaN(masterIdNum) || masterIdNum <= 0) {
+            console.warn('[fetchZonesForMaster] Invalid masterId:', masterId);
+            return [];
+        }
+        
+        console.debug('[fetchZonesForMaster] Fetching zones for master:', masterIdNum);
+        
+        try {
+            // Use zoneApiCall to fetch with master_id and recursive parameters
+            const result = await zoneApiCall('list_zones', { 
+                master_id: masterIdNum, 
+                recursive: 1,
+                per_page: 1000
+            });
+            
+            const zones = result && result.data ? result.data : [];
+            console.debug('[fetchZonesForMaster] Fetched', zones.length, 'zones for master:', masterIdNum);
+            
+            return zones;
+        } catch (e) {
+            console.error('[fetchZonesForMaster] Failed to fetch zones for master:', masterIdNum, e);
+            return [];
+        }
+    }
+
+    /**
+     * Apply defensive subtree filtering to ensure only descendants of master are included
+     * Uses BFS/closure approach to filter by parent_id relationships
+     * @param {Array} zones - Array of zone objects to filter
+     * @param {number} masterId - Master zone ID (root of subtree)
+     * @returns {Array} - Filtered array containing only master and its descendants
+     */
+    function filterSubtreeDefensive(zones, masterId) {
+        if (!zones || !Array.isArray(zones) || zones.length === 0) {
+            return [];
+        }
+        
+        const masterIdNum = parseInt(masterId, 10);
+        if (isNaN(masterIdNum) || masterIdNum <= 0) {
+            console.warn('[filterSubtreeDefensive] Invalid masterId:', masterId);
+            return zones;
+        }
+        
+        console.debug('[filterSubtreeDefensive] Filtering', zones.length, 'zones for master:', masterIdNum);
+        
+        // Build a set of valid zone IDs using BFS
+        const validIds = new Set();
+        validIds.add(masterIdNum);
+        
+        // Create a map of parent_id -> children for efficient lookup
+        const childrenMap = new Map();
+        zones.forEach(zone => {
+            const zoneId = parseInt(zone.id, 10);
+            const parentId = zone.parent_id ? parseInt(zone.parent_id, 10) : null;
+            
+            if (!childrenMap.has(parentId)) {
+                childrenMap.set(parentId, []);
+            }
+            childrenMap.get(parentId).push(zoneId);
+        });
+        
+        // BFS to find all descendants
+        const queue = [masterIdNum];
+        while (queue.length > 0) {
+            const currentId = queue.shift();
+            const children = childrenMap.get(currentId) || [];
+            
+            children.forEach(childId => {
+                if (!validIds.has(childId)) {
+                    validIds.add(childId);
+                    queue.push(childId);
+                }
+            });
+        }
+        
+        // Filter zones to only include valid IDs
+        const filtered = zones.filter(zone => {
+            const zoneId = parseInt(zone.id, 10);
+            return validIds.has(zoneId);
+        });
+        
+        console.debug('[filterSubtreeDefensive] Filtered to', filtered.length, 'zones (master + descendants)');
+        return filtered;
+    }
+
+    /**
+     * Fill modal zone file select with filtered zones
+     * Replaces existing logic with reliable behavior:
+     * - Fetches zones via fetchZonesForMaster when masterId present
+     * - Falls back to CURRENT_ZONE_LIST/ALL_ZONES/API list_zones status=active
+     * - Applies defensive subtree filtering
+     * - Populates #modal-zonefile-select and handles change events
+     * - Idempotent and error-tolerant
+     * 
+     * @param {number|string|null} masterId - Master zone ID to fetch tree for
+     * @param {number|string|null} preselectedId - Zone ID to preselect
+     */
+    async function fillModalZonefileSelectFiltered(masterId, preselectedId = null) {
+        const selectElement = document.getElementById('modal-zonefile-select');
+        
+        if (!selectElement) {
+            console.warn('[fillModalZonefileSelectFiltered] Modal zonefile select element not found');
+            return;
+        }
+        
+        console.debug('[fillModalZonefileSelectFiltered] Called with masterId:', masterId, 'preselectedId:', preselectedId);
+        
+        // Disable select during loading
+        selectElement.disabled = true;
+        
+        try {
+            let zones = [];
+            
+            // Step 1: Fetch zones based on masterId
+            if (masterId) {
+                const masterIdNum = parseInt(masterId, 10);
+                if (!isNaN(masterIdNum) && masterIdNum > 0) {
+                    console.debug('[fillModalZonefileSelectFiltered] Fetching zones for master:', masterIdNum);
+                    zones = await fetchZonesForMaster(masterIdNum);
+                    
+                    // Apply defensive subtree filtering
+                    if (zones.length > 0) {
+                        zones = filterSubtreeDefensive(zones, masterIdNum);
+                    }
+                }
+            }
+            
+            // Step 2: Fallback if no zones fetched
+            if (zones.length === 0) {
+                console.debug('[fillModalZonefileSelectFiltered] No zones from master, trying fallback sources');
+                
+                // Try CURRENT_ZONE_LIST first
+                if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
+                    zones = window.CURRENT_ZONE_LIST;
+                    console.debug('[fillModalZonefileSelectFiltered] Using CURRENT_ZONE_LIST:', zones.length);
+                }
+                // Try ALL_ZONES
+                else if (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length > 0) {
+                    zones = window.ALL_ZONES;
+                    console.debug('[fillModalZonefileSelectFiltered] Using ALL_ZONES:', zones.length);
+                }
+                // Fetch all active zones from API
+                else {
+                    try {
+                        console.debug('[fillModalZonefileSelectFiltered] Fetching all active zones from API');
+                        const result = await zoneApiCall('list_zones', { status: 'active', per_page: 1000 });
+                        zones = result && result.data ? result.data : [];
+                        console.debug('[fillModalZonefileSelectFiltered] Fetched', zones.length, 'active zones');
+                    } catch (e) {
+                        console.error('[fillModalZonefileSelectFiltered] Failed to fetch zones:', e);
+                    }
+                }
+            }
+            
+            // Step 3: Filter to only master and include types
+            zones = zones.filter(z => z.file_type === 'master' || z.file_type === 'include');
+            console.debug('[fillModalZonefileSelectFiltered] After filtering to master/include:', zones.length);
+            
+            // Step 4: Ensure preselected zone is in the list
+            if (preselectedId) {
+                const preselectedIdNum = parseInt(preselectedId, 10);
+                if (!isNaN(preselectedIdNum) && preselectedIdNum > 0) {
+                    const zoneExists = zones.some(z => parseInt(z.id, 10) === preselectedIdNum);
+                    
+                    if (!zoneExists) {
+                        console.debug('[fillModalZonefileSelectFiltered] Preselected zone not in list, fetching:', preselectedIdNum);
+                        try {
+                            const specificZoneResult = await zoneApiCall('get_zone', { id: preselectedIdNum });
+                            if (specificZoneResult && specificZoneResult.data) {
+                                zones.push(specificZoneResult.data);
+                                console.debug('[fillModalZonefileSelectFiltered] Added preselected zone to list');
+                            }
+                        } catch (fetchError) {
+                            console.warn('[fillModalZonefileSelectFiltered] Failed to fetch preselected zone:', fetchError);
+                        }
+                    }
+                }
+            }
+            
+            // Step 5: Populate the select element
+            selectElement.innerHTML = '<option value="">Sélectionner une zone...</option>';
+            
+            zones.forEach(zone => {
+                const option = document.createElement('option');
+                option.value = zone.id;
+                option.textContent = `${zone.name} (${zone.file_type})`;
+                selectElement.appendChild(option);
+            });
+            
+            console.debug('[fillModalZonefileSelectFiltered] Populated select with', zones.length, 'zones');
+            
+            // Step 6: Set preselected value
+            if (preselectedId) {
+                const preselectedIdNum = parseInt(preselectedId, 10);
+                const selectedZone = zones.find(z => parseInt(z.id, 10) === preselectedIdNum);
+                
+                if (selectedZone) {
+                    selectElement.value = selectedZone.id;
+                    
+                    // Update hidden fields
+                    const recordZoneFile = document.getElementById('record-zone-file');
+                    if (recordZoneFile) {
+                        recordZoneFile.value = selectedZone.id;
+                    }
+                    const dnsZoneFileId = document.getElementById('dns-zone-file-id');
+                    if (dnsZoneFileId) {
+                        dnsZoneFileId.value = selectedZone.id;
+                    }
+                    
+                    console.debug('[fillModalZonefileSelectFiltered] Preselected zone:', selectedZone.name);
+                } else {
+                    selectElement.value = '';
+                    console.warn('[fillModalZonefileSelectFiltered] Preselected zone not found after fetch attempt');
+                }
+            } else {
+                selectElement.value = '';
+            }
+            
+            // Step 7: Setup change handler if not already set
+            if (!selectElement.dataset.handlerSet) {
+                selectElement.addEventListener('change', function() {
+                    const selectedZoneId = this.value;
+                    const recordZoneFile = document.getElementById('record-zone-file');
+                    const dnsZoneFileId = document.getElementById('dns-zone-file-id');
+                    
+                    // Update hidden fields
+                    if (recordZoneFile) {
+                        recordZoneFile.value = selectedZoneId;
+                    }
+                    if (dnsZoneFileId) {
+                        dnsZoneFileId.value = selectedZoneId;
+                    }
+                    
+                    // Update domain if setDomainForZone exists
+                    if (selectedZoneId && typeof setDomainForZone === 'function') {
+                        setDomainForZone(selectedZoneId).catch(err => {
+                            console.error('[fillModalZonefileSelectFiltered] Error setting domain for zone:', err);
+                        });
+                    }
+                });
+                selectElement.dataset.handlerSet = 'true';
+            }
+            
+            // Activate guard to protect against overwrites
+            if (typeof activateModalSelectGuard === 'function') {
+                activateModalSelectGuard();
+            }
+            
+        } catch (error) {
+            console.error('[fillModalZonefileSelectFiltered] Error:', error);
+            // Don't block modal, just show error in console
+        } finally {
+            // Re-enable select
+            selectElement.disabled = false;
+        }
+    }
+
+    /**
      * Initialize modal zone file select combobox
      * Robust function that accepts multiple signatures for backward compatibility:
      * - (preselectedZoneFileId, masterId) - preselect a zone and fetch master + includes
@@ -1711,21 +2063,32 @@
             zoneFileInput.value = selectedZoneId;
         }
         
-        // Initialize modal zone file combobox with current zone
-        if (typeof initModalZonefileSelect === 'function') {
+        // Initialize modal zone file combobox with current zone using new approach
+        if (typeof fillModalZonefileSelectFiltered === 'function') {
             try {
-                // Compute masterId from selectedZoneId using the helper
-                let masterId = null;
+                // Determine top master from selectedZoneId
+                let topMasterId = null;
                 if (selectedZoneId) {
-                    masterId = await getMasterIdFromZoneId(selectedZoneId);
+                    topMasterId = await getTopMasterId(selectedZoneId);
+                    console.debug('[openCreateModalPrefilled] Top master for zone', selectedZoneId, ':', topMasterId);
                 }
                 
-                // Call initModalZonefileSelect with (masterId, preselectedId)
-                // If selectedZoneId exists, preselect it; otherwise use selectedDomainId as fallback
+                // Preselect: use selectedZoneId if present, otherwise selectedDomainId
                 const preselectedId = selectedZoneId || selectedDomainId;
-                await initModalZonefileSelect(preselectedId, masterId);
+                
+                // Fill modal select with top master's full tree
+                await fillModalZonefileSelectFiltered(topMasterId, preselectedId);
             } catch (error) {
                 console.error('Error initializing modal zone file select:', error);
+                // Fallback to old method if new method fails
+                if (typeof initModalZonefileSelect === 'function') {
+                    try {
+                        const preselectedId = selectedZoneId || selectedDomainId;
+                        await initModalZonefileSelect(preselectedId, await getMasterIdFromZoneId(selectedZoneId));
+                    } catch (e) {
+                        console.error('Fallback initModalZonefileSelect also failed:', e);
+                    }
+                }
             }
         }
         
@@ -1798,20 +2161,29 @@
                 zoneFileInput.value = record.zone_file_id;
             }
             
-            // Initialize modal zone file combobox with record's zone
-            // Compute masterId from record.zone_file_id to fetch master + includes
-            if (typeof initModalZonefileSelect === 'function') {
+            // Initialize modal zone file combobox with record's zone using new approach
+            // Determine top master from record.zone_file_id to fetch master + all includes
+            if (typeof fillModalZonefileSelectFiltered === 'function') {
                 try {
-                    // Compute masterId using the helper
-                    let masterId = null;
+                    // Determine top master from record's zone
+                    let topMasterId = null;
                     if (record.zone_file_id) {
-                        masterId = await getMasterIdFromZoneId(record.zone_file_id);
+                        topMasterId = await getTopMasterId(record.zone_file_id);
+                        console.debug('[openEditModal] Top master for record zone', record.zone_file_id, ':', topMasterId);
                     }
                     
-                    // Call initModalZonefileSelect with (preselectedId, masterId)
-                    await initModalZonefileSelect(record.zone_file_id, masterId);
+                    // Fill modal select with top master's full tree and preselect record's zone
+                    await fillModalZonefileSelectFiltered(topMasterId, record.zone_file_id);
                 } catch (error) {
                     console.error('Error initializing modal zone file select:', error);
+                    // Fallback to old method if new method fails
+                    if (typeof initModalZonefileSelect === 'function') {
+                        try {
+                            await initModalZonefileSelect(record.zone_file_id, await getMasterIdFromZoneId(record.zone_file_id));
+                        } catch (e) {
+                            console.error('Fallback initModalZonefileSelect also failed:', e);
+                        }
+                    }
                 }
             }
 
@@ -2125,6 +2497,62 @@
     }
 
     /**
+     * Optional guard/observer to protect modal zonefile select from being overwritten
+     * Monitors the select for unexpected changes within 800ms after initialization
+     * Acts as a safety net during progressive deployment
+     */
+    let modalSelectGuardTimeout = null;
+    let modalSelectLastSnapshot = null;
+    
+    function activateModalSelectGuard() {
+        const selectElement = document.getElementById('modal-zonefile-select');
+        if (!selectElement) return;
+        
+        // Clear any existing guard
+        if (modalSelectGuardTimeout) {
+            clearTimeout(modalSelectGuardTimeout);
+            modalSelectGuardTimeout = null;
+        }
+        
+        // Take snapshot of current state
+        modalSelectLastSnapshot = {
+            innerHTML: selectElement.innerHTML,
+            value: selectElement.value,
+            timestamp: Date.now()
+        };
+        
+        console.debug('[modalSelectGuard] Activated, snapshot taken');
+        
+        // Set timeout to check after 800ms
+        modalSelectGuardTimeout = setTimeout(() => {
+            if (!modalSelectLastSnapshot) return;
+            
+            const currentInnerHTML = selectElement.innerHTML;
+            const currentValue = selectElement.value;
+            
+            // Check if select was unexpectedly modified
+            if (currentInnerHTML !== modalSelectLastSnapshot.innerHTML || 
+                currentValue !== modalSelectLastSnapshot.value) {
+                console.warn('[modalSelectGuard] Modal select was overwritten, restoring...');
+                
+                // Restore snapshot
+                selectElement.innerHTML = modalSelectLastSnapshot.innerHTML;
+                selectElement.value = modalSelectLastSnapshot.value;
+                
+                // Trigger change event
+                const changeEvent = new Event('change', { bubbles: true });
+                selectElement.dispatchEvent(changeEvent);
+            } else {
+                console.debug('[modalSelectGuard] Select unchanged, guard deactivated');
+            }
+            
+            // Clear guard
+            modalSelectGuardTimeout = null;
+            modalSelectLastSnapshot = null;
+        }, 800);
+    }
+
+    /**
      * Initialize event listeners
      */
     function init() {
@@ -2276,6 +2704,13 @@
     window.initModalZonefileSelect = initModalZonefileSelect;
     window.fillModalZonefileSelect = fillModalZonefileSelect;
     window.getMasterIdFromZoneId = getMasterIdFromZoneId;
+    
+    // Expose new helper functions
+    window.getTopMasterId = getTopMasterId;
+    window.fetchZonesForMaster = fetchZonesForMaster;
+    window.filterSubtreeDefensive = filterSubtreeDefensive;
+    window.fillModalZonefileSelectFiltered = fillModalZonefileSelectFiltered;
+    window.activateModalSelectGuard = activateModalSelectGuard;
     
     // Expose API functions globally for debugging
     window.zoneApiCall = zoneApiCall;
