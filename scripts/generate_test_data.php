@@ -1,57 +1,59 @@
 <?php
 /**
- * Générateur corrigé : crée masters, includes liés, chains nested includes et enregistrements.
+ * Générateur déterministe de test : masters -> L1 (100) -> L2 (10 per L1) -> L3 (10 per L2)
+ * Tous les includes (L1/L2/L3) reçoivent N enregistrements (par défaut 5).
  *
- * Usage example (test) :
- * php scripts/generate_test_data.php --masters=2 --includes-per-master=5 --nested-levels=1 --records-per-include=2 --user=1
+ * Usage (exemple petit) :
+ * php scripts/generate_test_data.php --masters=1 --records-per-include=1 --user=1
  *
- * WARNING: volumétrie élevée possible. Faire un dump avant exécution.
+ * Usage pour le jeu complet demandé (ATTENTION volumétrie énorme) :
+ * php scripts/generate_test_data.php --masters=30 --records-per-include=5 --user=1
+ *
+ * Options :
+ * --masters                Nombre de masters (défaut 30)
+ * --records-per-include    Nombre d'enregistrements par include (défaut 5)
+ * --user                   user_id pour created_by (défaut 1)
+ * --batch-size             log / commit frequency (défaut 500)
+ *
+ * IMPORTANT :
+ * - Sauvegarde la base avant exécution (mysqldump).
+ * - Tester en staging avec de petits paramètres.
+ * - Ce script crée systématiquement : pour chaque master 100 L1; pour chaque L1 10 L2; pour chaque L2 10 L3.
  */
 
 require_once __DIR__ . '/../includes/db.php';
 
-$options = getopt("", [
-    "masters::",
-    "includes-per-master::",
-    "nested-levels::",
-    "records-per-include::",
-    "user::",
-    "batch-size::"
-]);
+$options = getopt("", ["masters::", "records-per-include::", "user::", "batch-size::"]);
 
 $mastersCount = isset($options['masters']) ? max(1, (int)$options['masters']) : 10;
-$includesPerMaster = isset($options['includes-per-master']) ? max(0, (int)$options['includes-per-master']) : 100;
-$nestedLevels = isset($options['nested-levels']) ? max(0, (int)$options['nested-levels']) : 3;
 $recordsPerInclude = isset($options['records-per-include']) ? max(0, (int)$options['records-per-include']) : 5;
 $userId = isset($options['user']) ? (int)$options['user'] : 1;
 $batchSize = isset($options['batch-size']) ? max(1, (int)$options['batch-size']) : 500;
 
-echo "Config: masters={$mastersCount}, includesPerMaster={$includesPerMaster}, nestedLevels={$nestedLevels}, recordsPerInclude={$recordsPerInclude}, user={$userId}, batchSize={$batchSize}\n";
+/* Fixed tree shape as requested */
+$L1_PER_MASTER = 100;
+$L2_PER_L1 = 5;
+$L3_PER_L2 = 2;
+
+echo "Config: masters={$mastersCount}, L1_per_master={$L1_PER_MASTER}, L2_per_L1={$L2_PER_L1}, L3_per_L2={$L3_PER_L2}, recordsPerInclude={$recordsPerInclude}, user={$userId}\n";
 
 $pdo = Database::getInstance()->getConnection();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-function now() {
-    return date('Y-m-d H:i:s');
-}
+function now() { return date('Y-m-d H:i:s'); }
+function make_master_domain($i) { return "root{$i}.example.test"; }
 
-function make_master_domain($index) {
-    return "root{$index}.example.test";
-}
-
-/**
- * Prepared statements
- */
+// Prepared statements
 $insertZoneStmt = $pdo->prepare(
     "INSERT INTO zone_files (name, filename, content, file_type, domain, status, created_by, created_at, updated_at)
      VALUES (:name, :filename, :content, :file_type, :domain, 'active', :created_by, :created_at, :updated_at)"
 );
 
-$insertZoneFileIncludesStmt = $pdo->prepare(
+$insertIncludeLinkStmt = $pdo->prepare(
     "INSERT INTO zone_file_includes (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)"
 );
 
-$insertZoneFileIncludesNewStmt = $pdo->prepare(
+$insertIncludeLinkNewStmt = $pdo->prepare(
     "INSERT INTO zone_file_includes_new (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)"
 );
 
@@ -65,293 +67,292 @@ $insertRecordStmt = $pdo->prepare(
 );
 
 // Counters
-$masterIds = [];
-$topIncludes = 0;
-$nestedIncludes = 0;
-$recordsInserted = 0;
+$totalMasters = 0;
+$totalL1 = 0;
+$totalL2 = 0;
+$totalL3 = 0;
+$totalIncludes = 0;
+$totalRecords = 0;
 
-echo "Creating {$mastersCount} masters...\n";
+echo "Starting generation...\n";
+
 for ($m = 1; $m <= $mastersCount; $m++) {
-    $domain = make_master_domain($m);
-    $name = $domain;
-    $filename = "db." . str_replace('.', '_', $domain) . ".db";
-    $serial = date('Ymd') . sprintf('%02d', $m % 100);
-
-    $content = "";
-    $content .= "\$ORIGIN {$domain}.\n";
-    $content .= "\$TTL 3600\n";
-    $content .= "@ IN SOA ns1.{$domain}. admin.{$domain}. ( {$serial} 3600 1800 604800 86400 )\n";
-    $content .= "    IN NS ns1.{$domain}.\n";
-    $nsIp = "192.0.2." . ($m % 250 + 1);
-    $content .= "ns1 IN A {$nsIp}\n";
-
-    $insertZoneStmt->execute([
-        ':name' => $name,
-        ':filename' => $filename,
-        ':content' => $content,
-        ':file_type' => 'master',
-        ':domain' => $domain,
-        ':created_by' => $userId,
-        ':created_at' => now(),
-        ':updated_at' => now()
-    ]);
-    $zoneId = (int)$pdo->lastInsertId();
-    $masterIds[] = $zoneId;
-
-    if ($m % 5 == 0) echo "  -> {$m} masters created\n";
-}
-echo "Masters created: " . count($masterIds) . "\n";
-
-/**
- * For each master: create includes, link them to the master and create nested chains linked to the includes.
- * Use transaction per master to keep consistency and make debugging easier.
- */
-echo "Creating includes and linking them to masters (and nested includes)...\n";
-$globalIncludeCounter = 0;
-foreach ($masterIds as $idx => $masterId) {
-    $mi = $idx + 1;
-    $masterDomain = make_master_domain($mi);
-    $safeDir = str_replace('.', '_', $masterDomain);
-
-    // Start transaction for this master
     $pdo->beginTransaction();
     try {
-        for ($inc = 1; $inc <= $includesPerMaster; $inc++) {
-            $globalIncludeCounter++;
-            $incName = "inc_{$mi}_{$inc}";
-            $incFilename = "includes/{$safeDir}/inc_{$inc}.inc";
-            $incContent = "; Include {$incName} for {$masterDomain}\n";
-            $incContent .= "monitor IN A 198.51." . ($inc % 250) . "." . (($mi + $inc) % 250) . "\n";
-            $incContent .= "txt-{$inc} IN TXT \"include-{$incName}\"\n";
+        $masterDomain = make_master_domain($m);
+        $masterName = $masterDomain;
+        $masterFilename = "db." . str_replace('.', '_', $masterDomain) . ".db";
+        $serial = date('Ymd') . sprintf('%02d', $m % 100);
 
-            // Insert include
+        $masterContent = "";
+        $masterContent .= "\$ORIGIN {$masterDomain}.\n";
+        $masterContent .= "\$TTL 3600\n";
+        $masterContent .= "@ IN SOA ns1.{$masterDomain}. admin.{$masterDomain}. ( {$serial} 3600 1800 604800 86400 )\n";
+        $masterContent .= "    IN NS ns1.{$masterDomain}.\n";
+        $masterContent .= "ns1 IN A 192.0.2." . ($m % 250 + 1) . "\n";
+
+        // create master
+        $insertZoneStmt->execute([
+            ':name' => $masterName,
+            ':filename' => $masterFilename,
+            ':content' => $masterContent,
+            ':file_type' => 'master',
+            ':domain' => $masterDomain,
+            ':created_by' => $userId,
+            ':created_at' => now(),
+            ':updated_at' => now()
+        ]);
+        $masterId = (int)$pdo->lastInsertId();
+        $totalMasters++;
+
+        // create L1 includes and their subtrees
+        for ($i1 = 1; $i1 <= $L1_PER_MASTER; $i1++) {
+            // create L1 include
+            $l1Name = "inc_m{$m}_l1_{$i1}";
+            $safeDir = str_replace('.', '_', $masterDomain);
+            $l1Filename = "includes/{$safeDir}/{$l1Name}.inc";
+            $l1Content = "; L1 include {$l1Name} for {$masterDomain}\n";
+            $l1Content .= "l1host IN A 198.51." . ($i1 % 250) . "." . (($m + $i1) % 250) . "\n";
+
             $insertZoneStmt->execute([
-                ':name' => $incName,
-                ':filename' => $incFilename,
-                ':content' => $incContent,
+                ':name' => $l1Name,
+                ':filename' => $l1Filename,
+                ':content' => $l1Content,
                 ':file_type' => 'include',
                 ':domain' => null,
                 ':created_by' => $userId,
                 ':created_at' => now(),
                 ':updated_at' => now()
             ]);
-            $incId = (int)$pdo->lastInsertId();
-            $topIncludes++;
+            $l1Id = (int)$pdo->lastInsertId();
+            $totalL1++;
 
-            // Link include -> master in BOTH tables (if unique constraints, ignore duplicate errors)
+            // link L1 -> master
             try {
-                $insertZoneFileIncludesStmt->execute([
+                $insertIncludeLinkStmt->execute([
                     ':parent_id' => $masterId,
-                    ':include_id' => $incId,
-                    ':position' => $inc,
+                    ':include_id' => $l1Id,
+                    ':position' => $i1,
                     ':created_at' => now()
                 ]);
             } catch (Exception $e) {
-                // log but continue
-                error_log("Warning: failed to insert into zone_file_includes parent={$masterId} include={$incId} : " . $e->getMessage());
+                error_log("Warning: link L1 failed parent={$masterId} include={$l1Id} : " . $e->getMessage());
             }
-
             try {
-                $insertZoneFileIncludesNewStmt->execute([
+                $insertIncludeLinkNewStmt->execute([
                     ':parent_id' => $masterId,
-                    ':include_id' => $incId,
-                    ':position' => $inc,
+                    ':include_id' => $l1Id,
+                    ':position' => $i1,
                     ':created_at' => now()
                 ]);
             } catch (Exception $e) {
-                // log but continue
-                error_log("Warning: failed to insert into zone_file_includes_new parent={$masterId} include={$incId} : " . $e->getMessage());
+                // ignore
             }
 
-            // Append $INCLUDE directive to master content
+            // append $INCLUDE to master content
             try {
-                $updateContentStmt->execute([':append' => "\n\$INCLUDE {$incFilename}\n", ':id' => $masterId]);
+                $updateContentStmt->execute([':append' => "\n\$INCLUDE {$l1Filename}\n", ':id' => $masterId]);
             } catch (Exception $e) {
-                error_log("Warning: failed to append INCLUDE to master {$masterId}: " . $e->getMessage());
+                error_log("Warning: append INCLUDE to master failed for masterId={$masterId} : " . $e->getMessage());
             }
 
-            // Create nested chain deterministically under this include
-            $parentForNested = $incId;
-            for ($level = 1; $level <= $nestedLevels; $level++) {
-                $nestedName = "inc_{$mi}_{$inc}_lvl{$level}";
-                $nestedFilename = "includes/{$safeDir}/inc_{$inc}_lvl{$level}.inc";
-                $nestedContent = "; Nested level {$level} for {$incName}\n";
-                $nestedContent .= "nested{$level} IN A 203.0.113." . (($globalIncludeCounter + $level) % 250) . "\n";
-                $nestedContent .= "txt-nest-{$level} IN TXT \"nested-{$level}-{$incName}\"\n";
+            // create L2 under this L1
+            for ($i2 = 1; $i2 <= $L2_PER_L1; $i2++) {
+                $l2Name = "inc_m{$m}_l1_{$i1}_l2_{$i2}";
+                $l2Filename = "includes/{$safeDir}/{$l2Name}.inc";
+                $l2Content = "; L2 {$l2Name}\n";
+                $l2Content .= "l2host IN A 203.0.113." . ($i2 % 250) . "\n";
 
                 $insertZoneStmt->execute([
-                    ':name' => $nestedName,
-                    ':filename' => $nestedFilename,
-                    ':content' => $nestedContent,
+                    ':name' => $l2Name,
+                    ':filename' => $l2Filename,
+                    ':content' => $l2Content,
                     ':file_type' => 'include',
                     ':domain' => null,
                     ':created_by' => $userId,
                     ':created_at' => now(),
                     ':updated_at' => now()
                 ]);
-                $nestedId = (int)$pdo->lastInsertId();
-                $nestedIncludes++;
+                $l2Id = (int)$pdo->lastInsertId();
+                $totalL2++;
 
-                // Link nested include to its parent (which can be include)
+                // link L2 -> L1
                 try {
-                    $insertZoneFileIncludesStmt->execute([
-                        ':parent_id' => $parentForNested,
-                        ':include_id' => $nestedId,
-                        ':position' => 1,
+                    $insertIncludeLinkStmt->execute([
+                        ':parent_id' => $l1Id,
+                        ':include_id' => $l2Id,
+                        ':position' => $i2,
                         ':created_at' => now()
                     ]);
                 } catch (Exception $e) {
-                    error_log("Warning: failed to insert into zone_file_includes parent={$parentForNested} include={$nestedId} : " . $e->getMessage());
+                    error_log("Warning: link L2 failed parent={$l1Id} include={$l2Id} : " . $e->getMessage());
                 }
-
                 try {
-                    $insertZoneFileIncludesNewStmt->execute([
-                        ':parent_id' => $parentForNested,
-                        ':include_id' => $nestedId,
-                        ':position' => 1,
+                    $insertIncludeLinkNewStmt->execute([
+                        ':parent_id' => $l1Id,
+                        ':include_id' => $l2Id,
+                        ':position' => $i2,
                         ':created_at' => now()
                     ]);
-                } catch (Exception $e) {
-                    error_log("Warning: failed to insert into zone_file_includes_new parent={$parentForNested} include={$nestedId} : " . $e->getMessage());
-                }
+                } catch (Exception $e) { /* ignore */ }
 
-                // Append $INCLUDE to parent include content
+                // append $INCLUDE to L1 content (so resolution L1 -> L2)
                 try {
-                    $updateContentStmt->execute([':append' => "\n\$INCLUDE {$nestedFilename}\n", ':id' => $parentForNested]);
+                    $updateContentStmt->execute([':append' => "\n\$INCLUDE {$l2Filename}\n", ':id' => $l1Id]);
                 } catch (Exception $e) {
-                    error_log("Warning: failed to append INCLUDE to parent include {$parentForNested}: " . $e->getMessage());
+                    error_log("Warning: append INCLUDE to L1 failed for id={$l1Id} : " . $e->getMessage());
                 }
 
-                // Next parent becomes this nested include
-                $parentForNested = $nestedId;
-            } // end nested chain
-        } // end includes loop
+                // create L3 under this L2
+                for ($i3 = 1; $i3 <= $L3_PER_L2; $i3++) {
+                    $l3Name = "inc_m{$m}_l1_{$i1}_l2_{$i2}_l3_{$i3}";
+                    $l3Filename = "includes/{$safeDir}/{$l3Name}.inc";
+                    $l3Content = "; L3 {$l3Name}\n";
+                    $l3Content .= "l3host IN A 198.51." . (($i3 + $i2) % 250) . "." . (($m + $i3) % 250) . "\n";
 
-        // Commit transaction for this master
-        $pdo->commit();
-    } catch (Exception $txe) {
-        $pdo->rollBack();
-        error_log("Transaction rolled back for master {$masterId}: " . $txe->getMessage());
-        // continue to next master
-    }
+                    $insertZoneStmt->execute([
+                        ':name' => $l3Name,
+                        ':filename' => $l3Filename,
+                        ':content' => $l3Content,
+                        ':file_type' => 'include',
+                        ':domain' => null,
+                        ':created_by' => $userId,
+                        ':created_at' => now(),
+                        ':updated_at' => now()
+                    ]);
+                    $l3Id = (int)$pdo->lastInsertId();
+                    $totalL3++;
 
-    if (($globalIncludeCounter) % 500 == 0) {
-        echo "  -> {$globalIncludeCounter} top-level includes created overall...\n";
-    }
+                    // link L3 -> L2
+                    try {
+                        $insertIncludeLinkStmt->execute([
+                            ':parent_id' => $l2Id,
+                            ':include_id' => $l3Id,
+                            ':position' => $i3,
+                            ':created_at' => now()
+                        ]);
+                    } catch (Exception $e) {
+                        error_log("Warning: link L3 failed parent={$l2Id} include={$l3Id} : " . $e->getMessage());
+                    }
+                    try {
+                        $insertIncludeLinkNewStmt->execute([
+                            ':parent_id' => $l2Id,
+                            ':include_id' => $l3Id,
+                            ':position' => $i3,
+                            ':created_at' => now()
+                        ]);
+                    } catch (Exception $e) { /* ignore */ }
 
-    echo "Master {$mi}: created {$includesPerMaster} includes (+ {$nestedLevels} nested per include)\n";
-} // end masters
+                    // append $INCLUDE to L2 content
+                    try {
+                        $updateContentStmt->execute([':append' => "\n\$INCLUDE {$l3Filename}\n", ':id' => $l2Id]);
+                    } catch (Exception $e) {
+                        error_log("Warning: append INCLUDE to L2 failed for id={$l2Id} : " . $e->getMessage());
+                    }
 
-$totalIncludes = $topIncludes + $nestedIncludes;
-echo "Top-level includes: {$topIncludes}\n";
-echo "Nested includes: {$nestedIncludes}\n";
-echo "Total includes created: {$totalIncludes}\n";
+                    // insert records for this L3 (recordsPerInclude)
+                    for ($r = 1; $r <= $recordsPerInclude; $r++) {
+                        $addr4 = "198.51." . rand(0,255) . "." . rand(1,254);
+                        $params = [
+                            ':zone_file_id' => $l3Id,
+                            ':record_type' => 'A',
+                            ':name' => "host{$r}",
+                            ':value' => $addr4,
+                            ':address_ipv4' => $addr4,
+                            ':address_ipv6' => null,
+                            ':cname_target' => null,
+                            ':ptrdname' => null,
+                            ':txt' => null,
+                            ':ttl' => 3600,
+                            ':priority' => null,
+                            ':requester' => null,
+                            ':status' => 'active',
+                            ':created_by' => $userId,
+                            ':created_at' => now(),
+                            ':updated_at' => now()
+                        ];
+                        $insertRecordStmt->execute($params);
+                        $totalRecords++;
+                    }
+                } // end L3 loop
 
-/**
- * Populate includes with records (only file_type == 'include')
- */
-if ($recordsPerInclude > 0) {
-    echo "Populating each include with {$recordsPerInclude} records...\n";
-
-    // Fetch include ids
-    $stmt = $pdo->query("SELECT id, filename FROM zone_files WHERE file_type = 'include'");
-    $includes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $totalIncludesToPopulate = count($includes);
-    echo "Populating {$totalIncludesToPopulate} include files -> estimated records = " . ($totalIncludesToPopulate * $recordsPerInclude) . "\n";
-
-    $types = ['A','AAAA','CNAME','TXT','PTR'];
-    $masterNameStmt = $pdo->prepare("SELECT name FROM zone_files WHERE id = :id");
-
-    $batchCounter = 0;
-    foreach ($includes as $row) {
-        $zoneId = (int)$row['id'];
-        for ($r = 1; $r <= $recordsPerInclude; $r++) {
-            $type = $types[array_rand($types)];
-            $name = ""; $value = ""; $addr4 = null; $addr6 = null; $cname = null; $ptr = null; $txt = null; $priority = null;
-
-            switch ($type) {
-                case 'A':
+                // insert records for L2
+                for ($r = 1; $r <= $recordsPerInclude; $r++) {
                     $addr4 = "198.51." . rand(0,255) . "." . rand(1,254);
-                    $value = $addr4;
-                    $name = "host{$r}";
-                    break;
-                case 'AAAA':
-                    $addr6 = "2001:db8::" . dechex(rand(1, 0xffff));
-                    $value = $addr6;
-                    $name = "host{$r}";
-                    break;
-                case 'CNAME':
-                    $targetMasterId = $masterIds[array_rand($masterIds)];
-                    $masterNameStmt->execute([':id' => $targetMasterId]);
-                    $tm = $masterNameStmt->fetch(PDO::FETCH_ASSOC);
-                    $target = ($tm && isset($tm['name'])) ? $tm['name'] : "alias.example.test";
-                    $cname = rtrim($target, '.') . '.';
-                    $value = $cname;
-                    $name = "cname{$r}";
-                    break;
-                case 'PTR':
-                    $ptr = "ptr{$r}.in-addr.arpa.";
-                    $value = $ptr;
-                    $name = "ptr{$r}";
-                    break;
-                case 'TXT':
-                default:
-                    $txt = "txt-record-{$r}";
-                    $value = $txt;
-                    $name = "txt{$r}";
-                    break;
+                    $params = [
+                        ':zone_file_id' => $l2Id,
+                        ':record_type' => 'A',
+                        ':name' => "host{$r}",
+                        ':value' => $addr4,
+                        ':address_ipv4' => $addr4,
+                        ':address_ipv6' => null,
+                        ':cname_target' => null,
+                        ':ptrdname' => null,
+                        ':txt' => null,
+                        ':ttl' => 3600,
+                        ':priority' => null,
+                        ':requester' => null,
+                        ':status' => 'active',
+                        ':created_by' => $userId,
+                        ':created_at' => now(),
+                        ':updated_at' => now()
+                    ];
+                    $insertRecordStmt->execute($params);
+                    $totalRecords++;
+                }
+
+            } // end L2 loop
+
+            // insert records for L1
+            for ($r = 1; $r <= $recordsPerInclude; $r++) {
+                $addr4 = "198.51." . rand(0,255) . "." . rand(1,254);
+                $params = [
+                    ':zone_file_id' => $l1Id,
+                    ':record_type' => 'A',
+                    ':name' => "host{$r}",
+                    ':value' => $addr4,
+                    ':address_ipv4' => $addr4,
+                    ':address_ipv6' => null,
+                    ':cname_target' => null,
+                    ':ptrdname' => null,
+                    ':txt' => null,
+                    ':ttl' => 3600,
+                    ':priority' => null,
+                    ':requester' => null,
+                    ':status' => 'active',
+                    ':created_by' => $userId,
+                    ':created_at' => now(),
+                    ':updated_at' => now()
+                ];
+                $insertRecordStmt->execute($params);
+                $totalRecords++;
             }
 
-            $params = [
-                ':zone_file_id' => $zoneId,
-                ':record_type' => $type,
-                ':name' => $name,
-                ':value' => $value,
-                ':address_ipv4' => $addr4,
-                ':address_ipv6' => $addr6,
-                ':cname_target' => $cname,
-                ':ptrdname' => $ptr,
-                ':txt' => $txt,
-                ':ttl' => 3600,
-                ':priority' => $priority,
-                ':requester' => null,
-                ':status' => 'active',
-                ':created_by' => $userId,
-                ':created_at' => now(),
-                ':updated_at' => now()
-            ];
+            // optional: commit in batches to avoid very large transactions (we keep outer per-master transaction)
+            if (($totalL1 + $totalL2 + $totalL3) % $batchSize == 0) {
+                $pdo->commit();
+                $pdo->beginTransaction();
+            }
+        } // end L1 loop
 
-            $insertRecordStmt->execute($params);
-            $recordsInserted++;
-        }
-
-        $batchCounter++;
-        if ($batchCounter % $batchSize == 0) {
-            echo "  -> inserted {$recordsInserted} records so far...\n";
-        }
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Transaction failed for master {$m}: " . $e->getMessage());
+        // continue with next master
     }
 
-    echo "Records inserted: {$recordsInserted}\n";
-} else {
-    echo "Skipping record insertion (recordsPerInclude = 0)\n";
-}
+    echo "Master {$m} done: cumulative includes L1={$totalL1}, L2={$totalL2}, L3={$totalL3}, records={$totalRecords}\n";
+} // end masters loop
 
-/**
- * Verification: for each master show how many includes are linked
- */
-echo "Verifying include links per master (zone_file_includes)...\n";
-$checkStmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM zone_file_includes WHERE parent_id = :parent_id");
-foreach ($masterIds as $i => $mid) {
-    $checkStmt->execute([':parent_id' => $mid]);
-    $res = $checkStmt->fetch(PDO::FETCH_ASSOC);
-    $cnt = $res ? (int)$res['cnt'] : 0;
-    echo "Master " . ($i+1) . " (id={$mid}) has {$cnt} linked includes in zone_file_includes\n";
-}
+$totalIncludes = $totalL1 + $totalL2 + $totalL3;
 
-echo "SUMMARY:\n";
-echo " Masters created: " . count($masterIds) . "\n";
-echo " Top-level includes: {$topIncludes}\n";
-echo " Nested includes: {$nestedIncludes}\n";
+echo "GENERATED SUMMARY:\n";
+echo " Masters created: {$totalMasters}\n";
+echo " L1 includes: {$totalL1}\n";
+echo " L2 includes: {$totalL2}\n";
+echo " L3 includes: {$totalL3}\n";
 echo " Total includes: {$totalIncludes}\n";
-echo " Records inserted: {$recordsInserted}\n";
+echo " Total DNS records inserted: {$totalRecords}\n";
 echo "Done.\n";
+?>
