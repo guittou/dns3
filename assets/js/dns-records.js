@@ -850,76 +850,129 @@
 
     /**
      * Initialize modal zone file select combobox
+     * Robust function that accepts multiple signatures for backward compatibility:
+     * - (preselectedZoneFileId, masterId) - preselect a zone and fetch master + includes
+     * - (preselectedZoneFileId, domainIdOrName) - preselect a zone and fetch zones for domain
+     * - (singleId) - fetch master + includes for this zone and preselect it
+     * - () - fetch all zones
+     * 
      * @param {number|string|null} preselectedZoneFileId - Zone file ID to preselect
-     * @param {number|string|null} domainIdOrName - Optional domain ID or name to filter zones
+     * @param {number|string|null} domainIdOrName - Optional domain/master ID to filter zones
      */
     async function initModalZonefileSelect(preselectedZoneFileId = null, domainIdOrName = null) {
         try {
-            // Get zones list (use CURRENT_ZONE_LIST if available, otherwise fetch)
-            let zones = [];
+            console.debug('[initModalZonefileSelect] Called with:', { preselectedZoneFileId, domainIdOrName });
             
-            if (domainIdOrName) {
-                // Try to use CURRENT_ZONE_LIST if it's already populated for this domain
-                if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
-                    zones = window.CURRENT_ZONE_LIST;
-                } else {
-                    // Fallback: fetch zones for this domain/zone
-                    // Try zone_id first (for master + includes), then domain_id for backward compat
+            let zones = [];
+            let masterId = null;
+            
+            // Step 1: If we have a preselected zone, fetch it to determine if it's include or master
+            if (preselectedZoneFileId) {
+                const zoneIdNum = parseInt(preselectedZoneFileId, 10);
+                if (!isNaN(zoneIdNum) && zoneIdNum > 0) {
                     try {
-                        const res = await apiCall('list_zones_by_domain', { zone_id: domainIdOrName });
-                        zones = (res && res.data ? res.data : []);
-                    } catch (e) {
-                        console.warn('Failed to fetch zones by zone_id, trying domain_id:', e);
-                        try {
-                            const res = await apiCall('list_zones_by_domain', { domain_id: domainIdOrName });
-                            zones = (res && res.data ? res.data : []);
-                        } catch (e2) {
-                            console.warn('Failed to fetch zones by domain, falling back to all zones:', e2);
-                            // Fallback to all zones
-                            const res = await zoneApiCall('list_zones', { status: 'active' });
-                            zones = (res && res.data ? res.data : []);
+                        const zoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
+                        const preselectedZone = zoneResult && zoneResult.data ? zoneResult.data : null;
+                        
+                        if (preselectedZone) {
+                            console.debug('[initModalZonefileSelect] Preselected zone:', preselectedZone);
+                            
+                            // Determine master ID: if include, use parent_id; if master, use its own id
+                            if (preselectedZone.file_type === 'include' && preselectedZone.parent_id) {
+                                masterId = parseInt(preselectedZone.parent_id, 10);
+                                console.debug('[initModalZonefileSelect] Zone is include, using parent_id as masterId:', masterId);
+                            } else {
+                                masterId = zoneIdNum;
+                                console.debug('[initModalZonefileSelect] Zone is master or has no parent, using zone id as masterId:', masterId);
+                            }
                         }
+                    } catch (fetchError) {
+                        console.warn('[initModalZonefileSelect] Failed to fetch preselected zone:', fetchError);
                     }
-                }
-            } else {
-                // No domain specified, try to use existing zone list or fetch all
-                if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
-                    zones = window.CURRENT_ZONE_LIST;
-                } else if (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length > 0) {
-                    zones = window.ALL_ZONES;
-                } else {
-                    const res = await zoneApiCall('list_zones', { status: 'active' });
-                    zones = (res && res.data ? res.data : []);
                 }
             }
             
-            // Filter to only master and include types
-            zones = zones.filter(z => z.file_type === 'master' || z.file_type === 'include');
+            // Step 2: Override masterId if explicitly provided as second parameter
+            if (domainIdOrName) {
+                const providedId = parseInt(domainIdOrName, 10);
+                if (!isNaN(providedId) && providedId > 0) {
+                    masterId = providedId;
+                    console.debug('[initModalZonefileSelect] Using provided domainIdOrName as masterId:', masterId);
+                }
+            }
             
-            // If preselected zone is not in the list, fetch it specifically
+            // Step 3: Fetch zones list
+            if (masterId) {
+                // Fetch master + includes using list_zones_by_domain API with zone_id
+                console.debug('[initModalZonefileSelect] Fetching master + includes for masterId:', masterId);
+                try {
+                    const res = await apiCall('list_zones_by_domain', { zone_id: masterId });
+                    zones = (res && res.data ? res.data : []);
+                    console.debug('[initModalZonefileSelect] Fetched zones via list_zones_by_domain:', zones.length);
+                } catch (e) {
+                    console.warn('[initModalZonefileSelect] list_zones_by_domain failed, trying fallback:', e);
+                    // Fallback: try with domain_id for backward compatibility
+                    try {
+                        const res = await apiCall('list_zones_by_domain', { domain_id: masterId });
+                        zones = (res && res.data ? res.data : []);
+                        console.debug('[initModalZonefileSelect] Fetched zones via domain_id fallback:', zones.length);
+                    } catch (e2) {
+                        console.warn('[initModalZonefileSelect] domain_id fallback failed:', e2);
+                    }
+                }
+            }
+            
+            // Step 4: If no zones fetched yet, use cached or fetch all
+            if (zones.length === 0) {
+                console.debug('[initModalZonefileSelect] No zones fetched via master, trying cache or all zones');
+                if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
+                    zones = window.CURRENT_ZONE_LIST;
+                    console.debug('[initModalZonefileSelect] Using CURRENT_ZONE_LIST:', zones.length);
+                } else if (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length > 0) {
+                    zones = window.ALL_ZONES;
+                    console.debug('[initModalZonefileSelect] Using ALL_ZONES:', zones.length);
+                } else {
+                    try {
+                        const res = await zoneApiCall('list_zones', { status: 'active' });
+                        zones = (res && res.data ? res.data : []);
+                        console.debug('[initModalZonefileSelect] Fetched all active zones:', zones.length);
+                    } catch (e) {
+                        console.error('[initModalZonefileSelect] Failed to fetch all zones:', e);
+                    }
+                }
+            }
+            
+            // Step 5: Filter to only master and include types
+            zones = zones.filter(z => z.file_type === 'master' || z.file_type === 'include');
+            console.debug('[initModalZonefileSelect] Filtered to master/include types:', zones.length);
+            
+            // Step 6: Ensure preselected zone is in the list
             if (preselectedZoneFileId) {
                 const zoneIdNum = parseInt(preselectedZoneFileId, 10);
                 if (!isNaN(zoneIdNum) && zoneIdNum > 0) {
                     const zoneExists = zones.some(z => parseInt(z.id, 10) === zoneIdNum);
                     
                     if (!zoneExists) {
+                        console.debug('[initModalZonefileSelect] Preselected zone not in list, fetching specifically:', zoneIdNum);
                         try {
                             const specificZoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
                             if (specificZoneResult && specificZoneResult.data) {
                                 zones.push(specificZoneResult.data);
+                                console.debug('[initModalZonefileSelect] Added preselected zone to list');
                             }
                         } catch (fetchError) {
-                            console.warn('Failed to fetch specific zone:', fetchError);
+                            console.warn('[initModalZonefileSelect] Failed to fetch preselected zone for addition:', fetchError);
                         }
                     }
                 }
             }
             
-            // Fill the select with zones
+            // Step 7: Fill the select with zones
             fillModalZonefileSelect(zones, preselectedZoneFileId);
+            console.debug('[initModalZonefileSelect] Modal zonefile select filled successfully');
             
         } catch (error) {
-            console.error('Error initializing modal zonefile select:', error);
+            console.error('[initModalZonefileSelect] Error:', error);
             // Don't block modal opening, just log the error
         }
     }
@@ -1684,24 +1737,10 @@
             }
             
             // Initialize modal zone file combobox with record's zone
+            // The function will automatically fetch master + includes if the zone is an include
             if (typeof initModalZonefileSelect === 'function') {
                 try {
-                    // Fetch zone details to determine if it's an include or master
-                    // This is needed to populate the combobox with master + includes
-                    const zoneResult = await zoneApiCall('get_zone', { id: record.zone_file_id });
-                    const zone = zoneResult && zoneResult.data ? zoneResult.data : null;
-                    
-                    // Determine the master zone id: if this zone is an include, use parent_id, otherwise use the zone id
-                    let masterId;
-                    if (zone && zone.file_type === 'include' && zone.parent_id) {
-                        masterId = parseInt(zone.parent_id, 10);
-                    } else {
-                        masterId = parseInt(record.zone_file_id, 10);
-                    }
-                    
-                    // Populate the modal zonefile select: pass masterId first (to fetch master + includes), 
-                    // then the current zone file id to preselect
-                    await initModalZonefileSelect(record.zone_file_id, masterId);
+                    await initModalZonefileSelect(record.zone_file_id);
                 } catch (error) {
                     console.error('Error initializing modal zone file select:', error);
                 }
