@@ -1,0 +1,76 @@
+/**
+ * DNS Records Add Modal - Zone File Combobox Styles
+ * Responsive centered zone file selection in modal
+ */
+
+.modal-subtitle-zonefile {
+    display: block;
+    padding: 0;
+    margin: 8px 24px 16px;
+}
+
+.modal-subtitle-zonefile .zonefile-combobox-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0 12px;
+}
+
+.zonefile-label {
+    margin: 0;
+    color: #495057;
+    font-weight: 600;
+    white-space: nowrap;
+    flex: 0 0 auto;
+    font-size: 14px;
+}
+
+.zonefile-select {
+    flex: 0 1 480px;
+    max-width: 60%;
+    min-width: 220px;
+    box-sizing: border-box;
+    text-align: center;
+    padding: 6px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.5;
+    background-color: #fff;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.zonefile-select:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.zonefile-select:disabled {
+    background-color: #e9ecef;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Responsive: stack label and select on small screens */
+@media (max-width: 520px) {
+    .modal-subtitle-zonefile .zonefile-combobox-inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .zonefile-label {
+        text-align: left;
+    }
+    
+    .zonefile-select {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        text-align: left;
+    }
+}

@@ -4,6 +4,9 @@
  * Interface for managing DNS records (admin only)
  */
 require_once 'includes/header.php';
+?>
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/dns-records-add.css">
+<?php
 
 // Check if user is logged in and is admin
 if (!$auth->isLoggedIn()) {
@@ -113,6 +116,15 @@ if (!$auth->isAdmin()) {
             </div>
             <button id="dns-modal-close" class="dns-modal-close">&times;</button>
         </div>
+        
+        <!-- Zone File Combobox Row (centered below title) -->
+        <div id="zonefile-combobox-row" class="modal-subtitle-zonefile" style="display:block; margin:8px 24px 16px;">
+            <div class="zonefile-combobox-inner">
+                <label for="modal-zonefile-select" class="zonefile-label">Fichier de zone&nbsp;:</label>
+                <select id="modal-zonefile-select" class="form-control zonefile-select" aria-label="Sélectionner le fichier de zone"></select>
+            </div>
+        </div>
+        
         <div class="dns-modal-body">
             <!-- Type Selection View (Step 1) -->
             <div id="type-selection-view" class="type-selection-view" style="display: none;">
