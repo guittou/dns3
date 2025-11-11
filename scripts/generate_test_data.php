@@ -31,7 +31,7 @@ $userId = isset($options['user']) ? (int)$options['user'] : 1;
 $batchSize = isset($options['batch-size']) ? max(1, (int)$options['batch-size']) : 500;
 
 /* Fixed tree shape as requested */
-$L1_PER_MASTER = 100;
+$L1_PER_MASTER = 1;
 $L2_PER_L1 = 5;
 $L3_PER_L2 = 2;
 
