@@ -132,14 +132,26 @@ class DnsRecord {
                 
                 // Calculate domain_name based on zone type:
                 // - For master zones: use zone_domain (can be null, no fallback)
-                // - For include zones: use parent_domain (can be null, no fallback)
+                // - For include zones: traverse to top master and use its domain
                 $fileType = $record['zone_file_type'] ?? 'master';
                 if ($fileType === 'master') {
                     // Master zone: use zone_domain directly (no fallback to zone_name)
                     $record['domain_name'] = (!empty($record['zone_domain'])) ? $record['zone_domain'] : null;
                 } else {
-                    // Include zone: use parent_domain (no fallback)
-                    $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                    // Include zone: find top master and get its domain
+                    $topMasterId = $this->getTopMasterForZone($record['zone_file_id']);
+                    if ($topMasterId) {
+                        $topMasterDomain = $this->getDomainByZoneFileId($topMasterId);
+                        if ($topMasterDomain && !empty($topMasterDomain['domain'])) {
+                            $record['domain_name'] = $topMasterDomain['domain'];
+                        } else {
+                            // Fallback to immediate parent_domain if top master has no domain
+                            $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                        }
+                    } else {
+                        // Fallback to immediate parent_domain if can't find top master
+                        $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                    }
                 }
                 
                 // Keep 'domain' field for backward compatibility
@@ -201,14 +213,26 @@ class DnsRecord {
                 
                 // Calculate domain_name based on zone type:
                 // - For master zones: use zone_domain (can be null, no fallback)
-                // - For include zones: use parent_domain (can be null, no fallback)
+                // - For include zones: traverse to top master and use its domain
                 $fileType = $record['zone_file_type'] ?? 'master';
                 if ($fileType === 'master') {
                     // Master zone: use zone_domain directly (no fallback to zone_name)
                     $record['domain_name'] = (!empty($record['zone_domain'])) ? $record['zone_domain'] : null;
                 } else {
-                    // Include zone: use parent_domain (no fallback)
-                    $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                    // Include zone: find top master and get its domain
+                    $topMasterId = $this->getTopMasterForZone($record['zone_file_id']);
+                    if ($topMasterId) {
+                        $topMasterDomain = $this->getDomainByZoneFileId($topMasterId);
+                        if ($topMasterDomain && !empty($topMasterDomain['domain'])) {
+                            $record['domain_name'] = $topMasterDomain['domain'];
+                        } else {
+                            // Fallback to immediate parent_domain if top master has no domain
+                            $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                        }
+                    } else {
+                        // Fallback to immediate parent_domain if can't find top master
+                        $record['domain_name'] = (!empty($record['parent_domain'])) ? $record['parent_domain'] : null;
+                    }
                 }
                 
                 // Keep 'domain' field for backward compatibility

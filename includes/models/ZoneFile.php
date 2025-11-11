@@ -72,7 +72,25 @@ class ZoneFile {
         try {
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
-            return $stmt->fetchAll();
+            $zones = $stmt->fetchAll();
+            
+            // For include zones, populate parent_domain with top master domain
+            foreach ($zones as &$zone) {
+                if ($zone['file_type'] === 'include') {
+                    // Find top master and get its domain
+                    $topMasterResult = $this->findTopMaster($zone['id']);
+                    if (!isset($topMasterResult['error']) && isset($topMasterResult['id'])) {
+                        $topMasterId = $topMasterResult['id'];
+                        // Get the zone file to read its domain (without enrichment to avoid recursion)
+                        $topMasterZone = $this->getById($topMasterId, true, false);
+                        if ($topMasterZone && !empty($topMasterZone['domain'])) {
+                            $zone['parent_domain'] = $topMasterZone['domain'];
+                        }
+                    }
+                }
+            }
+            
+            return $zones;
         } catch (Exception $e) {
             error_log("ZoneFile search error: " . $e->getMessage());
             return [];
@@ -137,9 +155,10 @@ class ZoneFile {
      * 
      * @param int $id Zone file ID
      * @param bool $includeDeleted If true, include deleted zones
+     * @param bool $enrichParentDomain If true, populate parent_domain with top master domain for includes
      * @return array|null Zone file data or null if not found
      */
-    public function getById($id, $includeDeleted = false) {
+    public function getById($id, $includeDeleted = false, $enrichParentDomain = true) {
         try {
             $sql = "SELECT zf.*, 
                            u1.username as created_by_username,
@@ -165,6 +184,21 @@ class ZoneFile {
             // Ensure directory is included in result
             if ($result && !isset($result['directory'])) {
                 $result['directory'] = null;
+            }
+            
+            // For include zones, populate parent_domain with top master domain
+            // Only if enrichParentDomain is true to avoid infinite recursion
+            if ($result && $result['file_type'] === 'include' && $enrichParentDomain) {
+                // Find top master and get its domain
+                $topMasterResult = $this->findTopMaster($result['id']);
+                if (!isset($topMasterResult['error']) && isset($topMasterResult['id'])) {
+                    $topMasterId = $topMasterResult['id'];
+                    // Get the zone file to read its domain (without enrichment to avoid recursion)
+                    $topMasterZone = $this->getById($topMasterId, true, false);
+                    if ($topMasterZone && !empty($topMasterZone['domain'])) {
+                        $result['parent_domain'] = $topMasterZone['domain'];
+                    }
+                }
             }
             
             return $result ?: null;
