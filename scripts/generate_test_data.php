@@ -1,312 +1,315 @@
 <?php
-// Gé®©rateur de jeu de test (zones master + include, enregistrements pour masters/includes)
-// Usage : php scripts/generate_test_data.php --zones=50 --masters=40 --includes=10 --records=1000 --user=1 [--mx=1]
-// Ce script gé®¨re des zones et includes valides (contenu BIND) afin que named-checkzone / worker.sh les valides.
-// Ne pas exé£µter en production sans backup.
+/**
+ * Générateur de jeu de test mis à jour pour la structure actuelle de la base.
+ *
+ * Objectif demandé :
+ * - 30 domaines racine (masters)
+ * - Pour chaque master : ~100 includes
+ * - Ajouter jusqu'à 3 niveaux d'include supplémentaires (chaînes imbriquées)
+ * - Peupler chaque include (tous les includes créés) avec ~20 enregistrements DNS
+ * - Les noms doivent être "parlants" et les domaines valides (labels conformes)
+ *
+ * Usage :
+ * php scripts/generate_test_data.php --masters=30 --includes-per-master=100 --records-per-include=20 --nested-levels=3 --nested-prob=0.1 --user=1
+ *
+ * Options:
+ * --masters               Nombre de masters racine (défaut 30)
+ * --includes-per-master   Nombre d'includes par master (défaut 100)
+ * --records-per-include   Nombre d'enregistrements par include (défaut 20)
+ * --nested-levels         Profondeur additionnelle d'include (défaut 3)
+ * --nested-prob           Probabilité (0..1) qu'un include ait une chaîne imbriquée (défaut 0.1)
+ * --user                  user_id utilisé pour created_by (défaut 1)
+ *
+ * ATTENTION : opération destructive potentielle si répétée (créations en base). Tester en staging.
+ */
 
 require_once __DIR__ . '/../includes/db.php';
 
-$options = getopt("", ["zones::", "masters::", "includes::", "records::", "user::", "mx::"]);
-$totalZones = isset($options['zones']) ? (int)$options['zones'] : 50;
-$mastersArg  = isset($options['masters']) ? (int)$options['masters'] : null;
-$includesArg = isset($options['includes']) ? (int)$options['includes'] : null;
-$recordsCount = isset($options['records']) ? (int)$options['records'] : 1000;
+$options = getopt("", ["masters::", "includes-per-master::", "records-per-include::", "nested-levels::", "nested-prob::", "user::"]);
+
+$mastersCount = isset($options['masters']) ? max(1, (int)$options['masters']) : 30;
+$includesPerMaster = isset($options['includes-per-master']) ? max(0, (int)$options['includes-per-master']) : 100;
+$recordsPerInclude = isset($options['records-per-include']) ? max(0, (int)$options['records-per-include']) : 20;
+$nestedLevels = isset($options['nested-levels']) ? max(0, (int)$options['nested-levels']) : 3;
+$nestedProb = isset($options['nested-prob']) ? (float)$options['nested-prob'] : 0.1;
 $userId = isset($options['user']) ? (int)$options['user'] : 1;
-$enableMx = isset($options['mx']) ? (bool)$options['mx'] : false;
 
-if ($mastersArg !== null && $includesArg !== null) {
-    $mastersCount = max(1, $mastersArg);
-    $includesCount = max(0, $includesArg);
-} elseif ($mastersArg !== null) {
-    $mastersCount = max(1, $mastersArg);
-    $includesCount = max(0, $totalZones - $mastersCount);
-} elseif ($includesArg !== null) {
-    $includesCount = max(0, $includesArg);
-    $mastersCount = max(1, $totalZones - $includesCount);
-} else {
-    // default split 80% masters, 20% includes
-    $mastersCount = max(1, (int)round($totalZones * 0.8));
-    $includesCount = max(0, $totalZones - $mastersCount);
-}
-
-echo "Configuration: masters={$mastersCount}, includes={$includesCount}, records={$recordsCount}, user={$userId}\n";
+echo "Config: masters={$mastersCount}, includesPerMaster={$includesPerMaster}, recordsPerInclude={$recordsPerInclude}, nestedLevels={$nestedLevels}, nestedProb={$nestedProb}, user={$userId}\n";
 
 $pdo = Database::getInstance()->getConnection();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+// Helpers
 function now() {
     return date('Y-m-d H:i:s');
 }
 
 function soa_serial($index = 1) {
-    // format YYYYMMDDnn to be valid and increasing
     return date('Ymd') . sprintf('%02d', $index % 100);
 }
 
-// Prepare zone insert
+// Prepare statements
 $insertZoneStmt = $pdo->prepare(
-    "INSERT INTO zone_files (name, filename, content, file_type, status, created_by, created_at, updated_at)
-     VALUES (:name, :filename, :content, :file_type, 'active', :created_by, :created_at, :updated_at)"
+    "INSERT INTO zone_files (name, filename, content, file_type, domain, status, created_by, created_at, updated_at)
+     VALUES (:name, :filename, :content, :file_type, :domain, 'active', :created_by, :created_at, :updated_at)"
 );
 
-// 1) Create master zones
+$insertIncludeLinkStmt = $pdo->prepare(
+    "INSERT INTO zone_file_includes (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)"
+);
+
+// dns_records insert (columns adapted to common schema)
+$insertRecordStmt = $pdo->prepare(
+    "INSERT INTO dns_records 
+     (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, status, created_by, created_at, updated_at)
+     VALUES
+     (:zone_file_id, :record_type, :name, :value, :address_ipv4, :address_ipv6, :cname_target, :ptrdname, :txt, :ttl, :priority, :requester, :status, :created_by, :created_at, :updated_at)"
+);
+
+// Utility to create a valid domain label
+function make_domain($rootIndex) {
+    // Use .example.test as safe reserved TLD for testing
+    return "root{$rootIndex}.example.test";
+}
+
+// Keep track of created zones
 $masterIds = [];
-$masterMeta = []; // store meta (id,name,filename) for later
-for ($i = 1; $i <= $mastersCount; $i++) {
-    $name = "test-master-{$i}.local";
-    $filename = "db.test-master-{$i}.local";
-    $serial = soa_serial($i);
-    // valid BIND content for master zone with $ORIGIN and SOA/NS and ns1 A
+$allIncludeIds = []; // mapping masterId => array of include ids (top-level)
+$allZoneIds = []; // all zone ids (masters + includes + nested includes)
+
+/**
+ * Create a master zone
+ */
+for ($mi = 1; $mi <= $mastersCount; $mi++) {
+    $domain = make_domain($mi);
+    $name = $domain; // for master, name == domain
+    $filename = "db." . str_replace('.', '_', $domain) . ".db";
+    $serial = soa_serial($mi);
+
     $content = "";
-    $content .= "\$ORIGIN {$name}.\n";
+    $content .= "\$ORIGIN {$domain}.\n";
     $content .= "\$TTL 3600\n";
-    $content .= "@ IN SOA ns1.{$name}. admin.{$name}. ( {$serial} 3600 1800 604800 86400 )\n";
-    $content .= "    IN NS ns1.{$name}.\n";
-    $nsIp = "192.0.2." . ($i % 250 + 1);
+    $content .= "@ IN SOA ns1.{$domain}. admin.{$domain}. ( {$serial} 3600 1800 604800 86400 )\n";
+    $content .= "    IN NS ns1.{$domain}.\n";
+    $nsIp = "192.0.2." . ($mi % 250 + 1);
     $content .= "ns1 IN A {$nsIp}\n";
-    // includes will be appended later once includes are created and linked
+
     $insertZoneStmt->execute([
         ':name' => $name,
         ':filename' => $filename,
         ':content' => $content,
         ':file_type' => 'master',
+        ':domain' => $domain,
         ':created_by' => $userId,
         ':created_at' => now(),
         ':updated_at' => now()
     ]);
     $zoneId = (int)$pdo->lastInsertId();
     $masterIds[] = $zoneId;
-    $masterMeta[$zoneId] = ['name'=>$name,'filename'=>$filename,'serial'=>$serial];
-    if ($i % 10 == 0) echo "  -> {$i} masters cré©³\n";
-}
-echo "Masters cré©³: " . count($masterIds) . "\n";
+    $allZoneIds[] = $zoneId;
+    $allIncludeIds[$zoneId] = [];
 
-// 2) Create include zones
-$includeIds = [];
-$includeMeta = []; // store filename and sample content
-for ($j = 1; $j <= $includesCount; $j++) {
-    $name = "common-include-{$j}.inc.local"; // logical name for the include file
-    // choose a filename that looks like an include file used by $INCLUDE directive
-    $filename = "includes/common-include-{$j}.inc"; // path-like; generation uses this name
-    // Build include content: records are relative to the master zone when included,
-    // so we take care to use relative names (no $ORIGIN) or explicit FQDN if needed.
-    $content = "; Include file for common records group {$j}\n";
-    // Add some sample records that are valid when included (relative names)
-    $content .= "monitor IN A 198.51." . ($j % 250) . ".10\n";
-    $content .= "monitor6 IN AAAA 2001:db8::" . dechex(100 + $j) . "\n";
-    $content .= "common-txt IN TXT \"include-group-{$j}\"\n";
-    $insertZoneStmt->execute([
-        ':name' => $name,
-        ':filename' => $filename,
-        ':content' => $content,
-        ':file_type' => 'include',
-        ':created_by' => $userId,
-        ':created_at' => now(),
-        ':updated_at' => now()
-    ]);
-    $incId = (int)$pdo->lastInsertId();
-    $includeIds[] = $incId;
-    $includeMeta[$incId] = ['name'=>$name,'filename'=>$filename];
-    if ($j % 10 == 0) echo "  -> {$j} includes cré©³\n";
+    if ($mi % 5 == 0) echo "Created {$mi} masters...\n";
 }
-echo "Includes cré©³: " . count($includeIds) . "\n";
+echo "Masters created: " . count($masterIds) . "\n";
 
-// 3) Link includes to masters (zone_file_includes) and append $INCLUDE to parent content
-if (!empty($includeIds)) {
-    $insertIncludeStmt = $pdo->prepare("INSERT INTO zone_file_includes (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)");
-    $updateMasterContentStmt = $pdo->prepare("UPDATE zone_files SET content = CONCAT(content, :append) WHERE id = :id");
-    $pos = 0;
-    foreach ($includeIds as $incId) {
-        // choose a random master as parent
-        $parent = $masterIds[array_rand($masterIds)];
-        $pos++;
+/**
+ * Create includes per master
+ * Also possibly create nested include chains for a subset (nestedProb)
+ */
+$globalIncludeCounter = 0;
+for ($masterIndex = 0; $masterIndex < count($masterIds); $masterIndex++) {
+    $masterId = $masterIds[$masterIndex];
+    $masterDomain = make_domain($masterIndex + 1);
+
+    // Create top-level includes
+    for ($inc = 1; $inc <= $includesPerMaster; $inc++) {
+        $globalIncludeCounter++;
+        $incName = "inc-{$masterIndex}-{$inc}"; // logical name
+        // filename: includes/<masterDomain>/inc-<n>.inc
+        $safeDomainDir = str_replace('.', '_', $masterDomain);
+        $incFilename = "includes/{$safeDomainDir}/inc_{$inc}.inc";
+        $incContent = "; Include file {$incName} for {$masterDomain}\n";
+        $incContent .= "monitor IN A 198.51." . ($inc % 250) . "." . (($masterIndex + $inc) % 250) . "\n";
+        $incContent .= "monitor6 IN AAAA 2001:db8::" . dechex(100 + ($globalIncludeCounter % 0xffff)) . "\n";
+        $incContent .= "txt-{$inc} IN TXT \"include-{$incName}\"\n";
+
+        $insertZoneStmt->execute([
+            ':name' => $incName,
+            ':filename' => $incFilename,
+            ':content' => $incContent,
+            ':file_type' => 'include',
+            ':domain' => null,
+            ':created_by' => $userId,
+            ':created_at' => now(),
+            ':updated_at' => now()
+        ]);
+        $incId = (int)$pdo->lastInsertId();
+        $allIncludeIds[$masterId][] = $incId;
+        $allZoneIds[] = $incId;
+
+        // Link include to master (position ordering)
+        $position = count($allIncludeIds[$masterId]);
         try {
-            $insertIncludeStmt->execute([
-                ':parent_id' => $parent,
+            $insertIncludeLinkStmt->execute([
+                ':parent_id' => $masterId,
                 ':include_id' => $incId,
-                ':position' => $pos,
+                ':position' => $position,
                 ':created_at' => now()
             ]);
         } catch (Exception $e) {
-            // ignore uniqueness errors
+            // ignore duplicates
         }
 
-        // Append a $INCLUDE directive to the parent content using the include filename
-        // Use the exact filename stored in the include (it may include a path)
-        $incFilename = $includeMeta[$incId]['filename'];
-        // The include directive must be on its own line; ensure proper format
-        $append = "\n\$INCLUDE {$incFilename}\n";
-        $updateMasterContentStmt->execute([
-            ':append' => $append,
-            ':id' => $parent
-        ]);
-    }
-    echo "Includes lié³ aux masters et directives \$INCLUDE ajouté¥³.\n";
-}
+        // Append $INCLUDE directive to parent master content
+        $appendDirective = "\n\$INCLUDE {$incFilename}\n";
+        $updateStmt = $pdo->prepare("UPDATE zone_files SET content = CONCAT(content, :append) WHERE id = :id");
+        $updateStmt->execute([':append' => $appendDirective, ':id' => $masterId]);
 
-// 4) Detect compatibility columns in dns_records table
-echo "Checking for compatibility columns in dns_records...\n";
-$columnsStmt = $pdo->query("SHOW COLUMNS FROM dns_records");
-$columns = $columnsStmt->fetchAll(PDO::FETCH_COLUMN);
-$hasZone = in_array('zone', $columns);
-$hasZoneName = in_array('zone_name', $columns);
-$hasZoneFileName = in_array('zone_file_name', $columns);
-$hasZoneFile = in_array('zone_file', $columns);
+        // Possibly create nested include chains starting from this include
+        if ($nestedLevels > 0 && mt_rand() / mt_getrandmax() <= $nestedProb) {
+            $parentForNested = $incId;
+            for ($level = 1; $level <= $nestedLevels; $level++) {
+                // create a nested include file referencing the parent include
+                $nestedFilename = "includes/{$safeDomainDir}/inc_{$inc}_lvl{$level}.inc";
+                $nestedName = "{$incName}-lvl{$level}";
+                $nestedContent = "; Nested include level {$level} for {$incName}\n";
+                $nestedContent .= "nested{$level} IN A 203.0.113." . (($globalIncludeCounter + $level) % 250) . "\n";
+                $insertZoneStmt->execute([
+                    ':name' => $nestedName,
+                    ':filename' => $nestedFilename,
+                    ':content' => $nestedContent,
+                    ':file_type' => 'include',
+                    ':domain' => null,
+                    ':created_by' => $userId,
+                    ':created_at' => now(),
+                    ':updated_at' => now()
+                ]);
+                $nestedId = (int)$pdo->lastInsertId();
+                $allZoneIds[] = $nestedId;
 
-if ($hasZone || $hasZoneName || $hasZoneFileName || $hasZoneFile) {
-    echo "Found compatibility columns: ";
-    $compatCols = [];
-    if ($hasZone) $compatCols[] = 'zone';
-    if ($hasZoneName) $compatCols[] = 'zone_name';
-    if ($hasZoneFileName) $compatCols[] = 'zone_file_name';
-    if ($hasZoneFile) $compatCols[] = 'zone_file';
-    echo implode(', ', $compatCols) . "\n";
-} else {
-    echo "No compatibility columns detected (using canonical zone_file_id only).\n";
-}
+                // Link nested include to its parent include
+                try {
+                    $insertIncludeLinkStmt->execute([
+                        ':parent_id' => $parentForNested,
+                        ':include_id' => $nestedId,
+                        ':position' => 1,
+                        ':created_at' => now()
+                    ]);
+                } catch (Exception $e) {
+                    // ignore duplicates
+                }
 
-// 5) Prepare dns_records insert
-$insertRecordStmt = $pdo->prepare(
-    "INSERT INTO dns_records (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, status, created_by, created_at, updated_at)
-     VALUES (:zone_file_id, :record_type, :name, :value, :address_ipv4, :address_ipv6, :cname_target, :ptrdname, :txt, :ttl, :priority, :requester, :status, :created_by, :created_at, :updated_at)"
-);
+                // Append $INCLUDE directive in parent include content so resolution works
+                $appendToParent = "\n\$INCLUDE {$nestedFilename}\n";
+                $updateParentStmt = $pdo->prepare("UPDATE zone_files SET content = CONCAT(content, :append) WHERE id = :id");
+                $updateParentStmt->execute([':append' => $appendToParent, ':id' => $parentForNested]);
 
-// supported types by UI
-$types = ['A','AAAA','CNAME','PTR','TXT'];
-if ($enableMx) $types[] = 'MX';
+                // the new nested include becomes parent for next level
+                $parentForNested = $nestedId;
+            }
+        }
 
-// choose target zone ids (both masters and includes)
-$allZoneIds = array_merge($masterIds, $includeIds);
-if (empty($allZoneIds)) {
-    fwrite(STDERR, "Erreur: aucune zone trouvé¥ pour insé²¥r des enregistrements.\n");
-    exit(1);
-}
+        if ($globalIncludeCounter % 500 == 0) {
+            echo "Created {$globalIncludeCounter} includes overall...\n";
+        }
+    } // end includes per master
 
-// Get master names to use as possible CNAME targets
-$masterNamesStmt = $pdo->prepare("SELECT id, name FROM zone_files WHERE file_type = 'master' LIMIT 1000");
+    echo "Master {$masterIndex}+1 : created " . count($allIncludeIds[$masterId]) . " top-level includes\n";
+} // end masters loop
+
+echo "Total includes created (top-level + nested): " . (count($allZoneIds) - count($masterIds)) . "\n";
+
+/**
+ * Populate all includes (and masters optionally) with DNS records
+ *
+ * We'll create records only for includes (file_type == 'include') to match requirement,
+ * but you can include masters by iterating master ids too if desired.
+ */
+$types = ['A','AAAA','CNAME','TXT','PTR'];
+$masterNamesStmt = $pdo->prepare("SELECT id, name, filename, file_type FROM zone_files WHERE id IN (" . implode(',', array_map('intval', $allZoneIds)) . ")");
 $masterNamesStmt->execute();
-$masterNameRows = $masterNamesStmt->fetchAll(PDO::FETCH_ASSOC);
-$masterNames = array_map(function($r){ return $r['name']; }, $masterNameRows);
+$zoneRows = $masterNamesStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// create records
-for ($r = 1; $r <= $recordsCount; $r++) {
-    // pick random zone; bias: more records in masters than in includes (70/30)
-    if (!empty($includeIds) && rand(1,100) <= 30) {
-        $zoneId = $includeIds[array_rand($includeIds)];
-    } else {
-        $zoneId = $masterIds[array_rand($masterIds)];
-    }
-
-    $type = $types[array_rand($types)];
-    $name = '';
-    $value = '';
-    $addr4 = null;
-    $addr6 = null;
-    $cname = null;
-    $ptr = null;
-    $txt = null;
-    $priority = null;
-
-    switch ($type) {
-        case 'A':
-            $addr4 = "198.51." . rand(0,255) . "." . rand(1,254);
-            $value = $addr4;
-            $name = "host{$r}";
-            break;
-        case 'AAAA':
-            $addr6 = "2001:db8::" . dechex(rand(1, 0xffff));
-            $value = $addr6;
-            $name = "host{$r}";
-            break;
-        case 'CNAME':
-            $target = count($masterNames) ? $masterNames[array_rand($masterNames)] : "alias.example.com.";
-            // target should be FQDN; ensure trailing dot
-            $cname = rtrim($target, '.') . '.';
-            $value = $cname;
-            $name = "cname{$r}";
-            break;
-        case 'PTR':
-            $ptr = "ptr{$r}.in-addr.arpa.";
-            $value = $ptr;
-            $name = "ptr{$r}";
-            break;
-        case 'TXT':
-            $txt = "test-txt-{$r}";
-            $value = $txt;
-            $name = "txt{$r}";
-            break;
-        case 'MX':
-            $priority = rand(0,20);
-            $value = "{$priority} mail" . rand(1,50) . ".example.com.";
-            $name = "@";
-            break;
-        default:
-            $value = "value{$r}";
-            $name = "rec{$r}";
-            break;
-    }
-
-    $params = [
-        ':zone_file_id' => $zoneId,
-        ':record_type' => $type,
-        ':name' => $name,
-        ':value' => $value,
-        ':address_ipv4' => $addr4,
-        ':address_ipv6' => $addr6,
-        ':cname_target' => $cname,
-        ':ptrdname' => $ptr,
-        ':txt' => $txt,
-        ':ttl' => 3600,
-        ':priority' => $priority,
-        ':requester' => null,
-        ':status' => 'active',
-        ':created_by' => $userId,
-        ':created_at' => now(),
-        ':updated_at' => now(),
-    ];
-
-    // Execute insert
-    $insertRecordStmt->execute($params);
-    $recordId = (int)$pdo->lastInsertId();
-
-    // Update compatibility columns if they exist
-    if ($hasZone || $hasZoneName || $hasZoneFileName || $hasZoneFile) {
-        // Get zone file info for this record
-        $zoneInfoStmt = $pdo->prepare("SELECT name, filename FROM zone_files WHERE id = ?");
-        $zoneInfoStmt->execute([$zoneId]);
-        $zoneInfo = $zoneInfoStmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($zoneInfo) {
-            $updateParts = [];
-            $updateParams = [];
-            
-            if ($hasZone) {
-                $updateParts[] = "zone = ?";
-                $updateParams[] = $zoneInfo['name'];
-            }
-            if ($hasZoneName) {
-                $updateParts[] = "zone_name = ?";
-                $updateParams[] = $zoneInfo['name'];
-            }
-            if ($hasZoneFileName) {
-                $updateParts[] = "zone_file_name = ?";
-                $updateParams[] = $zoneInfo['filename'];
-            }
-            if ($hasZoneFile) {
-                $updateParts[] = "zone_file = ?";
-                $updateParams[] = $zoneInfo['filename'];
-            }
-            
-            if (!empty($updateParts)) {
-                $updateParams[] = $recordId;
-                $updateSql = "UPDATE dns_records SET " . implode(', ', $updateParts) . " WHERE id = ?";
-                $updateStmt = $pdo->prepare($updateSql);
-                $updateStmt->execute($updateParams);
-            }
-        }
-    }
-
-    if ($r % 100 == 0) echo "  -> {$r} enregistrements cré©³\n";
+// Map zone id => file_type
+$zoneInfo = [];
+foreach ($zoneRows as $z) {
+    $zoneInfo[(int)$z['id']] = $z;
 }
 
-echo "Terminé º {$recordsCount} enregistrements insé²©s pour " . (count($masterIds)+count($includeIds)) . " zones ({$mastersCount} masters, {$includesCount} includes).\n";
+// create records for every include (file_type == 'include')
+$recordCreated = 0;
+foreach ($zoneInfo as $zid => $zmeta) {
+    if ($zmeta['file_type'] !== 'include') {
+        continue; // skip masters
+    }
+
+    for ($r = 1; $r <= $recordsPerInclude; $r++) {
+        $type = $types[array_rand($types)];
+        $name = ""; $value = ""; $addr4 = null; $addr6 = null; $cname = null; $ptr = null; $txt = null; $priority = null;
+
+        switch ($type) {
+            case 'A':
+                $addr4 = "198.51." . rand(0,255) . "." . rand(1,254);
+                $value = $addr4;
+                $name = "host{$r}";
+                break;
+            case 'AAAA':
+                $addr6 = "2001:db8::" . dechex(rand(1, 0xffff));
+                $value = $addr6;
+                $name = "host{$r}";
+                break;
+            case 'CNAME':
+                // point to one of the masters randomly (if any)
+                $targetMasterId = $masterIds[array_rand($masterIds)];
+                $t = $pdo->prepare("SELECT name FROM zone_files WHERE id = :id");
+                $t->execute([':id' => $targetMasterId]);
+                $tm = $t->fetch(PDO::FETCH_ASSOC);
+                $target = ($tm && isset($tm['name'])) ? $tm['name'] : "alias.example.test";
+                $cname = rtrim($target, '.') . '.';
+                $value = $cname;
+                $name = "cname{$r}";
+                break;
+            case 'PTR':
+                $ptr = "ptr{$r}.in-addr.arpa.";
+                $value = $ptr;
+                $name = "ptr{$r}";
+                break;
+            case 'TXT':
+            default:
+                $txt = "test-txt-{$r}";
+                $value = $txt;
+                $name = "txt{$r}";
+                break;
+        }
+
+        $params = [
+            ':zone_file_id' => $zid,
+            ':record_type' => $type,
+            ':name' => $name,
+            ':value' => $value,
+            ':address_ipv4' => $addr4,
+            ':address_ipv6' => $addr6,
+            ':cname_target' => $cname,
+            ':ptrdname' => $ptr,
+            ':txt' => $txt,
+            ':ttl' => 3600,
+            ':priority' => $priority,
+            ':requester' => null,
+            ':status' => 'active',
+            ':created_by' => $userId,
+            ':created_at' => now(),
+            ':updated_at' => now()
+        ];
+
+        $insertRecordStmt->execute($params);
+        $recordCreated++;
+    }
+
+    if ($recordCreated % 1000 == 0) {
+        echo "Inserted {$recordCreated} records...\n";
+    }
+}
+
+echo "Done. Masters: " . count($masterIds) . ", Top-level includes total: " . array_reduce($allIncludeIds, function($carry, $arr){ return $carry + count($arr); }, 0) . ", Records inserted: {$recordCreated}\n";
+echo "Total zone files (including nested includes): " . count($allZoneIds) . "\n";
