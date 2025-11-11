@@ -1165,7 +1165,8 @@ class ZoneFile {
             $visited[] = $currentId;
             
             // Get current zone
-            $current = $this->getById($currentId, true);
+            // Avoid recursive enrichment call that would call findTopMaster() again
+            $current = $this->getById($currentId, true, false);
             if (!$current) {
                 $this->logValidation("ERROR: Zone file (ID: {$currentId}) not found in parent chain");
                 return ['error' => "Zone file (ID: {$currentId}) not found in parent chain"];
