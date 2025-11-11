@@ -832,6 +832,69 @@ class ZoneFile {
     }
 
     /**
+     * Get recursive tree of master and all its descendants (includes)
+     * Uses BFS (breadth-first search) to traverse the include hierarchy
+     * 
+     * @param int $masterId Master zone file ID to start from
+     * @param int|null $limit Maximum number of results to return (security limit)
+     * @return array Array of zone file rows (same columns as getById/getIncludes)
+     */
+    public function getRecursiveTree($masterId, $limit = null) {
+        try {
+            // Get the master zone first
+            $master = $this->getById($masterId);
+            if (!$master) {
+                error_log("ZoneFile getRecursiveTree: Master zone not found (ID: $masterId)");
+                return [];
+            }
+            
+            $results = [];
+            $queue = [$masterId];
+            $visited = [];
+            
+            // BFS traversal
+            while (!empty($queue) && ($limit === null || count($results) < $limit)) {
+                $currentId = array_shift($queue);
+                
+                // Cycle detection
+                if (in_array($currentId, $visited)) {
+                    error_log("ZoneFile getRecursiveTree: Cycle detected at zone ID $currentId");
+                    continue;
+                }
+                $visited[] = $currentId;
+                
+                // Get current zone data
+                $zone = $this->getById($currentId);
+                if (!$zone) {
+                    error_log("ZoneFile getRecursiveTree: Zone not found (ID: $currentId)");
+                    continue;
+                }
+                
+                // Add to results
+                $results[] = $zone;
+                
+                // Stop if we've reached the limit
+                if ($limit !== null && count($results) >= $limit) {
+                    break;
+                }
+                
+                // Get includes and add them to the queue
+                $includes = $this->getIncludes($currentId);
+                foreach ($includes as $include) {
+                    if (!in_array($include['id'], $visited)) {
+                        $queue[] = $include['id'];
+                    }
+                }
+            }
+            
+            return $results;
+        } catch (Exception $e) {
+            error_log("ZoneFile getRecursiveTree error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Write history entry for a zone file change
      * 
      * @param int $zone_file_id Zone file ID
