@@ -223,12 +223,13 @@
             console.debug('[API Request] Fetching:', method, url);
             const response = await fetch(url, options);
             
-            // Try to parse JSON, fallback to text for debugging
+            // Read response body once as text, then parse JSON
+            const text = await response.text();
+            
             let data;
             try {
-                data = await response.json();
+                data = JSON.parse(text);
             } catch (jsonError) {
-                const text = await response.text();
                 console.error('[API Error] Failed to parse JSON response:', jsonError);
                 console.error('[API Error] Response status:', response.status, response.statusText);
                 console.error('[API Error] Response body:', text);
@@ -270,11 +271,13 @@
 
             const response = await fetch(url, options);
             
+            // Read response body once as text, then parse JSON
+            const text = await response.text();
+            
             let data;
             try {
-                data = await response.json();
+                data = JSON.parse(text);
             } catch (jsonError) {
-                const text = await response.text();
                 console.error('Failed to parse JSON response:', jsonError);
                 console.error('Response body:', text);
                 throw new Error('Invalid JSON response from API');
