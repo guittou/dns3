@@ -26,11 +26,11 @@
      * Per-type temporary values storage
      */
     let tempRecordValues = {
-        'A': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-        'AAAA': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-        'CNAME': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-        'PTR': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-        'TXT': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' }
+        'A': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'AAAA': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'CNAME': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'PTR': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'TXT': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' }
     };
     
     /**
@@ -1193,7 +1193,7 @@
         
         tempRecordValues[recordType] = {
             name: nameInput ? nameInput.value : '',
-            ttl: ttlInput ? ttlInput.value : 3600,
+            ttl: ttlInput ? ttlInput.value : '',
             value: valueInput ? valueInput.value : '',
             ticket_ref: ticketInput ? ticketInput.value : '',
             requester: requesterInput ? requesterInput.value : '',
@@ -1215,7 +1215,7 @@
         const commentInput = document.getElementById('record-comment');
         
         if (nameInput) nameInput.value = values.name || '';
-        if (ttlInput) ttlInput.value = values.ttl || 3600;
+        if (ttlInput) ttlInput.value = values.ttl || '';
         if (ticketInput) ticketInput.value = values.ticket_ref || '';
         if (requesterInput) requesterInput.value = values.requester || '';
         if (commentInput) commentInput.value = values.comment || '';
@@ -1248,11 +1248,11 @@
      */
     function clearTempStorage() {
         tempRecordValues = {
-            'A': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-            'AAAA': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-            'CNAME': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-            'PTR': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
-            'TXT': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' }
+            'A': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+            'AAAA': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+            'CNAME': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+            'PTR': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+            'TXT': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' }
         };
         currentRecordType = null;
     }
@@ -1262,8 +1262,14 @@
      */
     function generateDnsPreview() {
         const recordType = document.getElementById('record-type').value;
+        
+        // If no record type selected, return empty
+        if (!recordType) {
+            return '';
+        }
+        
         const name = document.getElementById('record-name').value || '@';
-        const ttl = document.getElementById('record-ttl').value || '3600';
+        const ttl = document.getElementById('record-ttl').value || '';
         
         let value = '';
         switch(recordType) {
@@ -1288,12 +1294,13 @@
                 break;
         }
         
-        if (!value) {
-            return '';
-        }
+        // Build preview showing at minimum "name [TTL] IN type [value]"
+        // TTL is optional in display if empty (server will use default)
+        const ttlPart = ttl ? `${ttl}\t` : '';
+        const valuePart = value ? `\t${value}` : '';
         
-        // BIND format: name TTL class type value
-        return `${name}\t${ttl}\tIN\t${recordType}\t${value}`;
+        // BIND format: name [TTL] class type [value]
+        return `${name}\t${ttlPart}IN\t${recordType}${valuePart}`;
     }
 
     /**
@@ -1671,7 +1678,7 @@
             zone_file_id: parseInt(zoneFileId),
             record_type: recordType,
             name: document.getElementById('record-name').value,
-            ttl: parseInt(document.getElementById('record-ttl').value),
+            ttl: parseInt(document.getElementById('record-ttl').value) || 3600,
             requester: document.getElementById('record-requester').value || null,
             ticket_ref: document.getElementById('record-ticket-ref').value || null,
             comment: document.getElementById('record-comment').value || null
