@@ -28,10 +28,10 @@ $options = getopt("", [
     "batch-size::"
 ]);
 
-$mastersCount = isset($options['masters']) ? max(1, (int)$options['masters']) : 30;
+$mastersCount = isset($options['masters']) ? max(1, (int)$options['masters']) : 10;
 $includesPerMaster = isset($options['includes-per-master']) ? max(0, (int)$options['includes-per-master']) : 100;
 $nestedLevels = isset($options['nested-levels']) ? max(0, (int)$options['nested-levels']) : 3; // levels to add under each include
-$recordsPerInclude = isset($options['records-per-include']) ? max(0, (int)$options['records-per-include']) : 20;
+$recordsPerInclude = isset($options['records-per-include']) ? max(0, (int)$options['records-per-include']) : 5;
 $userId = isset($options['user']) ? (int)$options['user'] : 1;
 $batchSize = isset($options['batch-size']) ? max(1, (int)$options['batch-size']) : 500;
 
