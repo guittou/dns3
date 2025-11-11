@@ -74,7 +74,7 @@ if (!$auth->isAdmin()) {
                 <option value="">Tous les statuts</option>
             </select>
         </div>
-        <button id="dns-create-btn" class="btn-create" disabled>+ Créer un enregistrement</button>
+        <button id="dns-create-btn" class="btn-create" disabled>+ Ajouter un enregistrement</button>
     </div>
 
     <div class="dns-table-container">
@@ -108,96 +108,101 @@ if (!$auth->isAdmin()) {
     <div class="dns-modal-content">
         <div class="dns-modal-header">
             <div class="dns-modal-title-wrapper">
-                <h2 id="dns-modal-title">Créer un enregistrement DNS</h2>
+                <h2 id="dns-modal-title">Ajouter un enregistrement DNS</h2>
                 <div id="dns-modal-domain" class="dns-modal-domain" style="display:none;"></div>
             </div>
             <button id="dns-modal-close" class="dns-modal-close">&times;</button>
         </div>
         <div class="dns-modal-body">
-            <form id="dns-form">
-                <!-- Two-column layout for main fields -->
-                <div class="modal-two-columns">
-                    <!-- Left column: Zone selector, Name, TTL, Type, IP Address field -->
-                    <div class="modal-column-left">
-                        <div class="form-group">
-                            <label for="record-zone-file">Fichier de zone *</label>
-                            <select id="record-zone-file" name="zone_file_id" required>
-                                <option value="">Sélectionner une zone...</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="record-name">Nom *</label>
-                            <input type="text" id="record-name" name="name" required placeholder="example.com">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="record-ttl">TTL (secondes)</label>
-                            <input type="number" id="record-ttl" name="ttl" value="3600" min="60">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="record-type">Type d'enregistrement *</label>
-                            <select id="record-type" name="record_type" required>
-                                <option value="A">A - Adresse IPv4</option>
-                                <option value="AAAA">AAAA - Adresse IPv6</option>
-                                <option value="CNAME">CNAME - Alias canonique</option>
-                                <option value="PTR">PTR - Pointeur</option>
-                                <option value="TXT">TXT - Texte</option>
-                            </select>
-                        </div>
-
-                        <!-- Type-specific value fields -->
-                        <div class="form-group" id="record-address-ipv4-group" style="display: none;">
-                            <label for="record-address-ipv4">Adresse IPv4 *</label>
-                            <input type="text" id="record-address-ipv4" name="address_ipv4" placeholder="192.168.1.1">
-                        </div>
-
-                        <div class="form-group" id="record-address-ipv6-group" style="display: none;">
-                            <label for="record-address-ipv6">Adresse IPv6 *</label>
-                            <input type="text" id="record-address-ipv6" name="address_ipv6" placeholder="2001:0db8:85a3:0000:0000:8a2e:0370:7334">
-                        </div>
-
-                        <div class="form-group" id="record-cname-target-group" style="display: none;">
-                            <label for="record-cname-target">Cible CNAME *</label>
-                            <input type="text" id="record-cname-target" name="cname_target" placeholder="target.example.com">
-                        </div>
-
-                        <div class="form-group" id="record-ptrdname-group" style="display: none;">
-                            <label for="record-ptrdname">Nom PTR (inversé) *</label>
-                            <input type="text" id="record-ptrdname" name="ptrdname" placeholder="1.1.168.192.in-addr.arpa">
-                        </div>
-
-                        <div class="form-group" id="record-txt-group" style="display: none;">
-                            <label for="record-txt">Texte *</label>
-                            <textarea id="record-txt" name="txt" rows="3" placeholder="Contenu du champ TXT..."></textarea>
-                        </div>
+            <!-- Type Selection View (Step 1) -->
+            <div id="type-selection-view" class="type-selection-view" style="display: none;">
+                <p style="margin-bottom: 1rem; text-align: center; color: #555;">Sélectionnez le type d'enregistrement DNS à créer :</p>
+                <div class="type-buttons-container">
+                    <button type="button" class="type-button" data-type="A" aria-label="Créer un enregistrement de type A">A</button>
+                    <button type="button" class="type-button" data-type="AAAA" aria-label="Créer un enregistrement de type AAAA">AAAA</button>
+                    <button type="button" class="type-button" data-type="CNAME" aria-label="Créer un enregistrement de type CNAME">CNAME</button>
+                    <button type="button" class="type-button" data-type="PTR" aria-label="Créer un enregistrement de type PTR">PTR</button>
+                    <button type="button" class="type-button" data-type="TXT" aria-label="Créer un enregistrement de type TXT">TXT</button>
+                </div>
+            </div>
+            
+            <!-- Form View (Step 2 and Edit mode) -->
+            <form id="dns-form" style="display: block;">
+                <!-- Hidden field for zone file (managed by combobox on page) -->
+                <input type="hidden" id="record-zone-file" name="zone_file_id">
+                
+                <!-- Row 1: Name, TTL, Value (type-specific) -->
+                <div class="form-row form-row-main">
+                    <div class="form-group form-group-inline">
+                        <label for="record-name">Nom *</label>
+                        <input type="text" id="record-name" name="name" required placeholder="example.com">
                     </div>
 
-                    <!-- Right column: Ticket reference, Requester, Expiration date, Comment -->
-                    <div class="modal-column-right modal-side-col">
-                        <div class="form-group">
-                            <label for="record-ticket-ref">Référence ticket</label>
-                            <input type="text" id="record-ticket-ref" name="ticket_ref" placeholder="JIRA-123 ou REF-456">
-                        </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-ttl">TTL *</label>
+                        <input type="number" id="record-ttl" name="ttl" value="3600" min="60" required>
+                    </div>
 
-                        <div class="form-group">
-                            <label for="record-requester">Demandeur</label>
-                            <input type="text" id="record-requester" name="requester" placeholder="Nom de la personne ou du système">
-                        </div>
+                    <!-- Type-specific value fields (only one visible at a time) -->
+                    <div class="form-group form-group-inline" id="record-address-ipv4-group" style="display: none;">
+                        <label for="record-address-ipv4" id="record-address-ipv4-label">Adresse IPv4 *</label>
+                        <input type="text" id="record-address-ipv4" name="address_ipv4" placeholder="192.168.1.1">
+                    </div>
 
-                        <div class="form-group">
-                            <label for="record-expires-at">Date d'expiration</label>
-                            <input type="datetime-local" id="record-expires-at" name="expires_at">
-                        </div>
+                    <div class="form-group form-group-inline" id="record-address-ipv6-group" style="display: none;">
+                        <label for="record-address-ipv6" id="record-address-ipv6-label">Adresse IPv6 *</label>
+                        <input type="text" id="record-address-ipv6" name="address_ipv6" placeholder="2001:0db8:85a3::1">
+                    </div>
 
-                        <div class="form-group modal-side-comment">
-                            <label for="record-comment">Commentaire</label>
-                            <textarea id="record-comment" name="comment" placeholder="Notes additionnelles..."></textarea>
-                        </div>
+                    <div class="form-group form-group-inline" id="record-cname-target-group" style="display: none;">
+                        <label for="record-cname-target" id="record-cname-target-label">Cible *</label>
+                        <input type="text" id="record-cname-target" name="cname_target" placeholder="target.example.com">
+                    </div>
+
+                    <div class="form-group form-group-inline" id="record-ptrdname-group" style="display: none;">
+                        <label for="record-ptrdname" id="record-ptrdname-label">Nom PTR *</label>
+                        <input type="text" id="record-ptrdname" name="ptrdname" placeholder="host.example.com">
+                    </div>
+
+                    <div class="form-group form-group-inline" id="record-txt-group" style="display: none;">
+                        <label for="record-txt" id="record-txt-label">Texte *</label>
+                        <input type="text" id="record-txt" name="txt" placeholder="Texte TXT">
+                    </div>
+                </div>
+                
+                <!-- Row 2: Ticket reference, Requester -->
+                <div class="form-row">
+                    <div class="form-group form-group-inline">
+                        <label for="record-ticket-ref">Référence ticket</label>
+                        <input type="text" id="record-ticket-ref" name="ticket_ref" placeholder="JIRA-123">
+                    </div>
+
+                    <div class="form-group form-group-inline">
+                        <label for="record-requester">Demandeur</label>
+                        <input type="text" id="record-requester" name="requester" placeholder="Nom du demandeur">
+                    </div>
+                </div>
+                
+                <!-- Row 3: Comment -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="record-comment">Commentaire</label>
+                        <textarea id="record-comment" name="comment" rows="2" placeholder="Notes additionnelles..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- Row 4: DNS Preview -->
+                <div class="form-row" id="dns-preview-row">
+                    <div class="form-group">
+                        <label for="dns-preview">Champ DNS actuellement généré</label>
+                        <textarea id="dns-preview" readonly rows="3" placeholder="La prévisualisation apparaîtra ici..." style="font-family: monospace; background-color: #f5f5f5;"></textarea>
                     </div>
                 </div>
 
+                <!-- Hidden fields for backward compatibility and edit mode -->
+                <input type="hidden" id="record-type" name="record_type">
+                <input type="hidden" id="record-expires-at" name="expires_at">
+                
                 <!-- Server-managed field (hidden) -->
                 <div class="form-group" id="record-last-seen-group" style="display: none;">
                     <label for="record-last-seen">Vu pour la dernière fois</label>
@@ -206,6 +211,7 @@ if (!$auth->isAdmin()) {
 
                 <div class="dns-modal-footer">
                     <div class="modal-action-bar">
+                        <button type="button" id="record-previous-btn" class="btn-secondary modal-action-button" style="display: none;">Précédent</button>
                         <button type="submit" id="record-save-btn" class="btn-submit modal-action-button">Enregistrer</button>
                         <button type="button" id="record-cancel-btn" class="btn-cancel modal-action-button" onclick="dnsRecords.closeModal()">Annuler</button>
                         <button type="button" id="record-delete-btn" class="btn-delete modal-action-button" style="display: none;">Supprimer</button>
