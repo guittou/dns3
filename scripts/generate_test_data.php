@@ -25,7 +25,7 @@ require_once __DIR__ . '/../includes/db.php';
 
 $options = getopt("", ["masters::", "records-per-include::", "user::", "batch-size::"]);
 
-$mastersCount = isset($options['masters']) ? max(1, (int)$options['masters']) : 10;
+$mastersCount = isset($options['masters']) ? max(1, (int)$options['masters']) : 1;
 $recordsPerInclude = isset($options['records-per-include']) ? max(0, (int)$options['records-per-include']) : 5;
 $userId = isset($options['user']) ? (int)$options['user'] : 1;
 $batchSize = isset($options['batch-size']) ? max(1, (int)$options['batch-size']) : 500;
