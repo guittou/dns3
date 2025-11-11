@@ -924,7 +924,6 @@
      */
     function fillModalZonefileSelect(zones, preselectedZoneFileId = null) {
         const selectElement = document.getElementById('modal-zonefile-select');
-        const hiddenInput = document.getElementById('dns-zone-file-id');
         
         if (!selectElement) {
             console.warn('Modal zonefile select element not found');
@@ -948,21 +947,16 @@
             
             if (selectedZone) {
                 selectElement.value = selectedZone.id;
-                if (hiddenInput) {
-                    hiddenInput.value = selectedZone.id;
-                }
-                // Also update the legacy record-zone-file field
+                // Update the record-zone-file hidden field
                 const recordZoneFile = document.getElementById('record-zone-file');
                 if (recordZoneFile) {
                     recordZoneFile.value = selectedZone.id;
                 }
             } else {
                 selectElement.value = '';
-                if (hiddenInput) hiddenInput.value = '';
             }
         } else {
             selectElement.value = '';
-            if (hiddenInput) hiddenInput.value = '';
         }
     }
 
@@ -2092,13 +2086,9 @@
         if (modalZonefileSelect) {
             modalZonefileSelect.addEventListener('change', function() {
                 const selectedZoneId = this.value;
-                const hiddenInput = document.getElementById('dns-zone-file-id');
                 const recordZoneFile = document.getElementById('record-zone-file');
                 
-                // Update hidden fields
-                if (hiddenInput) {
-                    hiddenInput.value = selectedZoneId;
-                }
+                // Update the record-zone-file hidden field
                 if (recordZoneFile) {
                     recordZoneFile.value = selectedZoneId;
                 }

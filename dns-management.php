@@ -122,7 +122,6 @@ if (!$auth->isAdmin()) {
             <div class="zonefile-combobox-inner">
                 <label for="modal-zonefile-select" class="zonefile-label">Fichier de zone&nbsp;:</label>
                 <select id="modal-zonefile-select" class="form-control zonefile-select" aria-label="Sélectionner le fichier de zone"></select>
-                <input type="hidden" id="dns-zone-file-id" name="zone_file_id" value="">
             </div>
         </div>
         
