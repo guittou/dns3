@@ -7,7 +7,7 @@
  *   --masters=10 \
  *   --includes-per-master=100 \
  *   --nested-levels=3 \
- *   --records-per-include=50 \
+ *   --records-per-include=5 \
  *   --user=1 \
  *   [--batch-size=500]
  *
