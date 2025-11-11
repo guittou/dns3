@@ -140,7 +140,7 @@ if (!$auth->isAdmin()) {
 
                     <div class="form-group form-group-inline">
                         <label for="record-ttl">TTL *</label>
-                        <input type="number" id="record-ttl" name="ttl" value="3600" min="60" required>
+                        <input type="number" id="record-ttl" name="ttl" placeholder="defaut" min="60" required>
                     </div>
 
                     <!-- Type-specific value fields (only one visible at a time) -->
