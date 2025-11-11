@@ -2823,6 +2823,7 @@
     window.filterSubtreeDefensive = filterSubtreeDefensive;
     window.fillModalZonefileSelectFiltered = fillModalZonefileSelectFiltered;
     window.activateModalSelectGuard = activateModalSelectGuard;
+    window.activateModalComboboxGuard = activateModalComboboxGuard;
     
     // Expose API functions globally for debugging
     window.zoneApiCall = zoneApiCall;
