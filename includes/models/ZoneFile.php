@@ -784,9 +784,10 @@ class ZoneFile {
      * Get includes for a parent zone
      * 
      * @param int $parentId Parent zone file ID
+     * @param int|null $limit Maximum number of includes to return (null = no limit)
      * @return array Array of include zone files
      */
-    public function getIncludes($parentId) {
+    public function getIncludes($parentId, $limit = null) {
         try {
             $sql = "SELECT zf.*, zfi.position
                     FROM zone_files zf
@@ -794,12 +795,39 @@ class ZoneFile {
                     WHERE zfi.parent_id = ? AND zf.status = 'active'
                     ORDER BY zfi.position, zf.name";
             
+            if ($limit !== null && $limit > 0) {
+                $sql .= " LIMIT " . (int)$limit;
+            }
+            
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$parentId]);
             return $stmt->fetchAll();
         } catch (Exception $e) {
             error_log("ZoneFile getIncludes error: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Get count of includes for a parent zone
+     * 
+     * @param int $parentId Parent zone file ID
+     * @return int Count of active includes
+     */
+    public function getIncludesCount($parentId) {
+        try {
+            $sql = "SELECT COUNT(*) as count
+                    FROM zone_files zf
+                    INNER JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                    WHERE zfi.parent_id = ? AND zf.status = 'active'";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$parentId]);
+            $result = $stmt->fetch();
+            return (int)($result['count'] ?? 0);
+        } catch (Exception $e) {
+            error_log("ZoneFile getIncludesCount error: " . $e->getMessage());
+            return 0;
         }
     }
 

@@ -17,6 +17,9 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/ZoneFile.php';
 require_once __DIR__ . '/../includes/lib/DnsValidator.php';
 
+// Constants
+define('MAX_INCLUDES_RETURN', 1000); // Maximum number of includes to return in get_zone to prevent OOM
+
 // Set JSON header
 header('Content-Type: application/json');
 
@@ -107,10 +110,9 @@ try {
             // Get paginated results
             $zones = $zoneFile->search($filters, $per_page, $offset);
             
-            // Add include count to each zone
+            // Add include count to each zone (using COUNT query to prevent OOM)
             foreach ($zones as &$zone) {
-                $includes = $zoneFile->getIncludes($zone['id']);
-                $zone['includes_count'] = count($includes);
+                $zone['includes_count'] = $zoneFile->getIncludesCount($zone['id']);
             }
 
             echo json_encode([
@@ -181,9 +183,10 @@ try {
                 exit;
             }
 
-            // Also get includes if this zone has any (masters and includes can have includes)
-            $includes = [];
-            $includes = $zoneFile->getIncludes($id);
+            // Get includes with limit to prevent OOM
+            $includes_count_total = $zoneFile->getIncludesCount($id);
+            $includes = $zoneFile->getIncludes($id, MAX_INCLUDES_RETURN);
+            $includes_truncated = $includes_count_total > count($includes);
 
             // Also get history
             $history = $zoneFile->getHistory($id);
@@ -192,6 +195,8 @@ try {
                 'success' => true,
                 'data' => $zone,
                 'includes' => $includes,
+                'includes_count_total' => $includes_count_total,
+                'includes_truncated' => $includes_truncated,
                 'history' => $history
             ]);
             break;
