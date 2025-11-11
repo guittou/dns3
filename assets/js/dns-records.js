@@ -849,6 +849,56 @@
     }
 
     /**
+     * Helper function to get master zone ID from any zone ID
+     * Uses cached data (window.ALL_ZONES, window.ZONES_ALL, window.CURRENT_ZONE_LIST) first
+     * Falls back to zone_api get_zone if not in cache
+     * @param {number|string} zoneId - Zone file ID to check
+     * @returns {Promise<number|null>} - Master zone ID or null if not found
+     */
+    async function getMasterIdFromZoneId(zoneId) {
+        if (!zoneId) return null;
+        
+        const zoneIdNum = parseInt(zoneId, 10);
+        if (isNaN(zoneIdNum) || zoneIdNum <= 0) return null;
+        
+        // Try to find zone in cached lists first
+        let zone = null;
+        const cachesToCheck = [
+            window.ALL_ZONES,
+            window.ZONES_ALL,
+            window.CURRENT_ZONE_LIST,
+            allZones
+        ];
+        
+        for (const cache of cachesToCheck) {
+            if (Array.isArray(cache) && cache.length > 0) {
+                zone = cache.find(z => parseInt(z.id, 10) === zoneIdNum);
+                if (zone) break;
+            }
+        }
+        
+        // Fallback: fetch from API
+        if (!zone) {
+            try {
+                const result = await zoneApiCall('get_zone', { id: zoneIdNum });
+                zone = result && result.data ? result.data : null;
+            } catch (e) {
+                console.warn('[getMasterIdFromZoneId] Failed to fetch zone:', e);
+                return null;
+            }
+        }
+        
+        if (!zone) return null;
+        
+        // If it's an include, return parent_id; if master, return its own id
+        if (zone.file_type === 'include' && zone.parent_id) {
+            return parseInt(zone.parent_id, 10);
+        } else {
+            return zoneIdNum;
+        }
+    }
+
+    /**
      * Initialize modal zone file select combobox
      * Robust function that accepts multiple signatures for backward compatibility:
      * - (preselectedZoneFileId, masterId) - preselect a zone and fetch master + includes
@@ -1007,10 +1057,14 @@
             
             if (selectedZone) {
                 selectElement.value = selectedZone.id;
-                // Update the record-zone-file hidden field
+                // Update both the record-zone-file hidden field and dns-zone-file-id
                 const recordZoneFile = document.getElementById('record-zone-file');
                 if (recordZoneFile) {
                     recordZoneFile.value = selectedZone.id;
+                }
+                const dnsZoneFileId = document.getElementById('dns-zone-file-id');
+                if (dnsZoneFileId) {
+                    dnsZoneFileId.value = selectedZone.id;
                 }
             } else {
                 selectElement.value = '';
@@ -1660,8 +1714,16 @@
         // Initialize modal zone file combobox with current zone
         if (typeof initModalZonefileSelect === 'function') {
             try {
-                const domainIdValue = selectedDomainId || (document.getElementById('dns-domain-id') ? document.getElementById('dns-domain-id').value : null);
-                await initModalZonefileSelect(selectedZoneId, domainIdValue);
+                // Compute masterId from selectedZoneId using the helper
+                let masterId = null;
+                if (selectedZoneId) {
+                    masterId = await getMasterIdFromZoneId(selectedZoneId);
+                }
+                
+                // Call initModalZonefileSelect with (masterId, preselectedId)
+                // If selectedZoneId exists, preselect it; otherwise use selectedDomainId as fallback
+                const preselectedId = selectedZoneId || selectedDomainId;
+                await initModalZonefileSelect(preselectedId, masterId);
             } catch (error) {
                 console.error('Error initializing modal zone file select:', error);
             }
@@ -1737,10 +1799,17 @@
             }
             
             // Initialize modal zone file combobox with record's zone
-            // The function will automatically fetch master + includes if the zone is an include
+            // Compute masterId from record.zone_file_id to fetch master + includes
             if (typeof initModalZonefileSelect === 'function') {
                 try {
-                    await initModalZonefileSelect(record.zone_file_id);
+                    // Compute masterId using the helper
+                    let masterId = null;
+                    if (record.zone_file_id) {
+                        masterId = await getMasterIdFromZoneId(record.zone_file_id);
+                    }
+                    
+                    // Call initModalZonefileSelect with (preselectedId, masterId)
+                    await initModalZonefileSelect(record.zone_file_id, masterId);
                 } catch (error) {
                     console.error('Error initializing modal zone file select:', error);
                 }
@@ -2146,10 +2215,14 @@
             modalZonefileSelect.addEventListener('change', function() {
                 const selectedZoneId = this.value;
                 const recordZoneFile = document.getElementById('record-zone-file');
+                const dnsZoneFileId = document.getElementById('dns-zone-file-id');
                 
-                // Update the record-zone-file hidden field
+                // Update both the record-zone-file hidden field and dns-zone-file-id
                 if (recordZoneFile) {
                     recordZoneFile.value = selectedZoneId;
+                }
+                if (dnsZoneFileId) {
+                    dnsZoneFileId.value = selectedZoneId;
                 }
                 
                 // Optionally update domain based on selected zone (if setDomainForZone exists)
@@ -2202,6 +2275,7 @@
     window.populateDomainSelect = populateDomainSelect;
     window.initModalZonefileSelect = initModalZonefileSelect;
     window.fillModalZonefileSelect = fillModalZonefileSelect;
+    window.getMasterIdFromZoneId = getMasterIdFromZoneId;
     
     // Expose API functions globally for debugging
     window.zoneApiCall = zoneApiCall;
