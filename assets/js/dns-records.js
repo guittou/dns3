@@ -728,13 +728,122 @@
     }
 
     /**
-     * Initialize modal zone file select
-     * Note: This function is now a no-op since we're using a simple select element.
-     * The select element is populated dynamically when the modal opens.
-     * Kept for compatibility with existing initialization code.
+     * Initialize modal zone file combobox
+     * Sets up event handlers for autocomplete behavior matching page-main comboboxes
      */
     async function initModalZoneCombobox() {
-        // No initialization needed for select element
+        const inputElement = document.getElementById('modal-zonefile-input');
+        const hiddenElement = document.getElementById('modal-zonefile-id');
+        const listElement = document.getElementById('modal-zonefile-list');
+        
+        if (!inputElement || !hiddenElement || !listElement) {
+            console.warn('[initModalZoneCombobox] Modal combobox elements not found');
+            return;
+        }
+        
+        // Input event - filter zones and show list
+        inputElement.addEventListener('input', () => {
+            const query = inputElement.value.toLowerCase().trim();
+            const allZonesJson = inputElement.dataset.allZones || '[]';
+            let zones = [];
+            
+            try {
+                zones = JSON.parse(allZonesJson);
+            } catch (e) {
+                console.error('[initModalZoneCombobox] Failed to parse zones:', e);
+                return;
+            }
+            
+            // Filter zones by query
+            const filtered = zones.filter(z => 
+                z.name.toLowerCase().includes(query) || 
+                z.filename?.toLowerCase().includes(query) ||
+                (z.file_type && z.file_type.toLowerCase().includes(query))
+            );
+            
+            // Populate the list
+            populateComboboxList(listElement, filtered, (zone) => ({
+                id: zone.id,
+                text: `${zone.name} (${zone.file_type})`
+            }), (zone) => {
+                // On selection
+                inputElement.value = `${zone.name} (${zone.file_type})`;
+                hiddenElement.value = zone.id;
+                listElement.style.display = 'none';
+                
+                // Update hidden fields
+                const recordZoneFile = document.getElementById('record-zone-file');
+                if (recordZoneFile) {
+                    recordZoneFile.value = zone.id;
+                }
+                const dnsZoneFileId = document.getElementById('dns-zone-file-id');
+                if (dnsZoneFileId) {
+                    dnsZoneFileId.value = zone.id;
+                }
+                
+                // Update domain if setDomainForZone exists
+                if (typeof setDomainForZone === 'function') {
+                    setDomainForZone(zone.id).catch(err => {
+                        console.error('[initModalZoneCombobox] Error setting domain for zone:', err);
+                    });
+                }
+            });
+        });
+        
+        // Focus - show all zones
+        inputElement.addEventListener('focus', () => {
+            const allZonesJson = inputElement.dataset.allZones || '[]';
+            let zones = [];
+            
+            try {
+                zones = JSON.parse(allZonesJson);
+            } catch (e) {
+                console.error('[initModalZoneCombobox] Failed to parse zones:', e);
+                return;
+            }
+            
+            populateComboboxList(listElement, zones, (zone) => ({
+                id: zone.id,
+                text: `${zone.name} (${zone.file_type})`
+            }), (zone) => {
+                // On selection
+                inputElement.value = `${zone.name} (${zone.file_type})`;
+                hiddenElement.value = zone.id;
+                listElement.style.display = 'none';
+                
+                // Update hidden fields
+                const recordZoneFile = document.getElementById('record-zone-file');
+                if (recordZoneFile) {
+                    recordZoneFile.value = zone.id;
+                }
+                const dnsZoneFileId = document.getElementById('dns-zone-file-id');
+                if (dnsZoneFileId) {
+                    dnsZoneFileId.value = zone.id;
+                }
+                
+                // Update domain if setDomainForZone exists
+                if (typeof setDomainForZone === 'function') {
+                    setDomainForZone(zone.id).catch(err => {
+                        console.error('[initModalZoneCombobox] Error setting domain for zone:', err);
+                    });
+                }
+            });
+        });
+        
+        // Blur - hide list (with delay to allow click)
+        inputElement.addEventListener('blur', () => {
+            setTimeout(() => {
+                listElement.style.display = 'none';
+            }, COMBOBOX_BLUR_DELAY);
+        });
+        
+        // Escape key - close list
+        inputElement.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                listElement.style.display = 'none';
+                inputElement.blur();
+            }
+        });
     }
 
     /**
@@ -1079,29 +1188,31 @@
     }
 
     /**
-     * Fill modal zone file select with filtered zones
+     * Fill modal zone file combobox with filtered zones
      * Replaces existing logic with reliable behavior:
      * - Fetches zones via fetchZonesForMaster when masterId present
      * - Falls back to CURRENT_ZONE_LIST/ALL_ZONES/API list_zones status=active
      * - Applies defensive subtree filtering
-     * - Populates #modal-zonefile-select and handles change events
+     * - Populates #modal-zonefile-input combobox and handles events
      * - Idempotent and error-tolerant
      * 
      * @param {number|string|null} masterId - Master zone ID to fetch tree for
      * @param {number|string|null} preselectedId - Zone ID to preselect
      */
     async function fillModalZonefileSelectFiltered(masterId, preselectedId = null) {
-        const selectElement = document.getElementById('modal-zonefile-select');
+        const inputElement = document.getElementById('modal-zonefile-input');
+        const hiddenElement = document.getElementById('modal-zonefile-id');
+        const listElement = document.getElementById('modal-zonefile-list');
         
-        if (!selectElement) {
-            console.warn('[fillModalZonefileSelectFiltered] Modal zonefile select element not found');
+        if (!inputElement || !hiddenElement || !listElement) {
+            console.warn('[fillModalZonefileSelectFiltered] Modal zonefile combobox elements not found');
             return;
         }
         
         console.debug('[fillModalZonefileSelectFiltered] Called with masterId:', masterId, 'preselectedId:', preselectedId);
         
-        // Disable select during loading
-        selectElement.disabled = true;
+        // Disable input during loading
+        inputElement.disabled = true;
         
         try {
             let zones = [];
@@ -1172,25 +1283,19 @@
                 }
             }
             
-            // Step 5: Populate the select element
-            selectElement.innerHTML = '<option value="">Sélectionner une zone...</option>';
+            // Store zones in a data attribute for filtering
+            inputElement.dataset.allZones = JSON.stringify(zones);
             
-            zones.forEach(zone => {
-                const option = document.createElement('option');
-                option.value = zone.id;
-                option.textContent = `${zone.name} (${zone.file_type})`;
-                selectElement.appendChild(option);
-            });
+            console.debug('[fillModalZonefileSelectFiltered] Stored', zones.length, 'zones for filtering');
             
-            console.debug('[fillModalZonefileSelectFiltered] Populated select with', zones.length, 'zones');
-            
-            // Step 6: Set preselected value
+            // Step 5: Set preselected value
             if (preselectedId) {
                 const preselectedIdNum = parseInt(preselectedId, 10);
                 const selectedZone = zones.find(z => parseInt(z.id, 10) === preselectedIdNum);
                 
                 if (selectedZone) {
-                    selectElement.value = selectedZone.id;
+                    inputElement.value = `${selectedZone.name} (${selectedZone.file_type})`;
+                    hiddenElement.value = selectedZone.id;
                     
                     // Update hidden fields
                     const recordZoneFile = document.getElementById('record-zone-file');
@@ -1204,49 +1309,26 @@
                     
                     console.debug('[fillModalZonefileSelectFiltered] Preselected zone:', selectedZone.name);
                 } else {
-                    selectElement.value = '';
+                    inputElement.value = '';
+                    hiddenElement.value = '';
                     console.warn('[fillModalZonefileSelectFiltered] Preselected zone not found after fetch attempt');
                 }
             } else {
-                selectElement.value = '';
-            }
-            
-            // Step 7: Setup change handler if not already set
-            if (!selectElement.dataset.handlerSet) {
-                selectElement.addEventListener('change', function() {
-                    const selectedZoneId = this.value;
-                    const recordZoneFile = document.getElementById('record-zone-file');
-                    const dnsZoneFileId = document.getElementById('dns-zone-file-id');
-                    
-                    // Update hidden fields
-                    if (recordZoneFile) {
-                        recordZoneFile.value = selectedZoneId;
-                    }
-                    if (dnsZoneFileId) {
-                        dnsZoneFileId.value = selectedZoneId;
-                    }
-                    
-                    // Update domain if setDomainForZone exists
-                    if (selectedZoneId && typeof setDomainForZone === 'function') {
-                        setDomainForZone(selectedZoneId).catch(err => {
-                            console.error('[fillModalZonefileSelectFiltered] Error setting domain for zone:', err);
-                        });
-                    }
-                });
-                selectElement.dataset.handlerSet = 'true';
+                inputElement.value = '';
+                hiddenElement.value = '';
             }
             
             // Activate guard to protect against overwrites
-            if (typeof activateModalSelectGuard === 'function') {
-                activateModalSelectGuard();
+            if (typeof activateModalComboboxGuard === 'function') {
+                activateModalComboboxGuard();
             }
             
         } catch (error) {
             console.error('[fillModalZonefileSelectFiltered] Error:', error);
             // Don't block modal, just show error in console
         } finally {
-            // Re-enable select
-            selectElement.disabled = false;
+            // Re-enable input
+            inputElement.disabled = false;
         }
     }
 
@@ -1380,27 +1462,21 @@
     }
 
     /**
-     * Fill modal zone file select with zones
+     * Fill modal zone file combobox with zones
      * @param {Array} zones - Array of zone objects
      * @param {number|string|null} preselectedZoneFileId - Zone file ID to preselect
      */
     function fillModalZonefileSelect(zones, preselectedZoneFileId = null) {
-        const selectElement = document.getElementById('modal-zonefile-select');
+        const inputElement = document.getElementById('modal-zonefile-input');
+        const hiddenElement = document.getElementById('modal-zonefile-id');
         
-        if (!selectElement) {
-            console.warn('Modal zonefile select element not found');
+        if (!inputElement || !hiddenElement) {
+            console.warn('Modal zonefile combobox elements not found');
             return;
         }
         
-        // Clear and populate the select
-        selectElement.innerHTML = '<option value="">Sélectionner une zone...</option>';
-        
-        zones.forEach(zone => {
-            const option = document.createElement('option');
-            option.value = zone.id;
-            option.textContent = `${zone.name} (${zone.file_type})`;
-            selectElement.appendChild(option);
-        });
+        // Store zones in data attribute for filtering
+        inputElement.dataset.allZones = JSON.stringify(zones);
         
         // Set the preselected value if provided
         if (preselectedZoneFileId) {
@@ -1408,7 +1484,9 @@
             const selectedZone = zones.find(z => parseInt(z.id, 10) === zoneIdNum);
             
             if (selectedZone) {
-                selectElement.value = selectedZone.id;
+                inputElement.value = `${selectedZone.name} (${selectedZone.file_type})`;
+                hiddenElement.value = selectedZone.id;
+                
                 // Update both the record-zone-file hidden field and dns-zone-file-id
                 const recordZoneFile = document.getElementById('record-zone-file');
                 if (recordZoneFile) {
@@ -1419,10 +1497,12 @@
                     dnsZoneFileId.value = selectedZone.id;
                 }
             } else {
-                selectElement.value = '';
+                inputElement.value = '';
+                hiddenElement.value = '';
             }
         } else {
-            selectElement.value = '';
+            inputElement.value = '';
+            hiddenElement.value = '';
         }
     }
 
@@ -2551,6 +2631,63 @@
             modalSelectLastSnapshot = null;
         }, 800);
     }
+    
+    /**
+     * Guard function for modal combobox (replaces activateModalSelectGuard for combobox)
+     * Monitors the combobox for unexpected changes within 800ms after initialization
+     */
+    let modalComboboxGuardTimeout = null;
+    let modalComboboxLastSnapshot = null;
+    
+    function activateModalComboboxGuard() {
+        const inputElement = document.getElementById('modal-zonefile-input');
+        const hiddenElement = document.getElementById('modal-zonefile-id');
+        
+        if (!inputElement || !hiddenElement) return;
+        
+        // Clear any existing guard
+        if (modalComboboxGuardTimeout) {
+            clearTimeout(modalComboboxGuardTimeout);
+            modalComboboxGuardTimeout = null;
+        }
+        
+        // Take snapshot of current state
+        modalComboboxLastSnapshot = {
+            inputValue: inputElement.value,
+            hiddenValue: hiddenElement.value,
+            allZones: inputElement.dataset.allZones || '',
+            timestamp: Date.now()
+        };
+        
+        console.debug('[modalComboboxGuard] Activated, snapshot taken');
+        
+        // Set timeout to check after 800ms
+        modalComboboxGuardTimeout = setTimeout(() => {
+            if (!modalComboboxLastSnapshot) return;
+            
+            const currentInputValue = inputElement.value;
+            const currentHiddenValue = hiddenElement.value;
+            const currentAllZones = inputElement.dataset.allZones || '';
+            
+            // Check if combobox was unexpectedly modified
+            if (currentInputValue !== modalComboboxLastSnapshot.inputValue || 
+                currentHiddenValue !== modalComboboxLastSnapshot.hiddenValue ||
+                currentAllZones !== modalComboboxLastSnapshot.allZones) {
+                console.warn('[modalComboboxGuard] Modal combobox was overwritten, restoring...');
+                
+                // Restore snapshot
+                inputElement.value = modalComboboxLastSnapshot.inputValue;
+                hiddenElement.value = modalComboboxLastSnapshot.hiddenValue;
+                inputElement.dataset.allZones = modalComboboxLastSnapshot.allZones;
+            } else {
+                console.debug('[modalComboboxGuard] Combobox unchanged, guard deactivated');
+            }
+            
+            // Clear guard
+            modalComboboxGuardTimeout = null;
+            modalComboboxLastSnapshot = null;
+        }, 800);
+    }
 
     /**
      * Initialize event listeners
@@ -2636,31 +2773,6 @@
         
         // Initialize preview listeners
         initPreviewListeners();
-        
-        // Modal zone file select change listener
-        const modalZonefileSelect = document.getElementById('modal-zonefile-select');
-        if (modalZonefileSelect) {
-            modalZonefileSelect.addEventListener('change', function() {
-                const selectedZoneId = this.value;
-                const recordZoneFile = document.getElementById('record-zone-file');
-                const dnsZoneFileId = document.getElementById('dns-zone-file-id');
-                
-                // Update both the record-zone-file hidden field and dns-zone-file-id
-                if (recordZoneFile) {
-                    recordZoneFile.value = selectedZoneId;
-                }
-                if (dnsZoneFileId) {
-                    dnsZoneFileId.value = selectedZoneId;
-                }
-                
-                // Optionally update domain based on selected zone (if setDomainForZone exists)
-                if (selectedZoneId && typeof setDomainForZone === 'function') {
-                    setDomainForZone(selectedZoneId).catch(err => {
-                        console.error('Error setting domain for zone:', err);
-                    });
-                }
-            });
-        }
 
         // Initial load
         const tableBody = document.getElementById('dns-table-body');
