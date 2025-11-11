@@ -1152,6 +1152,9 @@
         // Update field visibility for the selected type
         updateFieldVisibility();
         
+        // Update DNS preview immediately to show at minimum "IN" format
+        updateDnsPreview();
+        
         // Focus first input
         const nameInput = document.getElementById('record-name');
         if (nameInput) {
@@ -1620,6 +1623,9 @@
 
             // Update field visibility based on record type
             updateFieldVisibility();
+
+            // Update DNS preview immediately with loaded record data
+            updateDnsPreview();
 
             // Show and bind delete button for edit mode
             const deleteBtn = document.getElementById('record-delete-btn');
