@@ -849,6 +849,124 @@
     }
 
     /**
+     * Initialize modal zone file select combobox
+     * @param {number|string|null} preselectedZoneFileId - Zone file ID to preselect
+     * @param {number|string|null} domainIdOrName - Optional domain ID or name to filter zones
+     */
+    async function initModalZonefileSelect(preselectedZoneFileId = null, domainIdOrName = null) {
+        try {
+            // Get zones list (use CURRENT_ZONE_LIST if available, otherwise fetch)
+            let zones = [];
+            
+            if (domainIdOrName) {
+                // Try to use CURRENT_ZONE_LIST if it's already populated for this domain
+                if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
+                    zones = window.CURRENT_ZONE_LIST;
+                } else {
+                    // Fallback: fetch zones for this domain
+                    try {
+                        const res = await apiCall('list_zones_by_domain', { domain_id: domainIdOrName });
+                        zones = (res && res.data ? res.data : []);
+                    } catch (e) {
+                        console.warn('Failed to fetch zones by domain, falling back to all zones:', e);
+                        // Fallback to all zones
+                        const res = await zoneApiCall('list_zones', { status: 'active' });
+                        zones = (res && res.data ? res.data : []);
+                    }
+                }
+            } else {
+                // No domain specified, try to use existing zone list or fetch all
+                if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
+                    zones = window.CURRENT_ZONE_LIST;
+                } else if (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length > 0) {
+                    zones = window.ALL_ZONES;
+                } else {
+                    const res = await zoneApiCall('list_zones', { status: 'active' });
+                    zones = (res && res.data ? res.data : []);
+                }
+            }
+            
+            // Filter to only master and include types
+            zones = zones.filter(z => z.file_type === 'master' || z.file_type === 'include');
+            
+            // If preselected zone is not in the list, fetch it specifically
+            if (preselectedZoneFileId) {
+                const zoneIdNum = parseInt(preselectedZoneFileId, 10);
+                if (!isNaN(zoneIdNum) && zoneIdNum > 0) {
+                    const zoneExists = zones.some(z => parseInt(z.id, 10) === zoneIdNum);
+                    
+                    if (!zoneExists) {
+                        try {
+                            const specificZoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
+                            if (specificZoneResult && specificZoneResult.data) {
+                                zones.push(specificZoneResult.data);
+                            }
+                        } catch (fetchError) {
+                            console.warn('Failed to fetch specific zone:', fetchError);
+                        }
+                    }
+                }
+            }
+            
+            // Fill the select with zones
+            fillModalZonefileSelect(zones, preselectedZoneFileId);
+            
+        } catch (error) {
+            console.error('Error initializing modal zonefile select:', error);
+            // Don't block modal opening, just log the error
+        }
+    }
+
+    /**
+     * Fill modal zone file select with zones
+     * @param {Array} zones - Array of zone objects
+     * @param {number|string|null} preselectedZoneFileId - Zone file ID to preselect
+     */
+    function fillModalZonefileSelect(zones, preselectedZoneFileId = null) {
+        const selectElement = document.getElementById('modal-zonefile-select');
+        const hiddenInput = document.getElementById('dns-zone-file-id');
+        
+        if (!selectElement) {
+            console.warn('Modal zonefile select element not found');
+            return;
+        }
+        
+        // Clear and populate the select
+        selectElement.innerHTML = '<option value="">Sélectionner une zone...</option>';
+        
+        zones.forEach(zone => {
+            const option = document.createElement('option');
+            option.value = zone.id;
+            option.textContent = `${zone.name} (${zone.file_type})`;
+            selectElement.appendChild(option);
+        });
+        
+        // Set the preselected value if provided
+        if (preselectedZoneFileId) {
+            const zoneIdNum = parseInt(preselectedZoneFileId, 10);
+            const selectedZone = zones.find(z => parseInt(z.id, 10) === zoneIdNum);
+            
+            if (selectedZone) {
+                selectElement.value = selectedZone.id;
+                if (hiddenInput) {
+                    hiddenInput.value = selectedZone.id;
+                }
+                // Also update the legacy record-zone-file field
+                const recordZoneFile = document.getElementById('record-zone-file');
+                if (recordZoneFile) {
+                    recordZoneFile.value = selectedZone.id;
+                }
+            } else {
+                selectElement.value = '';
+                if (hiddenInput) hiddenInput.value = '';
+            }
+        } else {
+            selectElement.value = '';
+            if (hiddenInput) hiddenInput.value = '';
+        }
+    }
+
+    /**
      * Load available domains for domain filter
      */
     async function populateDomainSelect() {
@@ -1485,6 +1603,16 @@
             zoneFileInput.value = selectedZoneId;
         }
         
+        // Initialize modal zone file combobox with current zone
+        if (typeof initModalZonefileSelect === 'function') {
+            try {
+                const domainIdValue = selectedDomainId || (document.getElementById('dns-domain-id') ? document.getElementById('dns-domain-id').value : null);
+                await initModalZonefileSelect(selectedZoneId, domainIdValue);
+            } catch (error) {
+                console.error('Error initializing modal zone file select:', error);
+            }
+        }
+        
         // Clear temp storage
         clearTempStorage();
         
@@ -1552,6 +1680,17 @@
             const zoneFileInput = document.getElementById('record-zone-file');
             if (zoneFileInput && record.zone_file_id) {
                 zoneFileInput.value = record.zone_file_id;
+            }
+            
+            // Initialize modal zone file combobox with record's zone
+            if (typeof initModalZonefileSelect === 'function') {
+                try {
+                    // Get domain from record if available
+                    const domainIdValue = record.domain_id || null;
+                    await initModalZonefileSelect(record.zone_file_id, domainIdValue);
+                } catch (error) {
+                    console.error('Error initializing modal zone file select:', error);
+                }
             }
 
             document.getElementById('record-type').value = record.record_type;
@@ -1947,6 +2086,31 @@
         
         // Initialize preview listeners
         initPreviewListeners();
+        
+        // Modal zone file select change listener
+        const modalZonefileSelect = document.getElementById('modal-zonefile-select');
+        if (modalZonefileSelect) {
+            modalZonefileSelect.addEventListener('change', function() {
+                const selectedZoneId = this.value;
+                const hiddenInput = document.getElementById('dns-zone-file-id');
+                const recordZoneFile = document.getElementById('record-zone-file');
+                
+                // Update hidden fields
+                if (hiddenInput) {
+                    hiddenInput.value = selectedZoneId;
+                }
+                if (recordZoneFile) {
+                    recordZoneFile.value = selectedZoneId;
+                }
+                
+                // Optionally update domain based on selected zone (if setDomainForZone exists)
+                if (selectedZoneId && typeof setDomainForZone === 'function') {
+                    setDomainForZone(selectedZoneId).catch(err => {
+                        console.error('Error setting domain for zone:', err);
+                    });
+                }
+            });
+        }
 
         // Initial load
         const tableBody = document.getElementById('dns-table-body');
@@ -1987,6 +2151,8 @@
     window.populateZoneFileCombobox = populateZoneFileCombobox;
     window.populateZoneComboboxForDomain = populateZoneComboboxForDomain;
     window.populateDomainSelect = populateDomainSelect;
+    window.initModalZonefileSelect = initModalZonefileSelect;
+    window.fillModalZonefileSelect = fillModalZonefileSelect;
 
     // Initialize on DOM ready
     if (document.readyState === 'loading') {
