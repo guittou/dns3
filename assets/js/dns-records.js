@@ -18,6 +18,27 @@
     const AUTOFILL_TRANSITION_DURATION = 220; // Duration in ms for autofill highlight transition
 
     /**
+     * Modal state: 'choose-type' or 'fill-fields'
+     */
+    let modalState = 'choose-type';
+    
+    /**
+     * Per-type temporary values storage
+     */
+    let tempRecordValues = {
+        'A': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+        'AAAA': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+        'CNAME': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+        'PTR': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+        'TXT': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' }
+    };
+    
+    /**
+     * Currently selected record type (for create flow)
+     */
+    let currentRecordType = null;
+
+    /**
      * Required fields by DNS record type
      */
     const REQUIRED_BY_TYPE = {
@@ -1017,6 +1038,330 @@
     }
 
     /**
+     * Update field visibility based on record type
+     */
+    function updateFieldVisibility() {
+        const recordType = document.getElementById('record-type').value;
+        
+        // Get all dedicated field groups
+        const ipv4Group = document.getElementById('record-address-ipv4-group');
+        const ipv6Group = document.getElementById('record-address-ipv6-group');
+        const cnameGroup = document.getElementById('record-cname-target-group');
+        const ptrGroup = document.getElementById('record-ptrdname-group');
+        const txtGroup = document.getElementById('record-txt-group');
+        
+        // Get all dedicated field inputs
+        const ipv4Input = document.getElementById('record-address-ipv4');
+        const ipv6Input = document.getElementById('record-address-ipv6');
+        const cnameInput = document.getElementById('record-cname-target');
+        const ptrInput = document.getElementById('record-ptrdname');
+        const txtInput = document.getElementById('record-txt');
+        
+        // Hide all dedicated fields first
+        if (ipv4Group) ipv4Group.style.display = 'none';
+        if (ipv6Group) ipv6Group.style.display = 'none';
+        if (cnameGroup) cnameGroup.style.display = 'none';
+        if (ptrGroup) ptrGroup.style.display = 'none';
+        if (txtGroup) txtGroup.style.display = 'none';
+        
+        // Remove required attribute from all
+        if (ipv4Input) ipv4Input.removeAttribute('required');
+        if (ipv6Input) ipv6Input.removeAttribute('required');
+        if (cnameInput) cnameInput.removeAttribute('required');
+        if (ptrInput) ptrInput.removeAttribute('required');
+        if (txtInput) txtInput.removeAttribute('required');
+        
+        // Show and set required for the appropriate field based on record type
+        switch(recordType) {
+            case 'A':
+                if (ipv4Group) ipv4Group.style.display = 'block';
+                if (ipv4Input) ipv4Input.setAttribute('required', 'required');
+                break;
+            case 'AAAA':
+                if (ipv6Group) ipv6Group.style.display = 'block';
+                if (ipv6Input) ipv6Input.setAttribute('required', 'required');
+                break;
+            case 'CNAME':
+                if (cnameGroup) cnameGroup.style.display = 'block';
+                if (cnameInput) cnameInput.setAttribute('required', 'required');
+                break;
+            case 'PTR':
+                if (ptrGroup) ptrGroup.style.display = 'block';
+                if (ptrInput) ptrInput.setAttribute('required', 'required');
+                break;
+            case 'TXT':
+                if (txtGroup) txtGroup.style.display = 'block';
+                if (txtInput) txtInput.setAttribute('required', 'required');
+                break;
+        }
+        
+        // Update preview
+        updateDnsPreview();
+    }
+
+    /**
+     * Show the type selection view (Step 1)
+     */
+    function showTypeSelectionView() {
+        modalState = 'choose-type';
+        
+        const typeView = document.getElementById('type-selection-view');
+        const formView = document.getElementById('dns-form');
+        const saveBtn = document.getElementById('record-save-btn');
+        const previousBtn = document.getElementById('record-previous-btn');
+        const deleteBtn = document.getElementById('record-delete-btn');
+        
+        if (typeView) typeView.style.display = 'block';
+        if (formView) formView.style.display = 'none';
+        if (saveBtn) saveBtn.style.display = 'none';
+        if (previousBtn) previousBtn.style.display = 'none';
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        
+        // Focus first type button
+        const firstTypeBtn = document.querySelector('.type-button');
+        if (firstTypeBtn) {
+            setTimeout(() => firstTypeBtn.focus(), 100);
+        }
+    }
+
+    /**
+     * Show the form view (Step 2)
+     */
+    function showFormView(recordType) {
+        modalState = 'fill-fields';
+        currentRecordType = recordType;
+        
+        const typeView = document.getElementById('type-selection-view');
+        const formView = document.getElementById('dns-form');
+        const saveBtn = document.getElementById('record-save-btn');
+        const previousBtn = document.getElementById('record-previous-btn');
+        const deleteBtn = document.getElementById('record-delete-btn');
+        const recordTypeInput = document.getElementById('record-type');
+        
+        if (typeView) typeView.style.display = 'none';
+        if (formView) formView.style.display = 'block';
+        if (saveBtn) saveBtn.style.display = 'inline-block';
+        if (previousBtn) previousBtn.style.display = 'inline-block';
+        
+        // Set record type
+        if (recordTypeInput) recordTypeInput.value = recordType;
+        
+        // Restore saved values for this type
+        restoreFormValues(recordType);
+        
+        // Update field visibility for the selected type
+        updateFieldVisibility();
+        
+        // Focus first input
+        const nameInput = document.getElementById('record-name');
+        if (nameInput) {
+            setTimeout(() => nameInput.focus(), 100);
+        }
+    }
+
+    /**
+     * Save current form values to temp storage
+     */
+    function saveFormValues(recordType) {
+        if (!recordType || !tempRecordValues[recordType]) return;
+        
+        const nameInput = document.getElementById('record-name');
+        const ttlInput = document.getElementById('record-ttl');
+        const ticketInput = document.getElementById('record-ticket-ref');
+        const requesterInput = document.getElementById('record-requester');
+        const commentInput = document.getElementById('record-comment');
+        
+        // Get value based on record type
+        let valueInput = null;
+        switch(recordType) {
+            case 'A':
+                valueInput = document.getElementById('record-address-ipv4');
+                break;
+            case 'AAAA':
+                valueInput = document.getElementById('record-address-ipv6');
+                break;
+            case 'CNAME':
+                valueInput = document.getElementById('record-cname-target');
+                break;
+            case 'PTR':
+                valueInput = document.getElementById('record-ptrdname');
+                break;
+            case 'TXT':
+                valueInput = document.getElementById('record-txt');
+                break;
+        }
+        
+        tempRecordValues[recordType] = {
+            name: nameInput ? nameInput.value : '',
+            ttl: ttlInput ? ttlInput.value : 3600,
+            value: valueInput ? valueInput.value : '',
+            ticket_ref: ticketInput ? ticketInput.value : '',
+            requester: requesterInput ? requesterInput.value : '',
+            comment: commentInput ? commentInput.value : ''
+        };
+    }
+
+    /**
+     * Restore form values from temp storage
+     */
+    function restoreFormValues(recordType) {
+        if (!recordType || !tempRecordValues[recordType]) return;
+        
+        const values = tempRecordValues[recordType];
+        const nameInput = document.getElementById('record-name');
+        const ttlInput = document.getElementById('record-ttl');
+        const ticketInput = document.getElementById('record-ticket-ref');
+        const requesterInput = document.getElementById('record-requester');
+        const commentInput = document.getElementById('record-comment');
+        
+        if (nameInput) nameInput.value = values.name || '';
+        if (ttlInput) ttlInput.value = values.ttl || 3600;
+        if (ticketInput) ticketInput.value = values.ticket_ref || '';
+        if (requesterInput) requesterInput.value = values.requester || '';
+        if (commentInput) commentInput.value = values.comment || '';
+        
+        // Restore value based on record type
+        let valueInput = null;
+        switch(recordType) {
+            case 'A':
+                valueInput = document.getElementById('record-address-ipv4');
+                break;
+            case 'AAAA':
+                valueInput = document.getElementById('record-address-ipv6');
+                break;
+            case 'CNAME':
+                valueInput = document.getElementById('record-cname-target');
+                break;
+            case 'PTR':
+                valueInput = document.getElementById('record-ptrdname');
+                break;
+            case 'TXT':
+                valueInput = document.getElementById('record-txt');
+                break;
+        }
+        
+        if (valueInput) valueInput.value = values.value || '';
+    }
+
+    /**
+     * Clear temp storage
+     */
+    function clearTempStorage() {
+        tempRecordValues = {
+            'A': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+            'AAAA': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+            'CNAME': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+            'PTR': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' },
+            'TXT': { name: '', ttl: 3600, value: '', ticket_ref: '', requester: '', comment: '' }
+        };
+        currentRecordType = null;
+    }
+
+    /**
+     * Generate BIND-style DNS record preview
+     */
+    function generateDnsPreview() {
+        const recordType = document.getElementById('record-type').value;
+        const name = document.getElementById('record-name').value || '@';
+        const ttl = document.getElementById('record-ttl').value || '3600';
+        
+        let value = '';
+        switch(recordType) {
+            case 'A':
+                value = document.getElementById('record-address-ipv4').value || '';
+                break;
+            case 'AAAA':
+                value = document.getElementById('record-address-ipv6').value || '';
+                break;
+            case 'CNAME':
+                value = document.getElementById('record-cname-target').value || '';
+                break;
+            case 'PTR':
+                value = document.getElementById('record-ptrdname').value || '';
+                break;
+            case 'TXT':
+                value = document.getElementById('record-txt').value || '';
+                // Wrap TXT in quotes if not already
+                if (value && !value.startsWith('"')) {
+                    value = '"' + value + '"';
+                }
+                break;
+        }
+        
+        if (!value) {
+            return '';
+        }
+        
+        // BIND format: name TTL class type value
+        return `${name}\t${ttl}\tIN\t${recordType}\t${value}`;
+    }
+
+    /**
+     * Update the DNS preview textarea
+     */
+    function updateDnsPreview() {
+        const previewTextarea = document.getElementById('dns-preview');
+        if (!previewTextarea) return;
+        
+        const preview = generateDnsPreview();
+        previewTextarea.value = preview;
+    }
+
+    /**
+     * Initialize type button event handlers
+     */
+    function initTypeButtons() {
+        const typeButtons = document.querySelectorAll('.type-button');
+        typeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const recordType = this.dataset.type;
+                if (recordType) {
+                    showFormView(recordType);
+                }
+            });
+        });
+    }
+
+    /**
+     * Initialize previous button
+     */
+    function initPreviousButton() {
+        const previousBtn = document.getElementById('record-previous-btn');
+        if (previousBtn) {
+            previousBtn.addEventListener('click', function() {
+                // Save current form values before going back
+                if (currentRecordType) {
+                    saveFormValues(currentRecordType);
+                }
+                showTypeSelectionView();
+            });
+        }
+    }
+
+    /**
+     * Initialize form field change listeners for preview update
+     */
+    function initPreviewListeners() {
+        const fields = [
+            'record-name',
+            'record-ttl',
+            'record-address-ipv4',
+            'record-address-ipv6',
+            'record-cname-target',
+            'record-ptrdname',
+            'record-txt'
+        ];
+        
+        fields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('input', updateDnsPreview);
+                field.addEventListener('change', updateDnsPreview);
+            }
+        });
+    }
+
+    /**
      * Update form field visibility and required attributes based on record type
      */
     function updateFieldVisibility() {
@@ -1088,8 +1433,8 @@
         
         if (!modal || !form || !title) return;
 
-        // Set fixed title without domain
-        title.textContent = 'Créer un enregistrement DNS';
+        // Set title with new text
+        title.textContent = 'Ajouter un enregistrement DNS';
         
         // Populate domain name from combobox if selected
         if (domainDiv) {
@@ -1124,11 +1469,17 @@
             deleteBtn.style.display = 'none';
         }
         
-        // Load zone files and preselect the selected zone, filtered by domain if selected
-        await populateZoneFileCombobox(selectedZoneId, selectedDomainId);
-
-        // Update field visibility based on default record type
-        updateFieldVisibility();
+        // Set the zone_file_id from the selected zone
+        const zoneFileInput = document.getElementById('record-zone-file');
+        if (zoneFileInput && selectedZoneId) {
+            zoneFileInput.value = selectedZoneId;
+        }
+        
+        // Clear temp storage
+        clearTempStorage();
+        
+        // Show type selection view (Step 1)
+        showTypeSelectionView();
 
         modal.style.display = 'block';
         modal.classList.add('open');
@@ -1143,62 +1494,8 @@
      * Open modal to create a new record
      */
     async function openCreateModal() {
-        const modal = document.getElementById('dns-modal');
-        const form = document.getElementById('dns-form');
-        const title = document.getElementById('dns-modal-title');
-        const lastSeenGroup = document.getElementById('record-last-seen-group');
-        const deleteBtn = document.getElementById('record-delete-btn');
-        const domainDiv = document.getElementById('dns-modal-domain');
-        
-        if (!modal || !form || !title) return;
-
-        title.textContent = 'Créer un enregistrement DNS';
-        form.reset();
-        form.dataset.mode = 'create';
-        delete form.dataset.recordId;
-        
-        // Hide last_seen field for new records (server-managed)
-        if (lastSeenGroup) {
-            lastSeenGroup.style.display = 'none';
-        }
-        
-        // Hide delete button for create mode
-        if (deleteBtn) {
-            deleteBtn.style.display = 'none';
-        }
-        
-        // Populate domain name from combobox if selected
-        if (domainDiv) {
-            try {
-                const domainInput = document.getElementById('dns-domain-input');
-                const domainValue = domainInput ? domainInput.value.trim() : '';
-                
-                if (domainValue) {
-                    domainDiv.textContent = domainValue;
-                    domainDiv.style.display = 'block';
-                } else {
-                    domainDiv.style.display = 'none';
-                }
-            } catch (error) {
-                // Silently handle error, don't block modal opening
-                console.error('Error populating domain in modal:', error);
-                domainDiv.style.display = 'none';
-            }
-        }
-        
-        // Load zone files for combobox (no selection for new records), filtered by domain if selected
-        await populateZoneFileCombobox(null, selectedDomainId);
-
-        // Update field visibility based on default record type
-        updateFieldVisibility();
-
-        modal.style.display = 'block';
-        modal.classList.add('open');
-        
-        // Call centering helper if available
-        if (typeof window.ensureModalCentered === 'function') {
-            window.ensureModalCentered(modal);
-        }
+        // Delegate to prefilled version
+        await openCreateModalPrefilled();
     }
 
     /**
@@ -1217,7 +1514,7 @@
             
             if (!modal || !form || !title) return;
 
-            // Set fixed title without domain
+            // Set title with new text
             title.textContent = 'Modifier l\'enregistrement DNS';
             
             // Populate domain name in separate line - only use record.domain_name (strict)
@@ -1241,8 +1538,11 @@
             form.dataset.mode = 'edit';
             form.dataset.recordId = recordId;
             
-            // Populate zone files combobox and set the selected zone_file_id, filtered by domain if available
-            await populateZoneFileCombobox(record.zone_file_id, record.domain_id);
+            // Set the zone_file_id
+            const zoneFileInput = document.getElementById('record-zone-file');
+            if (zoneFileInput && record.zone_file_id) {
+                zoneFileInput.value = record.zone_file_id;
+            }
 
             document.getElementById('record-type').value = record.record_type;
             document.getElementById('record-name').value = record.name;
@@ -1284,11 +1584,23 @@
                     break;
             }
             
-            // Convert SQL datetime to datetime-local format
-            if (record.expires_at) {
-                document.getElementById('record-expires-at').value = sqlToDatetimeLocal(record.expires_at);
-            } else {
-                document.getElementById('record-expires-at').value = '';
+            // Edit mode: show form directly (skip type selection)
+            const typeView = document.getElementById('type-selection-view');
+            const formView = document.getElementById('dns-form');
+            const saveBtn = document.getElementById('record-save-btn');
+            const previousBtn = document.getElementById('record-previous-btn');
+            
+            if (typeView) typeView.style.display = 'none';
+            if (formView) formView.style.display = 'block';
+            if (saveBtn) saveBtn.style.display = 'inline-block';
+            if (previousBtn) previousBtn.style.display = 'none'; // No previous button in edit mode
+            
+            // Convert SQL datetime to datetime-local format (if expires_at exists)
+            const expiresInput = document.getElementById('record-expires-at');
+            if (record.expires_at && expiresInput) {
+                expiresInput.value = sqlToDatetimeLocal(record.expires_at);
+            } else if (expiresInput) {
+                expiresInput.value = '';
             }
             
             // Show last_seen field (read-only) if it has a value
@@ -1613,6 +1925,15 @@
                 }
             });
         }
+        
+        // Initialize type buttons for two-step modal flow
+        initTypeButtons();
+        
+        // Initialize previous button
+        initPreviousButton();
+        
+        // Initialize preview listeners
+        initPreviewListeners();
 
         // Initial load
         const tableBody = document.getElementById('dns-table-body');

@@ -297,6 +297,79 @@
   }
 }
 
+/* ===== TYPE SELECTION VIEW ===== */
+.type-selection-view {
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.type-buttons-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.type-button {
+  min-width: 80px;
+  padding: 12px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: #3498db;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.type-button:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.type-button:focus {
+  outline: 2px solid #3498db;
+  outline-offset: 2px;
+}
+
+.type-button:active {
+  transform: translateY(0);
+}
+
+/* ===== FORM ROWS LAYOUT ===== */
+.form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-row-main {
+  align-items: flex-end;
+}
+
+.form-group-inline {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-row .form-group:not(.form-group-inline) {
+  flex: 1 1 100%;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .form-group-inline {
+    width: 100%;
+  }
+}
+
 /* ===== MODAL FIXED HEIGHT BEHAVIOR ===== */
 /* Generic fixed modal height using a CSS variable */
 :root {
