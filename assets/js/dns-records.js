@@ -863,15 +863,22 @@
                 if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
                     zones = window.CURRENT_ZONE_LIST;
                 } else {
-                    // Fallback: fetch zones for this domain
+                    // Fallback: fetch zones for this domain/zone
+                    // Try zone_id first (for master + includes), then domain_id for backward compat
                     try {
-                        const res = await apiCall('list_zones_by_domain', { domain_id: domainIdOrName });
+                        const res = await apiCall('list_zones_by_domain', { zone_id: domainIdOrName });
                         zones = (res && res.data ? res.data : []);
                     } catch (e) {
-                        console.warn('Failed to fetch zones by domain, falling back to all zones:', e);
-                        // Fallback to all zones
-                        const res = await zoneApiCall('list_zones', { status: 'active' });
-                        zones = (res && res.data ? res.data : []);
+                        console.warn('Failed to fetch zones by zone_id, trying domain_id:', e);
+                        try {
+                            const res = await apiCall('list_zones_by_domain', { domain_id: domainIdOrName });
+                            zones = (res && res.data ? res.data : []);
+                        } catch (e2) {
+                            console.warn('Failed to fetch zones by domain, falling back to all zones:', e2);
+                            // Fallback to all zones
+                            const res = await zoneApiCall('list_zones', { status: 'active' });
+                            zones = (res && res.data ? res.data : []);
+                        }
                     }
                 }
             } else {
@@ -1679,9 +1686,22 @@
             // Initialize modal zone file combobox with record's zone
             if (typeof initModalZonefileSelect === 'function') {
                 try {
-                    // Get domain from record if available
-                    const domainIdValue = record.domain_id || null;
-                    await initModalZonefileSelect(record.zone_file_id, domainIdValue);
+                    // Fetch zone details to determine if it's an include or master
+                    // This is needed to populate the combobox with master + includes
+                    const zoneResult = await zoneApiCall('get_zone', { id: record.zone_file_id });
+                    const zone = zoneResult && zoneResult.data ? zoneResult.data : null;
+                    
+                    // Determine the master zone id: if this zone is an include, use parent_id, otherwise use the zone id
+                    let masterId;
+                    if (zone && zone.file_type === 'include' && zone.parent_id) {
+                        masterId = parseInt(zone.parent_id, 10);
+                    } else {
+                        masterId = parseInt(record.zone_file_id, 10);
+                    }
+                    
+                    // Populate the modal zonefile select: pass masterId first (to fetch master + includes), 
+                    // then the current zone file id to preselect
+                    await initModalZonefileSelect(record.zone_file_id, masterId);
                 } catch (error) {
                     console.error('Error initializing modal zone file select:', error);
                 }
@@ -2143,6 +2163,10 @@
     window.populateDomainSelect = populateDomainSelect;
     window.initModalZonefileSelect = initModalZonefileSelect;
     window.fillModalZonefileSelect = fillModalZonefileSelect;
+    
+    // Expose API functions globally for debugging
+    window.zoneApiCall = zoneApiCall;
+    window.apiCall = apiCall;
 
     // Initialize on DOM ready
     if (document.readyState === 'loading') {
