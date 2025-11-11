@@ -561,6 +561,7 @@
      * Set domain for a given zone (auto-complete domain based on zone)
      * Now reads from zone_files.domain field directly
      * For include zones, uses parent_domain from get_zone response
+     * Falls back to get_domain_for_zone if parent_domain is empty
      */
     async function setDomainForZone(zoneId) {
         try {
@@ -578,14 +579,26 @@
 
             // Calculate domain based on zone type:
             // - For master zones: use zone.domain (no fallback to zone.name)
-            // - For include zones: use zone.parent_domain (no fallback)
+            // - For include zones: use zone.parent_domain, with fallback to get_domain_for_zone API
             let domainName = '';
             if (zone.file_type === 'master') {
                 // Master zone: use domain field directly (can be empty)
                 domainName = zone.domain || '';
             } else {
-                // Include zone: use parent_domain (can be empty)
+                // Include zone: use parent_domain if available
                 domainName = zone.parent_domain || '';
+                
+                // Fallback: if parent_domain is empty, call get_domain_for_zone endpoint
+                if (!domainName) {
+                    try {
+                        const fallbackRes = await apiCall('get_domain_for_zone', { zone_id: zoneId });
+                        if (fallbackRes && fallbackRes.success && fallbackRes.data && fallbackRes.data.domain) {
+                            domainName = fallbackRes.data.domain;
+                        }
+                    } catch (fallbackError) {
+                        console.warn('Fallback get_domain_for_zone failed:', fallbackError);
+                    }
+                }
             }
 
             const domainInput = document.getElementById('dns-domain-input'); if (domainInput) domainInput.value = domainName;
@@ -620,9 +633,22 @@
                 recordZoneFile.value = zone.id;
             }
 
-            if (domainName && typeof populateZoneComboboxForDomain === 'function') {
-                try { await populateZoneComboboxForDomain(zone.id); } catch (e) {
-                    if (Array.isArray(window.ALL_ZONES)) window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
+            // ALWAYS call populateZoneComboboxForDomain even if domainName is empty
+            // This ensures CURRENT_ZONE_LIST is populated so the zone select shows the zone
+            if (typeof populateZoneComboboxForDomain === 'function') {
+                try { 
+                    await populateZoneComboboxForDomain(zone.id); 
+                } catch (e) {
+                    console.warn('populateZoneComboboxForDomain failed:', e);
+                    // Fallback: filter ALL_ZONES by domain if available
+                    if (Array.isArray(window.ALL_ZONES)) {
+                        if (domainName) {
+                            window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
+                        } else {
+                            // If no domain, at least include the current zone in the list
+                            window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => z.id === zone.id);
+                        }
+                    }
                 }
             }
 
