@@ -16,7 +16,9 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/DnsRecord.php';
 
 // Constants
-define('MAX_ZONE_TRAVERSAL_DEPTH', 100); // Maximum iterations for zone tree traversal to prevent infinite loops
+if (!defined('MAX_ZONE_TRAVERSAL_DEPTH')) {
+    define('MAX_ZONE_TRAVERSAL_DEPTH', 100); // Maximum iterations for zone tree traversal to prevent infinite loops
+}
 
 // Set JSON header
 header('Content-Type: application/json');

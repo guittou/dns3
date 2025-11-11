@@ -8,7 +8,9 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../lib/DnsValidator.php';
 
 // Constants for zone traversal
-define('MAX_ZONE_TRAVERSAL_DEPTH', 100); // Maximum iterations for zone tree traversal to prevent infinite loops
+if (!defined('MAX_ZONE_TRAVERSAL_DEPTH')) {
+    define('MAX_ZONE_TRAVERSAL_DEPTH', 100); // Maximum iterations for zone tree traversal to prevent infinite loops
+}
 
 class DnsRecord {
     private $db;
