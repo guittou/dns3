@@ -63,38 +63,7 @@ try {
             // List zone files with pagination (requires authentication)
             requireAuth();
 
-            $filters = [];
-            
-            // General search parameter 'q' searches both name and filename
-            if (isset($_GET['q']) && $_GET['q'] !== '') {
-                $filters['q'] = $_GET['q'];
-            }
-            
-            // Legacy 'name' filter support
-            if (isset($_GET['name']) && $_GET['name'] !== '') {
-                $filters['name'] = $_GET['name'];
-            }
-            
-            if (isset($_GET['file_type']) && $_GET['file_type'] !== '') {
-                // Validate file_type
-                $allowed_types = ['master', 'include'];
-                if (in_array($_GET['file_type'], $allowed_types)) {
-                    $filters['file_type'] = $_GET['file_type'];
-                }
-            }
-            
-            if (isset($_GET['status']) && $_GET['status'] !== '') {
-                $allowed_statuses = ['active', 'inactive', 'deleted'];
-                if (in_array($_GET['status'], $allowed_statuses)) {
-                    $filters['status'] = $_GET['status'];
-                }
-            }
-            
-            if (isset($_GET['owner']) && $_GET['owner'] !== '') {
-                $filters['owner'] = (int)$_GET['owner'];
-            }
-
-            // Pagination parameters
+            // Pagination parameters (parsed early for use in both paths)
             $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
             $per_page = isset($_GET['per_page']) ? min(100, max(1, (int)$_GET['per_page'])) : 25;
             
@@ -102,27 +71,84 @@ try {
             if (isset($_GET['limit'])) {
                 $per_page = min(100, max(1, (int)$_GET['limit']));
             }
-            $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : ($page - 1) * $per_page;
 
-            // Get total count for pagination
-            $total = $zoneFile->count($filters);
-            
-            // Get paginated results
-            $zones = $zoneFile->search($filters, $per_page, $offset);
-            
-            // Add include count to each zone (using COUNT query to prevent OOM)
-            foreach ($zones as &$zone) {
-                $zone['includes_count'] = $zoneFile->getIncludesCount($zone['id']);
+            // Check if this is a recursive tree request
+            $master_id = isset($_GET['master_id']) ? (int)$_GET['master_id'] : 0;
+            $recursive = isset($_GET['recursive']) && $_GET['recursive'] == '1';
+
+            if ($master_id > 0 && $recursive) {
+                // Return recursive tree: master + all its descendants
+                $zones = $zoneFile->getRecursiveTree($master_id, $per_page);
+                $total = count($zones);
+                
+                // Add include count to each zone (using COUNT query to prevent OOM)
+                foreach ($zones as &$zone) {
+                    $zone['includes_count'] = $zoneFile->getIncludesCount($zone['id']);
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $zones,
+                    'total' => $total,
+                    'page' => 1,  // Always page 1 for recursive tree
+                    'per_page' => $per_page,
+                    'total_pages' => 1  // Always 1 page for recursive tree
+                ]);
+            } else {
+                // Standard list with filters and pagination
+                $filters = [];
+                
+                // General search parameter 'q' searches both name and filename
+                if (isset($_GET['q']) && $_GET['q'] !== '') {
+                    $filters['q'] = $_GET['q'];
+                }
+                
+                // Legacy 'name' filter support
+                if (isset($_GET['name']) && $_GET['name'] !== '') {
+                    $filters['name'] = $_GET['name'];
+                }
+                
+                if (isset($_GET['file_type']) && $_GET['file_type'] !== '') {
+                    // Validate file_type
+                    $allowed_types = ['master', 'include'];
+                    if (in_array($_GET['file_type'], $allowed_types)) {
+                        $filters['file_type'] = $_GET['file_type'];
+                    }
+                }
+                
+                if (isset($_GET['status']) && $_GET['status'] !== '') {
+                    $allowed_statuses = ['active', 'inactive', 'deleted'];
+                    if (in_array($_GET['status'], $allowed_statuses)) {
+                        $filters['status'] = $_GET['status'];
+                    }
+                }
+                
+                if (isset($_GET['owner']) && $_GET['owner'] !== '') {
+                    $filters['owner'] = (int)$_GET['owner'];
+                }
+
+                $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : ($page - 1) * $per_page;
+
+                // Get total count for pagination
+                $total = $zoneFile->count($filters);
+                
+                // Get paginated results
+                $zones = $zoneFile->search($filters, $per_page, $offset);
+                
+                // Add include count to each zone (using COUNT query to prevent OOM)
+                foreach ($zones as &$zone) {
+                    $zone['includes_count'] = $zoneFile->getIncludesCount($zone['id']);
+                }
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $zones,
+                    'total' => $total,
+                    'page' => $page,
+                    'per_page' => $per_page,
+                    'total_pages' => ceil($total / $per_page)
+                ]);
             }
-
-            echo json_encode([
-                'success' => true,
-                'data' => $zones,
-                'total' => $total,
-                'page' => $page,
-                'per_page' => $per_page,
-                'total_pages' => ceil($total / $per_page)
-            ]);
             break;
 
         case 'search_zones':
