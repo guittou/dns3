@@ -26,6 +26,34 @@ const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on b
 const API_BASE = window.API_BASE || '/api/zone_api.php';
 
 /**
+ * Ensure zones cache is populated
+ * Checks window.ZONES_ALL first, falls back to window.ALL_ZONES, then fetches from API if needed
+ * @returns {Promise<Array>} - Array of zones
+ */
+async function ensureZonesCache() {
+    try {
+        if (Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length) {
+            return window.ZONES_ALL;
+        }
+        if (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length) {
+            window.ZONES_ALL = window.ALL_ZONES;
+            return window.ZONES_ALL;
+        }
+        const res = await zoneApiCall('list_zones', { params: { status: 'active', per_page: 1000 } });
+        const zones = (res && res.data) ? res.data : [];
+        window.ZONES_ALL = zones;
+        if (!Array.isArray(window.ALL_ZONES) || !window.ALL_ZONES.length) {
+            window.ALL_ZONES = zones;
+        }
+        return zones;
+    } catch (e) {
+        console.warn('ensureZonesCache() failed to load zones:', e);
+        window.ZONES_ALL = window.ZONES_ALL || [];
+        return window.ZONES_ALL;
+    }
+}
+
+/**
  * Validation helper: Validate domain label
  * Each label (separated by dots) must contain only letters [A-Za-z], digits [0-9], and hyphens '-'
  * No underscores or other characters allowed
@@ -273,6 +301,7 @@ function setupEventHandlers() {
  * Initialize zones page - load domains and zones
  */
 async function initZonesPage() {
+    await ensureZonesCache();
     await populateZoneDomainSelect();
     await initZoneFileCombobox();
     await loadZonesData();
@@ -446,57 +475,25 @@ function onZoneDomainSelected(masterZoneId) {
  * Initialize zone file combobox
  */
 async function initZoneFileCombobox() {
+    await ensureZonesCache();
     const input = document.getElementById('zone-file-input');
     const list = document.getElementById('zone-file-list');
     const hiddenInput = document.getElementById('zone-file-id');
-    
     if (!input || !list || !hiddenInput) return;
-    
-    // Make input interactive
     input.readOnly = false;
     input.placeholder = 'Rechercher une zone...';
-    
-    // Input event - filter zones and show list
+    function currentComboboxZones() { return getFilteredZonesForCombobox() || []; }
     input.addEventListener('input', () => {
         const query = input.value.toLowerCase().trim();
-        const zones = getFilteredZonesForCombobox();
-        const filtered = zones.filter(z => 
-            z.name.toLowerCase().includes(query) || 
-            z.filename.toLowerCase().includes(query)
-        );
-        
-        populateComboboxList(list, filtered, (zone) => ({
-            id: zone.id,
-            text: `${zone.name} (${zone.filename})`
-        }), (zone) => {
-            onZoneFileSelected(zone.id);
-        });
+        const zones = currentComboboxZones();
+        const filtered = zones.filter(z => (z.name||'').toLowerCase().includes(query) || (z.filename||'').toLowerCase().includes(query));
+        populateComboboxList(list, filtered, (zone) => ({ id: zone.id, text: `${zone.name} (${zone.filename || zone.file_type || ''})` }), (zone) => { onZoneFileSelected(zone.id); });
     });
-    
-    // Focus - show available zones
-    input.addEventListener('focus', () => {
-        const zones = getFilteredZonesForCombobox();
-        populateComboboxList(list, zones, (zone) => ({
-            id: zone.id,
-            text: `${zone.name} (${zone.filename})`
-        }), (zone) => {
-            onZoneFileSelected(zone.id);
-        });
-    });
-    
-    // Blur - hide list (with delay to allow click)
-    input.addEventListener('blur', () => {
-        setTimeout(() => {
-            list.style.display = 'none';
-        }, COMBOBOX_BLUR_DELAY);
-    });
-    
-    // Escape key - close list
+    input.addEventListener('focus', () => { const zones = currentComboboxZones(); populateComboboxList(list, zones, (zone) => ({ id: zone.id, text: `${zone.name} (${zone.filename || zone.file_type || ''})` }), (zone) => { onZoneFileSelected(zone.id); }); });
+    input.addEventListener('blur', () => { setTimeout(() => { list.style.display = 'none'; }, COMBOBOX_BLUR_DELAY || 150); });
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            list.style.display = 'none';
-            input.blur();
-        }
+        if (e.key === 'Escape') { list.style.display = 'none'; input.blur(); }
+        else if (e.key === 'Enter') { const first = list.querySelector('.combobox-item'); if (first) first.click(); e.preventDefault(); }
     });
 }
 
@@ -504,26 +501,18 @@ async function initZoneFileCombobox() {
  * Get filtered zones for combobox based on selected domain
  */
 function getFilteredZonesForCombobox() {
-    // Prefer ZONES_ALL if present, otherwise fallback to ALL_ZONES (used by dns page)
     const zonesAll = Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length
         ? window.ZONES_ALL
         : (Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : []);
 
     if (!window.ZONES_SELECTED_MASTER_ID) {
-        // No domain selected - show all zones (masters + includes)
-        // includeMasters are in allMasters, includes come from zonesAll
-        return [...allMasters, ...zonesAll.filter(z => z.file_type === 'include')];
+        const includeZones = zonesAll.filter(z => z.file_type === 'include');
+        return [...allMasters, ...includeZones];
     }
 
-    // Domain selected - show master and its includes (use same source)
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
     const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
-
-    // includes that belong to this master (parent_id may be string)
-    const includeZones = zonesAll.filter(zone => {
-        return zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId;
-    });
-
+    const includeZones = zonesAll.filter(zone => zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId);
     return masterZone ? [masterZone, ...includeZones] : includeZones;
 }
 
