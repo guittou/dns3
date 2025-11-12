@@ -3,6 +3,89 @@
  * Handles paginated table view for zone file management
  */
 
+// --- BEGIN: local copy of combobox helpers (populateComboboxList, initCombobox) ---
+function populateComboboxList(listElement, items, itemMapper, onSelect) {
+    if (!listElement) return;
+    listElement.innerHTML = '';
+
+    if (!Array.isArray(items) || items.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'combobox-item combobox-empty';
+        li.textContent = 'Aucun résultat';
+        listElement.appendChild(li);
+        listElement.style.display = 'block';
+        return;
+    }
+
+    items.forEach(item => {
+        const mapped = itemMapper(item);
+        const li = document.createElement('li');
+        li.className = 'combobox-item';
+        li.textContent = mapped.text;
+        li.dataset.id = mapped.id;
+        li.addEventListener('click', () => {
+            try { onSelect(item); } catch (e) { console.error('combobox onSelect error', e); }
+        });
+        listElement.appendChild(li);
+    });
+
+    listElement.style.display = 'block';
+}
+
+// Lightweight reusable combobox initializer
+// opts: { inputEl, listEl, hiddenEl?, getItems?:fn, mapItem:fn, onSelectItem:fn, blurDelay }
+function initCombobox(opts) {
+    const input = opts.inputEl;
+    const list = opts.listEl;
+    const hidden = opts.hiddenEl || null;
+    const blurDelay = opts.blurDelay || 150;
+    if (!input || !list) return;
+
+    async function showItems(items) {
+        populateComboboxList(list, items, opts.mapItem, (it) => {
+            if (hidden) hidden.value = opts.mapItem(it).id || '';
+            if (typeof opts.onSelectItem === 'function') opts.onSelectItem(it);
+        });
+    }
+
+    input.readOnly = false;
+
+    input.addEventListener('input', async () => {
+        const q = (input.value || '').toLowerCase().trim();
+        let items = (typeof opts.getItems === 'function') ? await opts.getItems() : (opts.items || []);
+        if (q) {
+            items = (items || []).filter(i => (opts.mapItem(i).text || '').toLowerCase().includes(q));
+        }
+        showItems(items);
+    });
+
+    input.addEventListener('focus', async () => {
+        const items = (typeof opts.getItems === 'function') ? await opts.getItems() : (opts.items || []);
+        showItems(items);
+    });
+
+    input.addEventListener('blur', () => {
+        setTimeout(() => { list.style.display = 'none'; }, blurDelay);
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            list.style.display = 'none';
+            input.blur();
+        } else if (e.key === 'Enter') {
+            const first = list.querySelector('.combobox-item');
+            if (first) first.click();
+            e.preventDefault();
+        }
+    });
+
+    return { refresh: async () => {
+        const items = (typeof opts.getItems === 'function') ? await opts.getItems() : (opts.items || []);
+        showItems(items);
+    }};
+}
+// --- END: local copy of combobox helpers ---
+
 // Global state
 let currentPage = 1;
 let perPage = 25;
@@ -182,7 +265,7 @@ async function populateZoneDomainSelect() {
                     d.domain.toLowerCase().includes(query)
                 );
                 
-                window.populateComboboxList(list, filtered, (domain) => ({
+                populateComboboxList(list, filtered, (domain) => ({
                     id: domain.id,
                     text: domain.domain
                 }), (domain) => {
@@ -192,7 +275,7 @@ async function populateZoneDomainSelect() {
             
             // Focus - show all domains
             input.addEventListener('focus', () => {
-                window.populateComboboxList(list, allMasters, (domain) => ({
+                populateComboboxList(list, allMasters, (domain) => ({
                     id: domain.id,
                     text: domain.domain
                 }), (domain) => {
@@ -306,7 +389,7 @@ async function initZoneFileCombobox() {
             (z.name||'').toLowerCase().includes(query) || 
             (z.filename||'').toLowerCase().includes(query)
         );
-        window.populateComboboxList(list, filtered, (zone) => ({ 
+        populateComboboxList(list, filtered, (zone) => ({ 
             id: zone.id, 
             text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
         }), (zone) => { 
@@ -316,7 +399,7 @@ async function initZoneFileCombobox() {
     
     input.addEventListener('focus', () => { 
         const zones = currentComboboxZones(); 
-        window.populateComboboxList(list, zones, (zone) => ({ 
+        populateComboboxList(list, zones, (zone) => ({ 
             id: zone.id, 
             text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
         }), (zone) => { 
@@ -1415,7 +1498,7 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
                 z.filename.toLowerCase().includes(query)
             );
             
-            window.populateComboboxList(list, filtered, (zone) => ({
+            populateComboboxList(list, filtered, (zone) => ({
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
@@ -1427,7 +1510,7 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
         
         // Focus - show all zones
         inputEl.addEventListener('focus', () => {
-            window.populateComboboxList(list, zones, (zone) => ({
+            populateComboboxList(list, zones, (zone) => ({
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
