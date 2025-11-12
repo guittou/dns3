@@ -419,7 +419,7 @@
                 
                 populateComboboxList(list, filtered, (zone) => ({
                     id: zone.id,
-                    text: `${zone.name} (${zone.filename})`
+                    text: `${zone.name} (${zone.file_type})`
                 }), (zone) => {
                     selectZone(zone.id, zone.name, zone.file_type);
                 });
@@ -429,7 +429,7 @@
             input.addEventListener('focus', () => {
                 populateComboboxList(list, CURRENT_ZONE_LIST, (zone) => ({
                     id: zone.id,
-                    text: `${zone.name} (${zone.filename})`
+                    text: `${zone.name} (${zone.file_type})`
                 }), (zone) => {
                     selectZone(zone.id, zone.name, zone.file_type);
                 });
@@ -632,7 +632,7 @@
             // Update #dns-zone-input text display
             const zoneInput = document.getElementById('dns-zone-input');
             if (zoneInput) {
-                zoneInput.value = `${zone.name} (${zone.filename})`;
+                zoneInput.value = `${zone.name} (${zone.file_type})`;
             }
 
             // Update #record-zone-file select - populate and select the zone
@@ -650,7 +650,7 @@
                 if (!optionExists) {
                     const option = document.createElement('option');
                     option.value = zone.id;
-                    option.textContent = `${zone.name} (${zone.filename})`;
+                    option.textContent = `${zone.name} (${zone.file_type})`;
                     recordZoneFile.appendChild(option);
                 }
                 
@@ -764,10 +764,10 @@
             // Populate the list
             populateComboboxList(listElement, filtered, (zone) => ({
                 id: zone.id,
-                text: `${zone.name} (${zone.filename})`
+                text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
                 // On selection
-                inputElement.value = `${zone.name} (${zone.filename})`;
+                inputElement.value = `${zone.name} (${zone.file_type})`;
                 hiddenElement.value = zone.id;
                 listElement.style.display = 'none';
                 
@@ -804,10 +804,10 @@
             
             populateComboboxList(listElement, zones, (zone) => ({
                 id: zone.id,
-                text: `${zone.name} (${zone.filename})`
+                text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
                 // On selection
-                inputElement.value = `${zone.name} (${zone.filename})`;
+                inputElement.value = `${zone.name} (${zone.file_type})`;
                 hiddenElement.value = zone.id;
                 listElement.style.display = 'none';
                 
@@ -924,7 +924,7 @@
             filteredZones.forEach(zone => {
                 const option = document.createElement('option');
                 option.value = zone.id;
-                option.textContent = `${zone.name} (${zone.filename})`;
+                option.textContent = `${zone.name} (${zone.file_type})`;
                 selectElement.appendChild(option);
             });
             
@@ -1294,7 +1294,7 @@
                 const selectedZone = zones.find(z => parseInt(z.id, 10) === preselectedIdNum);
                 
                 if (selectedZone) {
-                    inputElement.value = `${selectedZone.name} (${selectedZone.filename})`;
+                    inputElement.value = `${selectedZone.name} (${selectedZone.file_type})`;
                     hiddenElement.value = selectedZone.id;
                     
                     // Update hidden fields
@@ -1484,7 +1484,7 @@
             const selectedZone = zones.find(z => parseInt(z.id, 10) === zoneIdNum);
             
             if (selectedZone) {
-                inputElement.value = `${selectedZone.name} (${selectedZone.filename})`;
+                inputElement.value = `${selectedZone.name} (${selectedZone.file_type})`;
                 hiddenElement.value = selectedZone.id;
                 
                 // Update both the record-zone-file hidden field and dns-zone-file-id
@@ -1642,7 +1642,7 @@
                             }
 
                             if (zone) {
-                                pageZoneInput.value = `${zone.name} (${zone.filename})`;
+                                pageZoneInput.value = `${zone.name} (${zone.file_type})`;
                                 pageZoneHidden.value = zone.id;
                                 selectedZoneId = zone.id;
                                 if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
