@@ -26,31 +26,14 @@ const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on b
 const API_BASE = window.API_BASE || '/api/zone_api.php';
 
 /**
- * Ensure zones cache is populated
- * Checks window.ZONES_ALL first, falls back to window.ALL_ZONES, then fetches from API if needed
- * @returns {Promise<Array>} - Array of zones
+ * Initialize zones page - load domains and zones
  */
-async function ensureZonesCache() {
-    try {
-        if (Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length) {
-            return window.ZONES_ALL;
-        }
-        if (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length) {
-            window.ZONES_ALL = window.ALL_ZONES;
-            return window.ZONES_ALL;
-        }
-        const res = await zoneApiCall('list_zones', { params: { status: 'active', per_page: 1000 } });
-        const zones = (res && res.data) ? res.data : [];
-        window.ZONES_ALL = zones;
-        if (!Array.isArray(window.ALL_ZONES) || !window.ALL_ZONES.length) {
-            window.ALL_ZONES = zones;
-        }
-        return zones;
-    } catch (e) {
-        console.warn('ensureZonesCache() failed to load zones:', e);
-        window.ZONES_ALL = window.ZONES_ALL || [];
-        return window.ZONES_ALL;
-    }
+async function initZonesPage() {
+    await window.ensureZonesCache();
+    await populateZoneDomainSelect();
+    await initZoneFileCombobox();
+    await loadZonesData();
+    renderZonesTable();
 }
 
 /**
@@ -164,151 +147,6 @@ window.__showModalError = showModalError;
 window.__clearModalError = clearModalError;
 
 /**
- * Initialize page on load
- */
-document.addEventListener('DOMContentLoaded', function() {
-    setupEventHandlers();
-    initZonesPage();
-    setupDelegatedHandlers();
-});
-
-/**
- * Setup delegated event handlers for dynamic content
- */
-function setupDelegatedHandlers() {
-    // Delegated handler for generate zone file button
-    document.addEventListener('click', function(e) {
-        const generateBtn = e.target.closest('#btnGenerateZoneFile');
-        if (generateBtn) {
-            e.preventDefault();
-            e.stopPropagation();
-            handleGenerateZoneFile();
-        }
-    });
-    
-    // Delegated handler for close preview modal (overlay click)
-    document.addEventListener('click', function(e) {
-        if (e.target.id === 'zonePreviewModal' && e.target.classList.contains('modal')) {
-            e.stopPropagation();
-            closeZonePreviewModal();
-        }
-    });
-    
-    // Delegated handler for close preview modal buttons
-    document.addEventListener('click', function(e) {
-        if (e.target.closest('#closeZonePreview') || e.target.closest('#closeZonePreviewBtn')) {
-            e.preventDefault();
-            e.stopPropagation();
-            closeZonePreviewModal();
-        }
-    });
-}
-
-/**
- * Setup event handlers
- */
-function setupEventHandlers() {
-    // Search with debounce
-    const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', function(e) {
-            clearTimeout(searchTimeout);
-            searchQuery = e.target.value;
-            searchTimeout = setTimeout(() => {
-                currentPage = 1;
-                renderZonesTable();
-            }, 300);
-        });
-    }
-
-    // Filter handlers
-    const filterStatusEl = document.getElementById('filterStatus');
-    if (filterStatusEl) {
-        filterStatusEl.addEventListener('change', function(e) {
-            filterStatus = e.target.value;
-            currentPage = 1;
-            renderZonesTable();
-        });
-    }
-
-    // Per page selector
-    const perPageSelect = document.getElementById('perPageSelect');
-    if (perPageSelect) {
-        perPageSelect.addEventListener('change', function(e) {
-            perPage = parseInt(e.target.value);
-            currentPage = 1;
-            renderZonesTable();
-        });
-    }
-
-    // Reset domain button
-    const btnResetDomain = document.getElementById('btn-reset-domain');
-    if (btnResetDomain) {
-        btnResetDomain.addEventListener('click', function() {
-            resetZoneDomainSelection();
-        });
-    }
-
-    // New zone file button
-    const btnNewZoneFile = document.getElementById('btn-new-zone-file');
-    if (btnNewZoneFile) {
-        btnNewZoneFile.addEventListener('click', function() {
-            if (window.ZONES_SELECTED_MASTER_ID) {
-                // Open create include modal with parent ID
-                if (typeof openCreateIncludeModal === 'function') {
-                    openCreateIncludeModal(window.ZONES_SELECTED_MASTER_ID);
-                } else {
-                    console.warn('openCreateIncludeModal function not found');
-                }
-            }
-        });
-    }
-
-    // Modal close on outside click
-    window.onclick = function(event) {
-        if (event.target.classList.contains('modal')) {
-            if (event.target.id === 'master-create-modal') {
-                closeCreateZoneModal();
-            } else if (event.target.id === 'zoneModal') {
-                closeZoneModal();
-            } else if (event.target.id === 'zonePreviewModal') {
-                closeZonePreviewModal();
-            } else {
-                event.target.style.display = 'none';
-            }
-        }
-    };
-    
-    // Window resize handler to recalculate zone tab content height
-    // Use debounce to avoid excessive recalculations
-    let resizeTimeout = null;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(function() {
-            handleZoneModalResize();
-        }, 150);
-    });
-    
-    // Orientation change handler for mobile devices
-    window.addEventListener('orientationchange', function() {
-        setTimeout(function() {
-            handleZoneModalResize();
-        }, 200);
-    });
-}
-
-/**
- * Initialize zones page - load domains and zones
- */
-async function initZonesPage() {
-    await ensureZonesCache();
-    await populateZoneDomainSelect();
-    await initZoneFileCombobox();
-    await loadZonesData();
-    renderZonesTable();
-}
-
-/**
  * Populate domain combobox with all master zones that have a domain
  * Makes combobox searchable like DNS page
  */
@@ -344,7 +182,7 @@ async function populateZoneDomainSelect() {
                     d.domain.toLowerCase().includes(query)
                 );
                 
-                populateComboboxList(list, filtered, (domain) => ({
+                window.populateComboboxList(list, filtered, (domain) => ({
                     id: domain.id,
                     text: domain.domain
                 }), (domain) => {
@@ -354,7 +192,7 @@ async function populateZoneDomainSelect() {
             
             // Focus - show all domains
             input.addEventListener('focus', () => {
-                populateComboboxList(list, allMasters, (domain) => ({
+                window.populateComboboxList(list, allMasters, (domain) => ({
                     id: domain.id,
                     text: domain.domain
                 }), (domain) => {
@@ -366,7 +204,7 @@ async function populateZoneDomainSelect() {
             input.addEventListener('blur', () => {
                 setTimeout(() => {
                     list.style.display = 'none';
-                }, COMBOBOX_BLUR_DELAY);
+                }, window.COMBOBOX_BLUR_DELAY || 200);
             });
             
             // Escape key - close list
@@ -381,33 +219,6 @@ async function populateZoneDomainSelect() {
         console.error('Failed to populate domain select:', error);
         showError('Erreur lors du chargement des domaines: ' + error.message);
     }
-}
-
-/**
- * Populate a combobox list with items
- */
-function populateComboboxList(listElement, items, itemMapper, onSelect) {
-    if (!listElement) return;
-    
-    if (items.length === 0) {
-        listElement.innerHTML = '<li class="combobox-item combobox-empty">Aucun domaine trouvé</li>';
-        listElement.style.display = 'block';
-        return;
-    }
-    
-    listElement.innerHTML = items.map(item => {
-        const mapped = itemMapper(item);
-        return `<li class="combobox-item" data-id="${mapped.id}">${escapeHtml(mapped.text)}</li>`;
-    }).join('');
-    
-    // Add click handlers
-    listElement.querySelectorAll('.combobox-item:not(.combobox-empty)').forEach((li, index) => {
-        li.addEventListener('click', () => {
-            onSelect(items[index]);
-        });
-    });
-    
-    listElement.style.display = 'block';
 }
 
 /**
@@ -495,7 +306,7 @@ async function initZoneFileCombobox() {
             (z.name||'').toLowerCase().includes(query) || 
             (z.filename||'').toLowerCase().includes(query)
         );
-        populateComboboxList(list, filtered, (zone) => ({ 
+        window.populateComboboxList(list, filtered, (zone) => ({ 
             id: zone.id, 
             text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
         }), (zone) => { 
@@ -505,7 +316,7 @@ async function initZoneFileCombobox() {
     
     input.addEventListener('focus', () => { 
         const zones = currentComboboxZones(); 
-        populateComboboxList(list, zones, (zone) => ({ 
+        window.populateComboboxList(list, zones, (zone) => ({ 
             id: zone.id, 
             text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
         }), (zone) => { 
@@ -516,7 +327,7 @@ async function initZoneFileCombobox() {
     input.addEventListener('blur', () => { 
         setTimeout(() => { 
             list.style.display = 'none'; 
-        }, COMBOBOX_BLUR_DELAY); 
+        }, window.COMBOBOX_BLUR_DELAY || 200); 
     });
     
     input.addEventListener('keydown', (e) => {
@@ -1604,7 +1415,7 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
                 z.filename.toLowerCase().includes(query)
             );
             
-            populateComboboxList(list, filtered, (zone) => ({
+            window.populateComboboxList(list, filtered, (zone) => ({
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
@@ -1616,7 +1427,7 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
         
         // Focus - show all zones
         inputEl.addEventListener('focus', () => {
-            populateComboboxList(list, zones, (zone) => ({
+            window.populateComboboxList(list, zones, (zone) => ({
                 id: zone.id,
                 text: `${zone.name} (${zone.file_type})`
             }), (zone) => {
@@ -1630,7 +1441,7 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
         inputEl.addEventListener('blur', () => {
             setTimeout(() => {
                 list.style.display = 'none';
-            }, COMBOBOX_BLUR_DELAY);
+            }, window.COMBOBOX_BLUR_DELAY || 200);
         });
         
         // Escape key - close list
@@ -2286,3 +2097,11 @@ window.openCreateIncludeModal = openCreateIncludeModal;
 window.closeIncludeCreateModal = closeIncludeCreateModal;
 window.saveInclude = saveInclude;
 window.renderZonesTable = renderZonesTable;
+
+// Initialize on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initZonesPage);
+} else {
+    // DOM already loaded, init immediately
+    initZonesPage();
+}

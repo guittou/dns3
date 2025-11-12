@@ -239,6 +239,7 @@ if (!$auth->isAdmin()) {
 </div>
 
 <script src="<?php echo BASE_URL; ?>assets/js/modal-utils.js"></script>
+<script src="<?php echo BASE_URL; ?>assets/js/combobox-utils.js"></script>
 <script src="<?php echo BASE_URL; ?>assets/js/dns-records.js"></script>
 
 <?php

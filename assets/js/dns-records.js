@@ -2817,6 +2817,10 @@
     window.fillModalZonefileSelect = fillModalZonefileSelect;
     window.getMasterIdFromZoneId = getMasterIdFromZoneId;
     
+    // Expose combobox init functions for reuse by zone-files.js
+    window.initDomainCombobox = initDomainCombobox;
+    window.initZoneCombobox = initZoneCombobox;
+    
     // Expose new helper functions
     window.getTopMasterId = getTopMasterId;
     window.fetchZonesForMaster = fetchZonesForMaster;
