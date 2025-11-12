@@ -722,8 +722,8 @@ function onZoneDomainSelected(masterZoneId) {
             btnEditDomain.style.display = 'inline-block';
         }
         
-        // Populate zone file combobox for the selected domain
-        populateZoneFileCombobox(masterZoneId);
+        // Populate zone file combobox for the selected domain (without auto-selecting)
+        populateZoneFileCombobox(masterZoneId, null, false);
     } else {
         if (btnNewZoneFile) {
             btnNewZoneFile.disabled = true;
@@ -895,8 +895,9 @@ function getFilteredZonesForCombobox() {
  * Fetches recursive includes from API and merges into cache
  * @param {number} masterZoneId - The master zone ID
  * @param {number|null} selectedZoneFileId - Optional zone file ID to pre-select
+ * @param {boolean} autoSelect - Whether to auto-select a zone (default true)
  */
-async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null) {
+async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null, autoSelect = true) {
     try {
         if (!masterZoneId) {
             clearZoneFileSelection();
@@ -965,40 +966,53 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
         window.CURRENT_ZONE_LIST = items.slice();
 
-        // Populate the visible list immediately so user sees updated options
+        // Populate the visible list so user sees updated options
+        // Don't show the list automatically when autoSelect is false
         if (listEl) {
             populateComboboxList(listEl, items, z => ({ id: z.id, text: `${z.name || z.domain || ''} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); });
-            listEl.style.display = 'block';
+            // Only show list if autoSelect is true (preserving existing behavior)
+            if (autoSelect) {
+                listEl.style.display = 'block';
+            }
         }
 
-        // If selectedZoneFileId is provided, preselect it in the input/hidden value
-        if (selectedZoneFileId) {
-            const selectedId = parseInt(selectedZoneFileId, 10);
-            const isMasterSelected = masterZone && selectedId === parseInt(masterZone.id, 10);
-            if (isMasterSelected) {
-                input.value = `${masterZone.name} (${masterZone.filename || masterZone.file_type})`;
-                if (hiddenInput) hiddenInput.value = selectedZoneFileId;
-                window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
-            } else {
-                const selectedZone = includeZones.find(z => parseInt(z.id, 10) === selectedId);
-                if (selectedZone) {
-                    input.value = `${selectedZone.name} (${selectedZone.filename || selectedZone.file_type})`;
+        // Handle auto-selection based on autoSelect parameter
+        if (autoSelect) {
+            // If selectedZoneFileId is provided, preselect it in the input/hidden value
+            if (selectedZoneFileId) {
+                const selectedId = parseInt(selectedZoneFileId, 10);
+                const isMasterSelected = masterZone && selectedId === parseInt(masterZone.id, 10);
+                if (isMasterSelected) {
+                    input.value = `${masterZone.name} (${masterZone.filename || masterZone.file_type})`;
                     if (hiddenInput) hiddenInput.value = selectedZoneFileId;
                     window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
+                } else {
+                    const selectedZone = includeZones.find(z => parseInt(z.id, 10) === selectedId);
+                    if (selectedZone) {
+                        input.value = `${selectedZone.name} (${selectedZone.filename || selectedZone.file_type})`;
+                        if (hiddenInput) hiddenInput.value = selectedZoneFileId;
+                        window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
+                    }
+                }
+            } else {
+                // Default: select the master zone itself if present
+                if (masterZone) {
+                    input.value = `${masterZone.name} (${masterZone.filename || masterZone.file_type})`;
+                    if (hiddenInput) hiddenInput.value = masterId;
+                    window.ZONES_SELECTED_ZONEFILE_ID = masterId;
+                } else {
+                    input.value = '';
+                    input.placeholder = 'Rechercher une zone...';
+                    if (hiddenInput) hiddenInput.value = '';
+                    window.ZONES_SELECTED_ZONEFILE_ID = null;
                 }
             }
         } else {
-            // Default: select the master zone itself if present
-            if (masterZone) {
-                input.value = `${masterZone.name} (${masterZone.filename || masterZone.file_type})`;
-                if (hiddenInput) hiddenInput.value = masterId;
-                window.ZONES_SELECTED_ZONEFILE_ID = masterId;
-            } else {
-                input.value = '';
-                input.placeholder = 'Rechercher une zone...';
-                if (hiddenInput) hiddenInput.value = '';
-                window.ZONES_SELECTED_ZONEFILE_ID = null;
-            }
+            // autoSelect is false: clear input and hidden value, but keep list populated
+            input.value = '';
+            input.placeholder = 'Rechercher une zone...';
+            if (hiddenInput) hiddenInput.value = '';
+            window.ZONES_SELECTED_ZONEFILE_ID = null;
         }
     } catch (error) {
         console.error('Failed to populate zone file combobox:', error);
