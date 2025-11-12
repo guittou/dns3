@@ -837,40 +837,70 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
             clearZoneFileSelection();
             return;
         }
-        
-        // Get zones from cache (includes from ZONES_ALL, master from allMasters)
+
         const masterId = parseInt(masterZoneId, 10);
         const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
-        const includeZones = (window.ZONES_ALL || []).filter(zone => {
-            if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
-            return false;
+
+        // Try to get includes from the cache first
+        let includeZones = (window.ZONES_ALL || []).filter(zone => {
+            return zone.file_type === 'include' && parseInt(zone.parent_id || 0, 10) === masterId;
         });
-        
+
+        // If cache doesn't contain includes for this master, fetch them from API
+        if (!includeZones || includeZones.length === 0) {
+            try {
+                const fetched = await fetchZonesForMaster(masterId);
+                includeZones = fetched || [];
+                // Merge fetched includes into cache to keep it up-to-date
+                if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
+                includeZones.forEach(z => {
+                    if (!window.ZONES_ALL.find(x => String(x.id) === String(z.id))) {
+                        window.ZONES_ALL.push(z);
+                    }
+                });
+            } catch (e) {
+                console.warn('populateZoneFileCombobox: fetchZonesForMaster failed', e);
+                includeZones = includeZones || [];
+            }
+        }
+
         const input = document.getElementById('zone-file-input');
         const hiddenInput = document.getElementById('zone-file-id');
-        
+        const listEl = document.getElementById('zone-file-list');
         if (!input) return;
-        
-        // If selectedZoneFileId is provided, select it
+
+        // Build the items list: master (if present) + includes
+        const items = masterZone ? [masterZone, ...includeZones] : includeZones;
+
+        // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
+        window.CURRENT_ZONE_LIST = items.slice();
+
+        // Populate the visible list immediately so user sees updated options
+        if (listEl) {
+            populateComboboxList(listEl, items, z => ({ id: z.id, text: `${z.name || z.domain || ''} (${z.filename || z.file_type || ''})` }), (z) => { onZoneFileSelected(z.id); });
+            listEl.style.display = 'block';
+        }
+
+        // If selectedZoneFileId is provided, preselect it in the input/hidden value
         if (selectedZoneFileId) {
             const selectedId = parseInt(selectedZoneFileId, 10);
-            // Check if it's the master or an include
-            if (masterZone && selectedId === masterId) {
-                input.value = `${masterZone.name} (${masterZone.filename})`;
+            const isMasterSelected = masterZone && selectedId === parseInt(masterZone.id, 10);
+            if (isMasterSelected) {
+                input.value = `${masterZone.name} (${masterZone.filename || masterZone.file_type})`;
                 if (hiddenInput) hiddenInput.value = selectedZoneFileId;
                 window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
             } else {
                 const selectedZone = includeZones.find(z => parseInt(z.id, 10) === selectedId);
                 if (selectedZone) {
-                    input.value = `${selectedZone.name} (${selectedZone.filename})`;
+                    input.value = `${selectedZone.name} (${selectedZone.filename || selectedZone.file_type})`;
                     if (hiddenInput) hiddenInput.value = selectedZoneFileId;
                     window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
                 }
             }
         } else {
-            // Default: select the master zone itself
+            // Default: select the master zone itself if present
             if (masterZone) {
-                input.value = `${masterZone.name} (${masterZone.filename})`;
+                input.value = `${masterZone.name} (${masterZone.filename || masterZone.file_type})`;
                 if (hiddenInput) hiddenInput.value = masterId;
                 window.ZONES_SELECTED_ZONEFILE_ID = masterId;
             } else {
