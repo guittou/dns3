@@ -372,7 +372,7 @@ async function setDomainForZone(zoneId) {
         // Update zone file input text display
         const zoneFileInput = document.getElementById('zone-file-input');
         if (zoneFileInput) {
-            zoneFileInput.value = `${zone.name} (${zone.file_type})`;
+            zoneFileInput.value = `${zone.name} (${zone.filename})`;
         }
 
         // ALWAYS call populateZoneComboboxForDomain even if domainName is empty
@@ -806,7 +806,7 @@ async function initZoneFileCombobox() {
         window.CURRENT_ZONE_LIST = filtered.slice();
         populateComboboxList(list, filtered, (zone) => ({ 
             id: zone.id, 
-            text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
+            text: `${zone.name} (${zone.filename})` 
         }), (zone) => { 
             onZoneFileSelected(zone.id); 
         });
@@ -817,7 +817,7 @@ async function initZoneFileCombobox() {
         window.CURRENT_ZONE_LIST = zones.slice();
         populateComboboxList(list, zones, (zone) => ({ 
             id: zone.id, 
-            text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
+            text: `${zone.name} (${zone.filename})` 
         }), (zone) => { 
             onZoneFileSelected(zone.id); 
         }); 
@@ -1670,7 +1670,7 @@ async function loadParentOptions(currentParentId) {
             zones.forEach(zone => {
                 const option = document.createElement('option');
                 option.value = zone.id;
-                option.textContent = `${zone.name} (${zone.file_type})`;
+                option.textContent = `${zone.name} (${zone.filename})`;
                 if (zone.id == currentParentId) {
                     option.selected = true;
                 }
@@ -2030,9 +2030,9 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
             
             populateComboboxList(list, filtered, (zone) => ({
                 id: zone.id,
-                text: `${zone.name} (${zone.file_type})`
+                text: `${zone.name} (${zone.filename})`
             }), (zone) => {
-                inputEl.value = `${zone.name} (${zone.file_type})`;
+                inputEl.value = `${zone.name} (${zone.filename})`;
                 hiddenField.value = zone.id;
                 list.style.display = 'none';
             });
@@ -2042,9 +2042,9 @@ async function populateIncludeParentCombobox(domain, defaultParentId) {
         inputEl.addEventListener('focus', () => {
             populateComboboxList(list, zones, (zone) => ({
                 id: zone.id,
-                text: `${zone.name} (${zone.file_type})`
+                text: `${zone.name} (${zone.filename})`
             }), (zone) => {
-                inputEl.value = `${zone.name} (${zone.file_type})`;
+                inputEl.value = `${zone.name} (${zone.filename})`;
                 hiddenField.value = zone.id;
                 list.style.display = 'none';
             });
