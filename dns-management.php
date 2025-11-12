@@ -118,11 +118,11 @@ if (!$auth->isAdmin()) {
         </div>
         
         <!-- Zone File Combobox Row (centered below title) -->
-        <div id="zonefile-combobox-row" class="modal-subtitle-zonefile" style="display:block; margin:8px 24px 16px;">
-            <div class="zonefile-combobox-inner">
-                <label for="modal-zonefile-input" class="zonefile-label">Fichier de zone&nbsp;:</label>
-                <div class="combobox" style="position: relative; width: 100%;">
-                    <input type="text" id="modal-zonefile-input" class="combobox-input" placeholder="Rechercher une zone..." autocomplete="off" style="width: 100%;">
+        <div id="zonefile-combobox-row" class="modal-zonefile-row">
+            <label for="modal-zonefile-input" class="modal-zonefile-label">Fichier de zone</label>
+            <div class="combobox-wrapper">
+                <div class="combobox" style="position: relative;">
+                    <input type="text" id="modal-zonefile-input" class="combobox-input zonefile-select" placeholder="Rechercher une zone..." autocomplete="off">
                     <input type="hidden" id="modal-zonefile-id">
                     <ul id="modal-zonefile-list" class="combobox-list" style="display: none;"></ul>
                 </div>

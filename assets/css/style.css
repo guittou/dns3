@@ -1364,3 +1364,50 @@ body {
 .dns-modal-header h3 {
   font-size: inherit !important;
 }
+
+/* ==========================================================================
+   Modal Zonefile Label Above Control
+   ========================================================================== */
+
+/* Container for the modal zonefile row - centered text layout */
+.modal-zonefile-row {
+  text-align: center;
+  margin-bottom: 12px;
+  display: block;
+}
+
+/* Label styling - centered above the control */
+.modal-zonefile-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-align: center;
+  font-size: 14px;
+  color: #222;
+}
+
+/* Combobox wrapper - centered with max width */
+.modal .combobox-wrapper,
+.modal-zonefile-row .combobox-wrapper {
+  max-width: 520px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Input and select controls - full width within wrapper */
+.modal .combobox-input,
+.modal .zonefile-select,
+.modal-zonefile-row .combobox-input,
+.modal-zonefile-row .zonefile-select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Combobox list - full width positioning */
+.modal-zonefile-row .combobox-list {
+  left: 0;
+  right: 0;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 4px;
+}
