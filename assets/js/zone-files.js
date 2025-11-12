@@ -480,20 +480,54 @@ async function initZoneFileCombobox() {
     const list = document.getElementById('zone-file-list');
     const hiddenInput = document.getElementById('zone-file-id');
     if (!input || !list || !hiddenInput) return;
+    
     input.readOnly = false;
     input.placeholder = 'Rechercher une zone...';
-    function currentComboboxZones() { return getFilteredZonesForCombobox() || []; }
+    
+    function currentComboboxZones() { 
+        return getFilteredZonesForCombobox() || []; 
+    }
+    
     input.addEventListener('input', () => {
         const query = input.value.toLowerCase().trim();
         const zones = currentComboboxZones();
-        const filtered = zones.filter(z => (z.name||'').toLowerCase().includes(query) || (z.filename||'').toLowerCase().includes(query));
-        populateComboboxList(list, filtered, (zone) => ({ id: zone.id, text: `${zone.name} (${zone.filename || zone.file_type || ''})` }), (zone) => { onZoneFileSelected(zone.id); });
+        const filtered = zones.filter(z => 
+            (z.name||'').toLowerCase().includes(query) || 
+            (z.filename||'').toLowerCase().includes(query)
+        );
+        populateComboboxList(list, filtered, (zone) => ({ 
+            id: zone.id, 
+            text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
+        }), (zone) => { 
+            onZoneFileSelected(zone.id); 
+        });
     });
-    input.addEventListener('focus', () => { const zones = currentComboboxZones(); populateComboboxList(list, zones, (zone) => ({ id: zone.id, text: `${zone.name} (${zone.filename || zone.file_type || ''})` }), (zone) => { onZoneFileSelected(zone.id); }); });
-    input.addEventListener('blur', () => { setTimeout(() => { list.style.display = 'none'; }, COMBOBOX_BLUR_DELAY || 150); });
+    
+    input.addEventListener('focus', () => { 
+        const zones = currentComboboxZones(); 
+        populateComboboxList(list, zones, (zone) => ({ 
+            id: zone.id, 
+            text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
+        }), (zone) => { 
+            onZoneFileSelected(zone.id); 
+        }); 
+    });
+    
+    input.addEventListener('blur', () => { 
+        setTimeout(() => { 
+            list.style.display = 'none'; 
+        }, COMBOBOX_BLUR_DELAY); 
+    });
+    
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { list.style.display = 'none'; input.blur(); }
-        else if (e.key === 'Enter') { const first = list.querySelector('.combobox-item'); if (first) first.click(); e.preventDefault(); }
+        if (e.key === 'Escape') { 
+            list.style.display = 'none'; 
+            input.blur(); 
+        } else if (e.key === 'Enter') { 
+            const first = list.querySelector('.combobox-item'); 
+            if (first) first.click(); 
+            e.preventDefault(); 
+        }
     });
 }
 
