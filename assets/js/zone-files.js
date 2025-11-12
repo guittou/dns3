@@ -504,21 +504,26 @@ async function initZoneFileCombobox() {
  * Get filtered zones for combobox based on selected domain
  */
 function getFilteredZonesForCombobox() {
+    // Prefer ZONES_ALL if present, otherwise fallback to ALL_ZONES (used by dns page)
+    const zonesAll = Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length
+        ? window.ZONES_ALL
+        : (Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : []);
+
     if (!window.ZONES_SELECTED_MASTER_ID) {
         // No domain selected - show all zones (masters + includes)
-        return [...allMasters, ...(window.ZONES_ALL || [])];
+        // includeMasters are in allMasters, includes come from zonesAll
+        return [...allMasters, ...zonesAll.filter(z => z.file_type === 'include')];
     }
-    
-    // Domain selected - show master and its includes
+
+    // Domain selected - show master and its includes (use same source)
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
     const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
-    const includeZones = (window.ZONES_ALL || []).filter(zone => {
-        // Show includes that belong to this master
-        if (zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId) return true;
-        return false;
+
+    // includes that belong to this master (parent_id may be string)
+    const includeZones = zonesAll.filter(zone => {
+        return zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId;
     });
-    
-    // Return master first, then includes
+
     return masterZone ? [masterZone, ...includeZones] : includeZones;
 }
 
