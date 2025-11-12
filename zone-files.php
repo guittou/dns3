@@ -403,6 +403,7 @@ if (!$auth->isAdmin()) {
 </div>
 
 <script src="<?php echo $basePath; ?>assets/js/modal-utils.js"></script>
+<script src="<?php echo $basePath; ?>assets/js/combobox-utils.js"></script>
 <script src="<?php echo $basePath; ?>assets/js/zone-files.js"></script>
 
 <?php
