@@ -749,6 +749,7 @@ function onZoneDomainSelected(masterZoneId) {
 
 /**
  * Initialize zone file combobox
+ * Handles input/focus events and fetches recursive includes when cache is insufficient
  */
 async function initZoneFileCombobox() {
     await ensureZonesCache();
@@ -760,17 +761,49 @@ async function initZoneFileCombobox() {
     input.readOnly = false;
     input.placeholder = 'Rechercher une zone...';
     
-    function currentComboboxZones() { 
-        return getFilteredZonesForCombobox() || []; 
+    async function currentComboboxZones() {
+        const zones = getFilteredZonesForCombobox() || [];
+        
+        // If we have a selected master and got 0 or 1 results (master only, no includes),
+        // fetch recursive includes from API to populate cache
+        if (window.ZONES_SELECTED_MASTER_ID && zones.length <= 1) {
+            try {
+                const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
+                const fetched = await fetchZonesForMaster(masterId);
+                
+                // Merge fetched includes into cache (deduplicate)
+                if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
+                (fetched || []).forEach(z => {
+                    if (!window.ZONES_ALL.find(x => String(x.id) === String(z.id))) {
+                        window.ZONES_ALL.push(z);
+                    }
+                });
+                
+                // Re-filter after cache update
+                return getFilteredZonesForCombobox() || [];
+            } catch (e) {
+                console.warn('initZoneFileCombobox: fetchZonesForMaster failed', e);
+                return zones;
+            }
+        }
+        
+        return zones;
     }
     
-    input.addEventListener('input', () => {
-        const query = input.value.toLowerCase().trim();
-        const zones = currentComboboxZones();
+    // Clone input to remove old event listeners
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    const inputEl = document.getElementById('zone-file-input');
+    
+    inputEl.addEventListener('input', async () => {
+        const query = inputEl.value.toLowerCase().trim();
+        const zones = await currentComboboxZones();
         const filtered = zones.filter(z => 
             (z.name||'').toLowerCase().includes(query) || 
             (z.filename||'').toLowerCase().includes(query)
         );
+        
+        window.CURRENT_ZONE_LIST = filtered.slice();
         populateComboboxList(list, filtered, (zone) => ({ 
             id: zone.id, 
             text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
@@ -779,8 +812,9 @@ async function initZoneFileCombobox() {
         });
     });
     
-    input.addEventListener('focus', () => { 
-        const zones = currentComboboxZones(); 
+    inputEl.addEventListener('focus', async () => { 
+        const zones = await currentComboboxZones();
+        window.CURRENT_ZONE_LIST = zones.slice();
         populateComboboxList(list, zones, (zone) => ({ 
             id: zone.id, 
             text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
@@ -789,16 +823,16 @@ async function initZoneFileCombobox() {
         }); 
     });
     
-    input.addEventListener('blur', () => { 
+    inputEl.addEventListener('blur', () => { 
         setTimeout(() => { 
             list.style.display = 'none'; 
         }, window.COMBOBOX_BLUR_DELAY || 200); 
     });
     
-    input.addEventListener('keydown', (e) => {
+    inputEl.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { 
             list.style.display = 'none'; 
-            input.blur(); 
+            inputEl.blur(); 
         } else if (e.key === 'Enter') { 
             const first = list.querySelector('.combobox-item'); 
             if (first) first.click(); 
@@ -809,6 +843,7 @@ async function initZoneFileCombobox() {
 
 /**
  * Get filtered zones for combobox based on selected domain
+ * Uses recursive ancestor-based filtering to include all nested includes
  */
 function getFilteredZonesForCombobox() {
     const zonesAll = Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length
@@ -822,12 +857,42 @@ function getFilteredZonesForCombobox() {
 
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
     const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
-    const includeZones = zonesAll.filter(zone => zone.file_type === 'include' && parseInt(zone.parent_id, 10) === masterId);
+    
+    // Recursive ancestor-based filter: include all zones whose ancestor chain contains masterId
+    const includeZones = zonesAll.filter(zone => {
+        if (zone.file_type !== 'include') return false;
+        
+        // Check if this zone's ancestor chain contains the master
+        let currentZone = zone;
+        let iterations = 0;
+        const maxIterations = 50; // Safety limit to prevent infinite loops
+        
+        while (currentZone && iterations < maxIterations) {
+            iterations++;
+            const parentId = parseInt(currentZone.parent_id || 0, 10);
+            
+            if (parentId === masterId) {
+                return true; // Found the master in the ancestor chain
+            }
+            
+            if (parentId === 0 || !parentId) {
+                break; // No more parents
+            }
+            
+            // Find the parent zone in the cache
+            currentZone = zonesAll.find(z => parseInt(z.id, 10) === parentId) ||
+                         allMasters.find(m => parseInt(m.id, 10) === parentId);
+        }
+        
+        return false;
+    });
+    
     return masterZone ? [masterZone, ...includeZones] : includeZones;
 }
 
 /**
  * Populate zone file combobox for a specific domain
+ * Fetches recursive includes from API and merges into cache
  * @param {number} masterZoneId - The master zone ID
  * @param {number|null} selectedZoneFileId - Optional zone file ID to pre-select
  */
@@ -841,17 +906,42 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
         const masterId = parseInt(masterZoneId, 10);
         const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
 
-        // Try to get includes from the cache first
+        // Try to get recursive includes from the cache first using ancestor-based filter
         let includeZones = (window.ZONES_ALL || []).filter(zone => {
-            return zone.file_type === 'include' && parseInt(zone.parent_id || 0, 10) === masterId;
+            if (zone.file_type !== 'include') return false;
+            
+            // Check if this zone's ancestor chain contains the master
+            let currentZone = zone;
+            let iterations = 0;
+            const maxIterations = 50;
+            
+            while (currentZone && iterations < maxIterations) {
+                iterations++;
+                const parentId = parseInt(currentZone.parent_id || 0, 10);
+                
+                if (parentId === masterId) {
+                    return true;
+                }
+                
+                if (parentId === 0 || !parentId) {
+                    break;
+                }
+                
+                // Find parent in cache
+                currentZone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === parentId) ||
+                             allMasters.find(m => parseInt(m.id, 10) === parentId);
+            }
+            
+            return false;
         });
 
-        // If cache doesn't contain includes for this master, fetch them from API
+        // If cache is empty or incomplete for this master, fetch from API
         if (!includeZones || includeZones.length === 0) {
             try {
                 const fetched = await fetchZonesForMaster(masterId);
                 includeZones = fetched || [];
-                // Merge fetched includes into cache to keep it up-to-date
+                
+                // Merge fetched includes into cache to keep it up-to-date (deduplicate)
                 if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
                 includeZones.forEach(z => {
                     if (!window.ZONES_ALL.find(x => String(x.id) === String(z.id))) {
@@ -869,7 +959,7 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
         const listEl = document.getElementById('zone-file-list');
         if (!input) return;
 
-        // Build the items list: master (if present) + includes
+        // Build the items list: master (if present) + all recursive includes
         const items = masterZone ? [masterZone, ...includeZones] : includeZones;
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
