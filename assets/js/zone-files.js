@@ -806,7 +806,7 @@ async function initZoneFileCombobox() {
         window.CURRENT_ZONE_LIST = filtered.slice();
         populateComboboxList(list, filtered, (zone) => ({ 
             id: zone.id, 
-            text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
+            text: `${zone.name} (${zone.file_type})` 
         }), (zone) => { 
             onZoneFileSelected(zone.id); 
         });
@@ -817,7 +817,7 @@ async function initZoneFileCombobox() {
         window.CURRENT_ZONE_LIST = zones.slice();
         populateComboboxList(list, zones, (zone) => ({ 
             id: zone.id, 
-            text: `${zone.name} (${zone.filename || zone.file_type || ''})` 
+            text: `${zone.name} (${zone.file_type})` 
         }), (zone) => { 
             onZoneFileSelected(zone.id); 
         }); 
@@ -967,7 +967,7 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
 
         // Populate the visible list immediately so user sees updated options
         if (listEl) {
-            populateComboboxList(listEl, items, z => ({ id: z.id, text: `${z.name || z.domain || ''} (${z.filename || z.file_type || ''})` }), (z) => { onZoneFileSelected(z.id); });
+            populateComboboxList(listEl, items, z => ({ id: z.id, text: `${z.name || z.domain || ''} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); });
             listEl.style.display = 'block';
         }
 
