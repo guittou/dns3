@@ -1355,23 +1355,11 @@
                 const zoneIdNum = parseInt(preselectedZoneFileId, 10);
                 if (!isNaN(zoneIdNum) && zoneIdNum > 0) {
                     try {
-                        const zoneResult = await zoneApiCall('get_zone', { id: zoneIdNum });
-                        const preselectedZone = zoneResult && zoneResult.data ? zoneResult.data : null;
-                        
-                        if (preselectedZone) {
-                            console.debug('[initModalZonefileSelect] Preselected zone:', preselectedZone);
-                            
-                            // Determine master ID: if include, use parent_id; if master, use its own id
-                            if (preselectedZone.file_type === 'include' && preselectedZone.parent_id) {
-                                masterId = parseInt(preselectedZone.parent_id, 10);
-                                console.debug('[initModalZonefileSelect] Zone is include, using parent_id as masterId:', masterId);
-                            } else {
-                                masterId = zoneIdNum;
-                                console.debug('[initModalZonefileSelect] Zone is master or has no parent, using zone id as masterId:', masterId);
-                            }
-                        }
+                        // Use getTopMasterId to traverse up to the root master
+                        masterId = await getTopMasterId(zoneIdNum);
+                        console.debug('[initModalZonefileSelect] Preselected zone, computed top masterId:', masterId);
                     } catch (fetchError) {
-                        console.warn('[initModalZonefileSelect] Failed to fetch preselected zone:', fetchError);
+                        console.warn('[initModalZonefileSelect] Failed to get top master for preselected zone:', fetchError);
                     }
                 }
             }
@@ -2164,7 +2152,7 @@
                 if (typeof initModalZonefileSelect === 'function') {
                     try {
                         const preselectedId = selectedZoneId || selectedDomainId;
-                        await initModalZonefileSelect(preselectedId, await getMasterIdFromZoneId(selectedZoneId));
+                        await initModalZonefileSelect(preselectedId, topMasterId);
                     } catch (e) {
                         console.error('Fallback initModalZonefileSelect also failed:', e);
                     }
@@ -2259,7 +2247,7 @@
                     // Fallback to old method if new method fails
                     if (typeof initModalZonefileSelect === 'function') {
                         try {
-                            await initModalZonefileSelect(record.zone_file_id, await getMasterIdFromZoneId(record.zone_file_id));
+                            await initModalZonefileSelect(record.zone_file_id, topMasterId);
                         } catch (e) {
                             console.error('Fallback initModalZonefileSelect also failed:', e);
                         }
