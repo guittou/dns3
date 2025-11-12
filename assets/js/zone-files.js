@@ -86,6 +86,386 @@ function initCombobox(opts) {
 }
 // --- END: local copy of combobox helpers ---
 
+// =========================================================================
+// Business helper functions (copied from dns-records.js for autonomy)
+// =========================================================================
+
+/**
+ * Make an API call with fallback to zoneApiCall
+ * This ensures zone-files page can call both dns_api and zone_api endpoints
+ */
+async function apiCall(action, params = {}, method = 'GET', body = null) {
+    // Check if zoneApiCall exists globally (from zone_api.php context)
+    if (typeof window.zoneApiCall === 'function') {
+        return await window.zoneApiCall(action, { params, method, body });
+    }
+    
+    // Fallback: construct API call manually
+    try {
+        const apiBase = window.API_BASE || window.BASE_URL || '/api/';
+        const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+        const url = new URL(normalizedBase + 'dns_api.php', window.location.origin);
+        url.searchParams.append('action', action);
+        
+        Object.keys(params).forEach(key => {
+            url.searchParams.append(key, params[key]);
+        });
+
+        const options = {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        };
+
+        if (body && method !== 'GET') {
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(url.toString(), options);
+        const text = await response.text();
+        
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (jsonError) {
+            console.error('[API Error] Failed to parse JSON response:', jsonError);
+            throw new Error('Invalid JSON response from API');
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || 'API request failed');
+        }
+
+        return data;
+    } catch (error) {
+        console.error('[API Error] Exception during API call:', error);
+        throw error;
+    }
+}
+
+/**
+ * Initialize zones cache with all zones, domains, and masters
+ * Sets up: ALL_ZONES, CURRENT_ZONE_LIST, allMasters, allDomains, ZONES_ALL
+ */
+function initZonesCache() {
+    // Initialize cache arrays if not already initialized
+    if (!window.ALL_ZONES) window.ALL_ZONES = [];
+    if (!window.CURRENT_ZONE_LIST) window.CURRENT_ZONE_LIST = [];
+    if (!window.ZONES_ALL) window.ZONES_ALL = [];
+    if (typeof allMasters === 'undefined') window.allMasters = [];
+    if (typeof allDomains === 'undefined') window.allDomains = [];
+}
+
+/**
+ * Get master zone ID from any zone ID
+ * If zone is an include, returns its parent_id; if master, returns itself
+ */
+async function getMasterIdFromZoneId(zoneId) {
+    if (!zoneId) return null;
+    
+    const zoneIdNum = parseInt(zoneId, 10);
+    if (isNaN(zoneIdNum) || zoneIdNum <= 0) return null;
+    
+    // Try to find zone in cached lists first
+    let zone = null;
+    const cachesToCheck = [
+        window.ALL_ZONES,
+        window.ZONES_ALL,
+        window.CURRENT_ZONE_LIST,
+        typeof allMasters !== 'undefined' ? allMasters : []
+    ];
+    
+    for (const cache of cachesToCheck) {
+        if (Array.isArray(cache) && cache.length > 0) {
+            zone = cache.find(z => parseInt(z.id, 10) === zoneIdNum);
+            if (zone) break;
+        }
+    }
+    
+    // Fallback: fetch from API
+    if (!zone) {
+        try {
+            const result = await zoneApiCall('get_zone', { params: { id: zoneIdNum } });
+            zone = result && result.data ? result.data : null;
+        } catch (e) {
+            console.warn('[getMasterIdFromZoneId] Failed to fetch zone:', e);
+            return null;
+        }
+    }
+    
+    if (!zone) return null;
+    
+    // If it's an include, return parent_id; if master, return its own id
+    if (zone.file_type === 'include' && zone.parent_id) {
+        return parseInt(zone.parent_id, 10);
+    } else {
+        return zoneIdNum;
+    }
+}
+
+/**
+ * Get the top master (root) zone ID for any zone
+ * Recursively traverses up the parent chain
+ */
+async function getTopMasterId(zoneId) {
+    if (!zoneId) return null;
+    
+    const zoneIdNum = parseInt(zoneId, 10);
+    if (isNaN(zoneIdNum) || zoneIdNum <= 0) return null;
+    
+    let currentZoneId = zoneIdNum;
+    let iterations = 0;
+    const maxIterations = 20;
+    
+    while (iterations < maxIterations) {
+        iterations++;
+        
+        // Try to find current zone in caches first
+        let zone = null;
+        const cachesToCheck = [
+            window.CURRENT_ZONE_LIST,
+            window.ALL_ZONES,
+            window.ZONES_ALL,
+            typeof allMasters !== 'undefined' ? allMasters : []
+        ];
+        
+        for (const cache of cachesToCheck) {
+            if (Array.isArray(cache) && cache.length > 0) {
+                zone = cache.find(z => parseInt(z.id, 10) === currentZoneId);
+                if (zone) break;
+            }
+        }
+        
+        // Fallback: fetch from API
+        if (!zone) {
+            try {
+                const result = await zoneApiCall('get_zone', { params: { id: currentZoneId } });
+                zone = result && result.data ? result.data : null;
+            } catch (e) {
+                console.warn('[getTopMasterId] Failed to fetch zone:', currentZoneId, e);
+                return null;
+            }
+        }
+        
+        if (!zone) return null;
+        
+        // Check if this is a top master (no parent)
+        if (!zone.parent_id || zone.parent_id === null || zone.parent_id === 0) {
+            return currentZoneId;
+        }
+        
+        // Move up to parent
+        const parentId = parseInt(zone.parent_id, 10);
+        if (isNaN(parentId) || parentId <= 0) {
+            return currentZoneId;
+        }
+        
+        currentZoneId = parentId;
+    }
+    
+    return currentZoneId;
+}
+
+/**
+ * Fetch zones for a specific master using API with recursive flag
+ */
+async function fetchZonesForMaster(masterId) {
+    if (!masterId) {
+        console.warn('[fetchZonesForMaster] No masterId provided');
+        return [];
+    }
+    
+    const masterIdNum = parseInt(masterId, 10);
+    if (isNaN(masterIdNum) || masterIdNum <= 0) {
+        console.warn('[fetchZonesForMaster] Invalid masterId:', masterId);
+        return [];
+    }
+    
+    try {
+        const result = await zoneApiCall('list_zones', { 
+            params: {
+                master_id: masterIdNum, 
+                recursive: 1,
+                per_page: 1000
+            }
+        });
+        
+        const zones = result && result.data ? result.data : [];
+        return zones;
+    } catch (e) {
+        console.error('[fetchZonesForMaster] Failed to fetch zones for master:', masterIdNum, e);
+        return [];
+    }
+}
+
+/**
+ * Populate zone combobox for a specific domain
+ * Updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
+ */
+async function populateZoneComboboxForDomain(masterId) {
+    try {
+        let result;
+        try {
+            // Try zone_id parameter (new API)
+            result = await apiCall('list_zones_by_domain', { zone_id: masterId });
+        } catch (e) {
+            // Fallback to domain_id parameter (old API)
+            result = await apiCall('list_zones_by_domain', { domain_id: masterId });
+        }
+        
+        const zones = result.data || [];
+        
+        // Update CURRENT_ZONE_LIST with filtered zones
+        window.CURRENT_ZONE_LIST = zones;
+        
+    } catch (error) {
+        console.error('Error populating zones for domain:', error);
+        window.CURRENT_ZONE_LIST = [];
+    }
+}
+
+/**
+ * Set domain for a given zone (auto-complete domain based on zone)
+ * Adapted for zone-files page context (zone-domain-input instead of dns-domain-input)
+ */
+async function setDomainForZone(zoneId) {
+    try {
+        const res = await zoneApiCall('get_zone', { params: { id: zoneId } });
+        const zone = res && res.data ? res.data : null;
+        if (!zone) {
+            // Clear defensively
+            const input = document.getElementById('zone-domain-input');
+            if (input) input.value = '';
+            const hiddenInput = document.getElementById('zone-master-id');
+            if (hiddenInput) hiddenInput.value = '';
+            return;
+        }
+
+        // Calculate domain based on zone type
+        let domainName = '';
+        if (zone.file_type === 'master') {
+            domainName = zone.domain || '';
+        } else {
+            domainName = zone.parent_domain || '';
+            
+            // Fallback: if parent_domain is empty, call get_domain_for_zone endpoint
+            if (!domainName) {
+                try {
+                    const fallbackRes = await apiCall('get_domain_for_zone', { zone_id: zoneId });
+                    if (fallbackRes && fallbackRes.success && fallbackRes.data && fallbackRes.data.domain) {
+                        domainName = fallbackRes.data.domain;
+                    }
+                } catch (fallbackError) {
+                    console.warn('Fallback get_domain_for_zone failed:', fallbackError);
+                }
+            }
+        }
+
+        const domainInput = document.getElementById('zone-domain-input');
+        if (domainInput) domainInput.value = domainName;
+        
+        const hiddenInput = document.getElementById('zone-master-id');
+        if (hiddenInput) hiddenInput.value = zone.id || '';
+
+        // Update zone file input text display
+        const zoneFileInput = document.getElementById('zone-file-input');
+        if (zoneFileInput) {
+            zoneFileInput.value = `${zone.name} (${zone.file_type})`;
+        }
+
+        // ALWAYS call populateZoneComboboxForDomain even if domainName is empty
+        if (typeof populateZoneComboboxForDomain === 'function') {
+            try { 
+                await populateZoneComboboxForDomain(zone.id); 
+            } catch (e) {
+                console.warn('populateZoneComboboxForDomain failed:', e);
+                // Fallback: filter ALL_ZONES by domain if available
+                if (Array.isArray(window.ALL_ZONES)) {
+                    if (domainName) {
+                        window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
+                    } else {
+                        window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => z.id === zone.id);
+                    }
+                }
+            }
+        }
+
+        if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
+    } catch (e) {
+        console.error('setDomainForZone error', e);
+    }
+}
+
+/**
+ * Update create button state based on zone selection
+ * Adapted for zone-files page (btn-new-zone-file instead of dns-create-btn)
+ */
+function updateCreateBtnState() {
+    const createBtn = document.getElementById('btn-new-zone-file');
+    const zoneId = document.getElementById('zone-file-id');
+    
+    if (createBtn && zoneId) {
+        // Enable only if zone is selected (has non-empty value)
+        createBtn.disabled = !zoneId.value || zoneId.value === '';
+    }
+}
+
+/**
+ * Sync selectedZoneId and selectedDomainId with window object
+ * Ensures global state consistency across the page
+ */
+function syncSelectedIds() {
+    // Sync zone file ID
+    const zoneFileInput = document.getElementById('zone-file-id');
+    if (zoneFileInput && zoneFileInput.value) {
+        window.selectedZoneId = zoneFileInput.value;
+        window.ZONES_SELECTED_ZONEFILE_ID = zoneFileInput.value;
+    }
+    
+    // Sync master/domain ID
+    const masterInput = document.getElementById('zone-master-id');
+    if (masterInput && masterInput.value) {
+        window.selectedDomainId = masterInput.value;
+        window.ZONES_SELECTED_MASTER_ID = masterInput.value;
+    }
+}
+
+/**
+ * Ensure zone files initialization and expose helpers on window
+ * Should be called before any combobox initialization
+ */
+function ensureZoneFilesInit() {
+    initZonesCache();
+    syncSelectedIds();
+    
+    // Expose helpers on window for global access
+    window.apiCall = apiCall;
+    window.getMasterIdFromZoneId = getMasterIdFromZoneId;
+    window.getTopMasterId = getTopMasterId;
+    window.fetchZonesForMaster = fetchZonesForMaster;
+    window.populateZoneComboboxForDomain = populateZoneComboboxForDomain;
+    window.setDomainForZone = setDomainForZone;
+    window.updateCreateBtnState = updateCreateBtnState;
+    window.syncSelectedIds = syncSelectedIds;
+}
+
+/**
+ * Ensure zones are loaded in cache
+ * This wrapper ensures cache is initialized before loading
+ */
+async function ensureZonesCache() {
+    initZonesCache();
+    if (!window.ZONES_ALL || window.ZONES_ALL.length === 0) {
+        await loadZonesData();
+    }
+}
+
+// =========================================================================
+// End of business helper functions
+// =========================================================================
+
 // Global state
 let currentPage = 1;
 let perPage = 25;
@@ -112,7 +492,9 @@ const API_BASE = window.API_BASE || '/api/zone_api.php';
  * Initialize zones page - load domains and zones
  */
 async function initZonesPage() {
-    await window.ensureZonesCache();
+    // Initialize business helpers and cache before any combobox initialization
+    ensureZoneFilesInit();
+    await ensureZonesCache();
     await populateZoneDomainSelect();
     await initZoneFileCombobox();
     await loadZonesData();
@@ -505,10 +887,11 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null)
 
 /**
  * Handle zone file selection
- * Sets ZONES_SELECTED_ZONEFILE_ID, updates ZONES_SELECTED_MASTER_ID if needed,
+ * Sets ZONES_SELECTED_ZONEFILE_ID and window.selectedZoneId, 
+ * updates ZONES_SELECTED_MASTER_ID if needed,
  * updates combobox texts, and re-renders the table
  */
-function onZoneFileSelected(zoneFileId) {
+async function onZoneFileSelected(zoneFileId) {
     const input = document.getElementById('zone-file-input');
     const hiddenInput = document.getElementById('zone-file-id');
     const list = document.getElementById('zone-file-list');
@@ -517,7 +900,14 @@ function onZoneFileSelected(zoneFileId) {
     if (zoneFileId) {
         const zoneId = parseInt(zoneFileId, 10);
         
-        // Try to find in includes first
+        // Set window.selectedZoneId for global state consistency
+        window.selectedZoneId = zoneFileId;
+        window.ZONES_SELECTED_ZONEFILE_ID = zoneFileId;
+        
+        // Update hidden input defensively
+        if (hiddenInput) hiddenInput.value = zoneFileId;
+        
+        // Try to find zone in includes first
         let zone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === zoneId);
         
         // If not found, try to find in masters
@@ -525,12 +915,20 @@ function onZoneFileSelected(zoneFileId) {
             zone = allMasters.find(m => parseInt(m.id, 10) === zoneId);
         }
         
+        // If still not found, try to fetch from API for a nicer display value
+        if (!zone) {
+            try {
+                const res = await zoneApiCall('get_zone', { params: { id: zoneFileId } });
+                if (res && res.data) {
+                    zone = res.data;
+                }
+            } catch (e) {
+                console.warn('Failed to fetch zone for display:', e);
+            }
+        }
+        
         if (zone) {
-            // Set selected zone file ID
-            window.ZONES_SELECTED_ZONEFILE_ID = zoneFileId;
-            if (hiddenInput) hiddenInput.value = zoneFileId;
-            
-            // Update zone file input text
+            // Update zone file input text with nicer display value
             if (input) input.value = `${zone.name} (${zone.filename})`;
             
             // Update master ID - if this is an include, find its parent
@@ -538,6 +936,7 @@ function onZoneFileSelected(zoneFileId) {
                 const parentId = parseInt(zone.parent_id, 10);
                 if (!isNaN(parentId)) {
                     window.ZONES_SELECTED_MASTER_ID = parentId;
+                    window.selectedDomainId = parentId;
                     
                     // Update domain combobox text
                     const parentZone = allMasters.find(m => parseInt(m.id, 10) === parentId);
@@ -548,23 +947,34 @@ function onZoneFileSelected(zoneFileId) {
             } else if (zone.file_type === 'master') {
                 // This is a master zone
                 window.ZONES_SELECTED_MASTER_ID = zoneFileId;
+                window.selectedDomainId = zoneFileId;
                 
                 // Update domain combobox text
                 if (zone.domain && domainInput) {
                     domainInput.value = zone.domain;
                 }
             }
+        } else {
+            // Fallback: just set the value even if we couldn't fetch display info
+            if (input) input.value = `Zone ${zoneFileId}`;
         }
     } else {
+        // Clear selection
+        window.selectedZoneId = null;
         window.ZONES_SELECTED_ZONEFILE_ID = null;
         if (input) input.value = '';
         if (hiddenInput) hiddenInput.value = '';
     }
     
+    // Hide combobox list
     if (list) list.style.display = 'none';
     
-    // Re-render table with new filter
+    // Update create button state
+    updateCreateBtnState();
+    
+    // Refresh table with new filter by calling loadZonesData then renderZonesTable
     currentPage = 1;
+    await loadZonesData();
     renderZonesTable();
 }
 
