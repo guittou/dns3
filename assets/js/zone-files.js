@@ -2718,3 +2718,4 @@ if (document.readyState === 'loading') {
     // DOM already loaded, init immediately
     initZonesPage();
 }
+
