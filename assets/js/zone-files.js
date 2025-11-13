@@ -2000,17 +2000,19 @@ async function openEditMasterModal() {
 
 /**
  * Open create include modal for selected domain
- * @param {number} parentId - Optional parent master zone ID (defaults to currently selected)
+ * Minimal defensive implementation that preselects the selected zonefile as parent
+ * and synchronizes header/input display
+ * @param {number} parentId - Optional parent zone ID (defaults to currently selected)
  */
 async function openCreateIncludeModal(parentId) {
     try {
-        // Determine the zonefile to use as default parent:
-        // priority: explicit param -> selected zonefile stored in globals/inputs -> selected master fallback
-        const pageSelectedZoneId = window.ZONES_SELECTED_ZONEFILE_ID || window.selectedZoneId ||
+        // Determine defaultParentId with priority chain:
+        // parentId param -> window.ZONES_SELECTED_ZONEFILE_ID -> window.selectedZoneId -> #zone-file-id input -> window.ZONES_SELECTED_MASTER_ID
+        const defaultParentId = parentId || 
+            window.ZONES_SELECTED_ZONEFILE_ID || 
+            window.selectedZoneId ||
             (document.getElementById('zone-file-id') ? document.getElementById('zone-file-id').value : '') ||
             window.ZONES_SELECTED_MASTER_ID;
-
-        const defaultParentId = parentId || pageSelectedZoneId;
 
         if (!defaultParentId) {
             showError('Veuillez sélectionner un fichier de zone ou un domaine d\'abord');
@@ -2026,16 +2028,17 @@ async function openCreateIncludeModal(parentId) {
             console.warn('openCreateIncludeModal: failed to fetch selected zone', e);
         }
 
-        // Determine master id for domain display (if selectedZone is include -> its master, else itself)
+        // Determine master id for domain display
         let masterId = null;
         try {
             masterId = await getMasterIdFromZoneId(selectedZone ? selectedZone.id : defaultParentId);
         } catch (e) {
             console.warn('openCreateIncludeModal: getMasterIdFromZoneId failed', e);
+            // Fallback to defaultParentId if getMasterIdFromZoneId fails
             masterId = defaultParentId;
         }
 
-        // Fetch master zone to display domain
+        // Fetch master zone to get domain/name for display
         let masterZone = null;
         try {
             const mResp = await zoneApiCall('get_zone', { params: { id: masterId } });
@@ -2044,23 +2047,30 @@ async function openCreateIncludeModal(parentId) {
             console.warn('openCreateIncludeModal: failed to fetch master zone', e);
         }
 
-        // Store hidden IDs
+        // Prepare domain display value
+        const domainDisplay = (masterZone && (masterZone.domain || masterZone.name)) ? 
+            (masterZone.domain || masterZone.name) : '-';
+
+        // Update #include-domain (disabled input) and #include-modal-domain (span) with same value
+        const domainField = document.getElementById('include-domain');
+        const domainTitle = document.getElementById('include-modal-domain');
+        const fileTitle = document.getElementById('include-modal-title');
+        
+        if (domainField) {
+            domainField.value = domainDisplay;
+            // Center the text in the disabled input field
+            domainField.style.textAlign = 'center';
+        }
+        if (domainTitle) domainTitle.textContent = domainDisplay;
+        if (fileTitle) fileTitle.textContent = 'Nouveau fichier de zone';
+
+        // Set hidden IDs: include-domain-id = masterId, include-parent-zone-id = selectedZone.id
         const includeDomainIdEl = document.getElementById('include-domain-id');
         const includeParentZoneIdEl = document.getElementById('include-parent-zone-id');
         if (includeDomainIdEl) includeDomainIdEl.value = masterId || '';
         if (includeParentZoneIdEl) includeParentZoneIdEl.value = selectedZone ? selectedZone.id : defaultParentId;
 
-        // Prefill the disabled domain input AND the header span so they are consistent
-        const domainField = document.getElementById('include-domain');
-        const domainTitle = document.getElementById('include-modal-domain');
-        const fileTitle = document.getElementById('include-modal-title');
-        const domainDisplay = (masterZone && (masterZone.domain || masterZone.name)) ? (masterZone.domain || masterZone.name) : '-';
-
-        if (domainField) domainField.value = domainDisplay;
-        if (domainTitle) domainTitle.textContent = domainDisplay;
-        if (fileTitle) fileTitle.textContent = 'Nouveau fichier de zone';
-
-        // Clear creation inputs
+        // Clear creation input fields
         const nameEl = document.getElementById('include-name');
         const filenameEl = document.getElementById('include-filename');
         const dirEl = document.getElementById('include-directory');
@@ -2068,11 +2078,10 @@ async function openCreateIncludeModal(parentId) {
         if (filenameEl) filenameEl.value = '';
         if (dirEl) dirEl.value = '';
 
-        // Populate the full parent combobox list for the master (master + recursive includes)
-        // populateIncludeParentCombobox expects a master id (we provide masterId)
+        // Populate the parent combobox with master + recursive includes
         await populateIncludeParentCombobox(masterId);
 
-        // After populate, ensure the visible combobox shows the originally selected zonefile (if present)
+        // Re-apply visible selection to show the selected zonefile in the combobox
         const includeInput = document.getElementById('include-parent-input');
         const includeHidden = document.getElementById('include-parent-zone-id');
         if (selectedZone && includeInput && includeHidden) {
@@ -2080,15 +2089,18 @@ async function openCreateIncludeModal(parentId) {
             includeHidden.value = selectedZone.id;
         }
 
-        // Finally show the modal
+        // Open the modal
         const modal = document.getElementById('include-create-modal');
         if (modal) {
             modal.style.display = 'block';
             modal.classList.add('open');
-            if (typeof window.ensureModalCentered === 'function') window.ensureModalCentered(modal);
+            // Center modal if helper is available
+            if (typeof window.ensureModalCentered === 'function') {
+                window.ensureModalCentered(modal);
+            }
         }
     } catch (error) {
-        console.error('openCreateIncludeModal failed:', error);
+        console.warn('openCreateIncludeModal: unexpected error', error);
         showError('Erreur lors de l\'ouverture du modal');
     }
 }
