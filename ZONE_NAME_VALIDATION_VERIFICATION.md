@@ -1,133 +1,252 @@
 # Zone Name Validation Verification
 
-**Date**: 2025-11-10
-**Issue**: Ensure zone name field validation is correct (required only, no format validation)
-**Branch**: fix/ui-no-validate-zone-name
+**Date**: 2025-11-13 (Updated)
+**Previous Date**: 2025-11-10
+**Issue**: Strict zone name validation with lowercase+digits only and filename autofill
+**Branch**: fix/zone-name-validation-autofill
+**Previous Branch**: fix/ui-no-validate-zone-name
 
-## Requirement
+## Current Requirement (Updated via PR #199)
 
 The zone name field ("Nom de la zone") should:
 - ✅ Be required (presence check)
-- ❌ NOT have format validation client-side
-- ✅ Allow underscores and other special characters
-- ℹ️  Server-side validation remains unchanged
+- ✅ HAVE strict format validation client-side (lowercase a-z and digits 0-9 ONLY)
+- ❌ NOT allow underscores, uppercase, or other special characters
+- ✅ Provide French error messages
+- ✅ Auto-fill filename as {name}.db
+- ℹ️  Server-side validation remains as final authority
 
-## Verification Results
+## Verification Results (Updated)
 
 ### File: `assets/js/zone-files.js`
 
-#### 1. Include Creation Modal - `saveInclude()` (Lines 1661-1735)
-**Status**: ✅ CORRECT
+#### 1. validateZoneName Helper Function (Lines 614-631)
+**Status**: ✅ IMPLEMENTED
 
 ```javascript
-// Line 1672-1676: Name validation - REQUIRED ONLY
-if (!name) {
-    showModalError('includeCreate', 'Le Nom de la zone est requis.');
+function validateZoneName(name) {
+    if (!name || typeof name !== 'string') {
+        return { valid: false, error: 'Le Nom de la zone est requis.' };
+    }
+    
+    const trimmed = name.trim();
+    if (trimmed === '') {
+        return { valid: false, error: 'Le Nom de la zone est requis.' };
+    }
+    
+    // Check for valid characters: only lowercase letters a-z and digits 0-9
+    const validPattern = /^[a-z0-9]+$/;
+    if (!validPattern.test(trimmed)) {
+        return { valid: false, error: 'Le Nom doit contenir uniquement des lettres minuscules a–z et des chiffres, sans espaces.' };
+    }
+    
+    return { valid: true, error: null };
+}
+```
+
+- ✅ Validates required (non-empty)
+- ✅ Validates only lowercase a-z and digits 0-9
+- ✅ No spaces allowed
+- ✅ Returns { valid: boolean, error: string|null }
+- ✅ French error messages
+
+#### 2. Include Creation Modal - `saveInclude()` (Lines 2426-2501)
+**Status**: ✅ USES validateZoneName
+
+```javascript
+// Line 2437-2442: Strict name validation
+const nameValidation = validateZoneName(name);
+if (!nameValidation.valid) {
+    showModalError('includeCreate', nameValidation.error);
     return;
 }
 ```
 
-- No format validation applied
-- Only checks for presence
-- Uses modal error banner
+- ✅ Uses validateZoneName function
+- ✅ Shows modal error banner on validation failure
 - Element ID: `include-name`
 - Modal: `include-create-modal`
 
-#### 2. Master Zone Creation - `createZone()` (Lines 1768-1839)
-**Status**: ✅ CORRECT
+#### 3. Master Zone Creation - `createZone()` (Lines 2540-2612)
+**Status**: ✅ USES validateZoneName
 
 ```javascript
-// Line 1779-1783: Name validation - REQUIRED ONLY  
-if (!name) {
-    showModalError('createZone', 'Le Nom de la zone est requis.');
+// Line 2551-2556: Strict name validation
+const nameValidation = validateZoneName(name);
+if (!nameValidation.valid) {
+    showModalError('createZone', nameValidation.error);
     return;
 }
 
-// Line 1785-1789: Domain validation (SEPARATE field)
+// Line 2558-2562: Domain validation (SEPARATE field)
 if (domain && !validateDomainLabel(domain)) {
-    // Domain field has strict validation, name field does not
+    showModalError('createZone', 'Le domaine contient des caractères invalides...');
+    return;
 }
 ```
 
-- No format validation on name field
-- Domain field (separate) has DNS label validation
-- Only checks name for presence
-- Uses modal error banner
+- ✅ Uses validateZoneName for name field
+- ✅ Shows modal error banner on validation failure
+- ✅ Domain field has separate validation
 - Element IDs: `master-zone-name`, `master-domain`
 - Modal: `master-create-modal`
 
-#### 3. Inline Include Creation - `submitCreateInclude()` (Lines 1396-1428)
-**Status**: ✅ CORRECT
+#### 4. Inline Include Creation - `submitCreateInclude()` (Lines 1972-1975)
+**Status**: ✅ ALIASES TO saveInclude
 
 ```javascript
-// Line 1402-1405: Basic required check
-if (!name || !filename) {
-    showError('Veuillez remplir tous les champs requis');
-    return;
+async function submitCreateInclude() {
+    // Alias to saveInclude() which is the single source of truth
+    return await saveInclude();
 }
 ```
 
-- No format validation applied
-- Only checks for presence
+- ✅ Inherits strict validation from saveInclude()
 - Element IDs: `includeNameInput`, `includeFilenameInput`
-- Form: Inline form in zone modal
+
+### Filename Autofill Implementation
+
+#### setupNameFilenameAutofill() (Lines 3053-3097)
+**Status**: ✅ IMPLEMENTED
+
+```javascript
+function setupNameFilenameAutofill() {
+    const fieldPairs = [
+        { nameId: 'include-name', filenameId: 'include-filename' },
+        { nameId: 'master-zone-name', filenameId: 'master-filename' },
+        { nameId: 'includeNameInput', filenameId: 'includeFilenameInput' }
+    ];
+    
+    fieldPairs.forEach(pair => {
+        const nameInput = document.getElementById(pair.nameId);
+        const filenameInput = document.getElementById(pair.filenameId);
+        
+        if (!nameInput || !filenameInput) { return; }
+        
+        // Autofill filename when name changes
+        nameInput.addEventListener('input', () => {
+            try {
+                if (filenameInput.dataset.userEdited !== 'true') {
+                    const nameValue = nameInput.value.trim();
+                    if (nameValue) {
+                        filenameInput.value = `${nameValue}.db`;
+                    } else {
+                        filenameInput.value = '';
+                    }
+                }
+            } catch (e) {
+                console.warn('setupNameFilenameAutofill: error during autofill', e);
+            }
+        });
+        
+        // Track manual edits to filename
+        filenameInput.addEventListener('input', () => {
+            try {
+                filenameInput.dataset.userEdited = 'true';
+            } catch (e) {
+                console.warn('setupNameFilenameAutofill: error marking user edit', e);
+            }
+        });
+    });
+}
+```
+
+- ✅ Monitors name → filename field pairs
+- ✅ Auto-fills filename as {name}.db
+- ✅ Respects manual edits via dataset.userEdited flag
+- ✅ Defensive coding with try/catch blocks
+- ✅ Called on DOMContentLoaded (lines 3116-3125)
+
+#### Reset Flags on Modal Open
+
+**openCreateIncludeModal()** (Line 2119):
+```javascript
+if (filenameEl) {
+    filenameEl.value = '';
+    filenameEl.dataset.userEdited = ''; // Reset flag
+}
+```
+
+**openCreateZoneModal()** (Line 2515):
+```javascript
+const masterFilenameEl = document.getElementById('master-filename');
+if (masterFilenameEl) {
+    masterFilenameEl.dataset.userEdited = '';
+}
+```
+
+- ✅ Flags reset when modals are opened
+- ✅ Allows autofill to work again after modal reopen
 
 ### HTML Validation
 
-Checked all input elements in `zone-files.php`:
-- `#master-zone-name` (line 150): No `pattern` attribute ✅
-- `#include-name` (line 378): No `pattern` attribute ✅
-- `#includeNameInput` (line 278): No `pattern` attribute ✅
-
-All fields only have `required` attribute, no client-side format validation.
+Checked input elements - no conflicting pattern attributes that would interfere with JavaScript validation.
 
 ### Validation Helper Functions
 
-#### `validateDomainLabel(domain)` (Lines 35-63)
-- Used ONLY for domain field validation
-- NOT used for zone name validation
-- Validates DNS labels: letters, digits, hyphens only (no underscores)
-- Currently used in: `createZone()` line 1786 for domain field
+#### `validateZoneName(name)` (Lines 614-631)
+- Used for zone name field validation
+- ✅ Strict validation: lowercase a-z and digits 0-9 ONLY
+- ✅ No spaces, no underscores, no uppercase
+- Returns { valid: boolean, error: string|null }
+- Currently used in: `saveInclude()` and `createZone()`
 
-#### `validateFilename(filename)` (Lines 71-92)
+#### `validateDomainLabel(domain)` (Lines 578-606)
+- Used ONLY for domain field validation (separate from zone name)
+- Validates DNS labels: letters, digits, hyphens only (no underscores)
+- NOT used for zone name validation
+- Currently used in: `createZone()` line 2559 for domain field
+
+#### `validateFilename(filename)` (Lines 639-660)
 - Used for filename validation
 - Checks for .db extension and no spaces
 - Used in both `saveInclude()` and `createZone()`
 
 ## Conclusion
 
-✅ **ALL VALIDATION IS CORRECT**
+✅ **ALL REQUIREMENTS IMPLEMENTED**
 
-The zone name field validation already meets all requirements:
-1. Required check only (no format validation)
-2. Allows underscores and special characters
-3. Separate validation for domain and filename fields
-4. Server-side validation unchanged
+The zone name field validation now implements strict client-side validation:
+1. ✅ Required check (non-empty)
+2. ✅ Format validation (lowercase a-z + digits 0-9 ONLY)
+3. ✅ No spaces, underscores, or special characters allowed
+4. ✅ French error messages
+5. ✅ Filename autofill behavior (name → name.db)
+6. ✅ Manual edit detection and preservation
+7. ✅ Modal reset behavior
+8. ✅ Defensive coding with try/catch blocks
 
-**No code changes needed** - implementation is already correct per specifications.
+**Implementation is complete and production-ready** per specifications in PR #199.
+
+## Change History
+
+- **2025-11-10**: Initial verification - confirmed required-only validation (no format check)
+- **2025-11-13**: Updated verification - confirmed strict validation (lowercase+digits only) implemented via PR #199
 
 ## Branch Information
 
-- **Requested branch**: `fix/ui-no-validate-zone-name`
-- **Current branch**: `copilot/remove-zone-name-format-validation`
-- Both branches point to the same verified commits
-- PR can be created from either branch
+- **Current branch**: `fix/zone-name-validation-autofill`
+- **Base**: Commit ebfcf54 (Merge PR #199)
+- **Status**: No code changes needed - all features already implemented
 
 ## Manual Testing Recommendation
 
-To verify behavior:
+To verify strict validation behavior:
 
 1. Open "Nouveau domaine" modal:
-   - Leave "Nom de la zone" empty → Should show error
-   - Enter name with underscore (e.g., "test_zone") → Should be accepted
-   - Enter filename without .db → Should show error
-   - Enter filename with spaces → Should show error
+   - Leave "Nom de la zone" empty → Should show "Le Nom de la zone est requis."
+   - Enter name with uppercase (e.g., "Test") → Should show "Le Nom doit contenir uniquement des lettres minuscules..."
+   - Enter name with underscore (e.g., "test_zone") → Should show validation error
+   - Enter name with space (e.g., "test zone") → Should show validation error
+   - Enter valid name (e.g., "abc123") → Should pass, filename auto-fills to "abc123.db"
+   - Manually edit filename → Subsequent name changes should NOT overwrite filename
+   - Close and reopen modal → Autofill should work again
 
 2. Open "Nouveau fichier de zone" modal (include):
-   - Leave "Nom" empty → Should show error
-   - Enter name with underscore (e.g., "include_test") → Should be accepted
-   - Enter filename without .db → Should show error
+   - Leave "Nom" empty → Should show "Le Nom de la zone est requis."
+   - Enter name with invalid characters → Should show validation error
+   - Enter valid lowercase+digits name → Should pass, filename auto-fills
+   - Test manual edit preservation
 
-3. Create inline include (within zone modal):
-   - Leave "Nom" empty → Should show error
-   - Enter name with underscore → Should be accepted
+3. Verify all validation messages are in French
+4. Verify validateFilename still requires .db extension and no spaces
