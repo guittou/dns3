@@ -310,6 +310,10 @@ class DnsRecord {
             $sql = "INSERT INTO dns_records (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
             
+            // Determine TTL value: if ttl key exists in data, use its value (can be null),
+            // otherwise default to null
+            $ttlValue = array_key_exists('ttl', $data) ? $data['ttl'] : null;
+            
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $data['zone_file_id'],
@@ -321,7 +325,7 @@ class DnsRecord {
                 $dedicatedFields['cname_target'],
                 $dedicatedFields['ptrdname'],
                 $dedicatedFields['txt'],
-                $data['ttl'] ?? 3600,
+                $ttlValue,
                 $data['priority'] ?? null,
                 $data['requester'] ?? null,
                 $data['expires_at'] ?? null,
@@ -418,6 +422,10 @@ class DnsRecord {
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
             
+            // Determine TTL value: if ttl key exists in data, use its value (can be null),
+            // otherwise keep the current value
+            $ttlValue = array_key_exists('ttl', $data) ? $data['ttl'] : $current['ttl'];
+            
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $data['zone_file_id'] ?? $current['zone_file_id'],
@@ -429,7 +437,7 @@ class DnsRecord {
                 $dedicatedFields['cname_target'],
                 $dedicatedFields['ptrdname'],
                 $dedicatedFields['txt'],
-                $data['ttl'] ?? $current['ttl'],
+                $ttlValue,
                 $data['priority'] ?? $current['priority'],
                 isset($data['requester']) ? $data['requester'] : $current['requester'],
                 isset($data['expires_at']) ? $data['expires_at'] : $current['expires_at'],

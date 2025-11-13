@@ -1058,15 +1058,21 @@ class ZoneFile {
      */
     private function formatDnsRecordBind($record) {
         $name = $record['name'];
-        $ttl = isset($record['ttl']) ? $record['ttl'] : 3600;
         $type = $record['record_type'];
         
         // Format the record value based on type
         $value = $this->getRecordValue($record);
         
         // Build the BIND format line
-        // Format: name TTL class type value
-        $line = sprintf("%-30s %6d IN %-6s %s", $name, $ttl, $type, $value);
+        // If TTL is null, omit it (BIND will use zone's default TTL)
+        // Format: name [TTL] class type value
+        if (array_key_exists('ttl', $record) && $record['ttl'] !== null) {
+            // Include explicit TTL
+            $line = sprintf("%-30s %6d IN %-6s %s", $name, $record['ttl'], $type, $value);
+        } else {
+            // Omit TTL (zone default will be used)
+            $line = sprintf("%-30s        IN %-6s %s", $name, $type, $value);
+        }
         
         return $line;
     }
