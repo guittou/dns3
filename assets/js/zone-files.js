@@ -2028,14 +2028,23 @@ async function openCreateIncludeModal(parentId) {
             console.warn('openCreateIncludeModal: failed to fetch selected zone', e);
         }
 
-        // Determine master id for domain display
+        // Determine master id for domain display with page-priority:
+        // Prefer window.ZONES_SELECTED_MASTER_ID or #zone-master-id; only fall back to getMasterIdFromZoneId if not present
         let masterId = null;
-        try {
-            masterId = await getMasterIdFromZoneId(selectedZone ? selectedZone.id : defaultParentId);
-        } catch (e) {
-            console.warn('openCreateIncludeModal: getMasterIdFromZoneId failed', e);
-            // Fallback to defaultParentId if getMasterIdFromZoneId fails
-            masterId = defaultParentId;
+        const zoneMasterIdEl = document.getElementById('zone-master-id');
+        if (window.ZONES_SELECTED_MASTER_ID) {
+            masterId = window.ZONES_SELECTED_MASTER_ID;
+        } else if (zoneMasterIdEl && zoneMasterIdEl.value) {
+            masterId = zoneMasterIdEl.value;
+        } else {
+            // Fall back to resolving master from selected zone
+            try {
+                masterId = await getMasterIdFromZoneId(selectedZone ? selectedZone.id : defaultParentId);
+            } catch (e) {
+                console.warn('openCreateIncludeModal: getMasterIdFromZoneId failed', e);
+                // Final fallback to defaultParentId
+                masterId = defaultParentId;
+            }
         }
 
         // Fetch master zone to get domain/name for display
@@ -2047,7 +2056,7 @@ async function openCreateIncludeModal(parentId) {
             console.warn('openCreateIncludeModal: failed to fetch master zone', e);
         }
 
-        // Prepare domain display value - priority: page combobox > masterZone.domain > masterZone.name
+        // Prepare domain display value - priority: page combobox (#zone-domain-input) > masterZone.domain > masterZone.name
         let domainDisplay = '-';
         const pageDomainInput = document.getElementById('zone-domain-input');
         if (pageDomainInput && pageDomainInput.value && pageDomainInput.value.trim() !== '') {
@@ -2070,11 +2079,9 @@ async function openCreateIncludeModal(parentId) {
         if (domainTitle) domainTitle.textContent = domainDisplay;
         if (fileTitle) fileTitle.textContent = 'Nouveau fichier de zone';
 
-        // Set hidden IDs: include-domain-id = masterId, include-parent-zone-id = selectedZone.id
+        // Set hidden IDs: include-domain-id = masterId
         const includeDomainIdEl = document.getElementById('include-domain-id');
-        const includeParentZoneIdEl = document.getElementById('include-parent-zone-id');
         if (includeDomainIdEl) includeDomainIdEl.value = masterId || '';
-        if (includeParentZoneIdEl) includeParentZoneIdEl.value = selectedZone ? selectedZone.id : defaultParentId;
 
         // Clear creation input fields
         const nameEl = document.getElementById('include-name');
@@ -2084,12 +2091,21 @@ async function openCreateIncludeModal(parentId) {
         if (filenameEl) filenameEl.value = '';
         if (dirEl) dirEl.value = '';
 
-        // Populate the parent combobox with master + recursive includes
-        await populateIncludeParentCombobox(masterId);
-
-        // Re-apply visible selection to show the selected zonefile in the combobox
+        // Prefill the visible combobox include-parent-input with the selected zonefile text
+        // and include-parent-zone-id with selectedZone.id (if selectedZone present)
         const includeInput = document.getElementById('include-parent-input');
         const includeHidden = document.getElementById('include-parent-zone-id');
+        if (selectedZone && includeInput && includeHidden) {
+            includeInput.value = `${selectedZone.name} (${selectedZone.file_type})`;
+            includeHidden.value = selectedZone.id;
+        }
+
+        // Populate the parent combobox with master + recursive includes
+        // This call will overwrite the combobox list but we'll reapply the visible selection after
+        await populateIncludeParentCombobox(masterId);
+
+        // Re-apply visible selection to show the originally selected zonefile in the combobox
+        // (populateIncludeParentCombobox may have reset these values)
         if (selectedZone && includeInput && includeHidden) {
             includeInput.value = `${selectedZone.name} (${selectedZone.file_type})`;
             includeHidden.value = selectedZone.id;
@@ -2113,7 +2129,7 @@ async function openCreateIncludeModal(parentId) {
 
 /**
  * Populate parent combobox with master + recursive includes
- * @param {number} masterId - Master zone ID
+ * @param {number} masterId - Master zone ID (may be an include id; will be resolved to real master)
  */
 async function populateIncludeParentCombobox(masterId) {
     try {
@@ -2122,13 +2138,37 @@ async function populateIncludeParentCombobox(masterId) {
             return;
         }
         
-        const masterIdNum = parseInt(masterId, 10);
+        let masterIdNum = parseInt(masterId, 10);
         if (isNaN(masterIdNum) || masterIdNum <= 0) {
             console.warn('[populateIncludeParentCombobox] Invalid masterId:', masterId);
             return;
         }
         
-        // Fetch recursive includes using fetchZonesForMaster
+        // If a non-master id is passed, resolve the real master by calling getMasterIdFromZoneId
+        let zoneToCheck = null;
+        try {
+            const checkResp = await zoneApiCall('get_zone', { params: { id: masterIdNum } });
+            if (checkResp && checkResp.data) {
+                zoneToCheck = checkResp.data;
+            }
+        } catch (e) {
+            console.warn('[populateIncludeParentCombobox] Failed to fetch zone to check type:', e);
+        }
+        
+        // If the zone is an include, resolve to its master
+        if (zoneToCheck && zoneToCheck.file_type === 'include') {
+            try {
+                const resolvedMasterId = await getMasterIdFromZoneId(masterIdNum);
+                if (resolvedMasterId) {
+                    masterIdNum = parseInt(resolvedMasterId, 10);
+                    console.log('[populateIncludeParentCombobox] Resolved include to master:', masterIdNum);
+                }
+            } catch (e) {
+                console.warn('[populateIncludeParentCombobox] Failed to resolve include to master:', e);
+            }
+        }
+        
+        // Fetch recursive includes using fetchZonesForMaster with fallback to ancestor-chain filtering
         let zones = [];
         try {
             zones = await fetchZonesForMaster(masterIdNum);
@@ -2181,7 +2221,8 @@ async function populateIncludeParentCombobox(masterId) {
             }
         }
         
-        // Fetch master zone and ensure it's in the list
+        // Try to fetch the master via zoneApiCall('get_zone'); if that returns nothing,
+        // search caches; if still missing, create a minimal placeholder master object
         let masterZone = null;
         try {
             const masterResponse = await zoneApiCall('get_zone', { params: { id: masterIdNum } });
@@ -2190,8 +2231,10 @@ async function populateIncludeParentCombobox(masterId) {
             }
         } catch (e) {
             console.warn('[populateIncludeParentCombobox] Failed to fetch master zone, searching caches:', e);
-            
-            // Search caches for the master zone
+        }
+        
+        // If not found via API, search caches
+        if (!masterZone) {
             const cachesToSearch = [
                 window.ALL_ZONES,
                 window.ZONES_ALL,
@@ -2208,33 +2251,35 @@ async function populateIncludeParentCombobox(masterId) {
                     }
                 }
             }
-            
-            // If still not found, create a fallback placeholder
-            if (!masterZone) {
-                console.warn('[populateIncludeParentCombobox] Master not found in caches, creating fallback placeholder');
-                masterZone = {
-                    id: masterIdNum,
-                    name: `Master ${masterIdNum}`,
-                    filename: `master-${masterIdNum}.db`,
-                    file_type: 'master',
-                    domain: '',
-                    status: 'active',
-                    parent_id: null,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
-            }
         }
         
-        // Compose final list: master + recursive includes (deduplicate)
+        // If still not found, create a minimal placeholder so the UI displays an entry
+        if (!masterZone) {
+            console.warn('[populateIncludeParentCombobox] Master not found anywhere, creating minimal placeholder');
+            masterZone = {
+                id: masterIdNum,
+                name: `Master ${masterIdNum}`,
+                filename: `master-${masterIdNum}.db`,
+                file_type: 'master',
+                domain: '',
+                status: 'active',
+                parent_id: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+        }
+        
+        // Compose final list with master first then includes (deduplicated)
         const composedList = [];
         const seenIds = new Set();
         
+        // Always add master first
         if (masterZone) {
             composedList.push(masterZone);
             seenIds.add(String(masterZone.id));
         }
         
+        // Then add includes (deduplicated)
         (zones || []).forEach(z => {
             if (!seenIds.has(String(z.id))) {
                 composedList.push(z);
@@ -2242,7 +2287,7 @@ async function populateIncludeParentCombobox(masterId) {
             }
         });
         
-        // Store in window for later usage
+        // Set window.CURRENT_INCLUDE_PARENT_LIST to composed list
         window.CURRENT_INCLUDE_PARENT_LIST = composedList;
         
         // Setup combobox elements
@@ -2255,13 +2300,27 @@ async function populateIncludeParentCombobox(masterId) {
             return;
         }
         
-        // Preselect the master zone by default
-        if (masterZone) {
-            input.value = `${masterZone.name} (${masterZone.file_type})`;
-            hiddenField.value = masterIdNum;
+        // Check if include-parent-zone-id has a pre-existing value to preserve
+        const existingParentId = hiddenField.value ? parseInt(hiddenField.value, 10) : null;
+        
+        // Wire the combobox UI: preserve behavior of preselecting include-parent-zone-id if present,
+        // otherwise preselect the master
+        if (existingParentId && composedList.find(z => parseInt(z.id, 10) === existingParentId)) {
+            // Keep existing selection (don't overwrite)
+            const existingZone = composedList.find(z => parseInt(z.id, 10) === existingParentId);
+            if (existingZone) {
+                input.value = `${existingZone.name} (${existingZone.file_type})`;
+                hiddenField.value = existingParentId;
+            }
         } else {
-            input.value = '';
-            hiddenField.value = '';
+            // Preselect the master zone by default
+            if (masterZone) {
+                input.value = `${masterZone.name} (${masterZone.file_type})`;
+                hiddenField.value = masterIdNum;
+            } else {
+                input.value = '';
+                hiddenField.value = '';
+            }
         }
         
         // Remove old event listeners by cloning the input element
