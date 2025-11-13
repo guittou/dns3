@@ -447,12 +447,21 @@ function syncSelectedIds() {
 /**
  * Ensure zone files initialization and expose helpers on window
  * Should be called before any combobox initialization
+ * 
+ * This function:
+ * - Initializes zones cache and syncSelectedIds (preserves existing behavior)
+ * - Exposes helper functions to window for global access
+ * - Defensively binds click handler to "Nouveau fichier de zone" button if present
+ * - Defensively binds click handler to "Réinitialiser" button with accent-neutralized search
+ * - Uses data attributes to prevent duplicate bindings
+ * - Wraps event wiring in try/catch to avoid breaking initialization
  */
 function ensureZoneFilesInit() {
+    // Initialize zones cache and sync selected IDs (existing behavior)
     initZonesCache();
     syncSelectedIds();
     
-    // Expose helpers on window for global access
+    // Expose helper functions on window for global access
     window.apiCall = apiCall;
     window.getMasterIdFromZoneId = getMasterIdFromZoneId;
     window.getTopMasterId = getTopMasterId;
@@ -461,6 +470,52 @@ function ensureZoneFilesInit() {
     window.setDomainForZone = setDomainForZone;
     window.updateCreateBtnState = updateCreateBtnState;
     window.syncSelectedIds = syncSelectedIds;
+    
+    // Defensive event binding with try/catch to avoid breaking initialization
+    try {
+        // Bind "Nouveau fichier de zone" button if present (only once)
+        const btnNewZoneFile = document.getElementById('btn-new-zone-file');
+        if (btnNewZoneFile && !btnNewZoneFile.dataset.handlerBound) {
+            btnNewZoneFile.addEventListener('click', function() {
+                // Call openCreateIncludeModal if available
+                if (typeof openCreateIncludeModal === 'function') {
+                    openCreateIncludeModal();
+                } else {
+                    console.warn('openCreateIncludeModal function not available');
+                }
+            });
+            // Mark as bound to prevent duplicate bindings
+            btnNewZoneFile.dataset.handlerBound = 'true';
+        }
+        
+        // Bind "Réinitialiser" button with accent-neutralized search (only once)
+        // Search all button and anchor elements for text matching 'reinitialiser' or 'reset'
+        const allButtons = Array.from(document.querySelectorAll('button, a'));
+        const resetButton = allButtons.find(btn => {
+            const text = (btn.textContent || '').toLowerCase().trim();
+            // Normalize accents: remove diacritics for comparison
+            const normalized = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            return normalized.includes('reinitialiser') || normalized.includes('reset');
+        });
+        
+        if (resetButton && !resetButton.dataset.handlerBound) {
+            resetButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Call resetZoneDomainSelection if available
+                if (typeof resetZoneDomainSelection === 'function') {
+                    resetZoneDomainSelection();
+                } else {
+                    console.warn('resetZoneDomainSelection function not available');
+                }
+            });
+            // Mark as bound to prevent duplicate bindings
+            resetButton.dataset.handlerBound = 'true';
+        }
+    } catch (error) {
+        // Log warning but don't break initialization
+        console.warn('ensureZoneFilesInit: Failed to bind event handlers:', error);
+    }
 }
 
 /**
