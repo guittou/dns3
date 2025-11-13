@@ -2064,6 +2064,7 @@ async function openCreateIncludeModal(parentId) {
         if (domainField) {
             domainField.value = domainDisplay;
             domainField.disabled = true; // Ensure field is non-editable
+            domainField.readOnly = true; // Also set readOnly for extra safety
             domainField.style.textAlign = 'center'; // Center the text
         }
         if (domainTitle) domainTitle.textContent = domainDisplay;
