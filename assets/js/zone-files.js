@@ -2003,66 +2003,93 @@ async function openEditMasterModal() {
  * @param {number} parentId - Optional parent master zone ID (defaults to currently selected)
  */
 async function openCreateIncludeModal(parentId) {
-    const masterId = parentId || window.ZONES_SELECTED_MASTER_ID;
-    
-    if (!masterId) {
-        showError('Veuillez sélectionner un domaine d\'abord');
-        return;
-    }
-    
     try {
-        // Clear any previous errors
-        clearModalError('includeCreate');
-        
-        // Fetch the master zone data
-        const response = await zoneApiCall('get_zone', { params: { id: masterId } });
-        if (!response || !response.data) {
-            showError('Impossible de charger les données du domaine');
+        // Determine the zonefile to use as default parent:
+        // priority: explicit param -> selected zonefile stored in globals/inputs -> selected master fallback
+        const pageSelectedZoneId = window.ZONES_SELECTED_ZONEFILE_ID || window.selectedZoneId ||
+            (document.getElementById('zone-file-id') ? document.getElementById('zone-file-id').value : '') ||
+            window.ZONES_SELECTED_MASTER_ID;
+
+        const defaultParentId = parentId || pageSelectedZoneId;
+
+        if (!defaultParentId) {
+            showError('Veuillez sélectionner un fichier de zone ou un domaine d\'abord');
             return;
         }
-        
-        const masterZone = response.data;
-        
-        // Update modal header spans in correct order (title first, domain second)
-        const titleSpan = document.getElementById('include-modal-title');
-        const domainSpan = document.getElementById('include-modal-domain');
-        if (titleSpan) {
-            titleSpan.textContent = 'Nouveau fichier de zone';
+
+        // Fetch the selected zone (this will be the visible preselected parent in the combobox)
+        let selectedZone = null;
+        try {
+            const selResp = await zoneApiCall('get_zone', { params: { id: defaultParentId } });
+            if (selResp && selResp.data) selectedZone = selResp.data;
+        } catch (e) {
+            console.warn('openCreateIncludeModal: failed to fetch selected zone', e);
         }
-        if (domainSpan) {
-            domainSpan.textContent = masterZone.domain || masterZone.name || '-';
+
+        // Determine master id for domain display (if selectedZone is include -> its master, else itself)
+        let masterId = null;
+        try {
+            masterId = await getMasterIdFromZoneId(selectedZone ? selectedZone.id : defaultParentId);
+        } catch (e) {
+            console.warn('openCreateIncludeModal: getMasterIdFromZoneId failed', e);
+            masterId = defaultParentId;
         }
-        
-        // Prefill domain field (disabled)
+
+        // Fetch master zone to display domain
+        let masterZone = null;
+        try {
+            const mResp = await zoneApiCall('get_zone', { params: { id: masterId } });
+            if (mResp && mResp.data) masterZone = mResp.data;
+        } catch (e) {
+            console.warn('openCreateIncludeModal: failed to fetch master zone', e);
+        }
+
+        // Store hidden IDs
+        const includeDomainIdEl = document.getElementById('include-domain-id');
+        const includeParentZoneIdEl = document.getElementById('include-parent-zone-id');
+        if (includeDomainIdEl) includeDomainIdEl.value = masterId || '';
+        if (includeParentZoneIdEl) includeParentZoneIdEl.value = selectedZone ? selectedZone.id : defaultParentId;
+
+        // Prefill the disabled domain input AND the header span so they are consistent
         const domainField = document.getElementById('include-domain');
-        if (domainField) {
-            domainField.value = masterZone.domain || masterZone.name || '-';
-        }
-        
-        // Store master ID in hidden fields
-        document.getElementById('include-domain-id').value = masterId;
-        document.getElementById('include-parent-zone-id').value = masterId;
-        
-        // Clear input fields (creation mode)
-        document.getElementById('include-name').value = '';
-        document.getElementById('include-filename').value = '';
-        document.getElementById('include-directory').value = '';
-        
-        // Populate parent combobox with master + recursive includes
+        const domainTitle = document.getElementById('include-modal-domain');
+        const fileTitle = document.getElementById('include-modal-title');
+        const domainDisplay = (masterZone && (masterZone.domain || masterZone.name)) ? (masterZone.domain || masterZone.name) : '-';
+
+        if (domainField) domainField.value = domainDisplay;
+        if (domainTitle) domainTitle.textContent = domainDisplay;
+        if (fileTitle) fileTitle.textContent = 'Nouveau fichier de zone';
+
+        // Clear creation inputs
+        const nameEl = document.getElementById('include-name');
+        const filenameEl = document.getElementById('include-filename');
+        const dirEl = document.getElementById('include-directory');
+        if (nameEl) nameEl.value = '';
+        if (filenameEl) filenameEl.value = '';
+        if (dirEl) dirEl.value = '';
+
+        // Populate the full parent combobox list for the master (master + recursive includes)
+        // populateIncludeParentCombobox expects a master id (we provide masterId)
         await populateIncludeParentCombobox(masterId);
-        
-        // Show modal
+
+        // After populate, ensure the visible combobox shows the originally selected zonefile (if present)
+        const includeInput = document.getElementById('include-parent-input');
+        const includeHidden = document.getElementById('include-parent-zone-id');
+        if (selectedZone && includeInput && includeHidden) {
+            includeInput.value = `${selectedZone.name} (${selectedZone.file_type})`;
+            includeHidden.value = selectedZone.id;
+        }
+
+        // Finally show the modal
         const modal = document.getElementById('include-create-modal');
-        modal.style.display = 'block';
-        modal.classList.add('open');
-        
-        // Call centering helper if available
-        if (typeof window.ensureModalCentered === 'function') {
-            window.ensureModalCentered(modal);
+        if (modal) {
+            modal.style.display = 'block';
+            modal.classList.add('open');
+            if (typeof window.ensureModalCentered === 'function') window.ensureModalCentered(modal);
         }
     } catch (error) {
-        console.error('Failed to open create include modal:', error);
-        showError('Erreur lors de l\'ouverture du modal: ' + error.message);
+        console.error('openCreateIncludeModal failed:', error);
+        showError('Erreur lors de l\'ouverture du modal');
     }
 }
 
