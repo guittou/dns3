@@ -175,7 +175,7 @@ CREATE TABLE `dns_records` (
   `cname_target` varchar(255) DEFAULT NULL COMMENT 'Target hostname for CNAME records',
   `ptrdname` varchar(255) DEFAULT NULL COMMENT 'Reverse DNS name for PTR records',
   `txt` text DEFAULT NULL COMMENT 'Text content for TXT records',
-  `ttl` int(11) DEFAULT 3600,
+  `ttl` int(11) DEFAULT NULL,
   `priority` int(11) DEFAULT NULL,
   `requester` varchar(255) DEFAULT NULL COMMENT 'Person or system requesting this DNS record',
   `status` enum('active','disabled','deleted') DEFAULT 'active',
