@@ -2189,7 +2189,38 @@ async function populateIncludeParentCombobox(masterId) {
                 masterZone = masterResponse.data;
             }
         } catch (e) {
-            console.warn('[populateIncludeParentCombobox] Failed to fetch master zone:', e);
+            console.warn('[populateIncludeParentCombobox] Failed to fetch master zone, searching caches:', e);
+            
+            // Search caches for the master zone
+            const cachesToSearch = [
+                window.ALL_ZONES,
+                window.ZONES_ALL,
+                window.CURRENT_ZONE_LIST,
+                typeof allMasters !== 'undefined' ? allMasters : []
+            ];
+            
+            for (const cache of cachesToSearch) {
+                if (Array.isArray(cache) && cache.length > 0) {
+                    masterZone = cache.find(z => parseInt(z.id, 10) === masterIdNum);
+                    if (masterZone) {
+                        console.log('[populateIncludeParentCombobox] Found master in cache');
+                        break;
+                    }
+                }
+            }
+            
+            // If still not found, create a fallback placeholder
+            if (!masterZone) {
+                console.warn('[populateIncludeParentCombobox] Master not found in caches, creating fallback placeholder');
+                masterZone = {
+                    id: masterIdNum,
+                    name: `Master ${masterIdNum}`,
+                    filename: `master-${masterIdNum}.db`,
+                    file_type: 'master',
+                    domain: '',
+                    status: 'active'
+                };
+            }
         }
         
         // Compose final list: master + recursive includes (deduplicate)
