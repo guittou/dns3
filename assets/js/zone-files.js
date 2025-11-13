@@ -2196,7 +2196,7 @@ async function populateIncludeParentCombobox(masterId) {
                 window.ALL_ZONES,
                 window.ZONES_ALL,
                 window.CURRENT_ZONE_LIST,
-                typeof allMasters !== 'undefined' ? allMasters : []
+                allMasters
             ];
             
             for (const cache of cachesToSearch) {
@@ -2218,7 +2218,10 @@ async function populateIncludeParentCombobox(masterId) {
                     filename: `master-${masterIdNum}.db`,
                     file_type: 'master',
                     domain: '',
-                    status: 'active'
+                    status: 'active',
+                    parent_id: null,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 };
             }
         }
