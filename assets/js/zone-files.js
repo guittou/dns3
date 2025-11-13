@@ -606,6 +606,31 @@ function validateDomainLabel(domain) {
 }
 
 /**
+ * Validation helper: Validate zone name
+ * Must contain only lowercase letters a-z and digits 0-9, no spaces
+ * @param {string} name - The zone name to validate
+ * @returns {object} - {valid: boolean, error: string|null}
+ */
+function validateZoneName(name) {
+    if (!name || typeof name !== 'string') {
+        return { valid: false, error: 'Le Nom de la zone est requis.' };
+    }
+    
+    const trimmed = name.trim();
+    if (trimmed === '') {
+        return { valid: false, error: 'Le Nom de la zone est requis.' };
+    }
+    
+    // Check for valid characters: only lowercase letters a-z and digits 0-9
+    const validPattern = /^[a-z0-9]+$/;
+    if (!validPattern.test(trimmed)) {
+        return { valid: false, error: 'Le Nom doit contenir uniquement des lettres minuscules a–z et des chiffres, sans espaces.' };
+    }
+    
+    return { valid: true, error: null };
+}
+
+/**
  * Validation helper: Validate filename
  * Must not contain spaces and must end with .db (case insensitive)
  * @param {string} filename - The filename to validate
@@ -674,6 +699,7 @@ function clearModalError(modalKey) {
 
 // Export validation helpers to window for reusability
 window.__validateDomainLabel = validateDomainLabel;
+window.__validateZoneName = validateZoneName;
 window.__validateFilename = validateFilename;
 window.__showModalError = showModalError;
 window.__clearModalError = clearModalError;
@@ -2088,7 +2114,10 @@ async function openCreateIncludeModal(parentId) {
         const filenameEl = document.getElementById('include-filename');
         const dirEl = document.getElementById('include-directory');
         if (nameEl) nameEl.value = '';
-        if (filenameEl) filenameEl.value = '';
+        if (filenameEl) {
+            filenameEl.value = '';
+            filenameEl.dataset.userEdited = ''; // Reset user-edited flag
+        }
         if (dirEl) dirEl.value = '';
 
         // Prefill the visible combobox include-parent-input with the selected zonefile text
@@ -2405,9 +2434,10 @@ async function saveInclude() {
         const parentId = document.getElementById('include-parent-zone-id').value;
         const directory = document.getElementById('include-directory').value?.trim() || null;
         
-        // Validate name field (required only, no format validation)
-        if (!name) {
-            showModalError('includeCreate', 'Le Nom de la zone est requis.');
+        // Validate name field with strict validation
+        const nameValidation = validateZoneName(name);
+        if (!nameValidation.valid) {
+            showModalError('includeCreate', nameValidation.error);
             return;
         }
         
@@ -2479,6 +2509,12 @@ function openCreateZoneModal() {
     
     document.getElementById('createZoneForm').reset();
     
+    // Reset user-edited flags for filename fields
+    const masterFilenameEl = document.getElementById('master-filename');
+    if (masterFilenameEl) {
+        masterFilenameEl.dataset.userEdited = '';
+    }
+    
     const modal = document.getElementById('master-create-modal');
     modal.style.display = 'block';
     modal.classList.add('open');
@@ -2512,9 +2548,10 @@ async function createZone() {
         const filename = document.getElementById('master-filename').value?.trim() || '';
         const directory = document.getElementById('master-directory').value?.trim() || null;
         
-        // Validate zone name: REQUIRED only (no format validation)
-        if (!name) {
-            showModalError('createZone', 'Le Nom de la zone est requis.');
+        // Validate zone name with strict validation
+        const nameValidation = validateZoneName(name);
+        if (!nameValidation.valid) {
+            showModalError('createZone', nameValidation.error);
             return;
         }
         
@@ -3008,6 +3045,57 @@ function displayValidationResults(validation) {
     validationOutput.textContent = output;
 }
 
+/**
+ * Setup name to filename autofill for zone creation forms
+ * Monitors name fields and auto-fills corresponding filename fields with {name}.db
+ * Tracks manual edits via dataset.userEdited flag to avoid overwriting user input
+ */
+function setupNameFilenameAutofill() {
+    // Define field pairs: name input ID → filename input ID
+    const fieldPairs = [
+        { nameId: 'include-name', filenameId: 'include-filename' },
+        { nameId: 'master-zone-name', filenameId: 'master-filename' },
+        { nameId: 'includeNameInput', filenameId: 'includeFilenameInput' }
+    ];
+    
+    fieldPairs.forEach(pair => {
+        const nameInput = document.getElementById(pair.nameId);
+        const filenameInput = document.getElementById(pair.filenameId);
+        
+        // Skip if either field doesn't exist (defensive)
+        if (!nameInput || !filenameInput) {
+            return;
+        }
+        
+        // Monitor name input changes
+        nameInput.addEventListener('input', () => {
+            try {
+                // Only autofill if filename hasn't been manually edited
+                if (filenameInput.dataset.userEdited !== 'true') {
+                    const nameValue = nameInput.value.trim();
+                    if (nameValue) {
+                        filenameInput.value = `${nameValue}.db`;
+                    } else {
+                        filenameInput.value = '';
+                    }
+                }
+            } catch (e) {
+                console.warn('setupNameFilenameAutofill: error during autofill', e);
+            }
+        });
+        
+        // Monitor filename input for manual edits
+        filenameInput.addEventListener('input', () => {
+            try {
+                // Mark as user-edited when user types in filename field
+                filenameInput.dataset.userEdited = 'true';
+            } catch (e) {
+                console.warn('setupNameFilenameAutofill: error marking user edit', e);
+            }
+        });
+    });
+}
+
 // Expose functions globally for inline event handlers and external access
 window.openZoneModal = openZoneModal;
 window.populateZoneDomainSelect = populateZoneDomainSelect;
@@ -3026,8 +3114,12 @@ window.renderZonesTable = renderZonesTable;
 
 // Initialize on DOM ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initZonesPage);
+    document.addEventListener('DOMContentLoaded', () => {
+        initZonesPage();
+        setupNameFilenameAutofill();
+    });
 } else {
     // DOM already loaded, init immediately
     initZonesPage();
+    setupNameFilenameAutofill();
 }
