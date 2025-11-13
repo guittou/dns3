@@ -419,8 +419,8 @@ function updateCreateBtnState() {
     const zoneId = document.getElementById('zone-file-id');
     
     if (createBtn && zoneId) {
-        // Enable only if zone is selected (has non-empty value)
-        createBtn.disabled = !zoneId.value || zoneId.value === '';
+        // Enable if zone-file-id has a value OR if a master is selected
+        createBtn.disabled = !((zoneId && zoneId.value) || (window.ZONES_SELECTED_MASTER_ID && String(window.ZONES_SELECTED_MASTER_ID) !== ''));
     }
 }
 
@@ -1078,27 +1078,23 @@ async function onZoneFileSelected(zoneFileId) {
             // Update zone file input text with nicer display value
             if (input) input.value = `${zone.name} (${zone.filename})`;
             
-            // Update master ID - if this is an include, find its parent
-            if (zone.file_type === 'include' && zone.parent_id) {
-                const parentId = parseInt(zone.parent_id, 10);
-                if (!isNaN(parentId)) {
-                    window.ZONES_SELECTED_MASTER_ID = parentId;
-                    window.selectedDomainId = parentId;
-                    
-                    // Update domain combobox text
-                    const parentZone = allMasters.find(m => parseInt(m.id, 10) === parentId);
-                    if (parentZone && domainInput) {
-                        domainInput.value = parentZone.domain;
-                    }
-                }
-            } else if (zone.file_type === 'master') {
-                // This is a master zone
-                window.ZONES_SELECTED_MASTER_ID = zoneFileId;
-                window.selectedDomainId = zoneFileId;
+            // Get the top master ID for this zone (recursively traverse to root)
+            let topMasterId = await getTopMasterId(zone.id);
+            
+            // Fallback to getMasterIdFromZoneId if getTopMasterId fails
+            if (!topMasterId) {
+                topMasterId = await getMasterIdFromZoneId(zone.id);
+            }
+            
+            // Set window.ZONES_SELECTED_MASTER_ID to the top master root
+            if (topMasterId) {
+                window.ZONES_SELECTED_MASTER_ID = String(topMasterId);
+                window.selectedDomainId = String(topMasterId);
                 
-                // Update domain combobox text
-                if (zone.domain && domainInput) {
-                    domainInput.value = zone.domain;
+                // Update domain combobox text with master's domain
+                const masterZone = allMasters.find(m => parseInt(m.id, 10) === topMasterId);
+                if (masterZone && domainInput) {
+                    domainInput.value = masterZone.domain;
                 }
             }
         } else {
@@ -1146,9 +1142,11 @@ function clearZoneFileSelection() {
 /**
  * Reset domain selection
  */
-function resetZoneDomainSelection() {
-    onZoneDomainSelected(null);
+async function resetZoneDomainSelection() {
+    await onZoneDomainSelected(null);
     clearZoneFileSelection();
+    currentPage = 1;
+    await renderZonesTable();
 }
 
 /**
