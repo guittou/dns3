@@ -1,133 +1,77 @@
-# PR Summary: Fix Modal Editor Height Issue
+# Pull Request Summary - fix/include-parent-selection
 
-## Issue
-The "Éditeur" tab in the zone editing modal was being truncated in the UI. The popup didn't adapt its height correctly to the content of the tabs, and the editor (textarea/CodeMirror/ACE) was cut off.
+## Branch Information
+- **Source Branch:** fix/include-parent-selection
+- **Target Branch:** main
+- **Commit:** eddce87
 
-## Solution
-Implemented a height caching mechanism that:
-1. Measures the height of ALL tabs on modal opening
-2. Applies the necessary height to `.dns-modal-content` to accommodate the tallest tab
-3. Stores the computed height and reuses it to prevent the popup from "growing" during tab switches
-4. Recalculates only on window resize or when forced
+## PR Title
+Fix include-create modal: preselect selected zonefile and sync header/input
 
-## Technical Implementation
+## PR Description
 
-### Modified Function: `adjustZoneModalTabHeights(force = false)`
-**New behavior:**
-- **First call or `force=true`**: Measures all tab panes using off-screen measurement technique
-- **Subsequent calls**: Reuses stored height from `modalContent.dataset._computedModalHeight`
-- **Storage**: Uses `dataset._computedModalHeight` and `dataset._computedViewport` for caching
-- **Result**: Stable modal height that doesn't change between tab switches
+Ce PR corrige le modal "Nouveau fichier de zone" (include-create) pour respecter exactement deux exigences :
 
-### Modified Function: `lockZoneModalHeight()`
-**New behavior:**
-- Re-applies stored computed height if available
-- No longer a complete no-op
+### 1. Header et domaine synchronisés ✅
 
-### Modified Function: `unlockZoneModalHeight()`
-**Enhanced:**
-- Clears stored dataset values (`_computedModalHeight`, `_computedViewport`)
-- Ensures clean state when modal closes
+- Le header affiche en haut, centré, le texte « Nouveau fichier de zone »
+- Juste en dessous, centré également, s'affiche le nom du domaine (le domaine du master sélectionné)
+- Le span `#include-modal-title` et `#include-modal-domain` existent déjà
+- L'input disabled `#include-domain` affiche la même valeur (cohérence header input)
+- **NOUVEAU:** Le texte du champ est centré visuellement avec `textAlign = 'center'`
 
-### Modified Function: `handleZoneModalResize()`
-**Enhanced:**
-- Now calls `adjustZoneModalTabHeights(true)` to force recalculation on resize
+### 2. Préselection du fichier parent ✅
 
-## Code Changes
+- Le champ visible « Fichier de zone parent » (input `#include-parent-input`) est prérempli avec le fichier de zone sélectionné sur la page principale (c'est-à-dire le fichier de zone sélectionné, pas le domaine)
+- Le champ caché `include-parent-zone-id` reçoit l'ID de ce fichier de zone
+- La combobox continue à lister et permettre de rechercher tous les fichiers de zone liés au domaine (master + includes récursifs)
+- `populateIncludeParentCombobox(masterId)` est appelé pour remplir la liste, puis la sélection visible est ré-appliquée au fichier sélectionné
 
-**File:** `assets/js/zone-files.js`
-- Lines changed: 171 insertions, 168 deletions
-- Minimal, surgical changes as requested
-- Only the specified functions were modified
-- Backward compatible with existing code
+## Modifications apportées
 
-## Key Features
+**Un seul fichier modifié :** `assets/js/zone-files.js`
 
-✅ **Height Stability**: Modal height remains constant when switching tabs
-✅ **Smart Caching**: Computes height once, reuses on tab switches
-✅ **Responsive**: Adapts to window resize automatically
-✅ **Clean State**: Clears cache on modal close
-✅ **Editor Support**: Works with textarea, CodeMirror, and ACE editors
-✅ **Internal Scrolling**: Editors scroll internally, not the modal
+La fonction `openCreateIncludeModal` a été remplacée par une implémentation minimale et défensive qui :
 
-## Testing
+- Détermine `defaultParentId` en priorisant : `parentId` param → `window.ZONES_SELECTED_ZONEFILE_ID` → `window.selectedZoneId` → `#zone-file-id` input → `window.ZONES_SELECTED_MASTER_ID`
+- Récupère la zone sélectionnée via `zoneApiCall('get_zone', {id: defaultParentId})` et la stocke en `selectedZone`
+- Détermine `masterId` via `getMasterIdFromZoneId(selectedZone.id || defaultParentId)`
+- Récupère le master zone pour obtenir `domain/name`
+- Met à jour `#include-domain` (input disabled) et `#include-modal-domain` (span) avec la même valeur
+- **Centre la valeur visible** avec `domainField.style.textAlign = 'center'`
+- Met `include-domain-id = masterId` et `include-parent-zone-id = selectedZone.id`
+- Vide les champs `include-name`, `include-filename`, `include-directory`
+- Appelle `await populateIncludeParentCombobox(masterId)` pour remplir la liste master + includes
+- Après populate, ré-applique la sélection visible : `include-parent-input.value = ${selectedZone.name} (${selectedZone.file_type})` et `include-parent-zone-id = selectedZone.id`
+- Ouvre le modal (`modal.style.display='block'`, `modal.classList.add('open')`) et appelle `ensureModalCentered` si disponible
+- Utilise `try/catch` et `console.warn` pour les appels API ratés
 
-### Test Files Provided
-1. **`test-modal-sizing.html`**: Interactive test page with console logging
-2. **`TESTING_GUIDE_MODAL_HEIGHT.md`**: Comprehensive manual testing guide
-3. **`MODAL_HEIGHT_FIX_IMPLEMENTATION.md`**: Technical documentation
+## Tests manuels attendus
 
-### Quick Test
-```javascript
-// Open zone modal, then in browser console:
-const modal = document.querySelector('.dns-modal-content');
-console.log('Cached height:', modal.dataset._computedModalHeight);
+1. Sélectionner un fichier de zone dans la page principale (master ou include)
+2. Cliquer « Nouveau fichier de zone » :
+   - ✅ Le modal s'ouvre ; le header affiche en haut centré « Nouveau fichier de zone »
+   - ✅ Juste en dessous, centré, le nom du domaine (master)
+   - ✅ L'input disabled `#include-domain` affiche la même valeur (centrée)
+   - ✅ Le champ « Fichier de zone parent » (`#include-parent-input`) est pré-rempli avec le fichier de zone sélectionné sur la page principale
+   - ✅ `include-parent-zone-id` contient son id
+   - ✅ La combobox continue de lister et permettre de rechercher le master + includes récursifs
+3. Créer un include et vérifier que l'affectation fonctionne et qu'il n'y a pas d'erreurs console
 
-// Force recalculation
-adjustZoneModalTabHeights(true);
+## Security Summary
+
+✅ **CodeQL scan completed successfully with no alerts found in JavaScript code.**
+
+## Files Changed
+
+```
+assets/js/zone-files.js | 36 insertions(+), 24 deletions(-)
+1 file changed, 36 insertions(+), 24 deletions(-)
 ```
 
-### Test Scenarios
-- ✅ Tab switching (height should remain stable)
-- ✅ Window resize (should trigger recalculation)
-- ✅ Modal reopen (should calculate fresh)
-- ✅ Editor scrolling (should be internal)
-- ✅ Force recalculation (should recompute)
+## Additional Notes
 
-## Manual Testing Instructions
-
-1. **Hard refresh**: Press `Ctrl+F5` to ensure latest assets are loaded
-2. **Open zone modal**: Click on any zone in the zone files list
-3. **Test in console**:
-   ```javascript
-   adjustZoneModalTabHeights(true); // Force recalculation
-   ```
-4. **Switch tabs**: Verify height stays stable
-5. **Check editor**: Should scroll internally, not truncated
-6. **Verify buttons**: Save/Cancel/Delete should be visible
-
-## Files Modified
-
-| File | Changes | Purpose |
-|------|---------|---------|
-| `assets/js/zone-files.js` | 171 lines | Core implementation |
-| `test-modal-sizing.html` | 8 lines | Enhanced test page |
-| `MODAL_HEIGHT_FIX_IMPLEMENTATION.md` | New file | Technical docs |
-| `TESTING_GUIDE_MODAL_HEIGHT.md` | New file | Testing guide |
-
-## Constraints Met
-
-✅ **Minimal changes**: Only modified `assets/js/zone-files.js` as requested
-✅ **Surgical approach**: Changed only the specified functions
-✅ **Draft/WIP PR**: Not auto-merged, ready for review
-✅ **Branch from main**: Created from the grafted commit
-✅ **No breaking changes**: Backward compatible
-
-## Next Steps
-
-1. **Manual Testing**: Use `test-modal-sizing.html` or production environment
-2. **Review**: Code review focusing on height calculation logic
-3. **Browser Testing**: Test on different browsers and viewport sizes
-4. **User Acceptance**: Verify with stakeholders that issue is resolved
-
-## Implementation Notes
-
-- **Performance**: Height calculation is fast (<100ms)
-- **Memory**: Minimal overhead (two dataset properties)
-- **Compatibility**: Works with modern browsers (IE 11+ with transpilation)
-- **Graceful Degradation**: CodeMirror/ACE support is optional
-
-## Success Criteria
-
-✅ Modal opens at height of tallest tab
-✅ Height remains stable across tab switches
-✅ Editor is fully visible and scrollable
-✅ Modal adapts to window resize
-✅ No JavaScript errors in console
-✅ All buttons (Save/Cancel/Delete) remain accessible
-
----
-
-**Status**: ✅ Implementation Complete - Ready for Manual Testing and Review
-
-**PR Type**: WIP/Draft - Do not auto-merge
+- Aucun autre fichier n'a été modifié
+- La solution est minimale et défensive
+- Tous les appels API utilisent try/catch avec console.warn pour les erreurs
+- Le code est bien documenté avec des commentaires clairs
