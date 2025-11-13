@@ -130,6 +130,13 @@ if (!$auth->isAdmin()) {
         </div>
         
         <div class="dns-modal-body">
+            <!-- Error Banner -->
+            <div id="dnsModalErrorBanner" class="modal-error-banner" role="alert" tabindex="-1" style="display:none;">
+                <button class="modal-error-close" aria-label="Fermer" onclick="clearModalError('dns')">&times;</button>
+                <strong class="modal-error-title">Erreur&nbsp;:</strong>
+                <div id="dnsModalErrorMessage" class="modal-error-message"></div>
+            </div>
+            
             <!-- Type Selection View (Step 1) -->
             <div id="type-selection-view" class="type-selection-view" style="display: none;">
                 <p style="margin-bottom: 1rem; text-align: center; color: #555;">Sélectionnez le type d'enregistrement DNS à créer :</p>
