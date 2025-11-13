@@ -2047,9 +2047,14 @@ async function openCreateIncludeModal(parentId) {
             console.warn('openCreateIncludeModal: failed to fetch master zone', e);
         }
 
-        // Prepare domain display value
-        const domainDisplay = (masterZone && (masterZone.domain || masterZone.name)) ? 
-            (masterZone.domain || masterZone.name) : '-';
+        // Prepare domain display value - priority: page combobox > masterZone.domain > masterZone.name
+        let domainDisplay = '-';
+        const pageDomainInput = document.getElementById('zone-domain-input');
+        if (pageDomainInput && pageDomainInput.value && pageDomainInput.value.trim() !== '') {
+            domainDisplay = pageDomainInput.value.trim();
+        } else if (masterZone) {
+            domainDisplay = masterZone.domain || masterZone.name || '-';
+        }
 
         // Update #include-domain (disabled input) and #include-modal-domain (span) with same value
         const domainField = document.getElementById('include-domain');
@@ -2058,8 +2063,8 @@ async function openCreateIncludeModal(parentId) {
         
         if (domainField) {
             domainField.value = domainDisplay;
-            // Center the text in the disabled input field
-            domainField.style.textAlign = 'center';
+            domainField.disabled = true; // Ensure field is non-editable
+            domainField.style.textAlign = 'center'; // Center the text
         }
         if (domainTitle) domainTitle.textContent = domainDisplay;
         if (fileTitle) fileTitle.textContent = 'Nouveau fichier de zone';
