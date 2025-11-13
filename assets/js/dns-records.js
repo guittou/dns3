@@ -2229,6 +2229,13 @@
         form.dataset.mode = 'create';
         delete form.dataset.recordId;
         
+        // Remove required attribute from TTL field to allow NULL TTL
+        const ttlInput = document.getElementById('record-ttl');
+        if (ttlInput) {
+            ttlInput.removeAttribute('required');
+            ttlInput.placeholder = 'défaut';
+        }
+        
         // Hide last_seen field for new records (server-managed)
         if (lastSeenGroup) {
             lastSeenGroup.style.display = 'none';
@@ -2374,7 +2381,15 @@
 
             document.getElementById('record-type').value = record.record_type;
             document.getElementById('record-name').value = record.name;
-            document.getElementById('record-ttl').value = record.ttl;
+            
+            // Handle TTL: set value to empty string if null (allows user to leave it empty for default)
+            const ttlInput = document.getElementById('record-ttl');
+            if (ttlInput) {
+                ttlInput.value = (record.ttl !== null && record.ttl !== undefined) ? record.ttl : '';
+                ttlInput.removeAttribute('required');
+                ttlInput.placeholder = 'défaut';
+            }
+            
             document.getElementById('record-requester').value = record.requester || '';
             document.getElementById('record-ticket-ref').value = record.ticket_ref || '';
             document.getElementById('record-comment').value = record.comment || '';
@@ -2510,11 +2525,23 @@
             return;
         }
 
+        // Handle TTL: if empty, send null; if provided, validate it's a positive integer
+        const rawTtl = (document.getElementById('record-ttl').value || '').trim();
+        let ttlValue = null;
+        if (rawTtl !== '') {
+            const parsedTtl = parseInt(rawTtl, 10);
+            if (isNaN(parsedTtl) || parsedTtl <= 0) {
+                showModalError('dns', 'Le TTL doit être un nombre entier positif', 'record-ttl');
+                return;
+            }
+            ttlValue = parsedTtl;
+        }
+        
         const data = {
             zone_file_id: parseInt(zoneFileId),
             record_type: recordType,
             name: document.getElementById('record-name').value,
-            ttl: parseInt(document.getElementById('record-ttl').value) || 3600,
+            ttl: ttlValue,
             requester: document.getElementById('record-requester').value || null,
             ticket_ref: document.getElementById('record-ticket-ref').value || null,
             comment: document.getElementById('record-comment').value || null

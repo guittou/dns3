@@ -285,6 +285,13 @@ class DnsRecord {
                 $this->mapValueToDedicatedField($data);
             }
             
+            // Validate TTL if provided
+            if (array_key_exists('ttl', $data) && $data['ttl'] !== null) {
+                if (!is_numeric($data['ttl']) || intval($data['ttl']) <= 0) {
+                    throw new Exception("TTL must be a positive integer or null");
+                }
+            }
+            
             // Extract the value for validation based on record type
             $recordType = $data['record_type'];
             $owner = $data['name'];
@@ -385,6 +392,13 @@ class DnsRecord {
             // Map 'value' alias to dedicated field if provided
             if (isset($data['value']) && !empty($data['value'])) {
                 $this->mapValueToDedicatedField($data);
+            }
+            
+            // Validate TTL if provided
+            if (array_key_exists('ttl', $data) && $data['ttl'] !== null) {
+                if (!is_numeric($data['ttl']) || intval($data['ttl']) <= 0) {
+                    throw new Exception("TTL must be a positive integer or null");
+                }
             }
             
             // Determine the record type (use updated value if provided, otherwise current)

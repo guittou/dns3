@@ -303,6 +303,20 @@ try {
                 exit;
             }
 
+            // Normalize TTL: empty string -> null
+            if (isset($input['ttl']) && $input['ttl'] === '') {
+                $input['ttl'] = null;
+            }
+            
+            // Validate TTL if provided
+            if (isset($input['ttl']) && $input['ttl'] !== null) {
+                if (!is_numeric($input['ttl']) || intval($input['ttl']) <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'TTL must be a positive integer or null']);
+                    exit;
+                }
+            }
+
             // Validate field lengths
             if (isset($input['requester']) && strlen($input['requester']) > 255) {
                 http_response_code(400);
@@ -382,6 +396,20 @@ try {
                 if (!$validation['valid']) {
                     http_response_code(400);
                     echo json_encode(['error' => $validation['error']]);
+                    exit;
+                }
+            }
+
+            // Normalize TTL: empty string -> null
+            if (isset($input['ttl']) && $input['ttl'] === '') {
+                $input['ttl'] = null;
+            }
+            
+            // Validate TTL if provided
+            if (isset($input['ttl']) && $input['ttl'] !== null) {
+                if (!is_numeric($input['ttl']) || intval($input['ttl']) <= 0) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'TTL must be a positive integer or null']);
                     exit;
                 }
             }
