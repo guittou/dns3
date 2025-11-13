@@ -1246,8 +1246,8 @@ async function ensureZonesLoaded() {
 /**
  * Render zones table with filtering and pagination
  * Filtering precedence:
- * 1. If ZONES_SELECTED_ZONEFILE_ID => show rows with parent_id == zonefileId
- * 2. Else if ZONES_SELECTED_MASTER_ID => show rows with parent_id == masterId
+ * 1. If ZONES_SELECTED_ZONEFILE_ID => show rows with parent_id == zonefileId OR ancestor chain contains zonefileId
+ * 2. Else if ZONES_SELECTED_MASTER_ID => show rows with parent_id == masterId OR ancestor chain contains masterId
  * 3. Else => show all includes
  */
 async function renderZonesTable() {
@@ -1261,20 +1261,38 @@ async function renderZonesTable() {
     
     let filteredZones = [...window.ZONES_ALL];
     
-    // Filter by selection precedence
+    // Helper: check whether a zone has `ancestorId` somewhere in its parent chain
+    const zonesAll = Array.isArray(window.ZONES_ALL) ? window.ZONES_ALL : (Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : []);
+    function hasAncestor(zone, ancestorId) {
+        if (!zone || !ancestorId) return false;
+        let currentZone = zone;
+        let iterations = 0;
+        const maxIterations = 50;
+        const target = parseInt(ancestorId, 10);
+        while (currentZone && iterations < maxIterations) {
+            iterations++;
+            const parentId = parseInt(currentZone.parent_id || 0, 10);
+            if (!parentId) break;
+            if (parentId === target) return true;
+            currentZone = zonesAll.find(z => parseInt(z.id, 10) === parentId) || allMasters.find(m => parseInt(m.id, 10) === parentId);
+        }
+        return false;
+    }
+    
+    // Filter by selection precedence with recursive ancestor-based matching
     if (window.ZONES_SELECTED_ZONEFILE_ID) {
-        // Show only includes that are children of the selected zone file
+        // Show includes whose ancestor chain contains the selected zone file (direct or indirect)
         const selectedZoneFileId = parseInt(window.ZONES_SELECTED_ZONEFILE_ID, 10);
         filteredZones = filteredZones.filter(zone => {
-            const parentId = parseInt(zone.parent_id, 10);
-            return !isNaN(parentId) && parentId === selectedZoneFileId;
+            const parentId = parseInt(zone.parent_id || 0, 10);
+            return (!isNaN(parentId) && parentId === selectedZoneFileId) || hasAncestor(zone, selectedZoneFileId);
         });
     } else if (window.ZONES_SELECTED_MASTER_ID) {
-        // Show only includes that are children of the selected master
+        // Show includes whose ancestor chain contains the selected master (direct or indirect)
         const selectedMasterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
         filteredZones = filteredZones.filter(zone => {
-            const parentId = parseInt(zone.parent_id, 10);
-            return !isNaN(parentId) && parentId === selectedMasterId;
+            const parentId = parseInt(zone.parent_id || 0, 10);
+            return (!isNaN(parentId) && parentId === selectedMasterId) || hasAncestor(zone, selectedMasterId);
         });
     }
     // else: show all includes (already in filteredZones)
