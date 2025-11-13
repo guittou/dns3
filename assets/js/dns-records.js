@@ -410,9 +410,21 @@
             if (!input || !hiddenInput || !list) return;
             
             // Input event - filter CURRENT_ZONE_LIST and show list
-            input.addEventListener('input', () => {
+            input.addEventListener('input', async () => {
+                // Defensive delegation: if populateZoneFileCombobox is available and a master is selected,
+                // call it to populate cache with master + recursive includes before filtering
+                if (window.ZONES_SELECTED_MASTER_ID && typeof window.populateZoneFileCombobox === 'function') {
+                    try {
+                        await window.populateZoneFileCombobox(window.ZONES_SELECTED_MASTER_ID, null, false);
+                    } catch (error) {
+                        console.warn('[DNS Zone Combobox] Failed to populate via populateZoneFileCombobox:', error);
+                    }
+                }
+                
                 const query = input.value.toLowerCase().trim();
-                const filtered = CURRENT_ZONE_LIST.filter(z => 
+                // Use CURRENT_ZONE_LIST from populateZoneFileCombobox if available, otherwise fallback to allZones
+                const sourceList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST || allZones;
+                const filtered = sourceList.filter(z => 
                     z.name.toLowerCase().includes(query) || 
                     z.filename.toLowerCase().includes(query)
                 );
@@ -426,8 +438,20 @@
             });
             
             // Focus - show CURRENT_ZONE_LIST (filtered by domain if domain selected)
-            input.addEventListener('focus', () => {
-                populateComboboxList(list, CURRENT_ZONE_LIST, (zone) => ({
+            input.addEventListener('focus', async () => {
+                // Defensive delegation: if populateZoneFileCombobox is available and a master is selected,
+                // call it to populate cache with master + recursive includes before showing list
+                if (window.ZONES_SELECTED_MASTER_ID && typeof window.populateZoneFileCombobox === 'function') {
+                    try {
+                        await window.populateZoneFileCombobox(window.ZONES_SELECTED_MASTER_ID, null, false);
+                    } catch (error) {
+                        console.warn('[DNS Zone Combobox] Failed to populate via populateZoneFileCombobox:', error);
+                    }
+                }
+                
+                // Use CURRENT_ZONE_LIST from populateZoneFileCombobox if available, otherwise fallback to allZones
+                const sourceList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST || allZones;
+                populateComboboxList(list, sourceList, (zone) => ({
                     id: zone.id,
                     text: `${zone.name} (${zone.file_type})`
                 }), (zone) => {
