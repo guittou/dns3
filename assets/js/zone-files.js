@@ -701,7 +701,7 @@ async function populateZoneDomainSelect() {
 /**
  * Handle domain selection - update UI and filter table
  */
-function onZoneDomainSelected(masterZoneId) {
+async function onZoneDomainSelected(masterZoneId) {
     window.ZONES_SELECTED_MASTER_ID = masterZoneId;
     
     // Update input display
@@ -735,7 +735,7 @@ function onZoneDomainSelected(masterZoneId) {
         }
         
         // Populate zone file combobox for the selected domain (without auto-selecting)
-        populateZoneFileCombobox(masterZoneId, null, false);
+        await populateZoneFileCombobox(masterZoneId, null, false);
     } else {
         if (btnNewZoneFile) {
             btnNewZoneFile.disabled = true;
@@ -754,9 +754,9 @@ function onZoneDomainSelected(masterZoneId) {
         list.style.display = 'none';
     }
     
-    // Re-render table with filter
+    // Re-render table with filter after cache is updated
     currentPage = 1;
-    renderZonesTable();
+    await renderZonesTable();
 }
 
 /**
