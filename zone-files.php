@@ -336,12 +336,10 @@ if (!$auth->isAdmin()) {
 <div id="include-create-modal" class="dns-modal">
     <div class="dns-modal-content">
         <div class="dns-modal-header">
-            <h2 style="text-align: center; margin-bottom: 0.25rem;">
-                <span id="include-modal-title">Nouveau fichier de zone</span>
-            </h2>
-            <h3 style="text-align: center; font-weight: normal; font-size: 1rem; color: #666; margin-top: 0;">
-                <span id="include-modal-domain">-</span>
-            </h3>
+            <div class="dns-modal-title-wrapper">
+                <h2 id="include-modal-title">Nouveau fichier de zone</h2>
+                <div id="include-modal-domain" style="text-align: center; font-weight: normal; font-size: 1rem; color: #666; margin-top: 0.25rem;">-</div>
+            </div>
             <button class="dns-modal-close" onclick="closeIncludeCreateModal()" aria-label="Fermer">&times;</button>
         </div>
         <div class="dns-modal-body">
