@@ -4,7 +4,7 @@
  */
 
 // --- BEGIN: local copy of combobox helpers (populateComboboxList, initCombobox) ---
-function populateComboboxList(listElement, items, itemMapper, onSelect) {
+function populateComboboxList(listElement, items, itemMapper, onSelect, showList = true) {
     if (!listElement) return;
     listElement.innerHTML = '';
 
@@ -13,7 +13,13 @@ function populateComboboxList(listElement, items, itemMapper, onSelect) {
         li.className = 'combobox-item combobox-empty';
         li.textContent = 'Aucun résultat';
         listElement.appendChild(li);
-        listElement.style.display = 'block';
+        if (showList) {
+            listElement.style.display = 'block';
+            listElement.setAttribute('aria-hidden', 'false');
+        } else {
+            listElement.style.display = 'none';
+            listElement.setAttribute('aria-hidden', 'true');
+        }
         return;
     }
 
@@ -29,7 +35,13 @@ function populateComboboxList(listElement, items, itemMapper, onSelect) {
         listElement.appendChild(li);
     });
 
-    listElement.style.display = 'block';
+    if (showList) {
+        listElement.style.display = 'block';
+        listElement.setAttribute('aria-hidden', 'false');
+    } else {
+        listElement.style.display = 'none';
+        listElement.setAttribute('aria-hidden', 'true');
+    }
 }
 
 // Lightweight reusable combobox initializer
@@ -969,10 +981,11 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         // Populate the visible list so user sees updated options
         // Don't show the list automatically when autoSelect is false
         if (listEl) {
-            populateComboboxList(listEl, items, z => ({ id: z.id, text: `${z.name || z.domain || ''} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); });
-            // Only show list if autoSelect is true (preserving existing behavior)
-            if (autoSelect) {
-                listEl.style.display = 'block';
+            populateComboboxList(listEl, items, z => ({ id: z.id, text: `${z.name} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); }, autoSelect);
+            // Explicitly ensure list is hidden when autoSelect is false
+            if (!autoSelect) {
+                listEl.style.display = 'none';
+                listEl.setAttribute('aria-hidden', 'true');
             }
         }
 
