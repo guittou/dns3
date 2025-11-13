@@ -50,6 +50,81 @@
     };
 
     /**
+     * Show error message in modal banner
+     * Defensive implementation: uses window.__showModalError if available, otherwise DOM fallback
+     * @param {string} modalKey - Modal identifier (e.g., 'dns')
+     * @param {string} message - Error message to display
+     * @param {string} fieldId - Optional field ID to focus after showing error
+     */
+    function showModalError(modalKey, message, fieldId) {
+        try {
+            // Try to use window.__showModalError if available
+            if (typeof window.__showModalError === 'function') {
+                window.__showModalError(modalKey, message, fieldId);
+                return;
+            }
+            
+            // Fallback: direct DOM manipulation
+            const banner = document.getElementById(modalKey + 'ModalErrorBanner');
+            const msgEl = document.getElementById(modalKey + 'ModalErrorMessage');
+            
+            if (!banner || !msgEl) {
+                console.warn('[showModalError] Banner elements not found for modal:', modalKey);
+                // Fallback to page-level message
+                showMessage('Erreur : ' + (message || 'Une erreur est survenue'), 'error');
+                return;
+            }
+            
+            msgEl.textContent = message || "Erreur de validation : vérifiez les champs du formulaire.";
+            banner.style.display = 'block';
+            banner.focus();
+            
+            // If fieldId provided, try to focus it after a short delay
+            if (fieldId) {
+                setTimeout(() => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        field.focus();
+                        // Add visual indicator
+                        field.classList.add('error-field');
+                        setTimeout(() => field.classList.remove('error-field'), 2000);
+                    }
+                }, 100);
+            }
+        } catch (e) {
+            console.error('[showModalError] Failed:', e);
+            // Final fallback
+            showMessage('Erreur : ' + (message || 'Une erreur est survenue'), 'error');
+        }
+    }
+
+    /**
+     * Clear error banner in modal
+     * Defensive implementation: uses window.__clearModalError if available, otherwise DOM fallback
+     * @param {string} modalKey - Modal identifier (e.g., 'dns')
+     */
+    function clearModalError(modalKey) {
+        try {
+            // Try to use window.__clearModalError if available
+            if (typeof window.__clearModalError === 'function') {
+                window.__clearModalError(modalKey);
+                return;
+            }
+            
+            // Fallback: direct DOM manipulation
+            const banner = document.getElementById(modalKey + 'ModalErrorBanner');
+            const msgEl = document.getElementById(modalKey + 'ModalErrorMessage');
+            
+            if (!banner) return;
+            
+            banner.style.display = 'none';
+            if (msgEl) msgEl.textContent = '';
+        } catch (e) {
+            console.error('[clearModalError] Failed:', e);
+        }
+    }
+
+    /**
      * Check if a string is a valid IPv4 address
      */
     function isIPv4(str) {
@@ -2125,6 +2200,9 @@
         
         if (!modal || !form || !title) return;
 
+        // Clear any previous errors
+        clearModalError('dns');
+
         // Set title with new text
         title.textContent = 'Ajouter un enregistrement DNS';
         
@@ -2234,6 +2312,9 @@
             const domainDiv = document.getElementById('dns-modal-domain');
             
             if (!modal || !form || !title) return;
+
+            // Clear any previous errors
+            clearModalError('dns');
 
             // Set title with new text
             title.textContent = 'Modifier l\'enregistrement DNS';
@@ -2383,7 +2464,13 @@
             }
         } catch (error) {
             console.error('Error opening edit modal:', error);
-            showMessage('Erreur lors du chargement de l\'enregistrement: ' + error.message, 'error');
+            // Show error in modal banner if modal is open, otherwise use page message
+            const modal = document.getElementById('dns-modal');
+            if (modal && modal.style.display !== 'none') {
+                showModalError('dns', 'Erreur lors du chargement de l\'enregistrement : ' + error.message);
+            } else {
+                showMessage('Erreur lors du chargement de l\'enregistrement: ' + error.message, 'error');
+            }
         }
     }
 
@@ -2391,6 +2478,9 @@
      * Close modal
      */
     function closeModal() {
+        // Clear any error messages
+        clearModalError('dns');
+        
         const modal = document.getElementById('dns-modal');
         if (modal) {
             modal.classList.remove('open');
@@ -2404,6 +2494,9 @@
     async function submitDnsForm(event) {
         event.preventDefault();
 
+        // Clear any previous errors
+        clearModalError('dns');
+
         const form = document.getElementById('dns-form');
         const mode = form.dataset.mode;
         const recordId = form.dataset.recordId;
@@ -2413,7 +2506,7 @@
         
         // Validate zone_file_id is selected
         if (!zoneFileId || zoneFileId === '') {
-            showMessage('Veuillez sélectionner un fichier de zone', 'error');
+            showModalError('dns', 'Veuillez sélectionner un fichier de zone', 'record-zone-file');
             return;
         }
 
@@ -2469,7 +2562,19 @@
         // Validate payload before sending
         const validation = validatePayloadForType(recordType, data);
         if (!validation.valid) {
-            showMessage(validation.error, 'error');
+            // Determine which field has the error for focus
+            let errorFieldId = 'record-name';
+            if (validation.error.includes('adresse')) {
+                errorFieldId = recordType === 'A' ? 'record-address-ipv4' : 'record-address-ipv6';
+            } else if (validation.error.includes('cible') || validation.error.includes('CNAME')) {
+                errorFieldId = 'record-cname-target';
+            } else if (validation.error.includes('PTR')) {
+                errorFieldId = 'record-ptrdname';
+            } else if (validation.error.includes('TXT')) {
+                errorFieldId = 'record-txt';
+            }
+            
+            showModalError('dns', validation.error, errorFieldId);
             return;
         }
 
@@ -2486,7 +2591,7 @@
             await loadDnsTable();
         } catch (error) {
             console.error('Error submitting form:', error);
-            showMessage('Erreur: ' + error.message, 'error');
+            showModalError('dns', 'Erreur : ' + error.message);
         }
     }
 
@@ -2852,6 +2957,10 @@
     window.fillModalZonefileSelectFiltered = fillModalZonefileSelectFiltered;
     window.activateModalSelectGuard = activateModalSelectGuard;
     window.activateModalComboboxGuard = activateModalComboboxGuard;
+    
+    // Expose modal error handling functions
+    window.showModalError = showModalError;
+    window.clearModalError = clearModalError;
     
     // Expose API functions globally for debugging
     window.zoneApiCall = zoneApiCall;
