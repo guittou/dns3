@@ -40,7 +40,7 @@ if command -v gh &> /dev/null; then
         --base main \
         --head feature/unify-modals \
         --title "Unify Modal System - 720px Fixed Height & Standardized UI" \
-        --body-file PR_UNIFY_MODALS.md
+        --body-file docs/archive/PR_UNIFY_MODALS.md
     
     echo ""
     echo "DRAFT PR created successfully!"
@@ -52,7 +52,7 @@ else
     echo "1. Go to: https://github.com/guittou/dns3/compare/main...feature/unify-modals"
     echo "2. Click 'Create pull request'"
     echo "3. Use the title: 'Unify Modal System - 720px Fixed Height & Standardized UI'"
-    echo "4. Copy the content from PR_UNIFY_MODALS.md as the PR description"
+    echo "4. Copy the content from docs/archive/PR_UNIFY_MODALS.md as the PR description"
     echo "5. Mark the PR as DRAFT"
 fi
 

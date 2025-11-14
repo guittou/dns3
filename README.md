@@ -2,6 +2,10 @@
 
 Application web développée en PHP sans framework avec support MariaDB et authentification multi-sources (Base de données, Active Directory, OpenLDAP).
 
+## 📚 Documentation
+
+Pour une documentation complète et détaillée, consultez [docs/SUMMARY.md](docs/SUMMARY.md).
+
 ## ⚠️ Breaking Changes (Migration 016)
 
 **Version actuelle nécessite migration 016** : La table `domaine_list` a été supprimée. Les domaines sont maintenant gérés directement dans la table `zone_files` via le champ `domain`.
