@@ -39,7 +39,7 @@ if command -v gh &> /dev/null; then
         --base main \
         --head feature/fix-admin-db-only \
         --title "Enforce DB-Only User Creation and AD/LDAP Mapping Integration" \
-        --body-file PR_DESCRIPTION.md
+        --body-file docs/archive/PR_DESCRIPTION.md
     
     echo ""
     echo "PR created successfully!"
@@ -51,7 +51,7 @@ else
     echo "1. Go to: https://github.com/guittou/dns3/compare/main...feature/fix-admin-db-only"
     echo "2. Click 'Create pull request'"
     echo "3. Use the title: 'Enforce DB-Only User Creation and AD/LDAP Mapping Integration'"
-    echo "4. Copy the content from PR_DESCRIPTION.md as the PR description"
+    echo "4. Copy the content from docs/archive/PR_DESCRIPTION.md as the PR description"
 fi
 
 echo ""
