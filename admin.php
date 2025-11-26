@@ -27,7 +27,7 @@ if (!$auth->isAdmin()) {
     <div class="admin-tab-content active" id="tab-users">
         <div class="tab-header">
             <h2>Gestion des Utilisateurs</h2>
-            <button class="btn btn-primary" id="btn-create-user">
+            <button class="btn btn-primary" id="btn-create-user" onclick="if(typeof openCreateUserModal==='function')openCreateUserModal();">
                 <span class="icon">+</span> Créer un utilisateur
             </button>
         </div>
@@ -102,7 +102,7 @@ if (!$auth->isAdmin()) {
     <div class="admin-tab-content" id="tab-mappings">
         <div class="tab-header">
             <h2>Mappings AD/LDAP</h2>
-            <button class="btn btn-primary" id="btn-create-mapping">
+            <button class="btn btn-primary" id="btn-create-mapping" onclick="if(typeof openCreateMappingModal==='function')openCreateMappingModal();">
                 <span class="icon">+</span> Créer un mapping
             </button>
         </div>
