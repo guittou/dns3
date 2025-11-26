@@ -224,7 +224,8 @@ class Auth {
             $this->applyRoleMappings($user_id, $auth_method, $groups, $user_dn);
             
             // Create session after user is created/updated
-            $this->createSession($user);
+            // $groups contains AD/LDAP memberOf groups, stored in session for zone ACL checks
+            $this->createSession($user, $groups);
             $this->updateLastLogin($user_id);
         } catch (Exception $e) {
             error_log("Create/update user with mappings error: " . $e->getMessage());
@@ -397,11 +398,12 @@ class Auth {
     /**
      * Create user session
      */
-    private function createSession($user) {
+    private function createSession($user, $groups = []) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['email'] = $user['email'];
         $_SESSION['logged_in'] = true;
+        $_SESSION['user_groups'] = $groups;
     }
 
     /**
@@ -475,6 +477,85 @@ class Auth {
             error_log("isAdmin check error: " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Check if current user has the zone_editor role
+     */
+    public function isZoneEditor() {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as is_zone_editor
+                FROM user_roles ur
+                INNER JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = ? AND r.name = 'zone_editor'
+            ");
+            $stmt->execute([$_SESSION['user_id']]);
+            $result = $stmt->fetch();
+            
+            return $result && $result['is_zone_editor'] > 0;
+        } catch (Exception $e) {
+            error_log("isZoneEditor check error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get the current user's role names
+     * 
+     * @return array Array of role names
+     */
+    public function getUserRoles() {
+        if (!$this->isLoggedIn()) {
+            return [];
+        }
+        
+        try {
+            $stmt = $this->db->prepare("
+                SELECT r.name
+                FROM user_roles ur
+                INNER JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = ?
+            ");
+            $stmt->execute([$_SESSION['user_id']]);
+            $results = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            return $results ?: [];
+        } catch (Exception $e) {
+            error_log("getUserRoles error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get user context for ACL checks
+     * Returns an array with user ID and role names
+     * 
+     * @return array|null User context or null if not logged in
+     */
+    public function getUserContext() {
+        if (!$this->isLoggedIn()) {
+            return null;
+        }
+        
+        return [
+            'id' => $_SESSION['user_id'],
+            'roles' => $this->getUserRoles()
+        ];
+    }
+
+    /**
+     * Get user's AD/LDAP groups from session
+     * These are populated during AD/LDAP authentication
+     * 
+     * @return array Array of group DNs/names
+     */
+    public function getUserGroups() {
+        return $_SESSION['user_groups'] ?? [];
     }
 }
 ?>

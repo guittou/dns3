@@ -400,6 +400,126 @@ try {
             ]);
             break;
             
+        case 'list_acl':
+            // List ACL entries for a zone
+            require_once __DIR__ . '/../includes/models/ZoneAcl.php';
+            
+            $zone_id = isset($_GET['zone_id']) ? (int)$_GET['zone_id'] : 0;
+            if ($zone_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid zone_id']);
+                exit;
+            }
+            
+            $zoneAcl = new ZoneAcl();
+            $entries = $zoneAcl->listForZone($zone_id);
+            
+            echo json_encode([
+                'success' => true,
+                'data' => $entries,
+                'count' => count($entries)
+            ]);
+            break;
+            
+        case 'create_acl':
+            // Create a new ACL entry for a zone
+            require_once __DIR__ . '/../includes/models/ZoneAcl.php';
+            
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$input || !isset($input['zone_id']) || !isset($input['subject_type']) || 
+                !isset($input['subject_identifier']) || !isset($input['permission'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing required fields: zone_id, subject_type, subject_identifier, permission']);
+                exit;
+            }
+            
+            $zone_id = (int)$input['zone_id'];
+            if ($zone_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid zone_id']);
+                exit;
+            }
+            
+            // Validate subject_type
+            $valid_types = ['user', 'role', 'ad_group'];
+            if (!in_array($input['subject_type'], $valid_types)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid subject_type. Must be: user, role, or ad_group']);
+                exit;
+            }
+            
+            // Validate permission
+            $valid_permissions = ['read', 'write', 'admin'];
+            if (!in_array($input['permission'], $valid_permissions)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid permission. Must be: read, write, or admin']);
+                exit;
+            }
+            
+            $zoneAcl = new ZoneAcl();
+            $acl_id = $zoneAcl->addEntry(
+                $zone_id,
+                $input['subject_type'],
+                $input['subject_identifier'],
+                $input['permission'],
+                $currentUser['id']
+            );
+            
+            if (!$acl_id) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to create ACL entry. Subject may not exist.']);
+                exit;
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'ACL entry created successfully',
+                'data' => ['id' => $acl_id]
+            ]);
+            break;
+            
+        case 'delete_acl':
+            // Delete an ACL entry
+            require_once __DIR__ . '/../includes/models/ZoneAcl.php';
+            
+            // Support both GET id parameter and POST body
+            $acl_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            if ($acl_id <= 0) {
+                $input = json_decode(file_get_contents('php://input'), true);
+                $acl_id = isset($input['id']) ? (int)$input['id'] : 0;
+            }
+            
+            if ($acl_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid ACL entry ID']);
+                exit;
+            }
+            
+            $zoneAcl = new ZoneAcl();
+            
+            // Verify ACL entry exists before deletion
+            $existing = $zoneAcl->getById($acl_id);
+            if (!$existing) {
+                http_response_code(404);
+                echo json_encode(['error' => 'ACL entry not found']);
+                exit;
+            }
+            
+            $result = $zoneAcl->removeEntry($acl_id);
+            
+            if (!$result) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to delete ACL entry']);
+                exit;
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'ACL entry deleted successfully'
+            ]);
+            break;
+            
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Invalid action']);
