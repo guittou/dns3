@@ -166,6 +166,71 @@ Requires: Confirmation
 
 ---
 
+## 🔒 Contrôle Authentification AD/LDAP par Mappings
+
+### Flux de Connexion AD/LDAP
+
+```
+1. Bind LDAP réussi
+        ↓
+2. Vérification des mappings (auth_mappings)
+        ↓
+   Mapping trouvé ?
+        ↓
+   ✓ OUI → Création/activation compte + attribution rôles
+   ✗ NON → Connexion refusée + désactivation compte existant
+```
+
+### Comportement Clé
+
+| Situation | Résultat |
+|-----------|----------|
+| Utilisateur mappé, nouveau | Compte créé, activé, rôles assignés |
+| Utilisateur mappé, existant actif | Rôles synchronisés |
+| Utilisateur mappé, existant inactif | Compte réactivé, rôles synchronisés |
+| Utilisateur non mappé, nouveau | Connexion refusée, pas de compte créé |
+| Utilisateur non mappé, existant | Connexion refusée, compte désactivé |
+
+### Vérifications Rapides
+
+```sql
+-- Vérifier si un utilisateur est activé
+SELECT username, is_active, auth_method FROM users WHERE username = 'jdoe';
+
+-- Lister les rôles d'un utilisateur
+SELECT u.username, r.name as role
+FROM users u
+JOIN user_roles ur ON u.id = ur.user_id
+JOIN roles r ON ur.role_id = r.id
+WHERE u.username = 'jdoe';
+
+-- Lister tous les mappings
+SELECT source, dn_or_group, r.name as role
+FROM auth_mappings am JOIN roles r ON am.role_id = r.id;
+```
+
+### Exemple : Créer un Mapping AD
+
+```sql
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ad', 'CN=DNSAdmins,OU=Groups,DC=example,DC=com', r.id, 'Admins DNS'
+FROM roles r WHERE r.name = 'admin';
+```
+
+### Test avec ldapsearch
+
+```bash
+# AD : Vérifier les groupes d'un utilisateur
+ldapsearch -x -H ldap://ad.example.com -D "DOMAIN\\user" -W \
+  -b "DC=example,DC=com" "(sAMAccountName=user)" memberOf
+
+# LDAP : Vérifier le DN d'un utilisateur
+ldapsearch -x -H ldap://ldap.example.com -D "cn=admin,dc=example,dc=com" -W \
+  -b "dc=example,dc=com" "(uid=user)" dn
+```
+
+---
+
 ## 🔧 API Usage
 
 ### Authentication

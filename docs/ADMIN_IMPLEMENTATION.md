@@ -279,38 +279,168 @@ WHERE u.username = 'admin' AND r.name = 'admin';
    - Notes: DNS Administrators group
 4. Click "Créer"
 
-## Future Integration
+## Intégration Authentification AD/LDAP — Contrôle par Mappings
 
-### AD/LDAP Authentication Integration
-The `auth_mappings` table is ready to be used. To integrate with authentication:
+### Vue d'ensemble
 
-1. Modify `includes/auth.php` in `authenticateActiveDirectory()`:
+L'intégration des mappings `auth_mappings` dans le flux d'authentification AD/LDAP est **complète et opérationnelle**. Cette implémentation renforce la sécurité en n'autorisant la création/activation des comptes AD/LDAP que si l'utilisateur correspond à au moins un mapping configuré.
+
+### Méthodes Ajoutées dans `includes/auth.php`
+
+#### 1. `getRoleIdsFromMappings($auth_method, $groups = [], $user_dn = '')`
+
+Retourne un tableau d'IDs de rôle correspondant aux mappings pour la source donnée.
+
+**Comportement :**
+- Pour `ad` : Compare chaque groupe `memberOf` avec `dn_or_group` (insensible à la casse via `strcasecmp`).
+- Pour `ldap` : Vérifie si le DN utilisateur contient `dn_or_group` (insensible à la casse via `stripos`).
+
 ```php
-// After successful AD bind
-$groups = /* get user's AD groups */;
-foreach ($groups as $groupDn) {
-    $stmt = $this->db->prepare("
-        SELECT role_id FROM auth_mappings 
-        WHERE source = 'ad' AND dn_or_group = ?
-    ");
-    $stmt->execute([$groupDn]);
-    while ($mapping = $stmt->fetch()) {
-        $userModel = new User();
-        $userModel->assignRole($user['id'], $mapping['role_id']);
+private function getRoleIdsFromMappings($auth_method, $groups = [], $user_dn = '') {
+    $matchedRoleIds = [];
+    // Récupère les mappings pour la source (ad/ldap)
+    $stmt = $this->db->prepare("SELECT id, dn_or_group, role_id FROM auth_mappings WHERE source = ?");
+    $stmt->execute([$auth_method]);
+    $mappings = $stmt->fetchAll();
+    
+    foreach ($mappings as $mapping) {
+        if ($auth_method === 'ad') {
+            // Comparaison case-insensitive des groupes AD
+            foreach ($groups as $group_dn) {
+                if (strcasecmp($group_dn, $mapping['dn_or_group']) === 0) {
+                    $matchedRoleIds[] = $mapping['role_id'];
+                    break;
+                }
+            }
+        } elseif ($auth_method === 'ldap') {
+            // Vérifie si user_dn contient dn_or_group
+            if ($user_dn && stripos($user_dn, $mapping['dn_or_group']) !== false) {
+                $matchedRoleIds[] = $mapping['role_id'];
+            }
+        }
+    }
+    return array_unique($matchedRoleIds);
+}
+```
+
+#### 2. `syncUserRolesWithMappings($user_id, $auth_method, array $matchedRoleIds)`
+
+Synchronise les rôles de l'utilisateur avec les mappings actuels.
+
+**Comportement :**
+- Récupère la liste des `role_id` définis dans `auth_mappings` pour la source.
+- Ajoute les rôles mappés manquants dans `user_roles`.
+- Supprime **uniquement** les rôles qui proviennent des mappings et qui ne correspondent plus.
+- **Ne touche pas** aux rôles attribués manuellement (non définis dans `auth_mappings` pour cette source).
+
+```php
+private function syncUserRolesWithMappings($user_id, $auth_method, array $matchedRoleIds) {
+    // Récupère les role_id définis dans auth_mappings pour cette source
+    $stmt = $this->db->prepare("SELECT DISTINCT role_id FROM auth_mappings WHERE source = ?");
+    $stmt->execute([$auth_method]);
+    $mappingRoleIds = array_column($stmt->fetchAll(), 'role_id');
+    
+    // Récupère les rôles actuels de l'utilisateur
+    $stmt = $this->db->prepare("SELECT role_id FROM user_roles WHERE user_id = ?");
+    $stmt->execute([$user_id]);
+    $currentRoleIds = array_column($stmt->fetchAll(), 'role_id');
+    
+    // Ajoute les rôles mappés manquants
+    foreach ($matchedRoleIds as $roleId) {
+        if (!in_array($roleId, $currentRoleIds)) {
+            $stmt = $this->db->prepare("INSERT INTO user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())");
+            $stmt->execute([$user_id, $roleId]);
+        }
+    }
+    
+    // Supprime les rôles provenant de mappings qui ne correspondent plus
+    foreach ($currentRoleIds as $roleId) {
+        if (in_array($roleId, $mappingRoleIds) && !in_array($roleId, $matchedRoleIds)) {
+            $stmt = $this->db->prepare("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?");
+            $stmt->execute([$user_id, $roleId]);
+        }
     }
 }
 ```
 
-2. Similarly for `authenticateLDAP()`:
+#### 3. `findAndDisableExistingUser($username, $auth_method)`
+
+Recherche un utilisateur existant avec ce `username` et `auth_method`, et le désactive si trouvé.
+
 ```php
-// After successful LDAP bind
-$userDn = /* user's DN */;
-$stmt = $this->db->prepare("
-    SELECT role_id FROM auth_mappings 
-    WHERE source = 'ldap' AND dn_or_group LIKE ?
-");
-// Check if user DN matches any mapping pattern
+private function findAndDisableExistingUser($username, $auth_method) {
+    $stmt = $this->db->prepare("SELECT id FROM users WHERE username = ? AND auth_method = ?");
+    $stmt->execute([$username, $auth_method]);
+    $existingUser = $stmt->fetch();
+    
+    if ($existingUser) {
+        $this->disableUserAccount($existingUser['id']);
+        return true;
+    }
+    return false;
+}
 ```
+
+### Points d'Intégration
+
+#### Dans `authenticateActiveDirectory()` et `authenticateLDAP()`
+
+1. Après un bind LDAP réussi et la récupération des groupes/DN utilisateur.
+2. Calcul de `$matchedRoleIds` via `getRoleIdsFromMappings()` **avant** de créer/mettre à jour l'utilisateur.
+3. Si `$matchedRoleIds` est vide :
+   - Recherche et désactive l'utilisateur existant via `findAndDisableExistingUser()`.
+   - Ferme la connexion LDAP et retourne `false` (refus de connexion).
+4. Si `$matchedRoleIds` n'est pas vide :
+   - Appelle `createOrUpdateUserWithMappings()` (comportement existant).
+   - Recharge l'utilisateur et assure `is_active = 1` via `reactivateUserAccount()`.
+   - Synchronise les rôles via `syncUserRolesWithMappings()`.
+
+### Workflow d'Acceptation/Refus
+
+```
+Authentification AD/LDAP
+        │
+        ▼
+   Bind LDAP réussi ?
+        │
+   Non ─┤
+        │     └──► Retourne false (échec auth)
+   Oui ─┤
+        ▼
+   Récupérer groupes/DN
+        │
+        ▼
+   getRoleIdsFromMappings()
+        │
+        ▼
+   Mappings trouvés ?
+        │
+   Non ─┤
+        │     └──► findAndDisableExistingUser()
+        │         └──► Retourne false (accès refusé)
+   Oui ─┤
+        ▼
+   createOrUpdateUserWithMappings()
+        │
+        ▼
+   reactivateUserAccount()
+        │
+        ▼
+   syncUserRolesWithMappings()
+        │
+        ▼
+   Retourne true (connexion autorisée)
+```
+
+### Notes Opérationnelles
+
+1. **Réactivation automatique** : Un compte désactivé est automatiquement réactivé si un mapping correspond à nouveau. Pour empêcher la réactivation automatique d'un compte manuellement désactivé par un admin, un flag `admin_disabled` peut être ajouté ultérieurement.
+
+2. **Utilisateurs database** : Les utilisateurs avec `auth_method = 'database'` ne sont pas affectés par cette politique. Leur création/gestion reste via l'API admin.
+
+3. **Performance** : Les requêtes `auth_mappings` sont exécutées à chaque connexion AD/LDAP. Pour les environnements à fort trafic, envisagez un cache.
+
+4. **Logs** : Les erreurs sont enregistrées via `error_log()`. Consultez les logs PHP pour le debugging.
 
 ## Testing
 
@@ -326,6 +456,42 @@ $stmt = $this->db->prepare("
 - [ ] Create LDAP mapping
 - [ ] Delete mapping
 - [ ] View roles list
+
+### Tests Authentification AD/LDAP avec Mappings
+
+#### Cas Positif — Utilisateur mappé
+1. Créer un mapping AD : `CN=DNSAdmins,OU=Groups,DC=example,DC=com` → rôle `admin`
+2. Utilisateur membre du groupe DNSAdmins tente de se connecter
+3. **Attendu** : Login réussi, utilisateur créé/activé, rôle `admin` appliqué
+
+```sql
+-- Vérifier après connexion
+SELECT id, username, is_active, auth_method FROM users WHERE username = 'testuser';
+SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = <id>;
+```
+
+#### Cas Refusé — Utilisateur non mappé
+1. Aucun mapping ne correspond à l'utilisateur AD
+2. Le bind LDAP peut réussir mais la connexion est refusée
+3. **Attendu** : Aucun utilisateur créé. Si l'utilisateur existait, `is_active = 0`
+
+```sql
+-- Vérifier qu'aucun utilisateur n'a été créé OU qu'il est désactivé
+SELECT id, username, is_active FROM users WHERE username = 'unmapped_user';
+```
+
+#### Retrait d'un Mapping
+1. Un utilisateur correspondait à un mapping (connexion précédemment réussie)
+2. Le mapping est supprimé de `auth_mappings`
+3. L'utilisateur tente de se reconnecter
+4. **Attendu** : Connexion refusée, compte désactivé (`is_active = 0`)
+
+#### Synchronisation des Rôles
+1. L'utilisateur a le mapping `group_A → role_admin` et `group_B → role_user`
+2. L'admin retire manuellement l'utilisateur du `group_B` dans AD
+3. L'utilisateur se reconnecte
+4. **Attendu** : Le rôle `role_user` est retiré, `role_admin` est conservé
+5. Si l'admin avait assigné manuellement un rôle non mappé, celui-ci reste inchangé
 
 ### API Testing
 ```bash
@@ -411,4 +577,4 @@ tail -f /var/log/php/error.log
 
 This implementation provides a complete, secure, and user-friendly admin interface for managing users, roles, and AD/LDAP mappings. It follows the existing code patterns, maintains consistency with the current UI, and is ready for production use after proper testing.
 
-The auth_mappings infrastructure is in place and ready to be integrated into the AD/LDAP authentication flow for automatic role assignment based on group membership.
+L'intégration des mappings `auth_mappings` dans le flux d'authentification AD/LDAP est **opérationnelle**. Les utilisateurs AD/LDAP ne sont créés ou activés que s'ils correspondent à au moins un mapping configuré. Les comptes non mappés sont automatiquement désactivés pour renforcer la sécurité.
