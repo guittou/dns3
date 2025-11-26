@@ -192,6 +192,7 @@ if (!$auth->isAdmin()) {
         </div>
         <div class="dns-modal-footer">
             <div class="modal-action-bar">
+                <button type="button" class="btn-danger modal-action-button" id="btn-delete-user-modal" onclick="deactivateUserFromModal()" style="display: none;">Supprimer</button>
                 <button type="submit" class="btn-success modal-action-button" id="btn-save-user" form="form-user">Enregistrer</button>
                 <button type="button" class="btn-cancel modal-action-button" onclick="closeUserModal()">Annuler</button>
             </div>
@@ -506,6 +507,13 @@ if (!$auth->isAdmin()) {
 </style>
 
 <script src="<?php echo BASE_URL; ?>assets/js/admin.js"></script>
+<script>
+    // Expose current user ID for client-side validation
+    // Note: This page is only accessible to logged-in admin users (checked at top of file)
+    // so $auth->getCurrentUser() will always return a valid user
+    <?php $currentUser = $auth->getCurrentUser(); ?>
+    window.CURRENT_USER_ID = <?php echo $currentUser ? (int)$currentUser['id'] : 0; ?>;
+</script>
 
 <?php
 require_once __DIR__ . '/includes/footer.php';
