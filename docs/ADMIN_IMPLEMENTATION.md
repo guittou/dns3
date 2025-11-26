@@ -304,22 +304,29 @@ private function getRoleIdsFromMappings($auth_method, $groups = [], $user_dn = '
     $mappings = $stmt->fetchAll();
     
     foreach ($mappings as $mapping) {
+        $matches = false;
+        
         if ($auth_method === 'ad') {
             // Comparaison case-insensitive des groupes AD
             foreach ($groups as $group_dn) {
                 if (strcasecmp($group_dn, $mapping['dn_or_group']) === 0) {
-                    $matchedRoleIds[] = $mapping['role_id'];
+                    $matches = true;
                     break;
                 }
             }
         } elseif ($auth_method === 'ldap') {
             // Vérifie si user_dn contient dn_or_group
             if ($user_dn && stripos($user_dn, $mapping['dn_or_group']) !== false) {
-                $matchedRoleIds[] = $mapping['role_id'];
+                $matches = true;
             }
         }
+        
+        // Évite les doublons
+        if ($matches && !in_array($mapping['role_id'], $matchedRoleIds)) {
+            $matchedRoleIds[] = $mapping['role_id'];
+        }
     }
-    return array_unique($matchedRoleIds);
+    return $matchedRoleIds;
 }
 ```
 
