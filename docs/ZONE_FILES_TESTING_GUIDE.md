@@ -2,9 +2,11 @@
 
 ## Migration Testing
 
-To test the database migration:
+> **Note**: The migration has been archived to `migrations/archive/`. On production systems, this migration has already been applied. The following instructions are for setting up a new development/test environment.
 
-1. Run the migration script:
+To set up the database schema for testing:
+
+1. Run the archived migration script (if not already applied):
 ```bash
 mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
 ```

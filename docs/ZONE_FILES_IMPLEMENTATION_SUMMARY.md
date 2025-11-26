@@ -2,9 +2,9 @@
 
 ## Overview
 
-This implementation adds comprehensive zone file management to the DNS3 system, ensuring that every DNS record is associated with a zone file. The implementation follows the requirements specified in the problem statement.
+This documentation describes the zone file management feature of the DNS3 system, which ensures that every DNS record is associated with a zone file.
 
-> **Note**: The Applications feature was removed. The `applications` table remains in the database for historical reference but is no longer used by the application. See the migration archives for schema details.
+> **Note**: The Applications feature was removed from the application. The `applications` table may remain in the database for historical reference but is no longer used by the application. See the migration archives for schema details.
 
 ## Database Changes
 
@@ -165,14 +165,20 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 - `dns-management.php`
 - `assets/js/dns-records.js`
 
-## Next Steps
+## Setup Notes
 
-1. Run the migration: `mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql`
-2. Create initial zone files via API or database INSERT
-3. Test zone file listing and selection in UI
-4. Create DNS records with zone associations
-5. (Optional) Enable foreign key constraint after existing records are updated
-6. (Optional) Make zone_file_id NOT NULL after all records have zones
+> **Note**: The migration `006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` has been archived to `migrations/archive/`. If you need to set up a new database from scratch:
+>
+> ```bash
+> mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
+> ```
+
+After migration is applied:
+1. Create initial zone files via API or database INSERT
+2. Test zone file listing and selection in UI
+3. Create DNS records with zone associations
+4. (Optional) Enable foreign key constraint after existing records are updated
+5. (Optional) Make zone_file_id NOT NULL after all records have zones
 
 ## Compliance with Requirements
 
