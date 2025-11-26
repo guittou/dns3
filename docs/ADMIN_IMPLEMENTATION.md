@@ -206,7 +206,55 @@ POST /api/admin_api.php?action=create_mapping
 
 ## Usage Examples
 
-### Creating a Database User
+### Creating an Admin User (First Installation)
+
+#### Méthode A — Via script PHP (recommandée)
+
+**Prérequis :**
+- `config.php` configuré avec les credentials de base de données
+- PHP CLI disponible et fonctionnel
+
+**Commande :**
+```bash
+php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+```
+
+**Ce que fait le script :**
+1. Crée un enregistrement dans la table `users` avec le mot de passe hashé via `password_hash(..., PASSWORD_DEFAULT)`
+2. Si la table `roles` contient un rôle `name='admin'`, ajoute automatiquement une entrée dans `user_roles`
+3. Si l'utilisateur existe déjà, met à jour son mot de passe
+4. Affiche un message de succès ou d'erreur
+
+**Vérifications SQL post-exécution :**
+```sql
+SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+SELECT r.id, r.name FROM roles r WHERE r.name = 'admin';
+SELECT * FROM user_roles WHERE user_id = <id_utilisateur>;
+```
+
+> Pour plus d'options (mode interactif, etc.), voir `scripts/create_admin.php`.
+
+#### Méthode B — Via SQL direct (alternative)
+
+```bash
+# Générer le hash du mot de passe
+php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT) . PHP_EOL;"
+```
+
+```sql
+-- Insérer l'utilisateur
+INSERT INTO users (username, email, password, auth_method, is_active, created_at)
+VALUES ('admin', 'admin@example.local', '$2y$10$...votre_hash...', 'database', 1, NOW());
+
+-- Assigner le rôle admin
+INSERT INTO user_roles (user_id, role_id, assigned_at)
+SELECT u.id, r.id, NOW() FROM users u, roles r
+WHERE u.username = 'admin' AND r.name = 'admin';
+```
+
+**⚠️ Note de sécurité :** Changez le mot de passe par défaut immédiatement après la première connexion. Limitez l'accès au répertoire `scripts/` en production.
+
+### Creating a Database User (via Interface)
 1. Navigate to admin.php
 2. Click "Créer un utilisateur"
 3. Fill in:

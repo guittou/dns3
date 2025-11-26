@@ -16,6 +16,59 @@ http://your-domain/admin.php
 
 ---
 
+## 🔑 Créer un admin (Méthode A)
+
+### Méthode A — Créer un administrateur via script PHP (recommandée)
+
+**Prérequis :**
+- `config.php` configuré (credentials DB)
+- PHP CLI disponible
+
+**Commande CLI :**
+```bash
+php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+```
+
+**Mode interactif :**
+```bash
+php scripts/create_admin.php
+# Le script vous demandera username, password et email
+```
+
+**Ce que fait le script :**
+1. Crée un enregistrement dans `users` avec `password_hash(..., PASSWORD_DEFAULT)`
+2. Si `roles` contient `name='admin'`, ajoute une entrée dans `user_roles`
+3. Affiche un message de succès ou d'erreur
+
+**Vérifications SQL :**
+```sql
+SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+SELECT * FROM user_roles WHERE user_id = <id_utilisateur>;
+```
+
+**Équivalent API (si déjà connecté en admin) :**
+```bash
+curl -X POST 'http://domain/api/admin_api.php?action=create_user' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "username": "admin",
+    "email": "admin@example.local",
+    "auth_method": "database",
+    "password": "AdminPass123!",
+    "role_ids": [1]
+  }' \
+  --cookie "PHPSESSID=your_session_id"
+```
+
+**⚠️ Sécurité :**
+- Changez le mot de passe par défaut immédiatement
+- Limitez l'accès au répertoire `scripts/` en production
+- Voir `scripts/create_admin.php` pour options détaillées
+
+**Alternative (Méthode B — SQL direct) :** Voir section [Emergency Procedures](#-emergency-procedures) pour création manuelle via SQL.
+
+---
+
 ## 👥 User Management
 
 ### Create User (Database Auth)
