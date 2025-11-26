@@ -865,45 +865,50 @@
     };
 
     /**
+     * Safely attach an event listener with error handling and debug logging
+     */
+    function safeAddEventListener(elementId, eventType, handler, description) {
+        try {
+            var el = document.getElementById(elementId);
+            if (el) {
+                el.addEventListener(eventType, handler);
+                console.debug('[admin.js] Listener attached: ' + description + ' (' + elementId + ')');
+                return true;
+            } else {
+                console.debug('[admin.js] Element not found for listener: ' + elementId);
+                return false;
+            }
+        } catch (error) {
+            console.error('[admin.js] Error attaching listener to ' + elementId + ':', error);
+            return false;
+        }
+    }
+
+    /**
      * Initialize filter buttons
      */
     function initFilters() {
-        document.getElementById('btn-filter-users').addEventListener('click', () => {
-            const filters = {};
+        safeAddEventListener('btn-filter-users', 'click', function() {
+            var filters = {};
             
-            const username = document.getElementById('filter-username').value.trim();
+            var username = document.getElementById('filter-username').value.trim();
             if (username) filters.username = username;
             
-            const authMethod = document.getElementById('filter-auth-method').value;
+            var authMethod = document.getElementById('filter-auth-method').value;
             if (authMethod) filters.auth_method = authMethod;
             
-            const isActive = document.getElementById('filter-is-active').value;
+            var isActive = document.getElementById('filter-is-active').value;
             if (isActive !== '') filters.is_active = isActive;
             
             loadUsers(filters);
-        });
+        }, 'Filter users button');
         
-        document.getElementById('btn-reset-filters').addEventListener('click', () => {
+        safeAddEventListener('btn-reset-filters', 'click', function() {
             document.getElementById('filter-username').value = '';
             document.getElementById('filter-auth-method').value = '';
             document.getElementById('filter-is-active').value = '';
             loadUsers();
-        });
-        
-        // Domain filters
-        document.getElementById('btn-filter-domains').addEventListener('click', () => {
-            const filters = {};
-            
-            const mapping_id = document.getElementById('filter-mapping').value;
-            if (mapping_id) filters.id = mapping_id;
-            
-            loadMappings(filters);
-        });
-        
-        document.getElementById('btn-reset-mapping-filters').addEventListener('click', () => {
-            document.getElementById('filter-mapping').value = '';
-            loadMappings();
-        });
+        }, 'Reset filters button');
         
         // Domain filter buttons removed - domains are now managed via zone files
     }
@@ -911,56 +916,79 @@
     /**
      * Initialize on page load
      */
-    document.addEventListener('DOMContentLoaded', () => {
-        initTabs();
-        initFilters();
+    document.addEventListener('DOMContentLoaded', function() {
+        console.debug('[admin.js] DOMContentLoaded - Starting initialization');
+        
+        try {
+            initTabs();
+            console.debug('[admin.js] Tabs initialized');
+        } catch (error) {
+            console.error('[admin.js] Error initializing tabs:', error);
+        }
+        
+        try {
+            initFilters();
+            console.debug('[admin.js] Filters initialized');
+        } catch (error) {
+            console.error('[admin.js] Error initializing filters:', error);
+        }
         
         // Load initial data
-        loadUsers();
-        loadRoles(); // Pre-load roles for dropdowns
+        try {
+            loadUsers();
+            loadRoles(); // Pre-load roles for dropdowns
+            console.debug('[admin.js] Initial data load started');
+        } catch (error) {
+            console.error('[admin.js] Error loading initial data:', error);
+        }
         
-        // Button event listeners
-        document.getElementById('btn-create-user').addEventListener('click', openCreateUserModal);
-        document.getElementById('btn-create-mapping').addEventListener('click', openCreateMappingModal);
+        // Button event listeners with safe attachment
+        safeAddEventListener('btn-create-user', 'click', openCreateUserModal, 'Create user button');
+        safeAddEventListener('btn-create-mapping', 'click', openCreateMappingModal, 'Create mapping button');
         // Domain button removed - domains are now managed via zone files
         
-        // Form submissions
-        document.getElementById('form-user').addEventListener('submit', saveUser);
-        document.getElementById('form-mapping').addEventListener('submit', saveMapping);
+        // Form submissions with safe attachment
+        safeAddEventListener('form-user', 'submit', saveUser, 'User form submission');
+        safeAddEventListener('form-mapping', 'submit', saveMapping, 'Mapping form submission');
         // Domain form removed - domains are now managed via zone files
         
         // Close modals on outside click
-        window.addEventListener('click', (e) => {
+        window.addEventListener('click', function(e) {
             if (e.target.classList.contains('modal')) {
                 e.target.classList.remove('show');
             }
         });
         
+        // Global delegation fallback for create buttons
+        // This ensures buttons work even if direct attachment failed
+        document.addEventListener('click', function(e) {
+            try {
+                var target = e.target;
+                // Check if clicked element or its parent is the button
+                var createUserBtn = target.closest('#btn-create-user');
+                var createMappingBtn = target.closest('#btn-create-mapping');
+                
+                if (createUserBtn) {
+                    console.debug('[admin.js] Delegation fallback triggered for #btn-create-user');
+                    if (typeof window.openCreateUserModal === 'function') {
+                        window.openCreateUserModal();
+                    }
+                } else if (createMappingBtn) {
+                    console.debug('[admin.js] Delegation fallback triggered for #btn-create-mapping');
+                    if (typeof window.openCreateMappingModal === 'function') {
+                        window.openCreateMappingModal();
+                    }
+                }
+            } catch (error) {
+                console.error('[admin.js] Error in delegation fallback:', error);
+            }
+        });
+        
+        console.debug('[admin.js] Initialization complete');
+        
         // Add CSS animations
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes slideIn {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            
-            @keyframes slideOut {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-            }
-        `;
+        var style = document.createElement('style');
+        style.textContent = "\n            @keyframes slideIn {\n                from {\n                    transform: translateX(100%);\n                    opacity: 0;\n                }\n                to {\n                    transform: translateX(0);\n                    opacity: 1;\n                }\n            }\n            \n            @keyframes slideOut {\n                from {\n                    transform: translateX(0);\n                    opacity: 1;\n                }\n                to {\n                    transform: translateX(100%);\n                    opacity: 0;\n                }\n            }\n        ";
         document.head.appendChild(style);
     });
 
