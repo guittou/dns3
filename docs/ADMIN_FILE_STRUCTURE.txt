@@ -4,9 +4,6 @@ DNS3 Admin Interface - File Structure
 New Files Created:
 ------------------
 
-migrations/
-  └── 002_create_auth_mappings.sql      [1.8 KB]  Auth mappings table for AD/LDAP
-
 includes/
   └── models/
       └── User.php                      [10.4 KB] User management model (10 methods)
@@ -27,6 +24,8 @@ Documentation/
   ├── ADMIN_RELEASE_NOTES.md            [8.7 KB]  Release notes v1.0.0
   └── ADMIN_QUICK_REFERENCE.md          [8.1 KB]  Quick reference card
 
+Note: Les fichiers de migration ont été supprimés. Le schéma complet est dans database.sql.
+
 
 Modified Files:
 ---------------
@@ -37,7 +36,7 @@ includes/
 
 Total Statistics:
 -----------------
-New files:        11 (6 code + 5 docs)
+New files:        10 (5 code + 5 docs)
 Modified files:    1
 Total code size:  ~63 KB
 Total docs size:  ~47 KB
@@ -48,7 +47,8 @@ Documentation:    ~1,500 lines
 File Details:
 -------------
 
-1. migrations/002_create_auth_mappings.sql
+1. database.sql
+   - Complete database schema
    - Creates auth_mappings table
    - Foreign keys to roles and users
    - Unique constraint on source+dn_or_group+role_id
@@ -181,14 +181,16 @@ Response:
 Installation Commands:
 ---------------------
 
-# 1. Apply migration
-mysql -u dns3_user -p dns3_db < migrations/002_create_auth_mappings.sql
+# 1. Import database schema
+mysql -u dns3_user -p dns3_db < database.sql
 
 # 2. Create admin user
 php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
 
 # 3. Access interface
 # Navigate to: http://your-domain/admin.php
+
+Note: Les fichiers de migration ont été supprimés. Utilisez database.sql pour les nouvelles installations.
 
 
 Validation Results:

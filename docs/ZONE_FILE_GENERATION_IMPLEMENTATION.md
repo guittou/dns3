@@ -9,17 +9,11 @@ This implementation adds zone file generation capability with support for:
 
 ## Changes Made
 
-### 1. Database Migration
-**File**: `migrations/010_add_directory_to_zone_files.sql`
+### 1. Database Schema
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
 
 - Added `directory` VARCHAR(255) NULL column to `zone_files` table
 - Added index on `directory` for performance
-- Idempotent migration that can be safely re-run
-
-To apply:
-```sql
-mysql -u dns3_user -p dns3_db < migrations/010_add_directory_to_zone_files.sql
-```
 
 ### 2. Backend Model Changes
 **File**: `includes/models/ZoneFile.php`

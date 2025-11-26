@@ -6,13 +6,15 @@ L'interface d'administration de DNS3 permet de gérer les utilisateurs, les rôl
 
 ## Installation et Configuration
 
-### 1. Appliquer la Migration de Base de Données
+### 1. Initialiser la Base de Données
 
-Exécutez la migration pour créer la table `auth_mappings` :
+Pour une nouvelle installation, importez le schéma complet :
 
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/002_create_auth_mappings.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
+
+> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 
 ### 2. Créer un Utilisateur Administrateur
 
@@ -254,5 +256,5 @@ tail -f /var/log/apache2/error.log
 Pour toute question ou problème :
 1. Consultez les logs d'erreur
 2. Vérifiez la configuration de la base de données
-3. Assurez-vous que toutes les migrations ont été appliquées
+3. Assurez-vous que le schéma `database.sql` a été correctement importé
 4. Vérifiez les permissions des utilisateurs admin

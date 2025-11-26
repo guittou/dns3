@@ -1,3 +1,5 @@
+> **ARCHIVED DOCUMENT NOTE** : Les fichiers de migration mentionnés dans ce document ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+
 # Pull Request Ready - Type-Specific Fields Implementation
 
 ## Status: ✅ COMPLETE AND READY FOR REVIEW

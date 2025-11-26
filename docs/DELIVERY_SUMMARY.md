@@ -6,8 +6,8 @@ This implementation delivers a complete zone file management system with recursi
 
 ## Deliverables ✅
 
-### 1. Database Migration ✅
-**File:** `migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql`
+### 1. Database Schema ✅
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ✅ Creates `zone_files` table with:
 - id, name, filename, content (MEDIUMTEXT), file_type, status
@@ -31,8 +31,6 @@ This implementation delivers a complete zone file management system with recursi
 - Nullable for migration safety
 - Index added
 - FK constraint available (commented)
-
-✅ Idempotent design - can be run multiple times
 
 ### 2. Backend Model ✅
 **File:** `includes/models/ZoneFile.php`
@@ -224,7 +222,7 @@ assignInclude(C, A, 0)
 
 | File | Status | Lines | Purpose |
 |------|--------|-------|---------|
-| migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql | ✅ Modified | 146 | Database schema with recursive support |
+| database.sql | ✅ Schema | - | Complete database schema |
 | includes/models/ZoneFile.php | ✅ Enhanced | 500+ | Model with tree operations and cycle detection |
 | includes/models/DnsRecord.php | ✅ Already done | - | Zone integration (pre-existing) |
 | api/zone_api.php | ✅ Enhanced | 300+ | Complete REST API with cycle detection |
@@ -234,6 +232,8 @@ assignInclude(C, A, 0)
 | assets/css/zone-files.css | ✅ Created | 400+ | Complete styling |
 | ZONE_FILES_RECURSIVE_IMPLEMENTATION.md | ✅ Created | 250+ | Technical documentation |
 | ZONE_FILES_QUICK_REFERENCE.md | ✅ Created | 300+ | User guide |
+
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ## Testing Status
 

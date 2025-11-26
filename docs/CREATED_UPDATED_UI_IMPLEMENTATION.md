@@ -87,8 +87,9 @@ if (record.created_at && createdAtGroup) {
 ## Technical Notes
 
 ### Database Schema
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
+
 - Assumes `created_at` and `updated_at` columns exist in the `dns_records` table
-- These columns were added in migration `003_add_dns_fields.sql`
 - Columns are defined as:
   - `created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
   - `updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`
@@ -110,7 +111,7 @@ if (record.created_at && createdAtGroup) {
 
 ## Testing Checklist
 
-- [ ] Verify migration `003_add_dns_fields.sql` has been applied
+- [ ] Verify schema from `database.sql` has been imported
 - [ ] Create a new DNS record via UI
   - [ ] Verify `created_at` is set in database (not null)
   - [ ] Verify `created_at` matches creation time
@@ -149,7 +150,7 @@ if (record.created_at && createdAtGroup) {
 
 ## Deployment Notes
 
-- **No database migration required** - columns already exist from previous migration
+- **No additional schema changes required** - columns exist in `database.sql`
 - **No API changes required** - endpoints already return the necessary data
 - **Frontend-only changes** - no server configuration needed
 - **Backward compatible** - works with existing data and doesn't break existing functionality

@@ -16,9 +16,11 @@ The original implementation loaded all zone files at once in a split-pane view, 
 
 ## Solution Architecture
 
-### 1. Database Layer (`migrations/007_add_zone_files_indexes.sql`)
+### 1. Database Layer
 
-**Added Performance Indexes:**
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
+
+**Performance Indexes:**
 ```sql
 CREATE INDEX IF NOT EXISTS idx_zone_type_status_name 
 ON zone_files(file_type, status, name(100));
@@ -279,12 +281,14 @@ addIncludeToZone()                     // Assigns include with cycle detection
 
 ## Migration Path
 
-### For Existing Installations
+### For New Installations
 
-1. **Run migration 007:**
+1. **Import database schema:**
    ```bash
-   mysql -u dns3_user -p dns3_db < migrations/007_add_zone_files_indexes.sql
+   mysql -u dns3_user -p dns3_db < database.sql
    ```
+
+   > **Note** : Les fichiers de migration ont été supprimés.
 
 2. **Clear browser cache** to load new JS/CSS files
 
@@ -374,11 +378,12 @@ See `TESTING_GUIDE_PAGINATION.md` for detailed testing procedures.
 ## Files Changed
 
 ### New Files:
-- `migrations/007_add_zone_files_indexes.sql` - Database indexes
 - `zone-file.php` - Dedicated detail page
 - `assets/js/zone-file-detail.js` - Detail page logic
 - `TESTING_GUIDE_PAGINATION.md` - Testing procedures
 - `IMPLEMENTATION_SUMMARY_PAGINATION.md` - This document
+
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ### Modified Files:
 - `api/zone_api.php` - Enhanced list_zones, added search_zones

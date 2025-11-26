@@ -1,3 +1,5 @@
+> **ARCHIVED DOCUMENT NOTE** : Les fichiers de migration mentionnés dans ce document ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+
 # PR Summary: Modal UI + Single-Parent Constraint + Reassign Support
 
 ## Overview

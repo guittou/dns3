@@ -4,8 +4,9 @@
 
 All requirements from the problem statement have been successfully implemented:
 
-### 1. Migration File ✅
-**File**: `migrations/005_add_type_specific_fields.sql`
+### 1. Database Schema ✅
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
+
 - [x] Adds columns: address_ipv4, address_ipv6, cname_target, ptrdname, txt
 - [x] Copies existing data from `value` to dedicated columns by record_type
 - [x] Migration is idempotent (checks if columns exist before adding)
@@ -121,15 +122,13 @@ All requirements from the problem statement have been successfully implemented:
 - [x] PHP syntax check: All files pass
 - [x] JavaScript syntax check: All files pass
 
-## Migration Application Instructions
+## Database Schema Instructions
 
-### Standard MySQL Migration
+> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` :
+
 ```bash
-# Connect to MySQL
-mysql -u dns3_user -p dns3_db
-
-# Apply migration
-source migrations/005_add_type_specific_fields.sql
+# Import complete schema
+mysql -u dns3_user -p dns3_db < database.sql
 
 # Verify columns exist
 DESCRIBE dns_records;
@@ -137,36 +136,6 @@ DESCRIBE dns_record_history;
 
 # Verify indexes
 SHOW INDEX FROM dns_records WHERE Key_name IN ('idx_address_ipv4', 'idx_address_ipv6', 'idx_cname_target');
-```
-
-### Using gh-ost for Production (Recommended for Large Tables)
-```bash
-# Install gh-ost if not already installed
-# https://github.com/github/gh-ost
-
-# For each ALTER TABLE statement in the migration, run gh-ost
-gh-ost \
-  --user="dns3_user" \
-  --password="your_password" \
-  --host="localhost" \
-  --database="dns3_db" \
-  --table="dns_records" \
-  --alter="ADD COLUMN address_ipv4 VARCHAR(15) NULL COMMENT 'IPv4 address for A records' AFTER value" \
-  --execute
-
-# Repeat for each column addition
-# After columns are added, run the UPDATE statements manually or in batches
-```
-
-### Using pt-online-schema-change (Alternative)
-```bash
-# Install percona-toolkit if not already installed
-# https://www.percona.com/doc/percona-toolkit/
-
-pt-online-schema-change \
-  --alter="ADD COLUMN address_ipv4 VARCHAR(15) NULL COMMENT 'IPv4 address for A records' AFTER value" \
-  D=dns3_db,t=dns_records \
-  --execute
 ```
 
 ## Manual Testing Checklist

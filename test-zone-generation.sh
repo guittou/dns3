@@ -5,12 +5,13 @@
 echo "=== Zone File Generation Feature - Validation Tests ==="
 echo ""
 
-# Check if migration file exists
-echo "1. Checking migration file..."
-if [ -f "migrations/010_add_directory_to_zone_files.sql" ]; then
-    echo "   ✓ Migration file exists"
+# Note: Migration files have been removed
+# Schema is now in database.sql
+echo "1. Checking database schema file..."
+if [ -f "database.sql" ]; then
+    echo "   ✓ database.sql exists"
 else
-    echo "   ✗ Migration file missing"
+    echo "   ✗ database.sql missing"
     exit 1
 fi
 
@@ -121,7 +122,7 @@ echo ""
 echo "=== All validation tests passed! ==="
 echo ""
 echo "Next steps:"
-echo "1. Run the migration: mysql -u dns3_user -p dns3_db < migrations/010_add_directory_to_zone_files.sql"
+echo "1. Import database schema: mysql -u dns3_user -p dns3_db < database.sql"
 echo "2. Test the UI manually:"
 echo "   - Open a zone and verify the directory field appears in the modal"
 echo "   - Verify the '# Includes' column is not shown in the table"

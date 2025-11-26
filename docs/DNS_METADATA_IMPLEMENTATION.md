@@ -10,15 +10,13 @@ Add business metadata fields to DNS records and expose them properly through the
 
 ## Changes Summary
 
-### 1. Database Migration (`migrations/003_add_dns_fields.sql`)
+### 1. Database Schema
 
-**Purpose:** Ensure all required metadata fields exist with proper indexes.
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
 
 **Features:**
-- Idempotent migration (checks if columns exist before adding)
 - Adds columns: `requester`, `expires_at`, `ticket_ref`, `comment`, `last_seen`, `created_at`, `updated_at`
 - Creates indexes on `expires_at` and `ticket_ref` for performance
-- Uses prepared statements for conditional DDL
 
 **Column Specifications:**
 - `requester` VARCHAR(255) - Person or system requesting the DNS record
@@ -31,7 +29,7 @@ Add business metadata fields to DNS records and expose them properly through the
 
 **Usage:**
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/003_add_dns_fields.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
 
 ---
@@ -470,13 +468,14 @@ public function markSeen($id, $user_id = null) {
 
 ## Files Modified
 
-1. `migrations/003_add_dns_fields.sql` - NEW
-2. `includes/models/DnsRecord.php` - MODIFIED
-3. `api/dns_api.php` - MODIFIED
-4. `dns-management.php` - MODIFIED
-5. `assets/js/dns-records.js` - MODIFIED
-6. `TEST_VALIDATION.md` - NEW (documentation)
-7. `DNS_METADATA_IMPLEMENTATION.md` - NEW (this file)
+1. `includes/models/DnsRecord.php` - MODIFIED
+2. `api/dns_api.php` - MODIFIED
+3. `dns-management.php` - MODIFIED
+4. `assets/js/dns-records.js` - MODIFIED
+5. `TEST_VALIDATION.md` - NEW (documentation)
+6. `DNS_METADATA_IMPLEMENTATION.md` - NEW (this file)
+
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ---
 

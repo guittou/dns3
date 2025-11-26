@@ -1,3 +1,5 @@
+> **ARCHIVED DOCUMENT NOTE** : Les fichiers de migration mentionnés dans ce document ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+
 ## Summary
 
 This PR implements strict server-side enforcement of database-only user creation via the admin interface, removes the ACL UI, and adds automatic role mapping for AD/LDAP users during authentication.

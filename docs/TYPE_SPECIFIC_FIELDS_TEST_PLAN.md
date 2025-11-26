@@ -214,8 +214,10 @@ curl -b cookies.txt 'http://localhost:8000/api/dns_api.php?action=get&id=1'
 
 1. **Database Setup**
    ```bash
-   mysql -u dns3_user -p dns3_db < migrations/005_add_type_specific_fields.sql
+   mysql -u dns3_user -p dns3_db < database.sql
    ```
+
+   > **Note** : Les fichiers de migration ont été supprimés. Utilisez `database.sql`.
 
 2. **Verify Column Structure**
    ```sql

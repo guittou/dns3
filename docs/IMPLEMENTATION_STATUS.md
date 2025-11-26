@@ -11,21 +11,18 @@ All requirements from the problem statement have been successfully implemented a
 
 ## Deliverables Completed
 
-### 1. ✅ Database Migration (migrations/005_add_type_specific_fields.sql)
+### 1. ✅ Database Schema
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
+
 **Status**: Complete and verified
 - [x] Adds 5 dedicated columns: address_ipv4, address_ipv6, cname_target, ptrdname, txt
-- [x] Idempotent migration (checks if columns exist before adding)
-- [x] Copies existing data from `value` to dedicated columns based on record_type
 - [x] Updates both dns_records and dns_record_history tables
 - [x] Adds indexes for query performance (idx_address_ipv4, idx_address_ipv6, idx_cname_target)
-- [x] Keeps `value` column for backward compatibility and rollback capability
-- [x] Includes gh-ost and pt-online-schema-change recommendations in documentation
+- [x] Keeps `value` column for backward compatibility
 
 **Verification**: 
-- PHP syntax: ✅ Valid SQL
+- Schema is complete in `database.sql`
 - Pattern tests: ✅ All columns present
-- Idempotency: ✅ Uses IF(@col_exists) pattern
-- Data migration: ✅ UPDATE statements for all 5 types
 
 ### 2. ✅ DnsRecord Model (includes/models/DnsRecord.php)
 **Status**: Complete and verified
@@ -231,26 +228,27 @@ All requirements from the problem statement have been successfully implemented a
 5. DNS_MANAGEMENT_GUIDE.md
 
 ### New Files (5):
-1. migrations/005_add_type_specific_fields.sql
-2. TYPE_SPECIFIC_FIELDS_TEST_PLAN.md
-3. TYPE_SPECIFIC_FIELDS_SUMMARY.md
-4. UI_CHANGES_DOCUMENTATION.md
-5. VERIFICATION_CHECKLIST.md
-6. IMPLEMENTATION_STATUS.md (this file)
+1. TYPE_SPECIFIC_FIELDS_TEST_PLAN.md
+2. TYPE_SPECIFIC_FIELDS_SUMMARY.md
+3. UI_CHANGES_DOCUMENTATION.md
+4. VERIFICATION_CHECKLIST.md
+5. IMPLEMENTATION_STATUS.md (this file)
+
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ## Next Steps
 
 1. **Code Review**: Review all changes for correctness
 2. **Development Testing**: 
-   - Apply migration to dev database
+   - Import schema to dev database: `mysql -u user -p dns3_db < database.sql`
    - Run manual API tests
    - Run manual UI tests
 3. **Staging Deployment**:
-   - Apply migration using gh-ost
+   - Import schema
    - Test all functionality
-   - Verify data migration
+   - Verify data
 4. **Production Deployment**:
-   - Apply migration during maintenance window
+   - Import schema during maintenance window
    - Monitor for issues
    - Keep `value` column for one release cycle
 5. **Future Work**:

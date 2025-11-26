@@ -1,3 +1,5 @@
+> **ARCHIVED DOCUMENT NOTE** : Les fichiers de migration mentionnés dans ce document ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+
 # Test Validation Guide - DNS Metadata Fields
 
 This document provides step-by-step instructions to validate the DNS metadata fields implementation.

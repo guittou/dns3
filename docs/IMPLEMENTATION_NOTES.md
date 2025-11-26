@@ -402,7 +402,8 @@ The change is minimal and reversible. Backend logic is unchanged, reducing risk.
 
 ## References
 
-- Migration: `migrations/015_add_domain_to_zone_files.sql`
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
+
 - Original Issue: GitHub Issue #XXX (if applicable)
 - Related PR: #137 (previous domain migration)
 

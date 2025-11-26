@@ -6,18 +6,17 @@ This document outlines the complete implementation of zone file management with 
 
 ## What Was Implemented
 
-### 1. Database Migration (✅ Complete)
+### 1. Database Schema (✅ Complete)
 
-**File:** `migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql`
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
 
-Changes made:
+Changes included:
 - Updated `zone_file_includes` table:
   - Changed `master_id` to `parent_id` (supports recursive includes)
   - Added `position` INT field for ordering includes
   - Added `id` primary key auto-increment
   - Updated UNIQUE constraint to `unique_parent_include (parent_id, include_id)`
 - Changed `content` from TEXT to MEDIUMTEXT in both `zone_files` and `zone_file_history`
-- Maintained idempotent design with CREATE TABLE IF NOT EXISTS
 
 ### 2. ZoneFile Model Enhancements (✅ Complete)
 
@@ -124,8 +123,8 @@ Styles for:
 
 ## Testing Checklist
 
-### Database Migration
-- [ ] Run migration: `mysql -u dns3_user -p dns3_db < migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql`
+### Database Setup
+- [ ] Import schema: `mysql -u dns3_user -p dns3_db < database.sql`
 - [ ] Verify table structure: `DESCRIBE zone_files;`
 - [ ] Verify includes table: `DESCRIBE zone_file_includes;` (should have parent_id, position)
 - [ ] Verify history table: `DESCRIBE zone_file_history;`
@@ -179,12 +178,13 @@ Styles for:
 ## File Checklist
 
 Created/Modified files:
-- ✅ migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
 - ✅ includes/models/ZoneFile.php
 - ✅ api/zone_api.php
 - ✅ zone-files.php
 - ✅ assets/js/zone-files.js
 - ✅ assets/css/zone-files.css
+
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ## Validation Results
 

@@ -147,8 +147,10 @@ host2   IN  A   192.168.1.2
 
 ## Migration
 
-Run the migration to add the new columns:
+The database schema is now available in `database.sql`. Import it for new installations:
 
 ```sql
-mysql dns3_db < migrations/012_add_validation_command_fields.sql
+mysql dns3_db < database.sql
 ```
+
+> **Note** : Les fichiers de migration ont été supprimés.
