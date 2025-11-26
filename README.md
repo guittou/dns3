@@ -67,6 +67,34 @@ DNS3 is a PHP web application for managing DNS zone files and records. It suppor
    </VirtualHost>
    ```
 
+7. **Créer un compte administrateur**
+
+   **Méthode A — Créer un administrateur via script PHP (recommandée)**
+   
+   Prérequis : `config.php` configuré (credentials DB), PHP CLI disponible.
+   
+   ```bash
+   php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+   ```
+   
+   Ce que fait le script :
+   - Crée un enregistrement dans la table `users` avec le mot de passe hashé via `password_hash(..., PASSWORD_DEFAULT)`
+   - Si la table `roles` contient un rôle `name='admin'`, il ajoute une entrée dans `user_roles` pour assigner ce rôle
+   - Affiche un message de succès ou d'erreur
+   
+   Vérifications post-exécution :
+   ```sql
+   SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+   SELECT r.id, r.name FROM roles r WHERE r.name = 'admin';
+   SELECT * FROM user_roles WHERE user_id = <id_utilisateur>;
+   ```
+   
+   **Méthode B — Création manuelle via SQL**
+   
+   Voir la section [Création manuelle](#création-manuelle-via-sql) ci-dessous.
+   
+   > **Sécurité** : Changez le mot de passe par défaut immédiatement après la première connexion. Limitez l'accès au répertoire `scripts/` en production.
+
 ## Configuration
 
 All settings are in `config.php`:
@@ -84,6 +112,28 @@ All settings are in `config.php`:
 - **Backups**: Use `mysqldump -u user -p dns3_db > backup.sql` before major changes.
 - **Migrations**: Located in `migrations/`. Apply in order when upgrading. See `migrations/README.md` for details.
 - **Zone Validation**: Runs `named-checkzone` and stores results in `zone_file_validation` table.
+
+## Création manuelle via SQL
+
+Si vous préférez créer un administrateur manuellement via SQL (Méthode B), voici la procédure :
+
+```bash
+# Générer le hash du mot de passe
+php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT) . PHP_EOL;"
+```
+
+```sql
+-- Insérer l'utilisateur
+INSERT INTO users (username, email, password, auth_method, is_active, created_at)
+VALUES ('admin', 'admin@example.local', '$2y$10$...votre_hash...', 'database', 1, NOW());
+
+-- Assigner le rôle admin
+INSERT INTO user_roles (user_id, role_id, assigned_at)
+SELECT u.id, r.id, NOW() FROM users u, roles r
+WHERE u.username = 'admin' AND r.name = 'admin';
+```
+
+> Pour plus de détails et d'options, consultez `scripts/create_admin.php`.
 
 ## Documentation
 

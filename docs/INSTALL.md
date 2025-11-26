@@ -80,7 +80,80 @@ Puis accédez à : `http://localhost/dns3`
 
 **Important** : Changez le mot de passe admin immédiatement après la première connexion !
 
-### 6. Configuration LDAP/AD (optionnel)
+### 6. Création du compte administrateur
+
+#### Méthode A — Créer un administrateur via script PHP (recommandée)
+
+**Prérequis :**
+- `config.php` configuré avec les identifiants de base de données
+- PHP CLI disponible et fonctionnel
+- Accès au répertoire `scripts/` du projet
+
+**Commande d'exemple :**
+
+```bash
+php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+```
+
+Ou en mode interactif (le script vous demandera les informations) :
+
+```bash
+php scripts/create_admin.php
+```
+
+**Ce que fait le script :**
+1. Crée un enregistrement dans la table `users` avec le mot de passe hashé via `password_hash(..., PASSWORD_DEFAULT)`
+2. Si la table `roles` contient un rôle `name='admin'`, il ajoute automatiquement une entrée dans `user_roles` pour assigner ce rôle à l'utilisateur
+3. Si l'utilisateur existe déjà, le script met à jour son mot de passe
+4. Affiche un message de succès ou d'erreur
+
+**Vérifications post-exécution :**
+
+```sql
+-- Vérifier que l'utilisateur a été créé
+SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+
+-- Vérifier que le rôle admin existe
+SELECT r.id, r.name FROM roles r WHERE r.name = 'admin';
+
+-- Vérifier que le rôle a été assigné (remplacer <id_utilisateur> par l'ID retourné)
+SELECT * FROM user_roles WHERE user_id = <id_utilisateur>;
+```
+
+**Résultat attendu :**
+- L'utilisateur apparaît dans la table `users` avec `auth_method = 'database'` et `is_active = 1`
+- Une entrée existe dans `user_roles` liant l'utilisateur au rôle `admin`
+
+> Pour plus d'options et de détails, consultez directement le fichier `scripts/create_admin.php`.
+
+#### Méthode B — Création manuelle via SQL (alternative)
+
+Si vous préférez créer l'administrateur directement en SQL :
+
+```bash
+# Générer le hash du mot de passe
+php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT) . PHP_EOL;"
+```
+
+```sql
+-- Insérer l'utilisateur (remplacer $2y$10$...votre_hash... par le hash généré)
+INSERT INTO users (username, email, password, auth_method, is_active, created_at)
+VALUES ('admin', 'admin@example.local', '$2y$10$...votre_hash...', 'database', 1, NOW());
+
+-- Assigner le rôle admin
+INSERT INTO user_roles (user_id, role_id, assigned_at)
+SELECT u.id, r.id, NOW() FROM users u, roles r
+WHERE u.username = 'admin' AND r.name = 'admin';
+```
+
+#### Note de sécurité
+
+- **Changez le mot de passe par défaut** immédiatement après la première connexion
+- **Limitez l'accès au répertoire `scripts/`** en production (via `.htaccess` ou configuration serveur)
+- **Ne commitez jamais** de mots de passe en clair dans le code source
+- Utilisez des mots de passe forts (minimum 12 caractères, mélange de lettres, chiffres et caractères spéciaux)
+
+### 7. Configuration LDAP/AD (optionnel)
 
 Si vous voulez tester avec Active Directory ou OpenLDAP :
 
