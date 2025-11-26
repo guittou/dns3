@@ -11,7 +11,7 @@ Migrations are numbered sequentially and should be run in order:
 - `003_add_dns_fields.sql` - Additional DNS record fields
 - `004_remove_disabled_status.sql` - Remove disabled status from records
 - `005_add_type_specific_fields.sql` - Add dedicated columns for DNS record types (A, AAAA, CNAME, PTR, TXT)
-- `006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` - Zone files and applications tables
+- `006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` - Zone files table (archived to migrations/archive/)
 - `007_add_zone_files_indexes.sql` - Indexes for zone files
 - `008_enforce_single_parent.sql` - Enforce single parent constraint for zone file includes
 - `009_add_history_actions.sql` - Add history action types

@@ -1,4 +1,4 @@
-# Testing Guide for Zone Files and Applications Management
+# Testing Guide for Zone Files Management
 
 ## Migration Testing
 
@@ -6,17 +6,15 @@ To test the database migration:
 
 1. Run the migration script:
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
+mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
 ```
 
 2. Verify tables were created:
 ```sql
 USE dns3_db;
 SHOW TABLES LIKE 'zone%';
-SHOW TABLES LIKE 'applications';
 DESCRIBE zone_files;
 DESCRIBE zone_file_includes;
-DESCRIBE applications;
 DESCRIBE zone_file_history;
 SHOW COLUMNS FROM dns_records LIKE 'zone_file_id';
 ```
@@ -67,48 +65,6 @@ curl -X POST "http://localhost/api/zone_api.php?action=assign_include&master_id=
 6. **Download zone file**:
 ```bash
 curl -X GET "http://localhost/api/zone_api.php?action=download_zone&id=1" -H "Cookie: session_id=..." -o zone_file.txt
-```
-
-### Application API
-
-1. **List applications**:
-```bash
-curl -X GET "http://localhost/api/app_api.php?action=list_apps" -H "Cookie: session_id=..."
-```
-
-2. **Create an application** (requires admin):
-```bash
-curl -X POST "http://localhost/api/app_api.php?action=create_app" \
-  -H "Content-Type: application/json" \
-  -H "Cookie: session_id=..." \
-  -d '{
-    "name": "MyApp",
-    "description": "My application description",
-    "owner": "john.doe",
-    "zone_file_id": 1
-  }'
-```
-
-3. **Get an application**:
-```bash
-curl -X GET "http://localhost/api/app_api.php?action=get_app&id=1" -H "Cookie: session_id=..."
-```
-
-4. **Update an application** (requires admin):
-```bash
-curl -X POST "http://localhost/api/app_api.php?action=update_app&id=1" \
-  -H "Content-Type: application/json" \
-  -H "Cookie: session_id=..." \
-  -d '{
-    "description": "Updated description",
-    "zone_file_id": 2
-  }'
-```
-
-5. **Change application status** (requires admin):
-```bash
-curl -X POST "http://localhost/api/app_api.php?action=set_status_app&id=1&status=inactive" \
-  -H "Cookie: session_id=..."
 ```
 
 ### DNS Records API (with zone_file_id)

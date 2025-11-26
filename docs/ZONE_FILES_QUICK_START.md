@@ -5,7 +5,7 @@
 ### 1. Run the Migration
 
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
+mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
 ```
 
 ### 2. Create Your First Zone File
@@ -33,27 +33,6 @@ VALUES
   ('example.com', 'db.example.com', 'master', 'active', 1, NOW()),
   ('internal.local', 'db.internal.local', 'master', 'active', 1, NOW()),
   ('common.include', 'common.include', 'include', 'active', 1, NOW());
-```
-
-### 3. Create an Application (Optional)
-
-```bash
-curl -X POST "http://localhost/api/app_api.php?action=create_app" \
-  -H "Content-Type: application/json" \
-  -H "Cookie: PHPSESSID=your_session_id" \
-  -d '{
-    "name": "WebApp1",
-    "description": "Main web application",
-    "owner": "web-team",
-    "zone_file_id": 1
-  }'
-```
-
-Or via SQL:
-
-```sql
-INSERT INTO applications (name, description, owner, zone_file_id, status, created_at)
-VALUES ('WebApp1', 'Main web application', 'web-team', 1, 'active', NOW());
 ```
 
 ## Using the UI
@@ -89,10 +68,7 @@ The DNS records table now shows the zone name in the first column for each recor
 # 1. Create zone file for the domain
 curl -X POST ".../zone_api.php?action=create_zone" -d '{"name": "newsite.com", "filename": "db.newsite.com", "file_type": "master"}'
 
-# 2. Create application for the website
-curl -X POST ".../app_api.php?action=create_app" -d '{"name": "NewSite", "owner": "dev-team", "zone_file_id": 2}'
-
-# 3. Add DNS records via UI
+# 2. Add DNS records via UI
 # - Select "newsite.com (master)" from zone dropdown
 # - Add A record: www.newsite.com -> 192.168.1.100
 # - Add CNAME: mail.newsite.com -> mail.provider.com
@@ -147,11 +123,10 @@ curl -X POST ".../zone_api.php?action=assign_include&master_id=2&include_id=3"
 
 - **Zone names**: Use domain format (example.com, subdomain.example.com)
 - **Filenames**: Use db.* for master, *.include for includes
-- **Applications**: Descriptive names (WebApp, APIService, DatabaseCluster)
 
 ### Status Management
 
-- **active**: Zone/app is in use
+- **active**: Zone is in use
 - **inactive**: Temporarily disabled, can be reactivated
 - **deleted**: Soft-deleted, hidden from normal views
 
@@ -197,13 +172,6 @@ curl -X POST ".../zone_api.php?action=assign_include&master_id=2&include_id=3"
 - `POST /api/zone_api.php?action=update_zone&id=X` (admin)
 - `POST /api/zone_api.php?action=assign_include&master_id=X&include_id=Y` (admin)
 - `GET /api/zone_api.php?action=download_zone&id=X`
-
-### Applications
-- `GET /api/app_api.php?action=list_apps[&zone_file_id=X]`
-- `GET /api/app_api.php?action=get_app&id=X`
-- `POST /api/app_api.php?action=create_app` (admin)
-- `POST /api/app_api.php?action=update_app&id=X` (admin)
-- `POST /api/app_api.php?action=set_status_app&id=X&status=active` (admin)
 
 ### DNS Records (Enhanced)
 - `POST /api/dns_api.php?action=create` - Now requires `zone_file_id`
