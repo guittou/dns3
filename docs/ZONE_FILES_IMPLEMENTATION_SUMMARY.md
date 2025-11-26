@@ -1,8 +1,10 @@
-# Zone Files and Applications Management - Implementation Summary
+# Zone Files Management - Implementation Summary
 
 ## Overview
 
-This implementation adds comprehensive zone file and application management to the DNS3 system, ensuring that every DNS record is associated with a zone file. The implementation follows the requirements specified in the problem statement.
+This documentation describes the zone file management feature of the DNS3 system, which ensures that every DNS record is associated with a zone file.
+
+> **Note**: The Applications feature was removed from the application. The `applications` table may remain in the database for historical reference but is no longer used by the application. See the migration archives for schema details.
 
 ## Database Changes
 
@@ -19,12 +21,7 @@ This implementation adds comprehensive zone file and application management to t
    - Links master zones to their include files
    - Fields: master_id, include_id, created_at
 
-3. **applications**
-   - Application management table
-   - Each application is linked to exactly one zone file
-   - Fields: id, name, description, owner, zone_file_id, status, created_at, updated_at
-
-4. **zone_file_history**
+3. **zone_file_history**
    - Audit trail for zone file changes
    - Tracks all modifications including content changes
    - Fields: id, zone_file_id, action, name, filename, file_type, old_status, new_status, old_content, new_content, changed_by, changed_at, notes
@@ -56,16 +53,6 @@ This implementation adds comprehensive zone file and application management to t
   - `writeHistory()` - Record zone changes
   - `getHistory()` - Retrieve zone change history
 
-### Application.php
-- Full CRUD operations for applications
-- Methods:
-  - `search()` - Filter and search applications
-  - `getById()` - Get application by ID
-  - `getByName()` - Get application by name
-  - `create()` - Create new application (validates zone_file_id)
-  - `update()` - Update application (validates zone_file_id if changed)
-  - `setStatus()` - Change application status
-
 ### DnsRecord.php (Modified)
 - Enhanced to require and manage zone_file_id
 - Changes:
@@ -85,13 +72,6 @@ This implementation adds comprehensive zone file and application management to t
 - `set_status_zone` - Change zone status (admin only)
 - `assign_include` - Link include to master zone (admin only)
 - `download_zone` - Download zone file content
-
-### Application API (api/app_api.php)
-- `list_apps` - List applications with filters (name, status, zone_file_id)
-- `get_app` - Get specific application
-- `create_app` - Create new application (admin only, validates zone_file_id)
-- `update_app` - Update application (admin only, validates zone_file_id if changed)
-- `set_status_app` - Change application status (admin only)
 
 ### DNS API (api/dns_api.php) - Modified
 - `create` action: Now requires zone_file_id, validates zone exists and is active
@@ -137,13 +117,6 @@ This implementation adds comprehensive zone file and application management to t
 ✅ Download zone file content
 ✅ Active/inactive/deleted status management
 
-### Application Management
-✅ Create applications linked to zone files
-✅ Each application references exactly one zone file
-✅ Validate zone_file_id on create and update
-✅ Filter applications by zone
-✅ Status management (active/inactive/deleted)
-
 ### DNS Record Integration
 ✅ Zone column displayed as first column in table
 ✅ Zone selector as first field in create/edit modal
@@ -180,11 +153,9 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 ## Files Modified
 
 ### Created:
-- `migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql`
+- `migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` (archived)
 - `includes/models/ZoneFile.php`
-- `includes/models/Application.php`
 - `api/zone_api.php`
-- `api/app_api.php`
 - `ZONE_FILES_TESTING_GUIDE.md`
 - `ZONE_FILES_IMPLEMENTATION_SUMMARY.md` (this file)
 
@@ -194,14 +165,20 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 - `dns-management.php`
 - `assets/js/dns-records.js`
 
-## Next Steps
+## Setup Notes
 
-1. Run the migration: `mysql -u dns3_user -p dns3_db < migrations/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql`
-2. Create initial zone files via API or database INSERT
-3. Test zone file listing and selection in UI
-4. Create DNS records with zone associations
-5. (Optional) Enable foreign key constraint after existing records are updated
-6. (Optional) Make zone_file_id NOT NULL after all records have zones
+> **Note**: The migration `006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` has been archived to `migrations/archive/`. For existing DNS3 installations, this migration has already been applied. If you need to set up a new development, test, or fresh installation environment:
+>
+> ```bash
+> mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
+> ```
+
+After migration is applied:
+1. Create initial zone files via API or database INSERT
+2. Test zone file listing and selection in UI
+3. Create DNS records with zone associations
+4. (Optional) Enable foreign key constraint after existing records are updated
+5. (Optional) Make zone_file_id NOT NULL after all records have zones
 
 ## Compliance with Requirements
 
@@ -214,4 +191,3 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 ✅ All API endpoints implemented as specified
 ✅ Admin-only restrictions on management operations
 ✅ Full history tracking for zones
-✅ Application-zone linking implemented

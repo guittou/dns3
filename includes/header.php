@@ -65,7 +65,6 @@ if ($basePath === '') {
           <?php if ($auth->isLoggedIn() && $auth->isAdmin()): ?>
           <li><a href="<?php echo $basePath; ?>dns-management.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='dns-management.php') ? ' active' : ''; ?>">DNS</a></li>
           <li><a href="<?php echo $basePath; ?>zone-files.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='zone-files.php' || basename($_SERVER['PHP_SELF'])==='zone-file.php') ? ' active' : ''; ?>">Zones</a></li>
-          <li><a href="<?php echo $basePath; ?>applications.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='applications.php') ? ' active' : ''; ?>">Applications</a></li>
           <li><a href="<?php echo $basePath; ?>admin.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='admin.php') ? ' active' : ''; ?>">Administration</a></li>
           <?php endif; ?>
         </ul>
