@@ -94,8 +94,29 @@ class Auth {
                         }
                     }
                     
-                    // Create or update user and apply role mappings
+                    // Get matched role IDs from auth_mappings BEFORE creating/updating user
+                    $matchedRoleIds = $this->getRoleIdsFromMappings('ad', $groups, $user_dn);
+                    
+                    // If no mappings match, refuse connection and disable existing user
+                    if (empty($matchedRoleIds)) {
+                        $this->findAndDisableExistingUser($username, 'ad');
+                        ldap_close($ldap);
+                        return false;
+                    }
+                    
+                    // Create or update user
                     $this->createOrUpdateUserWithMappings($username, $email, 'ad', $groups, $user_dn);
+                    
+                    // Get user ID and perform post-login actions
+                    $user_id = $this->getUserIdByUsername($username);
+                    if ($user_id) {
+                        // Reactivate account (in case it was previously disabled)
+                        $this->reactivateUserAccount($user_id);
+                        
+                        // Sync roles based on current mappings
+                        $this->syncUserRolesWithMappings($user_id, 'ad', $matchedRoleIds);
+                    }
+                    
                     ldap_close($ldap);
                     return true;
                 }
@@ -136,8 +157,29 @@ class Auth {
                     // Try to bind with user credentials
                     if (@ldap_bind($ldap, $user_dn, $password)) {
                         // User authenticated successfully
-                        // Create or update user and apply role mappings
+                        // Get matched role IDs from auth_mappings BEFORE creating/updating user
+                        $matchedRoleIds = $this->getRoleIdsFromMappings('ldap', [], $user_dn);
+                        
+                        // If no mappings match, refuse connection and disable existing user
+                        if (empty($matchedRoleIds)) {
+                            $this->findAndDisableExistingUser($username, 'ldap');
+                            ldap_close($ldap);
+                            return false;
+                        }
+                        
+                        // Create or update user
                         $this->createOrUpdateUserWithMappings($username, $email, 'ldap', [], $user_dn);
+                        
+                        // Get user ID and perform post-login actions
+                        $user_id = $this->getUserIdByUsername($username);
+                        if ($user_id) {
+                            // Reactivate account (in case it was previously disabled)
+                            $this->reactivateUserAccount($user_id);
+                            
+                            // Sync roles based on current mappings
+                            $this->syncUserRolesWithMappings($user_id, 'ldap', $matchedRoleIds);
+                        }
+                        
                         ldap_close($ldap);
                         return true;
                     }
@@ -191,10 +233,33 @@ class Auth {
     
     /**
      * Apply role mappings based on AD groups or LDAP DN
+     * Uses getRoleIdsFromMappings to get matched roles and applies them
      */
     private function applyRoleMappings($user_id, $auth_method, $groups = [], $user_dn = '') {
         try {
-            // Get all mappings for this auth source
+            $matchedRoleIds = $this->getRoleIdsFromMappings($auth_method, $groups, $user_dn);
+            
+            foreach ($matchedRoleIds as $roleId) {
+                // Assign role to user (INSERT IGNORE / ON DUPLICATE KEY UPDATE)
+                $stmt = $this->db->prepare(
+                    "INSERT INTO user_roles (user_id, role_id, assigned_at) 
+                     VALUES (?, ?, NOW()) 
+                     ON DUPLICATE KEY UPDATE assigned_at = NOW()"
+                );
+                $stmt->execute([$user_id, $roleId]);
+            }
+        } catch (Exception $e) {
+            error_log("Apply role mappings error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Get role IDs from auth_mappings that match user's groups/DN
+     * Returns array of matched role IDs
+     */
+    private function getRoleIdsFromMappings($auth_method, $groups = [], $user_dn = '') {
+        $matchedRoleIds = [];
+        try {
             $stmt = $this->db->prepare("SELECT id, dn_or_group, role_id FROM auth_mappings WHERE source = ?");
             $stmt->execute([$auth_method]);
             $mappings = $stmt->fetchAll();
@@ -212,24 +277,120 @@ class Auth {
                     }
                 } elseif ($auth_method === 'ldap') {
                     // For LDAP: check if user DN contains the mapped DN/OU path
-                    // Case-insensitive containment check
                     if ($user_dn && stripos($user_dn, $mapping['dn_or_group']) !== false) {
                         $matches = true;
                     }
                 }
                 
-                if ($matches) {
-                    // Assign role to user (INSERT IGNORE / ON DUPLICATE KEY UPDATE)
-                    $stmt = $this->db->prepare(
-                        "INSERT INTO user_roles (user_id, role_id, assigned_at) 
-                         VALUES (?, ?, NOW()) 
-                         ON DUPLICATE KEY UPDATE assigned_at = NOW()"
-                    );
-                    $stmt->execute([$user_id, $mapping['role_id']]);
+                if ($matches && !in_array($mapping['role_id'], $matchedRoleIds)) {
+                    $matchedRoleIds[] = $mapping['role_id'];
                 }
             }
         } catch (Exception $e) {
-            error_log("Apply role mappings error: " . $e->getMessage());
+            error_log("Get role IDs from mappings error: " . $e->getMessage());
+        }
+        return $matchedRoleIds;
+    }
+
+    /**
+     * Synchronize user roles with auth_mappings
+     * - Adds missing mapped roles
+     * - Removes roles that came from mappings but no longer match
+     * - Does NOT remove manually assigned roles (roles not defined in any mapping for this auth source)
+     */
+    private function syncUserRolesWithMappings($user_id, $auth_method, array $matchedRoleIds) {
+        try {
+            // Get all role IDs that are defined in auth_mappings for this source
+            $stmt = $this->db->prepare("SELECT DISTINCT role_id FROM auth_mappings WHERE source = ?");
+            $stmt->execute([$auth_method]);
+            $mappingRoleIds = array_column($stmt->fetchAll(), 'role_id');
+            
+            // Get current user roles
+            $stmt = $this->db->prepare("SELECT role_id FROM user_roles WHERE user_id = ?");
+            $stmt->execute([$user_id]);
+            $currentRoleIds = array_column($stmt->fetchAll(), 'role_id');
+            
+            // Add missing matched roles
+            foreach ($matchedRoleIds as $roleId) {
+                if (!in_array($roleId, $currentRoleIds)) {
+                    $stmt = $this->db->prepare(
+                        "INSERT INTO user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())"
+                    );
+                    $stmt->execute([$user_id, $roleId]);
+                }
+            }
+            
+            // Remove roles that come from mappings but are no longer matched
+            // Only remove roles that are defined in auth_mappings for this source
+            foreach ($currentRoleIds as $roleId) {
+                // If this role is defined in mappings for this auth source
+                // but is NOT in the matched roles, remove it
+                if (in_array($roleId, $mappingRoleIds) && !in_array($roleId, $matchedRoleIds)) {
+                    $stmt = $this->db->prepare("DELETE FROM user_roles WHERE user_id = ? AND role_id = ?");
+                    $stmt->execute([$user_id, $roleId]);
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Sync user roles with mappings error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Disable user account (set is_active = 0)
+     */
+    private function disableUserAccount($user_id) {
+        try {
+            $stmt = $this->db->prepare("UPDATE users SET is_active = 0 WHERE id = ?");
+            $stmt->execute([$user_id]);
+        } catch (Exception $e) {
+            error_log("Disable user account error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Reactivate user account (set is_active = 1)
+     */
+    private function reactivateUserAccount($user_id) {
+        try {
+            $stmt = $this->db->prepare("UPDATE users SET is_active = 1 WHERE id = ?");
+            $stmt->execute([$user_id]);
+        } catch (Exception $e) {
+            error_log("Reactivate user account error: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Find existing user by username and auth_method, and disable if found
+     * Returns true if user was found and disabled, false otherwise
+     */
+    private function findAndDisableExistingUser($username, $auth_method) {
+        try {
+            $stmt = $this->db->prepare("SELECT id FROM users WHERE username = ? AND auth_method = ?");
+            $stmt->execute([$username, $auth_method]);
+            $existingUser = $stmt->fetch();
+            
+            if ($existingUser) {
+                $this->disableUserAccount($existingUser['id']);
+                return true;
+            }
+        } catch (Exception $e) {
+            error_log("Find and disable existing user error: " . $e->getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * Get user ID by username
+     */
+    private function getUserIdByUsername($username) {
+        try {
+            $stmt = $this->db->prepare("SELECT id FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $user = $stmt->fetch();
+            return $user ? $user['id'] : null;
+        } catch (Exception $e) {
+            error_log("Get user ID by username error: " . $e->getMessage());
+            return null;
         }
     }
 
