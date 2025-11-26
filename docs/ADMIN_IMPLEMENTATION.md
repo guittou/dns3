@@ -597,8 +597,142 @@ tail -f /var/log/php/error.log
 - Inline code comments in all PHP/JS files
 - SQL migration with explanatory comments
 
+---
+
+## Zone ACL (Access Control Lists)
+
+### Présentation
+
+La fonctionnalité ACL par fichier de zone permet de contrôler finement l'accès aux zones DNS pour les utilisateurs non-administrateurs. Un nouveau rôle `zone_editor` est disponible pour les utilisateurs qui doivent pouvoir modifier des zones spécifiques sans avoir accès à l'interface d'administration globale.
+
+### Composants
+
+#### 1. Table `zone_acl_entries`
+
+```sql
+CREATE TABLE zone_acl_entries (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  zone_file_id INT NOT NULL,
+  subject_type ENUM('user','role','ad_group') NOT NULL,
+  subject_identifier VARCHAR(255) NOT NULL,
+  permission ENUM('read','write','admin') NOT NULL DEFAULT 'read',
+  created_by INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (zone_file_id) REFERENCES zone_files(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+#### 2. Rôle `zone_editor`
+
+- Permet d'accéder à la page `zone-files.php` sans être admin
+- Ne donne PAS accès à l'interface d'administration (`admin.php`)
+- L'accès aux zones est contrôlé par les entrées ACL
+
+#### 3. Migration SQL
+
+```bash
+mysql -u dns3_user -p dns3_db < scripts/001_add_acl_entries_and_zone_editor.sql
+```
+
+### Fonctionnement
+
+#### Hiérarchie des permissions
+
+| Permission | Niveau | Droits |
+|------------|--------|--------|
+| `read`     | 1      | Visualiser la zone |
+| `write`    | 2      | Modifier la zone |
+| `admin`    | 3      | Toutes les permissions pour cette zone |
+
+#### Types de sujets ACL
+
+| Type       | Description                                    |
+|------------|------------------------------------------------|
+| `user`     | Identifiant utilisateur (user ID)              |
+| `role`     | Nom du rôle (ex: `zone_editor`)                |
+| `ad_group` | DN ou nom du groupe Active Directory           |
+
+#### Bypass Admin
+
+Les utilisateurs avec le rôle `admin` ont automatiquement accès à toutes les zones, indépendamment des ACL configurées.
+
+### API Endpoints
+
+#### Lister les ACL d'une zone
+```
+GET /api/admin_api.php?action=list_acl&zone_id=X
+```
+
+#### Créer une entrée ACL
+```json
+POST /api/admin_api.php?action=create_acl
+{
+  "zone_id": 1,
+  "subject_type": "user",
+  "subject_identifier": "42",
+  "permission": "write"
+}
+```
+
+#### Supprimer une entrée ACL
+```
+POST /api/admin_api.php?action=delete_acl&id=X
+```
+
+### Interface utilisateur
+
+L'onglet "ACL" est disponible dans le modal d'édition d'une zone (accessible uniquement aux admins). Il permet de :
+
+1. Visualiser les entrées ACL existantes
+2. Ajouter de nouvelles entrées (utilisateur, rôle, ou groupe AD)
+3. Supprimer des entrées existantes
+
+### Fichiers modifiés/ajoutés
+
+| Fichier | Description |
+|---------|-------------|
+| `scripts/001_add_acl_entries_and_zone_editor.sql` | Migration SQL |
+| `includes/models/ZoneAcl.php` | Modèle ACL (CRUD + isAllowed) |
+| `includes/auth.php` | Méthodes isZoneEditor(), getUserRoles(), getUserContext() |
+| `includes/models/ZoneFile.php` | Méthodes listForUser(), countForUser() |
+| `api/admin_api.php` | Endpoints list_acl, create_acl, delete_acl |
+| `zone-files.php` | Accès zone_editor + onglet ACL |
+| `assets/js/zone-files.js` | Fonctions JavaScript ACL |
+
+### Tests manuels
+
+1. **Import de la migration**
+   ```bash
+   mysql -u dns3_user -p dns3_db < scripts/001_add_acl_entries_and_zone_editor.sql
+   ```
+
+2. **Vérifier le rôle zone_editor**
+   ```sql
+   SELECT * FROM roles WHERE name = 'zone_editor';
+   ```
+
+3. **Créer une ACL via l'interface**
+   - Connectez-vous en tant qu'admin
+   - Ouvrez une zone en édition
+   - Cliquez sur l'onglet "ACL"
+   - Ajoutez une entrée pour un utilisateur/rôle
+
+4. **Tester l'accès zone_editor**
+   - Créez un utilisateur avec le rôle `zone_editor`
+   - Ajoutez une ACL `write` pour cet utilisateur sur une zone
+   - Connectez-vous avec cet utilisateur
+   - Vérifiez qu'il ne voit que les zones autorisées
+
+5. **Vérifier le bypass admin**
+   - Un admin doit voir toutes les zones sans ACL explicite
+
+---
+
 ## Conclusion
 
 This implementation provides a complete, secure, and user-friendly admin interface for managing users, roles, and AD/LDAP mappings. It follows the existing code patterns, maintains consistency with the current UI, and is ready for production use after proper testing.
 
 L'intégration des mappings `auth_mappings` dans le flux d'authentification AD/LDAP est **opérationnelle**. Les utilisateurs AD/LDAP ne sont créés ou activés que s'ils correspondent à au moins un mapping configuré. Les comptes non mappés sont automatiquement désactivés pour renforcer la sécurité.
+
+La fonctionnalité ACL par zone permet un contrôle d'accès granulaire pour les utilisateurs non-admin, avec support pour les utilisateurs, rôles et groupes AD.

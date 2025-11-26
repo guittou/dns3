@@ -139,10 +139,11 @@ Available filters:
 ## 🔐 Role Management
 
 ### Available Roles
-| Role  | Description                    | Badge Color |
-|-------|--------------------------------|-------------|
-| admin | Full access to all features    | Red         |
-| user  | Read-only access               | Blue        |
+| Role        | Description                                                | Badge Color |
+|-------------|-----------------------------------------------------------|-------------|
+| admin       | Full access to all features                                | Red         |
+| user        | Read-only access                                           | Blue        |
+| zone_editor | Can view/edit zones with ACL permissions (no admin access) | Green       |
 
 ### View Roles
 ```
@@ -293,24 +294,98 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_mapping' \
 
 ---
 
+## 🔒 Zone ACL (Contrôle d'Accès par Zone)
+
+### Présentation
+Le système ACL permet de définir des permissions d'accès spécifiques par fichier de zone pour les utilisateurs non-admin.
+
+### Permissions
+| Niveau  | Description                         |
+|---------|-------------------------------------|
+| read    | Visualiser la zone                  |
+| write   | Modifier la zone                    |
+| admin   | Toutes les permissions pour la zone |
+
+### Types de Sujets
+| Type      | Exemple                                      |
+|-----------|----------------------------------------------|
+| user      | ID utilisateur (ex: 42)                      |
+| role      | Nom du rôle (ex: zone_editor)                |
+| ad_group  | DN du groupe AD (ex: CN=DNS,OU=Groups,DC=...) |
+
+### Interface
+```
+Navigation: Zone Files → Modifier une zone → Onglet ACL
+
+Actions disponibles:
+- Visualiser les ACL existantes
+- Ajouter une entrée ACL (utilisateur/rôle/groupe AD)
+- Supprimer une entrée ACL
+```
+
+### API Endpoints
+
+#### Lister les ACL d'une zone
+```bash
+curl 'http://domain/api/admin_api.php?action=list_acl&zone_id=1' \
+  --cookie "PHPSESSID=your_session_id"
+```
+
+#### Créer une ACL
+```bash
+curl -X POST 'http://domain/api/admin_api.php?action=create_acl' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "zone_id": 1,
+    "subject_type": "user",
+    "subject_identifier": "42",
+    "permission": "write"
+  }' \
+  --cookie "PHPSESSID=your_session_id"
+```
+
+#### Supprimer une ACL
+```bash
+curl -X POST 'http://domain/api/admin_api.php?action=delete_acl&id=1' \
+  --cookie "PHPSESSID=your_session_id"
+```
+
+### Rôle zone_editor
+- Accès à `zone-files.php` sans être admin
+- Voit uniquement les zones avec ACL configuré
+- Pas d'accès à `admin.php`
+
+### Migration SQL
+```bash
+mysql -u dns3_user -p dns3_db < scripts/001_add_acl_entries_and_zone_editor.sql
+```
+
+---
+
 ## 🎨 UI Elements
 
 ### Badge Colors
-| Type       | Color  | Example        |
-|------------|--------|----------------|
-| admin role | Red    | [admin]        |
-| user role  | Blue   | [user]         |
-| Active     | Green  | [Actif]        |
-| Inactive   | Gray   | [Inactif]      |
-| Database   | Teal   | [DB]           |
-| AD         | Purple | [AD]           |
-| LDAP       | Orange | [LDAP]         |
+| Type        | Color  | Example        |
+|-------------|--------|----------------|
+| admin role  | Red    | [admin]        |
+| user role   | Blue   | [user]         |
+| zone_editor | Green  | [zone_editor]  |
+| Active      | Green  | [Actif]        |
+| Inactive    | Gray   | [Inactif]      |
+| Database    | Teal   | [DB]           |
+| AD          | Purple | [AD]           |
+| LDAP        | Orange | [LDAP]         |
 
 ### Tabs
 - **Utilisateurs** - Manage users
 - **Rôles** - View roles
 - **Mappings AD/LDAP** - Configure auth mappings
-- **ACL** - (Future) Access control lists
+
+### Zone Edit Modal Tabs
+- **Détails** - Zone properties
+- **Éditeur** - Zone content editor
+- **Includes** - Included zone files
+- **ACL** - Access control lists (admin only)
 
 ---
 

@@ -1608,6 +1608,11 @@ async function openZoneModal(zoneId) {
         // Load includes list
         loadIncludesList(res.includes || []);
         
+        // Load ACL entries if user can manage ACL
+        if (window.CAN_MANAGE_ACL && typeof loadAclForZone === 'function') {
+            await loadAclForZone(zoneId);
+        }
+        
         // Show modal
         document.getElementById('zoneModal').style.display = 'block';
         document.getElementById('zoneModal').classList.add('open');
@@ -3095,6 +3100,367 @@ function setupNameFilenameAutofill() {
         });
     });
 }
+
+// =========================================================================
+// ACL Management Functions
+// =========================================================================
+
+// Cache for users and roles lists
+let aclUsersCache = [];
+let aclRolesCache = [];
+
+/**
+ * Load ACL entries for the current zone
+ */
+async function loadAclForZone(zoneId) {
+    if (!window.CAN_MANAGE_ACL) return;
+    
+    const aclList = document.getElementById('aclList');
+    if (!aclList) return;
+    
+    aclList.innerHTML = '<div class="loading">Chargement des ACL...</div>';
+    
+    try {
+        const apiBase = window.API_BASE || '/api/';
+        const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+        const url = new URL(normalizedBase + 'admin_api.php', window.location.origin);
+        url.searchParams.append('action', 'list_acl');
+        url.searchParams.append('zone_id', zoneId);
+        
+        const response = await fetch(url.toString(), {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to load ACL entries');
+        }
+        
+        renderAclList(data.data || []);
+    } catch (error) {
+        console.error('Failed to load ACL:', error);
+        aclList.innerHTML = `<div class="error-state" style="color: #e74c3c; padding: 1rem;">
+            <i class="fas fa-exclamation-triangle"></i> Erreur lors du chargement des ACL: ${escapeHtml(error.message)}
+        </div>`;
+    }
+}
+
+/**
+ * Render ACL entries list
+ */
+function renderAclList(entries) {
+    const aclList = document.getElementById('aclList');
+    if (!aclList) return;
+    
+    if (!entries || entries.length === 0) {
+        aclList.innerHTML = `<div class="empty-state" style="text-align: center; padding: 2rem; color: #666;">
+            <i class="fas fa-lock-open" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+            <p>Aucune entrée ACL pour cette zone.</p>
+            <small>Ajoutez des entrées ACL pour contrôler l'accès des utilisateurs non-admin à cette zone.</small>
+        </div>`;
+        return;
+    }
+    
+    const getPermissionBadge = (permission) => {
+        switch (permission) {
+            case 'admin': return '<span class="badge badge-admin" style="background: #e74c3c;">Admin</span>';
+            case 'write': return '<span class="badge badge-write" style="background: #f39c12;">Écriture</span>';
+            case 'read': return '<span class="badge badge-read" style="background: #3498db;">Lecture</span>';
+            default: return `<span class="badge">${escapeHtml(permission)}</span>`;
+        }
+    };
+    
+    const getTypeBadge = (type) => {
+        switch (type) {
+            case 'user': return '<span class="badge" style="background: #27ae60;">Utilisateur</span>';
+            case 'role': return '<span class="badge" style="background: #9b59b6;">Rôle</span>';
+            case 'ad_group': return '<span class="badge" style="background: #e67e22;">Groupe AD</span>';
+            default: return `<span class="badge">${escapeHtml(type)}</span>`;
+        }
+    };
+    
+    aclList.innerHTML = `
+        <table class="acl-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #f8f9fa;">
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Type</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Sujet</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Permission</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Créé par</th>
+                    <th style="padding: 0.75rem; text-align: left; border-bottom: 2px solid #ddd;">Date</th>
+                    <th style="padding: 0.75rem; text-align: center; border-bottom: 2px solid #ddd;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${entries.map(entry => `
+                    <tr data-acl-id="${entry.id}" style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.75rem;">${getTypeBadge(entry.subject_type)}</td>
+                        <td style="padding: 0.75rem;">
+                            <strong>${escapeHtml(entry.subject_name || entry.subject_identifier)}</strong>
+                            ${entry.subject_type === 'ad_group' ? `<br><small style="color: #666;">${escapeHtml(entry.subject_identifier)}</small>` : ''}
+                        </td>
+                        <td style="padding: 0.75rem;">${getPermissionBadge(entry.permission)}</td>
+                        <td style="padding: 0.75rem;">${escapeHtml(entry.created_by_username || 'N/A')}</td>
+                        <td style="padding: 0.75rem;">${formatDate(entry.created_at)}</td>
+                        <td style="padding: 0.75rem; text-align: center;">
+                            <button class="btn btn-danger btn-sm" onclick="deleteAclEntry(${entry.id})" title="Supprimer">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+/**
+ * Update subject identifier options based on selected type
+ */
+async function updateAclSubjectOptions() {
+    const typeSelect = document.getElementById('aclSubjectType');
+    const selectEl = document.getElementById('aclSubjectIdentifierSelect');
+    const inputEl = document.getElementById('aclSubjectIdentifierInput');
+    
+    if (!typeSelect || !selectEl || !inputEl) return;
+    
+    const type = typeSelect.value;
+    
+    if (type === 'user') {
+        // Show select with users list
+        selectEl.style.display = 'block';
+        inputEl.style.display = 'none';
+        await populateAclUsersSelect();
+    } else if (type === 'role') {
+        // Show select with roles list
+        selectEl.style.display = 'block';
+        inputEl.style.display = 'none';
+        await populateAclRolesSelect();
+    } else {
+        // Show text input for AD group DN
+        selectEl.style.display = 'none';
+        inputEl.style.display = 'block';
+        inputEl.placeholder = 'DN du groupe AD (ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com)';
+    }
+}
+
+/**
+ * Populate users select dropdown
+ */
+async function populateAclUsersSelect() {
+    const selectEl = document.getElementById('aclSubjectIdentifierSelect');
+    if (!selectEl) return;
+    
+    selectEl.innerHTML = '<option value="">Chargement...</option>';
+    
+    try {
+        // Use cached data if available
+        if (aclUsersCache.length === 0) {
+            const apiBase = window.API_BASE || '/api/';
+            const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+            const url = new URL(normalizedBase + 'admin_api.php', window.location.origin);
+            url.searchParams.append('action', 'list_users');
+            
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            if (response.ok && data.data) {
+                aclUsersCache = data.data.filter(u => u.is_active == 1 || u.is_active === '1');
+            }
+        }
+        
+        selectEl.innerHTML = '<option value="">Sélectionner un utilisateur...</option>';
+        aclUsersCache.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = `${user.username} (${user.email})`;
+            selectEl.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load users for ACL:', error);
+        selectEl.innerHTML = '<option value="">Erreur de chargement</option>';
+    }
+}
+
+/**
+ * Populate roles select dropdown
+ */
+async function populateAclRolesSelect() {
+    const selectEl = document.getElementById('aclSubjectIdentifierSelect');
+    if (!selectEl) return;
+    
+    selectEl.innerHTML = '<option value="">Chargement...</option>';
+    
+    try {
+        // Use cached data if available
+        if (aclRolesCache.length === 0) {
+            const apiBase = window.API_BASE || '/api/';
+            const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+            const url = new URL(normalizedBase + 'admin_api.php', window.location.origin);
+            url.searchParams.append('action', 'list_roles');
+            
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+            
+            const data = await response.json();
+            if (response.ok && data.data) {
+                aclRolesCache = data.data;
+            }
+        }
+        
+        selectEl.innerHTML = '<option value="">Sélectionner un rôle...</option>';
+        aclRolesCache.forEach(role => {
+            const option = document.createElement('option');
+            option.value = role.name; // Use role name as identifier
+            option.textContent = `${role.name} - ${role.description || ''}`;
+            selectEl.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Failed to load roles for ACL:', error);
+        selectEl.innerHTML = '<option value="">Erreur de chargement</option>';
+    }
+}
+
+/**
+ * Add new ACL entry
+ */
+async function addAclEntry() {
+    const zoneId = document.getElementById('zoneId')?.value;
+    if (!zoneId) {
+        showError('Aucune zone sélectionnée');
+        return;
+    }
+    
+    const typeSelect = document.getElementById('aclSubjectType');
+    const selectEl = document.getElementById('aclSubjectIdentifierSelect');
+    const inputEl = document.getElementById('aclSubjectIdentifierInput');
+    const permissionSelect = document.getElementById('aclPermission');
+    
+    const subjectType = typeSelect?.value;
+    let subjectIdentifier = '';
+    
+    if (subjectType === 'user' || subjectType === 'role') {
+        subjectIdentifier = selectEl?.value;
+    } else {
+        subjectIdentifier = inputEl?.value?.trim();
+    }
+    
+    const permission = permissionSelect?.value;
+    
+    // Validate inputs
+    if (!subjectType) {
+        showError('Veuillez sélectionner un type de sujet');
+        return;
+    }
+    if (!subjectIdentifier) {
+        showError('Veuillez spécifier un identifiant');
+        return;
+    }
+    if (!permission) {
+        showError('Veuillez sélectionner une permission');
+        return;
+    }
+    
+    try {
+        const apiBase = window.API_BASE || '/api/';
+        const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+        const url = new URL(normalizedBase + 'admin_api.php', window.location.origin);
+        url.searchParams.append('action', 'create_acl');
+        
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                zone_id: parseInt(zoneId, 10),
+                subject_type: subjectType,
+                subject_identifier: subjectIdentifier,
+                permission: permission
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to create ACL entry');
+        }
+        
+        showSuccess('Entrée ACL créée avec succès');
+        
+        // Clear form and reload ACL list
+        if (selectEl) selectEl.value = '';
+        if (inputEl) inputEl.value = '';
+        
+        await loadAclForZone(zoneId);
+    } catch (error) {
+        console.error('Failed to add ACL entry:', error);
+        showError('Erreur lors de la création de l\'entrée ACL: ' + error.message);
+    }
+}
+
+/**
+ * Delete ACL entry
+ */
+async function deleteAclEntry(aclId) {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette entrée ACL ?')) {
+        return;
+    }
+    
+    const zoneId = document.getElementById('zoneId')?.value;
+    
+    try {
+        const apiBase = window.API_BASE || '/api/';
+        const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+        const url = new URL(normalizedBase + 'admin_api.php', window.location.origin);
+        url.searchParams.append('action', 'delete_acl');
+        url.searchParams.append('id', aclId);
+        
+        const response = await fetch(url.toString(), {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to delete ACL entry');
+        }
+        
+        showSuccess('Entrée ACL supprimée avec succès');
+        
+        // Reload ACL list
+        if (zoneId) {
+            await loadAclForZone(zoneId);
+        }
+    } catch (error) {
+        console.error('Failed to delete ACL entry:', error);
+        showError('Erreur lors de la suppression de l\'entrée ACL: ' + error.message);
+    }
+}
+
+// Expose ACL functions globally
+window.loadAclForZone = loadAclForZone;
+window.updateAclSubjectOptions = updateAclSubjectOptions;
+window.addAclEntry = addAclEntry;
+window.deleteAclEntry = deleteAclEntry;
 
 // Expose functions globally for inline event handlers and external access
 window.openZoneModal = openZoneModal;

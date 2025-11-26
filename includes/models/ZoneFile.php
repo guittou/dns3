@@ -151,6 +151,162 @@ class ZoneFile {
     }
 
     /**
+     * List zone files accessible to a non-admin user via ACL
+     * Returns only zones where user has at least the specified permission level
+     * 
+     * @param array $userCtx User context: ['id' => int, 'roles' => array of role names]
+     * @param string $minPermission Minimum required permission (read, write, admin)
+     * @param array $userGroups User's AD groups
+     * @param array $filters Optional filters (same as search method)
+     * @param int $limit Maximum number of results
+     * @param int $offset Pagination offset
+     * @return array Array of zone files accessible to the user
+     */
+    public function listForUser($userCtx, $minPermission = 'read', $userGroups = [], $filters = [], $limit = 100, $offset = 0) {
+        require_once __DIR__ . '/ZoneAcl.php';
+        
+        try {
+            $zoneAcl = new ZoneAcl();
+            
+            // Get all zone IDs that user has access to
+            $accessibleZoneIds = $zoneAcl->getAccessibleZoneIds($userCtx, $minPermission, $userGroups);
+            
+            if (empty($accessibleZoneIds)) {
+                return [];
+            }
+            
+            // Build query with zone ID filter
+            $placeholders = implode(',', array_fill(0, count($accessibleZoneIds), '?'));
+            
+            $sql = "SELECT zf.*, 
+                           u1.username as created_by_username,
+                           u2.username as updated_by_username,
+                           zfi.parent_id,
+                           parent_zf.name as parent_name
+                    FROM zone_files zf
+                    LEFT JOIN users u1 ON zf.created_by = u1.id
+                    LEFT JOIN users u2 ON zf.updated_by = u2.id
+                    LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                    LEFT JOIN zone_files parent_zf ON zfi.parent_id = parent_zf.id
+                    WHERE zf.id IN ($placeholders)";
+            
+            $params = $accessibleZoneIds;
+            
+            // Apply additional filters
+            if (isset($filters['q']) && $filters['q'] !== '') {
+                $sql .= " AND (zf.name LIKE ? OR zf.filename LIKE ?)";
+                $params[] = '%' . $filters['q'] . '%';
+                $params[] = '%' . $filters['q'] . '%';
+            }
+            
+            if (isset($filters['name']) && $filters['name'] !== '') {
+                $sql .= " AND zf.name LIKE ?";
+                $params[] = '%' . $filters['name'] . '%';
+            }
+            
+            if (isset($filters['file_type']) && $filters['file_type'] !== '') {
+                $sql .= " AND zf.file_type = ?";
+                $params[] = $filters['file_type'];
+            }
+            
+            if (isset($filters['status']) && $filters['status'] !== '') {
+                $sql .= " AND zf.status = ?";
+                $params[] = $filters['status'];
+            }
+            
+            $sql .= " ORDER BY zf.created_at DESC LIMIT ? OFFSET ?";
+            $params[] = $limit;
+            $params[] = $offset;
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $zones = $stmt->fetchAll();
+            
+            // Enrich zones with parent_domain for includes
+            foreach ($zones as &$zone) {
+                if ($zone['file_type'] === 'include') {
+                    $topMasterResult = $this->findTopMaster($zone['id']);
+                    if (!isset($topMasterResult['error']) && isset($topMasterResult['id'])) {
+                        $topMasterId = $topMasterResult['id'];
+                        $topMasterZone = $this->getById($topMasterId, true, false);
+                        if ($topMasterZone && !empty($topMasterZone['domain'])) {
+                            $zone['parent_domain'] = $topMasterZone['domain'];
+                        }
+                    }
+                }
+            }
+            
+            return $zones;
+        } catch (Exception $e) {
+            error_log("ZoneFile listForUser error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Count zone files accessible to a non-admin user via ACL
+     * 
+     * @param array $userCtx User context: ['id' => int, 'roles' => array of role names]
+     * @param string $minPermission Minimum required permission (read, write, admin)
+     * @param array $userGroups User's AD groups
+     * @param array $filters Optional filters (same as search method)
+     * @return int Total count of accessible zone files
+     */
+    public function countForUser($userCtx, $minPermission = 'read', $userGroups = [], $filters = []) {
+        require_once __DIR__ . '/ZoneAcl.php';
+        
+        try {
+            $zoneAcl = new ZoneAcl();
+            
+            // Get all zone IDs that user has access to
+            $accessibleZoneIds = $zoneAcl->getAccessibleZoneIds($userCtx, $minPermission, $userGroups);
+            
+            if (empty($accessibleZoneIds)) {
+                return 0;
+            }
+            
+            // Build query with zone ID filter
+            $placeholders = implode(',', array_fill(0, count($accessibleZoneIds), '?'));
+            
+            $sql = "SELECT COUNT(DISTINCT zf.id) as total
+                    FROM zone_files zf
+                    WHERE zf.id IN ($placeholders)";
+            
+            $params = $accessibleZoneIds;
+            
+            // Apply additional filters
+            if (isset($filters['q']) && $filters['q'] !== '') {
+                $sql .= " AND (zf.name LIKE ? OR zf.filename LIKE ?)";
+                $params[] = '%' . $filters['q'] . '%';
+                $params[] = '%' . $filters['q'] . '%';
+            }
+            
+            if (isset($filters['name']) && $filters['name'] !== '') {
+                $sql .= " AND zf.name LIKE ?";
+                $params[] = '%' . $filters['name'] . '%';
+            }
+            
+            if (isset($filters['file_type']) && $filters['file_type'] !== '') {
+                $sql .= " AND zf.file_type = ?";
+                $params[] = $filters['file_type'];
+            }
+            
+            if (isset($filters['status']) && $filters['status'] !== '') {
+                $sql .= " AND zf.status = ?";
+                $params[] = $filters['status'];
+            }
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $result = $stmt->fetch();
+            return (int)$result['total'];
+        } catch (Exception $e) {
+            error_log("ZoneFile countForUser error: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * Get a zone file by ID
      * 
      * @param int $id Zone file ID

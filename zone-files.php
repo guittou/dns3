@@ -1,26 +1,45 @@
 <?php
 require_once __DIR__ . '/includes/header.php';
 
-// Check if user is logged in and is admin
+// Check if user is logged in
 if (!$auth->isLoggedIn()) {
     header('Location: ' . BASE_URL . 'login.php');
     exit;
 }
 
-if (!$auth->isAdmin()) {
+// Allow access if user is admin OR has zone_editor role
+if (!$auth->isAdmin() && !$auth->isZoneEditor()) {
     header('Location: ' . BASE_URL . 'index.php');
     exit;
 }
+
+// Check if user can manage ACLs (admin only)
+$canManageAcl = $auth->isAdmin();
+
+// Get user context for ACL-based filtering (for non-admin users)
+$userContext = $auth->getUserContext();
+$userGroups = $auth->getUserGroups();
+$isAdmin = $auth->isAdmin();
 ?>
 
 <link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/zone-files.css">
 
+<script>
+// Pass user context to JavaScript
+window.CAN_MANAGE_ACL = <?php echo $canManageAcl ? 'true' : 'false'; ?>;
+window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
+window.USER_CONTEXT = <?php echo json_encode($userContext); ?>;
+window.USER_GROUPS = <?php echo json_encode($userGroups); ?>;
+</script>
+
 <div class="content-section">
     <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center;">
         <h1>Gestion des fichiers de zone</h1>
+        <?php if ($isAdmin): ?>
         <button id="btn-new-domain" class="btn-create" onclick="openCreateMasterModal()">
             <i class="fas fa-plus"></i> Nouveau domaine
         </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -189,6 +208,9 @@ if (!$auth->isAdmin()) {
                 <button type="button" class="tab-btn active" data-zone-tab="details" onclick="switchTab('details')">Détails</button>
                 <button type="button" class="tab-btn" data-zone-tab="editor" onclick="switchTab('editor')">Éditeur</button>
                 <button type="button" class="tab-btn" data-zone-tab="includes" onclick="switchTab('includes')">Includes</button>
+                <?php if ($canManageAcl): ?>
+                <button type="button" class="tab-btn" data-zone-tab="acl" onclick="switchTab('acl')">ACL</button>
+                <?php endif; ?>
             </div>
             
             <!-- Tab Content -->
@@ -291,6 +313,61 @@ if (!$auth->isAdmin()) {
                         </div>
                     </div>
                 </div>
+                
+                <?php if ($canManageAcl): ?>
+                <!-- ACL Tab -->
+                <div id="aclTab" class="tab-pane zone-tab-content">
+                    <div class="acl-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3>Contrôle d'accès (ACL)</h3>
+                        <small class="form-text text-muted">Gérez les permissions d'accès à cette zone pour les utilisateurs non-admin</small>
+                    </div>
+                    
+                    <!-- ACL Add Form -->
+                    <div class="acl-add-form" style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 1rem; background: #f8f9fa;">
+                        <h4 style="margin-top: 0;">Ajouter une entrée ACL</h4>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                            <div class="form-group" style="flex: 1; min-width: 150px;">
+                                <label for="aclSubjectType">Type</label>
+                                <select id="aclSubjectType" class="form-control" onchange="updateAclSubjectOptions()">
+                                    <option value="user">Utilisateur</option>
+                                    <option value="role">Rôle</option>
+                                    <option value="ad_group">Groupe AD</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 2; min-width: 200px;">
+                                <label for="aclSubjectIdentifier">Identifiant</label>
+                                <select id="aclSubjectIdentifierSelect" class="form-control" style="display: none;">
+                                    <option value="">Sélectionner...</option>
+                                </select>
+                                <input type="text" id="aclSubjectIdentifierInput" class="form-control" placeholder="Identifiant ou DN du groupe AD" style="display: block;">
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 120px;">
+                                <label for="aclPermission">Permission</label>
+                                <select id="aclPermission" class="form-control">
+                                    <option value="read">Lecture</option>
+                                    <option value="write">Écriture</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 0 0 auto;">
+                                <button type="button" class="btn btn-primary" onclick="addAclEntry()">
+                                    <i class="fas fa-plus"></i> Ajouter
+                                </button>
+                            </div>
+                        </div>
+                        <small class="form-text text-muted">
+                            <strong>Lecture:</strong> Voir la zone | 
+                            <strong>Écriture:</strong> Modifier la zone | 
+                            <strong>Admin:</strong> Toutes les permissions (pour cette zone)
+                        </small>
+                    </div>
+                    
+                    <!-- ACL List -->
+                    <div id="aclList">
+                        <div class="loading">Chargement des ACL...</div>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
         <div class="dns-modal-footer">
