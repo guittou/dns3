@@ -113,6 +113,78 @@ All settings are in `config.php`:
 - **Database Setup**: For new installations, import `database.sql` (or `structure_ok_dns3_db.sql`) to initialize the database. The legacy migration files have been removed from this repository (they remain in Git history if needed).
 - **Zone Validation**: Runs `named-checkzone` and stores results in `zone_file_validation` table.
 
+## Authentification AD/LDAP — Contrôle par Mappings
+
+L'application applique une politique de sécurité renforcée pour les authentifications Active Directory (AD) et OpenLDAP : un utilisateur ne sera créé ou autorisé à se connecter **que s'il correspond à au moins un mapping défini dans la table `auth_mappings`**.
+
+### Comportement
+
+1. **Création conditionnelle** : Lors d'un bind LDAP réussi, l'application vérifie si l'utilisateur correspond à un mapping (via ses groupes AD ou son DN LDAP). Si aucun mapping ne correspond, l'accès est refusé et aucun compte local n'est créé.
+
+2. **Désactivation automatique** : Si un utilisateur AD/LDAP existant ne correspond plus à aucun mapping lors d'une tentative de connexion, son compte est automatiquement désactivé (`is_active = 0`).
+
+3. **Réactivation automatique** : Si un utilisateur AD/LDAP désactivé correspond à nouveau à un mapping valide, son compte est automatiquement réactivé (`is_active = 1`).
+
+4. **Synchronisation des rôles** : À chaque connexion, les rôles de l'utilisateur sont synchronisés avec les mappings :
+   - Les rôles mappés manquants sont ajoutés.
+   - Les rôles qui proviennent des mappings mais ne correspondent plus sont retirés.
+   - Les rôles attribués manuellement (non définis dans `auth_mappings`) sont conservés.
+
+### Configuration des Mappings
+
+Pour configurer un mapping, insérez un enregistrement dans la table `auth_mappings` :
+
+```sql
+-- Exemple : Mapper le groupe AD "DNSAdmins" au rôle "admin"
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ad', 'CN=DNSAdmins,OU=Groups,DC=example,DC=com', r.id, 'Administrateurs DNS'
+FROM roles r WHERE r.name = 'admin';
+
+-- Exemple : Mapper une OU LDAP au rôle "user"
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ldap', 'ou=IT,dc=example,dc=com', r.id, 'Personnel IT'
+FROM roles r WHERE r.name = 'user';
+```
+
+### Comparaison des Mappings
+
+- **Active Directory** : La comparaison des groupes (`memberOf`) est insensible à la casse.
+- **OpenLDAP** : Le DN de l'utilisateur doit contenir la chaîne `dn_or_group` (insensible à la casse).
+
+### Tests avec ldapsearch
+
+```bash
+# Tester la connexion AD et récupérer les groupes
+ldapsearch -x -H ldap://ad.example.com -D "DOMAIN\\username" -W \
+  -b "DC=example,DC=com" "(sAMAccountName=username)" memberOf
+
+# Tester la connexion LDAP et récupérer le DN
+ldapsearch -x -H ldap://ldap.example.com -D "cn=admin,dc=example,dc=com" -W \
+  -b "dc=example,dc=com" "(uid=username)" dn
+```
+
+### Vérifications SQL après Connexion
+
+```sql
+-- Vérifier l'état d'un utilisateur
+SELECT id, username, email, auth_method, is_active, last_login 
+FROM users WHERE username = 'username';
+
+-- Vérifier les rôles assignés
+SELECT u.username, r.name as role
+FROM users u
+JOIN user_roles ur ON u.id = ur.user_id
+JOIN roles r ON ur.role_id = r.id
+WHERE u.username = 'username';
+
+-- Lister tous les mappings actifs
+SELECT am.source, am.dn_or_group, r.name as role, am.notes
+FROM auth_mappings am
+JOIN roles r ON am.role_id = r.id;
+```
+
+> **Note** : Les utilisateurs avec `auth_method = 'database'` ne sont pas affectés par cette politique. Leur gestion reste manuelle via l'interface d'administration.
+
 ## Création manuelle via SQL
 
 Si vous préférez créer un administrateur manuellement via SQL (Méthode B), voici la procédure :

@@ -178,22 +178,30 @@ Navigate to: `http://your-domain/admin.php`
 
 ---
 
-## 🔄 Future Integration
+## 🔄 Intégration AD/LDAP — Contrôle par Mappings
 
-### AD/LDAP Authentication Enhancement
-The `auth_mappings` table is ready for integration. To enable automatic role assignment:
+### Fonctionnalité Opérationnelle
 
-1. Modify `includes/auth.php` in `authenticateActiveDirectory()`:
-   - After successful AD bind, retrieve user's groups
-   - Query `auth_mappings` table for matching groups
-   - Assign corresponding roles to the user
+L'intégration des mappings `auth_mappings` dans le flux d'authentification AD/LDAP est **complète et opérationnelle**.
 
-2. Similarly for `authenticateLDAP()`:
-   - Retrieve user's DN
-   - Query `auth_mappings` for matching DN patterns
-   - Assign corresponding roles
+### Comportement
 
-Example integration code provided in `ADMIN_IMPLEMENTATION.md`.
+| Situation | Résultat |
+|-----------|----------|
+| Utilisateur mappé, nouveau | Compte créé, activé, rôles assignés |
+| Utilisateur mappé, existant actif | Rôles synchronisés |
+| Utilisateur mappé, existant inactif | Compte réactivé, rôles synchronisés |
+| Utilisateur non mappé, nouveau | Connexion refusée, pas de compte |
+| Utilisateur non mappé, existant | Connexion refusée, compte désactivé |
+
+### Méthodes Ajoutées dans `includes/auth.php`
+
+- `getRoleIdsFromMappings($auth_method, $groups, $user_dn)` : Retourne les IDs de rôle correspondant aux mappings.
+- `syncUserRolesWithMappings($user_id, $auth_method, $matchedRoleIds)` : Synchronise les rôles (ajoute/supprime selon les mappings, conserve les rôles manuels).
+- `findAndDisableExistingUser($username, $auth_method)` : Désactive un compte AD/LDAP existant sans mapping.
+- `reactivateUserAccount($user_id)` : Réactive un compte désactivé.
+
+Voir `docs/ADMIN_IMPLEMENTATION.md` pour les détails techniques complets.
 
 ---
 
@@ -319,18 +327,25 @@ Developed as part of the DNS3 project enhancement initiative.
 ## 🎯 Next Steps
 
 1. **Deploy to Production**
-   - Apply migration
-   - Create admin user
-   - Test functionality
-   - Monitor logs
+   - Importer le schéma `database.sql`
+   - Créer un utilisateur admin
+   - Configurer les mappings AD/LDAP
+   - Tester la fonctionnalité
+   - Surveiller les logs
 
-2. **Optional Enhancements**
-   - Integrate auth_mappings into AD/LDAP authentication flow
+2. **Tests Recommandés — Authentification AD/LDAP**
+   - Cas positif : utilisateur mappé → connexion réussie, rôles appliqués
+   - Cas refusé : utilisateur non mappé → connexion refusée, compte désactivé
+   - Retrait mapping : utilisateur perd accès après suppression du mapping
+   - Synchronisation rôles : rôles ajoutés/retirés selon les mappings, rôles manuels conservés
+
+3. **Optional Enhancements**
    - Implement ACL management interface
    - Add user activity logs
    - Add email notifications for user creation
+   - Add `admin_disabled` flag to prevent auto-reactivation of manually disabled accounts
 
-3. **Maintenance**
+4. **Maintenance**
    - Regular backups
    - Monitor for security updates
    - Review and update documentation

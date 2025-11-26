@@ -178,36 +178,80 @@ curl -X POST http://votre-domaine/api/admin_api.php?action=create_mapping \
 
 ## Intégration avec AD/LDAP
 
-Les mappings créés dans l'interface doivent être utilisés lors de l'authentification AD/LDAP. Pour cela :
+L'intégration des mappings AD/LDAP est **opérationnelle**. Le système applique automatiquement le contrôle par mappings lors de chaque authentification AD/LDAP.
 
-1. Après une authentification AD/LDAP réussie, le système doit :
-   - Récupérer les groupes de l'utilisateur (AD) ou son DN (LDAP)
-   - Interroger la table `auth_mappings` pour trouver les rôles correspondants
-   - Attribuer automatiquement ces rôles à l'utilisateur
+### Comportement Actuel
 
-2. Cette logique peut être implémentée dans `includes/auth.php` dans les méthodes :
-   - `authenticateActiveDirectory()`
-   - `authenticateLDAP()`
+1. **Création conditionnelle** : Un utilisateur AD/LDAP n'est créé que s'il correspond à au moins un mapping configuré.
 
-### Exemple de Code d'Intégration
+2. **Désactivation automatique** : Si un utilisateur ne correspond plus à aucun mapping lors d'une connexion, son compte est désactivé (`is_active = 0`).
 
-```php
-// Après authentification AD réussie
-$groups = ldap_get_entries($ldap, ldap_search($ldap, AD_BASE_DN, "(sAMAccountName=$username)", ['memberOf']));
+3. **Réactivation automatique** : Si un utilisateur désactivé correspond à nouveau à un mapping, son compte est réactivé.
 
-// Pour chaque groupe de l'utilisateur
-foreach ($groups[0]['memberof'] as $groupDn) {
-    // Chercher le mapping correspondant
-    $stmt = $this->db->prepare("SELECT role_id FROM auth_mappings WHERE source = 'ad' AND dn_or_group = ?");
-    $stmt->execute([$groupDn]);
-    
-    // Attribuer le rôle si un mapping existe
-    if ($mapping = $stmt->fetch()) {
-        $userModel = new User();
-        $userModel->assignRole($user['id'], $mapping['role_id']);
-    }
-}
+4. **Synchronisation des rôles** : À chaque connexion :
+   - Les rôles mappés manquants sont ajoutés.
+   - Les rôles provenant de mappings obsolètes sont retirés.
+   - Les rôles attribués manuellement sont conservés.
+
+### Workflow de Connexion AD/LDAP
+
 ```
+Bind LDAP réussi
+        ↓
+Récupérer groupes (AD) ou DN (LDAP)
+        ↓
+Vérifier correspondance avec auth_mappings
+        ↓
+   Mapping trouvé ?
+        ↓
+   ✓ OUI → Créer/activer compte + attribuer rôles mappés
+   ✗ NON → Refuser connexion + désactiver compte existant
+```
+
+### Configuration des Mappings
+
+#### Mapping AD (Groupe Active Directory)
+```sql
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ad', 'CN=DNSAdmins,OU=Groups,DC=example,DC=com', r.id, 'Administrateurs DNS'
+FROM roles r WHERE r.name = 'admin';
+```
+
+#### Mapping LDAP (Chemin OU)
+```sql
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ldap', 'ou=IT,dc=example,dc=com', r.id, 'Personnel IT'
+FROM roles r WHERE r.name = 'user';
+```
+
+### Tests ldapsearch
+
+```bash
+# AD : Vérifier les groupes d'un utilisateur
+ldapsearch -x -H ldap://ad.example.com -D "DOMAIN\\username" -W \
+  -b "DC=example,DC=com" "(sAMAccountName=username)" memberOf
+
+# LDAP : Vérifier le DN d'un utilisateur
+ldapsearch -x -H ldap://ldap.example.com -D "cn=admin,dc=example,dc=com" -W \
+  -b "dc=example,dc=com" "(uid=username)" dn
+```
+
+### Vérifications SQL après Connexion
+
+```sql
+-- Vérifier l'état d'un utilisateur
+SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'jdoe';
+
+-- Vérifier les rôles assignés
+SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id
+WHERE ur.user_id = (SELECT id FROM users WHERE username = 'jdoe');
+
+-- Lister tous les mappings
+SELECT am.source, am.dn_or_group, r.name as role, am.notes
+FROM auth_mappings am JOIN roles r ON am.role_id = r.id;
+```
+
+> **Note** : Les utilisateurs avec `auth_method = 'database'` ne sont pas affectés par ce mécanisme.
 
 ## Dépannage
 
