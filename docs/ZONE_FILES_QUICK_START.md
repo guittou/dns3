@@ -4,7 +4,7 @@
 
 ### 1. Database Setup
 
-> **Note**: The migration has been archived to `migrations/archive/`. On production systems, this migration has already been applied. The following command is for setting up a new development/test environment.
+> **Note**: The migration has been archived to `migrations/archive/`. For existing DNS3 installations, this migration has already been applied. The following command is only needed for setting up a new development, test, or fresh installation environment.
 
 ```bash
 # Only needed for new installations or test environments

@@ -33,12 +33,17 @@ The Applications feature was removed because:
 
 If you need to completely remove the `applications` table from the database:
 
-```sql
--- BACKUP FIRST!
--- mysqldump -u [username] -p dns3_db applications > applications_backup.sql
+```bash
+# Step 1: Create a complete backup of the applications table (structure + data)
+mysqldump -u [username] -p --single-transaction dns3_db applications > applications_backup.sql
 
--- Then drop the table
+# Step 2: Verify the backup was created successfully
+ls -la applications_backup.sql
+```
+
+```sql
+-- Step 3: Drop the table (run in MySQL client)
 DROP TABLE IF EXISTS applications;
 ```
 
-**Warning**: This is irreversible. Make sure you have a backup before proceeding.
+**Warning**: This is irreversible. Make sure you have verified the backup before proceeding.

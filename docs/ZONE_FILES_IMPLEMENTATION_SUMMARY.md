@@ -167,7 +167,7 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 
 ## Setup Notes
 
-> **Note**: The migration `006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` has been archived to `migrations/archive/`. If you need to set up a new database from scratch:
+> **Note**: The migration `006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` has been archived to `migrations/archive/`. For existing DNS3 installations, this migration has already been applied. If you need to set up a new development, test, or fresh installation environment:
 >
 > ```bash
 > mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
