@@ -168,7 +168,7 @@
                 
                 const authBadge = `<span class="badge badge-${user.auth_method}">${user.auth_method}</span>`;
                 
-                const isCurrentUser = window.CURRENT_USER_ID && user.id === window.CURRENT_USER_ID;
+                const isCurrentUser = window.CURRENT_USER_ID && parseInt(user.id, 10) === parseInt(window.CURRENT_USER_ID, 10);
                 const isActive = user.is_active === 1 || user.is_active === '1';
                 
                 // Show deactivate button only if: not current user, and user is active
@@ -359,7 +359,7 @@
             // Show/hide delete button in modal
             // Hide if: editing current user OR user is already inactive
             const deleteBtn = document.getElementById('btn-delete-user-modal');
-            const isCurrentUser = window.CURRENT_USER_ID && userId === window.CURRENT_USER_ID;
+            const isCurrentUser = window.CURRENT_USER_ID && parseInt(userId, 10) === parseInt(window.CURRENT_USER_ID, 10);
             const isActive = user.is_active === 1 || user.is_active === '1';
             
             if (deleteBtn) {

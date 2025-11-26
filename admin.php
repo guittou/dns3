@@ -509,7 +509,10 @@ if (!$auth->isAdmin()) {
 <script src="<?php echo BASE_URL; ?>assets/js/admin.js"></script>
 <script>
     // Expose current user ID for client-side validation
-    window.CURRENT_USER_ID = <?php echo (int)$auth->getCurrentUser()['id']; ?>;
+    // Note: This page is only accessible to logged-in admin users (checked at top of file)
+    // so $auth->getCurrentUser() will always return a valid user
+    <?php $currentUser = $auth->getCurrentUser(); ?>
+    window.CURRENT_USER_ID = <?php echo $currentUser ? (int)$currentUser['id'] : 0; ?>;
 </script>
 
 <?php
