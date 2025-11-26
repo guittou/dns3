@@ -26,10 +26,11 @@ $isAdmin = $auth->isAdmin();
 
 <script>
 // Pass user context to JavaScript
+// Note: json_encode with JSON_HEX_TAG and JSON_HEX_AMP provides XSS protection
 window.CAN_MANAGE_ACL = <?php echo $canManageAcl ? 'true' : 'false'; ?>;
 window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
-window.USER_CONTEXT = <?php echo json_encode($userContext); ?>;
-window.USER_GROUPS = <?php echo json_encode($userGroups); ?>;
+window.USER_CONTEXT = <?php echo json_encode($userContext, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 
 <div class="content-section">

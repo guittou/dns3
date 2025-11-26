@@ -53,14 +53,16 @@ class ZoneAcl {
     }
 
     /**
-     * Add a new ACL entry for a zone
+     * Add a new ACL entry for a zone (upsert behavior)
+     * If an entry with the same zone_id, subject_type, and subject_identifier exists,
+     * it will be updated with the new permission level instead of creating a duplicate.
      * 
      * @param int $zone_id Zone file ID
      * @param string $subject_type Type of subject (user, role, ad_group)
      * @param string $subject_identifier User ID, role name, or AD group DN
      * @param string $permission Permission level (read, write, admin)
      * @param int $created_by User ID who created this entry
-     * @return int|bool New ACL entry ID or false on failure
+     * @return int|bool ACL entry ID (new or existing) or false on failure
      */
     public function addEntry($zone_id, $subject_type, $subject_identifier, $permission, $created_by) {
         try {

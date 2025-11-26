@@ -223,7 +223,8 @@ class Auth {
             // Apply role mappings from auth_mappings table
             $this->applyRoleMappings($user_id, $auth_method, $groups, $user_dn);
             
-            // Create session after user is created/updated, passing groups for ACL checks
+            // Create session after user is created/updated
+            // $groups contains AD/LDAP memberOf groups, stored in session for zone ACL checks
             $this->createSession($user, $groups);
             $this->updateLastLogin($user_id);
         } catch (Exception $e) {
