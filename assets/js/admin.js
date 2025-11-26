@@ -970,13 +970,13 @@
                 
                 if (createUserBtn) {
                     console.debug('[admin.js] Delegation fallback triggered for #btn-create-user');
-                    if (typeof window.openCreateUserModal === 'function') {
-                        window.openCreateUserModal();
+                    if (typeof openCreateUserModal === 'function') {
+                        openCreateUserModal();
                     }
                 } else if (createMappingBtn) {
                     console.debug('[admin.js] Delegation fallback triggered for #btn-create-mapping');
-                    if (typeof window.openCreateMappingModal === 'function') {
-                        window.openCreateMappingModal();
+                    if (typeof openCreateMappingModal === 'function') {
+                        openCreateMappingModal();
                     }
                 }
             } catch (error) {
