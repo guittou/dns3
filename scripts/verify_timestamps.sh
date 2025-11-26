@@ -40,7 +40,7 @@ if [ "$CREATED_AT_CHECK" = "1" ]; then
     echo "   ✓ created_at column exists"
 else
     echo "   ✗ created_at column NOT FOUND!"
-    echo "   Please import the database schema: mysql -u user -p dns3_db < database.sql"
+    echo "   Please import the database schema: mysql -u dns3_user -p dns3_db < database.sql"
     exit 1
 fi
 
@@ -52,7 +52,7 @@ if [ "$UPDATED_AT_CHECK" = "1" ]; then
     echo "   ✓ updated_at column exists"
 else
     echo "   ✗ updated_at column NOT FOUND!"
-    echo "   Please import the database schema: mysql -u user -p dns3_db < database.sql"
+    echo "   Please import the database schema: mysql -u dns3_user -p dns3_db < database.sql"
     exit 1
 fi
 
