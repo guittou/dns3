@@ -297,7 +297,7 @@ bash test-zone-generation.sh
 ### No Breaking Changes
 
 - `generateZoneFile()` **unchanged** - still generates `$INCLUDE` directives
-- Database schema **unchanged** - no migrations needed
+- Database schema **unchanged** - schema is in `database.sql`
 - API **unchanged** - same endpoints and parameters
 - UI **unchanged** - no interface modifications
 

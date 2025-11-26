@@ -21,10 +21,7 @@ Same 5 columns added for complete history tracking.
 - `idx_address_ipv6`
 - `idx_cname_target`
 
-**Migration File:** `migrations/005_add_type_specific_fields.sql`
-- Idempotent (can be run multiple times safely)
-- Automatically migrates existing data from `value` to dedicated columns
-- Keeps `value` column for backward compatibility and rollback
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
 
 ### 2. Backend Model (`includes/models/DnsRecord.php`)
 
@@ -154,14 +151,15 @@ See `TYPE_SPECIFIC_FIELDS_TEST_PLAN.md` for comprehensive test plan.
 
 ## Files Modified
 
-1. **migrations/005_add_type_specific_fields.sql** (new)
-2. **includes/models/DnsRecord.php** (modified)
-3. **api/dns_api.php** (modified)
-4. **dns-management.php** (modified)
-5. **assets/js/dns-records.js** (modified)
-6. **DNS_MANAGEMENT_GUIDE.md** (modified)
-7. **TYPE_SPECIFIC_FIELDS_TEST_PLAN.md** (new)
-8. **UI_CHANGES_DOCUMENTATION.md** (new)
+1. **includes/models/DnsRecord.php** (modified)
+2. **api/dns_api.php** (modified)
+3. **dns-management.php** (modified)
+4. **assets/js/dns-records.js** (modified)
+5. **DNS_MANAGEMENT_GUIDE.md** (modified)
+6. **TYPE_SPECIFIC_FIELDS_TEST_PLAN.md** (new)
+7. **UI_CHANGES_DOCUMENTATION.md** (new)
+
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ## Conclusion
 

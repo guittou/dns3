@@ -14,13 +14,15 @@ The DNS management feature provides:
 
 ## Installation
 
-### 1. Apply Database Migration
+### 1. Initialize Database Schema
 
-Run the SQL migration to create the necessary tables:
+For new installations, import the complete schema:
 
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/001_create_dns_tables.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
+
+> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 
 This will create the following tables:
 - `roles` - User roles (admin, user)

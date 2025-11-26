@@ -38,7 +38,7 @@ A comprehensive web-based administration interface has been added to DNS3, provi
 ## 📦 Files Added
 
 ### Database
-- `migrations/002_create_auth_mappings.sql` - Auth mappings table for AD/LDAP role assignment
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ### Backend
 - `includes/models/User.php` - User management model with CRUD operations
@@ -110,10 +110,12 @@ POST /api/admin_api.php?action=delete_mapping&id=X
 
 ## 🚀 Installation Instructions
 
-### Step 1: Apply Database Migration
+### Step 1: Import Database Schema
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/002_create_auth_mappings.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
+
+> **Note** : Les fichiers de migration ont été supprimés. Utilisez `database.sql` pour les nouvelles installations.
 
 ### Step 2: Create Admin User
 ```bash

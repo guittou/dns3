@@ -110,7 +110,7 @@ All settings are in `config.php`:
 
 - **TTL Behavior**: If a record's TTL is NULL, the zone's default TTL is used during file generation.
 - **Backups**: Use `mysqldump -u user -p dns3_db > backup.sql` before major changes.
-- **Migrations**: Located in `migrations/`. Apply in order when upgrading. See `migrations/README.md` for details.
+- **Database Setup**: For new installations, import `database.sql` (or `structure_ok_dns3_db.sql`) to initialize the database. The legacy migration files have been removed from this repository (they remain in Git history if needed).
 - **Zone Validation**: Runs `named-checkzone` and stores results in `zone_file_validation` table.
 
 ## Création manuelle via SQL

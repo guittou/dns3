@@ -6,10 +6,10 @@ All requirements from the problem statement have been successfully implemented a
 
 ## 📋 Requirements Met
 
-### 1. ✅ Database Migration
-- **File**: `migrations/010_add_directory_to_zone_files.sql`
+### 1. ✅ Database Schema
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
+
 - Added `directory` VARCHAR(255) NULL column to `zone_files` table
-- Idempotent migration (safe to run multiple times)
 - Indexed for performance
 
 ### 2. ✅ Backend Model (ZoneFile.php)
@@ -91,29 +91,29 @@ All validation tests passed:
 
 ## 📂 Files Changed
 
-1. `migrations/010_add_directory_to_zone_files.sql` (NEW)
-2. `includes/models/ZoneFile.php` (MODIFIED)
-3. `api/zone_api.php` (MODIFIED)
-4. `zone-files.php` (MODIFIED)
-5. `assets/js/zone-files.js` (MODIFIED)
-6. `ZONE_FILE_GENERATION_IMPLEMENTATION.md` (NEW)
-7. `test-zone-generation.sh` (NEW)
+1. `includes/models/ZoneFile.php` (MODIFIED)
+2. `api/zone_api.php` (MODIFIED)
+3. `zone-files.php` (MODIFIED)
+4. `assets/js/zone-files.js` (MODIFIED)
+5. `ZONE_FILE_GENERATION_IMPLEMENTATION.md` (NEW)
+6. `test-zone-generation.sh` (NEW)
+
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ## 🔍 Code Quality
 
 - ✅ Follows existing code patterns
 - ✅ Maintains backward compatibility
 - ✅ PHP 7.4+ compatible
-- ✅ Idempotent database migration
 - ✅ Proper error handling
 - ✅ Comprehensive comments
 - ✅ No syntax errors
 
 ## 🚀 Deployment
 
-### Step 1: Apply Migration
+### Step 1: Import Database Schema
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/010_add_directory_to_zone_files.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
 
 ### Step 2: Deploy Files

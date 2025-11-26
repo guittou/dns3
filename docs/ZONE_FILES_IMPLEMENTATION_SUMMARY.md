@@ -153,7 +153,6 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 ## Files Modified
 
 ### Created:
-- `migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` (archived)
 - `includes/models/ZoneFile.php`
 - `api/zone_api.php`
 - `ZONE_FILES_TESTING_GUIDE.md`
@@ -167,13 +166,13 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 
 ## Setup Notes
 
-> **Note**: The migration `006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql` has been archived to `migrations/archive/`. For existing DNS3 installations, this migration has already been applied. If you need to set up a new development, test, or fresh installation environment:
+> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 >
 > ```bash
-> mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
+> mysql -u dns3_user -p dns3_db < database.sql
 > ```
 
-After migration is applied:
+After schema is imported:
 1. Create initial zone files via API or database INSERT
 2. Test zone file listing and selection in UI
 3. Create DNS records with zone associations

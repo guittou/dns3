@@ -4,11 +4,11 @@
 
 ### 1. Database Setup
 
-> **Note**: The migration has been archived to `migrations/archive/`. For existing DNS3 installations, this migration has already been applied. The following command is only needed for setting up a new development, test, or fresh installation environment.
+> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 
 ```bash
-# Only needed for new installations or test environments
-mysql -u dns3_user -p dns3_db < migrations/archive/006_create_zone_files_and_apps_and_add_zone_to_dns_records.sql
+# Import complete schema
+mysql -u dns3_user -p dns3_db < database.sql
 ```
 
 ### 2. Create Your First Zone File

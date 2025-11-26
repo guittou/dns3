@@ -1,3 +1,5 @@
+> **ARCHIVED DOCUMENT NOTE** : Les fichiers de migration mentionnés dans ce document ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+
 # Testing Guide: Paginated Zone Files Feature
 
 This guide provides instructions for testing the new paginated zone files list and dedicated detail page feature.

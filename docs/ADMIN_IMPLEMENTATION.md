@@ -6,7 +6,9 @@ This implementation adds a comprehensive admin interface to DNS3 for managing us
 
 ## Files Added
 
-### 1. migrations/002_create_auth_mappings.sql
+### 1. Database Schema (auth_mappings table)
+> **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
+
 - Creates the `auth_mappings` table for storing AD/LDAP group/DN to role mappings
 - Enables automatic role assignment during AD/LDAP authentication
 - Fields: source (ad/ldap), dn_or_group, role_id, created_by, notes
@@ -89,10 +91,12 @@ CREATE TABLE auth_mappings (
 
 ## Installation Steps
 
-### 1. Apply the Migration
+### 1. Import Database Schema
 ```bash
-mysql -u dns3_user -p dns3_db < migrations/002_create_auth_mappings.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
+
+> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 
 ### 2. Create Admin User
 ```bash

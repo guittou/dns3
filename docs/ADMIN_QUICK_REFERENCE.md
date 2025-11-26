@@ -4,8 +4,8 @@
 
 ### Installation (3 steps)
 ```bash
-# 1. Apply migration
-mysql -u dns3_user -p dns3_db < migrations/002_create_auth_mappings.sql
+# 1. Import database schema
+mysql -u dns3_user -p dns3_db < database.sql
 
 # 2. Create admin user
 php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
@@ -13,6 +13,8 @@ php scripts/create_admin.php --username admin --password 'admin123' --email 'adm
 # 3. Access
 http://your-domain/admin.php
 ```
+
+> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 
 ---
 
@@ -394,7 +396,7 @@ AND role_id = (SELECT id FROM roles WHERE name = 'admin');
 Before asking for help:
 - [ ] Check error logs: `/var/log/php/error.log`
 - [ ] Verify database connection
-- [ ] Confirm migrations applied
+- [ ] Confirm `database.sql` was imported correctly
 - [ ] Check user has admin role
 - [ ] Clear browser cache/cookies
 - [ ] Try different browser

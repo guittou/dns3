@@ -1,3 +1,5 @@
+> **ARCHIVED DOCUMENT NOTE** : Les fichiers de migration mentionnés dans ce document ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+
 # Testing Guide: Zone File Improvements
 
 This guide provides step-by-step instructions for testing the zone file improvements.
