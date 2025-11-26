@@ -108,6 +108,24 @@ Can change:
   - Roles
 ```
 
+### Désactiver un utilisateur (Supprimer)
+```
+Navigation: Admin → Utilisateurs → Click "Supprimer" (dans la liste ou dans le modal d'édition)
+
+Comportement:
+  - Le bouton "Supprimer" désactive le compte utilisateur (is_active = 0)
+  - L'historique est conservé (pas de suppression en base)
+  - L'utilisateur désactivé ne peut plus se connecter
+
+Restrictions:
+  - Impossible de désactiver son propre compte
+  - Impossible de désactiver le dernier administrateur actif
+  - Le bouton n'apparaît pas pour les utilisateurs déjà inactifs
+
+Confirmation:
+  - Une popup de confirmation s'affiche avant la désactivation
+```
+
 ### Filter Users
 ```
 Available filters:

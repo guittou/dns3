@@ -167,19 +167,28 @@
                     : '<span class="badge badge-inactive">Inactif</span>';
                 
                 const authBadge = `<span class="badge badge-${user.auth_method}">${user.auth_method}</span>`;
+                
+                const isCurrentUser = window.CURRENT_USER_ID && user.id === window.CURRENT_USER_ID;
+                const isActive = user.is_active === 1 || user.is_active === '1';
+                
+                // Show deactivate button only if: not current user, and user is active
+                const deactivateButton = (!isCurrentUser && isActive)
+                    ? `<button class="btn btn-danger btn-deactivate-user" data-user-id="${user.id}" data-username="${escapeHtml(user.username)}">Supprimer</button>`
+                    : '';
 
                 return `
-                    <tr>
+                    <tr data-user-id="${user.id}">
                         <td>${user.id}</td>
                         <td>${escapeHtml(user.username)}</td>
                         <td>${escapeHtml(user.email)}</td>
                         <td>${authBadge}</td>
                         <td>${roles || '<em>Aucun rôle</em>'}</td>
-                        <td>${statusBadge}</td>
+                        <td class="user-status-cell">${statusBadge}</td>
                         <td>${formatDate(user.created_at)}</td>
                         <td>${formatDate(user.last_login)}</td>
                         <td>
                             <button class="btn btn-edit" onclick="editUser(${user.id})">Modifier</button>
+                            ${deactivateButton}
                         </td>
                     </tr>
                 `;
@@ -288,6 +297,12 @@
         // Hide auth_method field for new users (always database)
         document.getElementById('auth-method-group').style.display = 'none';
         
+        // Hide delete button for new users
+        const deleteBtn = document.getElementById('btn-delete-user-modal');
+        if (deleteBtn) {
+            deleteBtn.style.display = 'none';
+        }
+        
         // Populate roles checkboxes
         populateRolesCheckboxes([]);
         
@@ -340,6 +355,20 @@
             // Populate roles checkboxes with current user roles
             const userRoleIds = user.roles.map(role => role.id);
             populateRolesCheckboxes(userRoleIds);
+            
+            // Show/hide delete button in modal
+            // Hide if: editing current user OR user is already inactive
+            const deleteBtn = document.getElementById('btn-delete-user-modal');
+            const isCurrentUser = window.CURRENT_USER_ID && userId === window.CURRENT_USER_ID;
+            const isActive = user.is_active === 1 || user.is_active === '1';
+            
+            if (deleteBtn) {
+                if (!isCurrentUser && isActive) {
+                    deleteBtn.style.display = 'inline-block';
+                } else {
+                    deleteBtn.style.display = 'none';
+                }
+            }
             
             // Use the new modal helper
             window.openModalById('modal-user');
@@ -508,6 +537,48 @@
             await apiCall('delete_mapping', { id: mappingId }, 'POST');
             showAlert('Mapping supprimé avec succès', 'success');
             loadMappings();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+
+    /**
+     * Deactivate user (from table button)
+     */
+    window.deactivateUser = async function(userId, username) {
+        if (!confirm('Êtes-vous sûr de vouloir désactiver l\'utilisateur "' + username + '" ?\n\nCette action désactivera le compte (l\'utilisateur ne pourra plus se connecter) mais conservera l\'historique.')) {
+            return;
+        }
+        
+        try {
+            await apiCall('deactivate_user', { id: userId }, 'POST');
+            showAlert('Utilisateur "' + username + '" désactivé avec succès', 'success');
+            loadUsers();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+
+    /**
+     * Deactivate user from modal
+     */
+    window.deactivateUserFromModal = async function() {
+        if (!currentEditUserId) {
+            showAlert('ID utilisateur introuvable', 'error');
+            return;
+        }
+        
+        const username = document.getElementById('user-username').value;
+        
+        if (!confirm('Êtes-vous sûr de vouloir désactiver l\'utilisateur "' + username + '" ?\n\nCette action désactivera le compte (l\'utilisateur ne pourra plus se connecter) mais conservera l\'historique.')) {
+            return;
+        }
+        
+        try {
+            await apiCall('deactivate_user', { id: currentEditUserId }, 'POST');
+            showAlert('Utilisateur "' + username + '" désactivé avec succès', 'success');
+            closeUserModal();
+            loadUsers();
         } catch (error) {
             showAlert('Erreur: ' + error.message, 'error');
         }
@@ -967,6 +1038,7 @@
                 // Check if clicked element or its parent is the button
                 var createUserBtn = target.closest('#btn-create-user');
                 var createMappingBtn = target.closest('#btn-create-mapping');
+                var deactivateUserBtn = target.closest('.btn-deactivate-user');
                 
                 if (createUserBtn) {
                     console.debug('[admin.js] Delegation fallback triggered for #btn-create-user');
@@ -977,6 +1049,13 @@
                     console.debug('[admin.js] Delegation fallback triggered for #btn-create-mapping');
                     if (typeof openCreateMappingModal === 'function') {
                         openCreateMappingModal();
+                    }
+                } else if (deactivateUserBtn) {
+                    // Handle deactivate user button click via delegation
+                    var userId = parseInt(deactivateUserBtn.getAttribute('data-user-id'), 10);
+                    var username = deactivateUserBtn.getAttribute('data-username') || '';
+                    if (userId && typeof deactivateUser === 'function') {
+                        deactivateUser(userId, username);
                     }
                 }
             } catch (error) {

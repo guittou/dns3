@@ -9,6 +9,7 @@
  * - GET ?action=get_user&id=X - Get a specific user
  * - POST ?action=create_user - Create a new user (JSON body)
  * - POST ?action=update_user&id=X - Update a user (JSON body)
+ * - POST ?action=deactivate_user&id=X - Deactivate a user (set is_active=0)
  * - POST ?action=assign_role&user_id=X&role_id=Y - Assign role to user
  * - POST ?action=remove_role&user_id=X&role_id=Y - Remove role from user
  * - GET ?action=list_roles - List all available roles
@@ -347,6 +348,55 @@ try {
             echo json_encode([
                 'success' => true,
                 'message' => 'Mapping deleted successfully'
+            ]);
+            break;
+            
+        case 'deactivate_user':
+            // Deactivate a user (set is_active = 0)
+            $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            if ($id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'ID utilisateur invalide']);
+                exit;
+            }
+            
+            // Check user exists
+            $targetUser = $userModel->getById($id);
+            if (!$targetUser) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Utilisateur non trouvé']);
+                exit;
+            }
+            
+            // Prevent self-deactivation
+            if ($id === (int)$currentUser['id']) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Impossible de désactiver votre propre compte.']);
+                exit;
+            }
+            
+            // Prevent deactivation of last active admin
+            if ($userModel->hasAdminRole($id)) {
+                $activeAdminCount = $userModel->countActiveAdmins();
+                if ($activeAdminCount <= 1) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Impossible de désactiver le dernier administrateur actif.']);
+                    exit;
+                }
+            }
+            
+            // Deactivate user
+            $result = $userModel->deactivate($id);
+            
+            if (!$result) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Échec de la désactivation de l\'utilisateur']);
+                exit;
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Utilisateur désactivé avec succès'
             ]);
             break;
             

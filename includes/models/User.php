@@ -323,5 +323,68 @@ class User {
             return null;
         }
     }
+
+    /**
+     * Deactivate a user (set is_active = 0)
+     * 
+     * @param int $id User ID to deactivate
+     * @return bool Success status
+     */
+    public function deactivate($id) {
+        try {
+            $sql = "UPDATE users SET is_active = 0 WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            return $stmt->execute([$id]);
+        } catch (Exception $e) {
+            error_log("User deactivate error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Count active users with admin role
+     * 
+     * @return int Number of active admin users
+     */
+    public function countActiveAdmins() {
+        try {
+            $sql = "SELECT COUNT(DISTINCT u.id) as count
+                    FROM users u
+                    INNER JOIN user_roles ur ON u.id = ur.user_id
+                    INNER JOIN roles r ON ur.role_id = r.id
+                    WHERE u.is_active = 1 AND r.name = 'admin'";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $result = $stmt->fetch();
+            return (int)($result['count'] ?? 0);
+        } catch (Exception $e) {
+            error_log("User countActiveAdmins error: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Check if user has admin role
+     * 
+     * @param int $user_id User ID
+     * @return bool True if user has admin role
+     */
+    public function hasAdminRole($user_id) {
+        try {
+            $sql = "SELECT COUNT(*) as count
+                    FROM user_roles ur
+                    INNER JOIN roles r ON ur.role_id = r.id
+                    WHERE ur.user_id = ? AND r.name = 'admin'";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$user_id]);
+            $result = $stmt->fetch();
+            return (int)($result['count'] ?? 0) > 0;
+        } catch (Exception $e) {
+            error_log("User hasAdminRole error: " . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>

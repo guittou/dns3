@@ -121,6 +121,9 @@ Navigate to: `http://your-domain/admin.php`
 - ✅ Assign/remove roles from users
 - ✅ Support for multiple authentication methods (database, AD, LDAP)
 - ✅ User status management (active/inactive)
+- ✅ Désactivation d'utilisateurs via bouton "Supprimer" (dans la liste et le modal)
+- ✅ Protection contre l'auto-désactivation (impossible de désactiver son propre compte)
+- ✅ Protection contre la désactivation du dernier administrateur actif
 
 ### Role Management
 - ✅ View all available roles
@@ -166,6 +169,7 @@ GET  /api/admin_api.php?action=list_users[&username=X&auth_method=Y&is_active=Z]
 GET  /api/admin_api.php?action=get_user&id=X
 POST /api/admin_api.php?action=create_user (JSON body)
 POST /api/admin_api.php?action=update_user&id=X (JSON body)
+POST /api/admin_api.php?action=deactivate_user&id=X - Désactive un utilisateur (is_active=0)
 POST /api/admin_api.php?action=assign_role&user_id=X&role_id=Y
 POST /api/admin_api.php?action=remove_role&user_id=X&role_id=Y
 ```
@@ -183,6 +187,19 @@ POST /api/admin_api.php?action=delete_mapping&id=X
 ```
 
 ### Request Examples
+
+Deactivate user:
+```bash
+POST /api/admin_api.php?action=deactivate_user&id=5
+
+# Réponse succès:
+{ "success": true, "message": "Utilisateur désactivé avec succès" }
+
+# Erreurs possibles:
+# - 400: "Impossible de désactiver votre propre compte."
+# - 400: "Impossible de désactiver le dernier administrateur actif."
+# - 404: "Utilisateur non trouvé"
+```
 
 Create user:
 ```json
