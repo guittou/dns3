@@ -1,254 +1,94 @@
-# DNS3 - Application Web PHP
+# DNS3
 
-Application web développée en PHP sans framework avec support MariaDB et authentification multi-sources (Base de données, Active Directory, OpenLDAP).
+DNS3 is a PHP web application for managing DNS zone files and records. It supports `named-checkzone` validation, zone file generation with `$INCLUDE` directives, change history tracking, and multi-source authentication (database, Active Directory, OpenLDAP).
 
-## 📚 Documentation
+## Features
 
-Pour une documentation complète et détaillée, consultez [docs/SUMMARY.md](docs/SUMMARY.md).
+- **Zone File Management**: Create and manage master zone files and include files
+- **DNS Record Management**: Full CRUD for A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, and SRV records
+- **Zone Validation**: Integration with `named-checkzone` for syntax validation
+- **`$INCLUDE` Support**: Generate zone files with nested includes
+- **Change History**: Track all modifications to zones and records
+- **Multi-source Authentication**: Database, Active Directory, and OpenLDAP support
+- **Role-based Access Control**: Granular permissions via ACL entries
 
-## ⚠️ Breaking Changes (Migration 016)
-
-**Version actuelle nécessite migration 016** : La table `domaine_list` a été supprimée. Les domaines sont maintenant gérés directement dans la table `zone_files` via le champ `domain`.
-
-**Actions requises avant mise à jour** :
-1. **Créer un backup de la base de données** : `mysqldump -u [username] -p dns3_db > backup_$(date +%Y%m%d_%H%M%S).sql`
-2. **Appliquer migration 015** si pas encore fait : `mysql -u [username] -p dns3_db < migrations/015_add_domain_to_zone_files.sql`
-3. **Vérifier les données** : `SELECT id,name,domain FROM zone_files WHERE domain IS NOT NULL LIMIT 10;`
-4. **Appliquer migration 016** : `mysql -u [username] -p dns3_db < migrations/016_drop_domaine_list.sql`
-
-**Changements majeurs** :
-- **Interface admin** : L'onglet "Domaines" a été supprimé. Les domaines sont maintenant gérés dans l'interface "Fichiers de zone"
-- **API** : `api/domain_api.php` supprimé. Utiliser `api/zone_api.php` à la place
-- **Modèle** : `includes/models/Domain.php` supprimé. Utiliser `includes/models/ZoneFile.php` avec le champ `domain`
-
-**Rollback** : En cas de problème, restaurer depuis le backup : `mysql -u [username] -p dns3_db < backup_file.sql` puis `git revert <commit-hash>`
-
-Pour plus de détails, consultez [migrations/README.md](migrations/README.md#migration-016-drop-domaine_list-table).
-
-## Fonctionnalités
-
-- **Authentification multi-sources** :
-  - Base de données locale avec hashage sécurisé des mots de passe
-  - Active Directory (AD)
-  - OpenLDAP
-  - Mode automatique qui essaie toutes les méthodes
-
-- **Interface utilisateur moderne** :
-  - Bandeau fixe en haut de page avec logo et bouton de connexion
-  - Onglets de navigation pour accéder aux différentes pages
-  - Design responsive compatible mobile et desktop
-  - Zone de contenu principal sous le bandeau
-
-- **Support multi-chemins** :
-  - Accessible via `https://monsite.fr/`
-  - Accessible via `https://monsite.fr/CHEMIN/`
-  - Gestion des URL propres via `.htaccess`
-
-## Structure du projet
-
-```
-dns3/
-├── config.php              # Configuration de l'application
-├── database.sql            # Schéma de base de données
-├── index.php               # Page d'accueil
-├── login.php               # Page de connexion
-├── logout.php              # Script de déconnexion
-├── dashboard.php           # Tableau de bord (authentification requise)
-├── services.php            # Page des services
-├── about.php               # Page à propos
-├── .htaccess              # Configuration Apache (URL rewriting, sécurité)
-├── includes/
-│   ├── db.php             # Classe de connexion à la base de données
-│   ├── auth.php           # Gestionnaire d'authentification
-│   ├── header.php         # En-tête avec bandeau fixe
-│   └── footer.php         # Pied de page
-└── assets/
-    ├── css/
-    │   └── style.css      # Styles CSS
-    └── images/
-        ├── logo.svg       # Logo de l'application
-        └── logo.png       # Logo (lien symbolique)
-```
+> **Note**: The Applications feature has been removed. Any migrations that previously created the `applications` table have been archived. The `domaine_list` table has also been removed; domains are now managed directly in the `zone_files` table via the `domain` field.
 
 ## Installation
 
-### Prérequis
+### Prerequisites
 
-- PHP 7.4 ou supérieur
-- MariaDB 10.3 ou supérieur (ou MySQL 5.7+)
-- Apache avec mod_rewrite activé
-- Extension PHP LDAP (optionnel, pour Active Directory et OpenLDAP)
+- PHP 7.4 or higher
+- MariaDB 10.3+ or MySQL 5.7+
+- Apache with `mod_rewrite` enabled
+- PHP LDAP extension (optional, for AD/LDAP authentication)
 
-### Étapes d'installation
+### Steps
 
-1. **Cloner le repository**
+1. **Clone the repository**
    ```bash
    git clone https://github.com/guittou/dns3.git
    cd dns3
    ```
 
-2. **Configurer la base de données**
+2. **Create the database**
    ```bash
-   mysql -u root -p < database.sql
+   mysql -u root -p -e "CREATE DATABASE dns3_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
    ```
 
-3. **Configurer l'application**
-   
-   Éditer le fichier `config.php` et ajuster les paramètres :
-   - Configuration de la base de données (DB_HOST, DB_NAME, DB_USER, DB_PASS)
-   - Configuration Active Directory (AD_SERVER, AD_PORT, AD_BASE_DN, AD_DOMAIN)
-   - Configuration OpenLDAP (LDAP_SERVER, LDAP_PORT, LDAP_BASE_DN)
-
-4. **Configurer le serveur web**
-   
-   Pour Apache, créer un Virtual Host :
-   ```apache
-   <VirtualHost *:80>
-       ServerName monsite.fr
-       DocumentRoot /var/www/dns3
-       
-       <Directory /var/www/dns3>
-           Options -Indexes +FollowSymLinks
-           AllowOverride All
-           Require all granted
-       </Directory>
-       
-       ErrorLog ${APACHE_LOG_DIR}/dns3-error.log
-       CustomLog ${APACHE_LOG_DIR}/dns3-access.log combined
-   </VirtualHost>
-   ```
-
-5. **Activer mod_rewrite** (si ce n'est pas déjà fait)
+3. **Import the schema**
    ```bash
-   sudo a2enmod rewrite
-   sudo systemctl restart apache2
+   mysql -u user -p dns3_db < database.sql
    ```
 
-6. **Configurer les permissions**
+4. **Configure the application**
+
+   Edit `config.php` and set:
+   - Database connection: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`
+   - Base URL: `BASE_URL` (e.g., `/` or `/dns3/`)
+   - AD settings (optional): `AD_SERVER`, `AD_PORT`, `AD_BASE_DN`, `AD_DOMAIN`
+   - LDAP settings (optional): `LDAP_SERVER`, `LDAP_PORT`, `LDAP_BASE_DN`
+
+5. **Set file permissions**
    ```bash
    sudo chown -R www-data:www-data /var/www/dns3
    sudo chmod -R 755 /var/www/dns3
    ```
 
+6. **Configure Apache**
+   ```apache
+   <VirtualHost *:80>
+       ServerName dns3.example.com
+       DocumentRoot /var/www/dns3
+       <Directory /var/www/dns3>
+           AllowOverride All
+           Require all granted
+       </Directory>
+   </VirtualHost>
+   ```
+
 ## Configuration
 
-### Base de données
+All settings are in `config.php`:
 
-Le fichier `database.sql` crée automatiquement :
-- Une base de données `dns3_db`
-- Une table `users` pour les utilisateurs
-- Une table `sessions` pour la gestion des sessions
-- Un utilisateur admin par défaut (username: `admin`, password: `admin123`)
+| Setting | Description |
+|---------|-------------|
+| `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS` | Database connection |
+| `BASE_URL` | Application base path |
+| `AD_*` | Active Directory settings |
+| `LDAP_*` | OpenLDAP settings |
 
-**Important** : Changez le mot de passe admin après la première connexion !
+## Operation Notes
 
-### Active Directory
+- **TTL Behavior**: If a record's TTL is NULL, the zone's default TTL is used during file generation.
+- **Backups**: Use `mysqldump -u user -p dns3_db > backup.sql` before major changes.
+- **Migrations**: Located in `migrations/`. Apply in order when upgrading. See `migrations/README.md` for details.
+- **Zone Validation**: Runs `named-checkzone` and stores results in `zone_file_validation` table.
 
-Pour activer l'authentification Active Directory, configurez les paramètres dans `config.php` :
+## Documentation
 
-```php
-define('AD_SERVER', 'ldap://ad.example.com');
-define('AD_PORT', 389);
-define('AD_BASE_DN', 'DC=example,DC=com');
-define('AD_DOMAIN', 'EXAMPLE');
-```
+For detailed documentation, see [docs/SUMMARY.md](docs/SUMMARY.md).
 
-### OpenLDAP
+## License
 
-Pour activer l'authentification OpenLDAP, configurez les paramètres dans `config.php` :
-
-```php
-define('LDAP_SERVER', 'ldap://ldap.example.com');
-define('LDAP_PORT', 389);
-define('LDAP_BASE_DN', 'dc=example,dc=com');
-define('LDAP_BIND_DN', 'cn=admin,dc=example,dc=com');
-define('LDAP_BIND_PASS', 'your_ldap_password');
-```
-
-## Utilisation
-
-### Connexion
-
-1. Accédez à `https://monsite.fr/login.php`
-2. Entrez vos identifiants
-3. Sélectionnez la méthode d'authentification :
-   - **Automatique** : essaie toutes les méthodes dans l'ordre
-   - **Base de données** : uniquement la base de données locale
-   - **Active Directory** : uniquement AD
-   - **OpenLDAP** : uniquement LDAP
-
-### Navigation
-
-- **Accueil** : Page d'accueil avec présentation
-- **Tableau de bord** : Zone personnelle (authentification requise)
-- **Services** : Liste des services disponibles
-- **À propos** : Informations sur l'application
-
-## Sécurité
-
-L'application implémente plusieurs mesures de sécurité :
-
-- Hashage des mots de passe avec `password_hash()` (bcrypt)
-- Protection contre les injections SQL via PDO et requêtes préparées
-- Sessions sécurisées avec `httponly` et `strict_mode`
-- Headers de sécurité HTTP (X-Frame-Options, X-XSS-Protection, etc.)
-- Protection des fichiers sensibles via `.htaccess`
-- Désactivation de l'affichage des erreurs en production
-
-## Support multi-chemins
-
-L'application supporte plusieurs configurations d'URL :
-
-- À la racine : `https://monsite.fr/`
-- Dans un sous-répertoire : `https://monsite.fr/CHEMIN/`
-
-Ajustez la variable `BASE_URL` dans `config.php` selon votre configuration.
-
-**Important** : Les scripts JavaScript utilisent `window.BASE_URL` pour construire les URLs dynamiquement. Cette variable est automatiquement exposée par `includes/header.php` en fonction de la configuration `BASE_URL` dans `config.php`. Assurez-vous que `BASE_URL` est correctement configuré pour que les appels API et les liens vers les assets fonctionnent correctement.
-
-## Développement
-
-### Sans framework
-
-Cette application a été développée en PHP pur sans framework pour :
-- Réduire les dépendances
-- Améliorer les performances
-- Faciliter la maintenance
-- Offrir plus de flexibilité
-
-### Personnalisation
-
-- **Styles** : Modifiez `assets/css/style.css`
-- **Logo** : Remplacez `assets/images/logo.png` ou `logo.svg`
-- **Pages** : Ajoutez de nouvelles pages PHP et créez les liens dans `includes/header.php`
-
-## Dépannage
-
-### Erreur de connexion à la base de données
-
-Vérifiez que :
-- MariaDB est démarré
-- Les identifiants dans `config.php` sont corrects
-- La base de données existe et l'utilisateur a les permissions nécessaires
-
-### Erreur LDAP/AD
-
-Vérifiez que :
-- L'extension PHP LDAP est installée : `php -m | grep ldap`
-- Les paramètres de connexion sont corrects
-- Le serveur LDAP/AD est accessible depuis le serveur web
-
-### Problème de redirection/URL
-
-Vérifiez que :
-- `mod_rewrite` est activé
-- Le fichier `.htaccess` est bien présent
-- `AllowOverride All` est configuré dans le Virtual Host
-
-## Licence
-
-Ce projet est open source et disponible sous licence MIT.
-
-## Contribution
-
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
+This project is open source under the MIT License.
