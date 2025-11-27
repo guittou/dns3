@@ -79,12 +79,18 @@ class Auth {
             if (@ldap_bind($ldap, $bind_username, $password)) {
                 // Search for user details and groups
                 $filter = "(sAMAccountName=" . ldap_escape($username, '', LDAP_ESCAPE_FILTER) . ")";
-                $result = ldap_search($ldap, AD_BASE_DN, $filter, ['mail', 'cn', 'memberOf']);
+                $result = ldap_search($ldap, AD_BASE_DN, $filter, ['mail', 'cn', 'sAMAccountName', 'memberOf']);
                 $entries = ldap_get_entries($ldap, $result);
 
                 if ($entries['count'] > 0) {
                     $email = $entries[0]['mail'][0] ?? $username . '@' . AD_DOMAIN;
                     $user_dn = $entries[0]['dn'] ?? '';
+                    
+                    // Determine storedUsername: prefer CN, fallback to sAMAccountName
+                    // Normalize to lowercase for consistency
+                    $storedUsername = mb_strtolower(
+                        $entries[0]['cn'][0] ?? $entries[0]['samaccountname'][0] ?? $username
+                    );
                     
                     // Get user groups
                     $groups = [];
@@ -94,27 +100,35 @@ class Auth {
                         }
                     }
                     
-                    // Get matched role IDs from auth_mappings BEFORE creating/updating user
+                    // Get matched role IDs from auth_mappings
                     $matchedRoleIds = $this->getRoleIdsFromMappings('ad', $groups, $user_dn);
                     
-                    // If no mappings match, refuse connection and disable existing user
-                    if (empty($matchedRoleIds)) {
-                        $this->findAndDisableExistingUser($username, 'ad');
+                    // Check if user has any ACL entry (by username, role, or AD group)
+                    require_once __DIR__ . '/models/ZoneAcl.php';
+                    $zoneAcl = new ZoneAcl();
+                    $hasAcl = $zoneAcl->hasAnyAclForUser($storedUsername, $matchedRoleIds, $groups);
+                    
+                    // Authorize if user has mappings OR has ACL entries
+                    if (empty($matchedRoleIds) && !$hasAcl) {
+                        // No mapping and no ACL - refuse connection and disable existing user
+                        $this->findAndDisableExistingUser($storedUsername, 'ad');
                         ldap_close($ldap);
                         return false;
                     }
                     
-                    // Create or update user
-                    $this->createOrUpdateUserWithMappings($username, $email, 'ad', $groups, $user_dn);
+                    // Create or update user with normalized username
+                    $this->createOrUpdateUserWithMappings($storedUsername, $email, 'ad', $groups, $user_dn);
                     
                     // Get user ID and perform post-login actions
-                    $user_id = $this->getUserIdByUsername($username);
+                    $user_id = $this->getUserIdByUsername($storedUsername);
                     if ($user_id) {
                         // Reactivate account (in case it was previously disabled)
                         $this->reactivateUserAccount($user_id);
                         
-                        // Sync roles based on current mappings
-                        $this->syncUserRolesWithMappings($user_id, 'ad', $matchedRoleIds);
+                        // Sync roles based on current mappings (only if mappings exist)
+                        if (!empty($matchedRoleIds)) {
+                            $this->syncUserRolesWithMappings($user_id, 'ad', $matchedRoleIds);
+                        }
                     }
                     
                     ldap_close($ldap);
@@ -147,37 +161,52 @@ class Auth {
             // First bind with admin credentials to search for user
             if (@ldap_bind($ldap, LDAP_BIND_DN, LDAP_BIND_PASS)) {
                 $filter = "(uid=" . ldap_escape($username, '', LDAP_ESCAPE_FILTER) . ")";
-                $result = ldap_search($ldap, LDAP_BASE_DN, $filter, ['dn', 'mail', 'cn']);
+                $result = ldap_search($ldap, LDAP_BASE_DN, $filter, ['dn', 'mail', 'cn', 'uid']);
                 $entries = ldap_get_entries($ldap, $result);
 
                 if ($entries['count'] > 0) {
                     $user_dn = $entries[0]['dn'];
                     $email = $entries[0]['mail'][0] ?? $username . '@example.com';
+                    
+                    // Determine storedUsername: prefer UID, fallback to username
+                    // Normalize to lowercase for consistency
+                    $storedUsername = mb_strtolower(
+                        $entries[0]['uid'][0] ?? $username
+                    );
 
                     // Try to bind with user credentials
                     if (@ldap_bind($ldap, $user_dn, $password)) {
                         // User authenticated successfully
-                        // Get matched role IDs from auth_mappings BEFORE creating/updating user
+                        // Get matched role IDs from auth_mappings
                         $matchedRoleIds = $this->getRoleIdsFromMappings('ldap', [], $user_dn);
                         
-                        // If no mappings match, refuse connection and disable existing user
-                        if (empty($matchedRoleIds)) {
-                            $this->findAndDisableExistingUser($username, 'ldap');
+                        // Check if user has any ACL entry (by username)
+                        // LDAP typically doesn't have groups like AD, but we check anyway
+                        require_once __DIR__ . '/models/ZoneAcl.php';
+                        $zoneAcl = new ZoneAcl();
+                        $hasAcl = $zoneAcl->hasAnyAclForUser($storedUsername, $matchedRoleIds, []);
+                        
+                        // Authorize if user has mappings OR has ACL entries
+                        if (empty($matchedRoleIds) && !$hasAcl) {
+                            // No mapping and no ACL - refuse connection and disable existing user
+                            $this->findAndDisableExistingUser($storedUsername, 'ldap');
                             ldap_close($ldap);
                             return false;
                         }
                         
-                        // Create or update user
-                        $this->createOrUpdateUserWithMappings($username, $email, 'ldap', [], $user_dn);
+                        // Create or update user with normalized username
+                        $this->createOrUpdateUserWithMappings($storedUsername, $email, 'ldap', [], $user_dn);
                         
                         // Get user ID and perform post-login actions
-                        $user_id = $this->getUserIdByUsername($username);
+                        $user_id = $this->getUserIdByUsername($storedUsername);
                         if ($user_id) {
                             // Reactivate account (in case it was previously disabled)
                             $this->reactivateUserAccount($user_id);
                             
-                            // Sync roles based on current mappings
-                            $this->syncUserRolesWithMappings($user_id, 'ldap', $matchedRoleIds);
+                            // Sync roles based on current mappings (only if mappings exist)
+                            if (!empty($matchedRoleIds)) {
+                                $this->syncUserRolesWithMappings($user_id, 'ldap', $matchedRoleIds);
+                            }
                         }
                         
                         ldap_close($ldap);

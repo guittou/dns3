@@ -16,6 +16,10 @@
  * - GET ?action=list_mappings - List all auth mappings (AD/LDAP)
  * - POST ?action=create_mapping - Create auth mapping (JSON body)
  * - POST ?action=delete_mapping&id=X - Delete auth mapping
+ * - GET ?action=list_acl&zone_id=X - List ACL entries for a zone
+ * - POST ?action=create_acl - Create ACL entry (JSON body)
+ * - POST ?action=delete_acl&id=X - Delete ACL entry
+ * - POST ?action=create_external_user - Create external AD/LDAP user (JSON body)
  */
 
 require_once __DIR__ . '/../config.php';
@@ -518,6 +522,86 @@ try {
                 'success' => true,
                 'message' => 'ACL entry deleted successfully'
             ]);
+            break;
+            
+        case 'create_external_user':
+            // Create an external (AD/LDAP) user for pre-authorization
+            // This allows admins to pre-create users before their first login
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$input || !isset($input['username'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le champ username est obligatoire']);
+                exit;
+            }
+            
+            // Validate auth_method
+            $auth_method = $input['auth_method'] ?? 'ad';
+            if (!in_array($auth_method, ['ad', 'ldap'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'auth_method doit être "ad" ou "ldap"']);
+                exit;
+            }
+            
+            // Normalize username to lowercase for consistency
+            $username = mb_strtolower(trim($input['username']));
+            if (empty($username)) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le username ne peut pas être vide']);
+                exit;
+            }
+            
+            // Check if username already exists (case-insensitive)
+            $db = Database::getInstance()->getConnection();
+            $checkStmt = $db->prepare("SELECT id FROM users WHERE LOWER(username) = ?");
+            $checkStmt->execute([$username]);
+            if ($checkStmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Un utilisateur avec ce username existe déjà']);
+                exit;
+            }
+            
+            // Email is optional for external users
+            $email = isset($input['email']) ? trim($input['email']) : $username . '@external';
+            
+            // Check if email already exists
+            $emailStmt = $db->prepare("SELECT id FROM users WHERE email = ?");
+            $emailStmt->execute([$email]);
+            if ($emailStmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Un utilisateur avec cet email existe déjà']);
+                exit;
+            }
+            
+            // Default to inactive unless specified otherwise
+            $is_active = isset($input['is_active']) ? (int)$input['is_active'] : 0;
+            
+            try {
+                // Insert external user (no password for AD/LDAP users)
+                $insertStmt = $db->prepare("
+                    INSERT INTO users (username, email, password, auth_method, is_active, created_at)
+                    VALUES (?, ?, '', ?, ?, NOW())
+                ");
+                $insertStmt->execute([$username, $email, $auth_method, $is_active]);
+                $user_id = $db->lastInsertId();
+                
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Utilisateur externe créé avec succès',
+                    'data' => [
+                        'id' => $user_id,
+                        'username' => $username,
+                        'email' => $email,
+                        'auth_method' => $auth_method,
+                        'is_active' => $is_active
+                    ]
+                ]);
+            } catch (Exception $e) {
+                error_log("create_external_user error: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Échec de la création de l\'utilisateur externe']);
+                exit;
+            }
             break;
             
         default:

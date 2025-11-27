@@ -31,10 +31,16 @@ class ZoneAcl {
      */
     public function listForZone($zone_id) {
         try {
+            // Note: For subject_type='user', subject_identifier now contains username (not ID)
+            // We check both: if it's numeric, try to find user by ID; otherwise use it as-is (username)
             $sql = "SELECT zae.*, 
                            u.username as created_by_username,
                            CASE 
-                               WHEN zae.subject_type = 'user' THEN (SELECT username FROM users WHERE id = CAST(zae.subject_identifier AS UNSIGNED))
+                               WHEN zae.subject_type = 'user' THEN 
+                                   COALESCE(
+                                       (SELECT username FROM users WHERE LOWER(username) = LOWER(zae.subject_identifier) LIMIT 1),
+                                       zae.subject_identifier
+                                   )
                                WHEN zae.subject_type = 'role' THEN zae.subject_identifier
                                ELSE zae.subject_identifier
                            END as subject_name
@@ -57,9 +63,13 @@ class ZoneAcl {
      * If an entry with the same zone_id, subject_type, and subject_identifier exists,
      * it will be updated with the new permission level instead of creating a duplicate.
      * 
+     * For subject_type='user', the subject_identifier can be:
+     * - A user ID (for existing users)
+     * - A username (for pre-authorizing non-yet-created users)
+     * 
      * @param int $zone_id Zone file ID
      * @param string $subject_type Type of subject (user, role, ad_group)
-     * @param string $subject_identifier User ID, role name, or AD group DN
+     * @param string $subject_identifier User ID/username, role name, or AD group DN
      * @param string $permission Permission level (read, write, admin)
      * @param int $created_by User ID who created this entry
      * @return int|bool ACL entry ID (new or existing) or false on failure
@@ -80,14 +90,38 @@ class ZoneAcl {
                 return false;
             }
 
+            // Normalize subject_identifier for 'user' type
+            $normalizedIdentifier = $subject_identifier;
+            
             // Validate subject_identifier based on type
             if ($subject_type === 'user') {
-                // Verify user exists
-                $stmt = $this->db->prepare("SELECT id FROM users WHERE id = ?");
-                $stmt->execute([$subject_identifier]);
+                // For 'user' type, we accept either:
+                // 1. A numeric user ID (for existing users)
+                // 2. A username string (for pre-authorizing non-yet-created users)
+                
+                if (is_numeric($subject_identifier)) {
+                    // Check if this is a valid user ID
+                    $stmt = $this->db->prepare("SELECT id, username FROM users WHERE id = ?");
+                    $stmt->execute([(int)$subject_identifier]);
+                    $user = $stmt->fetch();
+                    if ($user) {
+                        // Store username instead of ID for consistency
+                        $normalizedIdentifier = mb_strtolower($user['username']);
+                    } else {
+                        // Not a valid user ID - treat as username
+                        $normalizedIdentifier = mb_strtolower(trim($subject_identifier));
+                    }
+                } else {
+                    // Non-numeric identifier - treat as username
+                    // Normalize to lowercase for case-insensitive matching
+                    $normalizedIdentifier = mb_strtolower(trim($subject_identifier));
+                }
+                
+                // Check if this username exists in the database (optional - just for info logging)
+                $stmt = $this->db->prepare("SELECT id FROM users WHERE LOWER(username) = ?");
+                $stmt->execute([$normalizedIdentifier]);
                 if (!$stmt->fetch()) {
-                    error_log("ZoneAcl addEntry: User not found: $subject_identifier");
-                    return false;
+                    error_log("ZoneAcl addEntry: Pre-authorizing user (not yet in DB): $normalizedIdentifier");
                 }
             } elseif ($subject_type === 'role') {
                 // Verify role exists
@@ -104,7 +138,7 @@ class ZoneAcl {
             $sql = "SELECT id FROM zone_acl_entries 
                     WHERE zone_file_id = ? AND subject_type = ? AND subject_identifier = ?";
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$zone_id, $subject_type, $subject_identifier]);
+            $stmt->execute([$zone_id, $subject_type, $normalizedIdentifier]);
             $existing = $stmt->fetch();
 
             if ($existing) {
@@ -125,7 +159,7 @@ class ZoneAcl {
             $stmt->execute([
                 $zone_id,
                 $subject_type,
-                $subject_identifier,
+                $normalizedIdentifier,
                 $permission,
                 $created_by
             ]);
@@ -388,6 +422,174 @@ class ZoneAcl {
         } catch (Exception $e) {
             error_log("ZoneAcl getAccessibleZoneIds error: " . $e->getMessage());
             return [];
+        }
+    }
+
+    /**
+     * Check if a user has any ACL entry across all zones
+     * Used to determine if an AD/LDAP user should be allowed to login
+     * 
+     * @param string $username Username to check (case-insensitive comparison)
+     * @param array $roleIds Array of role IDs the user has
+     * @param array $userGroups Array of AD group DNs the user belongs to
+     * @return bool True if user has at least one ACL entry
+     */
+    public function hasAnyAclForUser($username, array $roleIds = [], array $userGroups = []) {
+        try {
+            // Normalize username for case-insensitive comparison
+            $normalizedUsername = mb_strtolower(trim($username));
+            
+            if (empty($normalizedUsername) && empty($roleIds) && empty($userGroups)) {
+                return false;
+            }
+            
+            // Build query to check for any matching ACL entries
+            $conditions = [];
+            $params = [];
+            
+            // Check for user-based ACL by username (case-insensitive)
+            // subject_identifier for 'user' type contains username (not user ID) for external users
+            if (!empty($normalizedUsername)) {
+                $conditions[] = "(zae.subject_type = 'user' AND LOWER(zae.subject_identifier) = ?)";
+                $params[] = $normalizedUsername;
+                
+                // Also check if there's a user in the users table with this username
+                // and if that user ID is referenced in an ACL
+                $conditions[] = "(zae.subject_type = 'user' AND zae.subject_identifier = (SELECT CAST(id AS CHAR) FROM users WHERE LOWER(username) = ? LIMIT 1))";
+                $params[] = $normalizedUsername;
+            }
+            
+            // Check for role-based ACL
+            if (!empty($roleIds)) {
+                // Get role names from role IDs
+                $roleIdPlaceholders = implode(',', array_fill(0, count($roleIds), '?'));
+                $roleStmt = $this->db->prepare("SELECT name FROM roles WHERE id IN ($roleIdPlaceholders)");
+                $roleStmt->execute($roleIds);
+                $roleNames = $roleStmt->fetchAll(PDO::FETCH_COLUMN);
+                
+                if (!empty($roleNames)) {
+                    $roleNamePlaceholders = implode(',', array_fill(0, count($roleNames), '?'));
+                    $conditions[] = "(zae.subject_type = 'role' AND zae.subject_identifier IN ($roleNamePlaceholders))";
+                    $params = array_merge($params, $roleNames);
+                }
+            }
+            
+            // Check for AD group-based ACL
+            if (!empty($userGroups)) {
+                foreach ($userGroups as $group) {
+                    // Case-insensitive exact match
+                    $conditions[] = "(zae.subject_type = 'ad_group' AND LOWER(zae.subject_identifier) = LOWER(?))";
+                    $params[] = $group;
+                    
+                    // Also check if group DN contains the subject_identifier (OU matching)
+                    $conditions[] = "(zae.subject_type = 'ad_group' AND LOWER(?) LIKE CONCAT('%', LOWER(zae.subject_identifier), '%'))";
+                    $params[] = $group;
+                }
+            }
+            
+            if (empty($conditions)) {
+                return false;
+            }
+            
+            $whereClause = implode(" OR ", $conditions);
+            
+            $sql = "SELECT COUNT(*) as count FROM zone_acl_entries zae WHERE $whereClause LIMIT 1";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            return ($result['count'] ?? 0) > 0;
+        } catch (Exception $e) {
+            error_log("ZoneAcl hasAnyAclForUser error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Check if a user has ACL access to a specific zone by username
+     * Similar to isAllowed() but uses username instead of user ID
+     * 
+     * @param string $username Username to check (case-insensitive)
+     * @param int $zone_id Zone file ID
+     * @param string $required Required permission level (read, write, admin)
+     * @param array $roleNames Array of role names the user has
+     * @param array $userGroups User's AD groups (array of DNs/group names)
+     * @return bool True if user has required permission or higher
+     */
+    public function isAllowedByUsername($username, $zone_id, $required = 'read', $roleNames = [], $userGroups = []) {
+        try {
+            $normalizedUsername = mb_strtolower(trim($username));
+            $requiredLevel = self::PERMISSION_HIERARCHY[$required] ?? 1;
+            
+            if (empty($normalizedUsername) || !$zone_id) {
+                return false;
+            }
+
+            // Get all ACL entries for this zone
+            $sql = "SELECT subject_type, subject_identifier, permission 
+                    FROM zone_acl_entries 
+                    WHERE zone_file_id = ?";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$zone_id]);
+            $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $maxPermissionLevel = 0;
+
+            foreach ($entries as $entry) {
+                $matches = false;
+                $permissionLevel = self::PERMISSION_HIERARCHY[$entry['permission']] ?? 0;
+
+                switch ($entry['subject_type']) {
+                    case 'user':
+                        // Username match (case-insensitive)
+                        if (mb_strtolower($entry['subject_identifier']) === $normalizedUsername) {
+                            $matches = true;
+                        }
+                        // Also check if subject_identifier is a user ID that matches this username
+                        if (!$matches && is_numeric($entry['subject_identifier'])) {
+                            $userStmt = $this->db->prepare("SELECT id FROM users WHERE id = ? AND LOWER(username) = ?");
+                            $userStmt->execute([(int)$entry['subject_identifier'], $normalizedUsername]);
+                            if ($userStmt->fetch()) {
+                                $matches = true;
+                            }
+                        }
+                        break;
+
+                    case 'role':
+                        // Role match - check if user has this role
+                        if (in_array($entry['subject_identifier'], $roleNames)) {
+                            $matches = true;
+                        }
+                        break;
+
+                    case 'ad_group':
+                        // AD group match - check memberOf or DN substring
+                        foreach ($userGroups as $group) {
+                            // Case-insensitive comparison
+                            if (strcasecmp($group, $entry['subject_identifier']) === 0) {
+                                $matches = true;
+                                break;
+                            }
+                            // Also check if entry is a substring of group DN (for OU matching)
+                            if (stripos($group, $entry['subject_identifier']) !== false) {
+                                $matches = true;
+                                break;
+                            }
+                        }
+                        break;
+                }
+
+                if ($matches && $permissionLevel > $maxPermissionLevel) {
+                    $maxPermissionLevel = $permissionLevel;
+                }
+            }
+
+            return $maxPermissionLevel >= $requiredLevel;
+        } catch (Exception $e) {
+            error_log("ZoneAcl isAllowedByUsername error: " . $e->getMessage());
+            return false;
         }
     }
 }
