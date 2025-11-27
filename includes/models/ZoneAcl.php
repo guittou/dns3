@@ -174,6 +174,12 @@ class ZoneAcl {
             ]);
             
             return $this->db->lastInsertId();
+        } catch (PDOException $e) {
+            // Log detailed SQL error for debugging (without sensitive identifier data)
+            error_log("ZoneAcl addEntry SQL error: " . $e->getMessage() . 
+                      " | SQLSTATE: " . $e->getCode() .
+                      " | Context: zone_id=$zone_id, subject_type=$subject_type, permission=$permission");
+            return false;
         } catch (Exception $e) {
             error_log("ZoneAcl addEntry error: " . $e->getMessage());
             return false;
