@@ -3245,6 +3245,9 @@ function renderAclList(entries) {
 
 /**
  * Update subject identifier options based on selected type
+ * For 'user' type: show text input for free CN/UID entry (pre-authorization support)
+ * For 'role' type: show select with existing roles
+ * For 'ad_group' type: show text input for AD group DN
  */
 async function updateAclSubjectOptions() {
     const typeSelect = document.getElementById('aclSubjectType');
@@ -3256,10 +3259,11 @@ async function updateAclSubjectOptions() {
     const type = typeSelect.value;
     
     if (type === 'user') {
-        // Show select with users list
-        selectEl.style.display = 'block';
-        inputEl.style.display = 'none';
-        await populateAclUsersSelect();
+        // Show text input for free CN/UID entry (allows pre-authorization of users not yet in DB)
+        selectEl.style.display = 'none';
+        inputEl.style.display = 'block';
+        inputEl.value = '';
+        inputEl.placeholder = 'CN ou UID de l\'utilisateur (ex: jdupont, john.doe)';
     } else if (type === 'role') {
         // Show select with roles list
         selectEl.style.display = 'block';
@@ -3269,6 +3273,7 @@ async function updateAclSubjectOptions() {
         // Show text input for AD group DN
         selectEl.style.display = 'none';
         inputEl.style.display = 'block';
+        inputEl.value = '';
         inputEl.placeholder = 'DN du groupe AD (ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com)';
     }
 }
@@ -3379,9 +3384,11 @@ async function addAclEntry() {
     const subjectType = typeSelect?.value;
     let subjectIdentifier = '';
     
-    if (subjectType === 'user' || subjectType === 'role') {
+    if (subjectType === 'role') {
+        // Role uses the select dropdown
         subjectIdentifier = selectEl?.value;
     } else {
+        // User and AD group use the text input
         subjectIdentifier = inputEl?.value?.trim();
     }
     
