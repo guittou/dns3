@@ -299,6 +299,13 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_mapping' \
 ### Présentation
 Le système ACL permet de définir des permissions d'accès spécifiques par fichier de zone pour les utilisateurs non-admin.
 
+### Politique d'autorisation AD/LDAP
+Les utilisateurs AD/LDAP ne sont autorisés à se connecter que s'ils :
+- Correspondent à au moins un mapping `auth_mappings`, **OU**
+- Apparaissent dans au moins une entrée ACL (par username, rôle ou groupe AD)
+
+Si aucune condition n'est remplie : connexion refusée + compte désactivé.
+
 ### Permissions
 | Niveau  | Description                         |
 |---------|-------------------------------------|
@@ -309,9 +316,11 @@ Le système ACL permet de définir des permissions d'accès spécifiques par fic
 ### Types de Sujets
 | Type      | Exemple                                      |
 |-----------|----------------------------------------------|
-| user      | ID utilisateur (ex: 42)                      |
+| user      | Username (ex: john.doe) - normalisé en minuscules |
 | role      | Nom du rôle (ex: zone_editor)                |
 | ad_group  | DN du groupe AD (ex: CN=DNS,OU=Groups,DC=...) |
+
+**Note :** Le type `user` accepte un username même si l'utilisateur n'existe pas encore (pré-autorisation).
 
 ### Interface
 ```
@@ -338,7 +347,7 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_acl' \
   -d '{
     "zone_id": 1,
     "subject_type": "user",
-    "subject_identifier": "42",
+    "subject_identifier": "john.doe",
     "permission": "write"
   }' \
   --cookie "PHPSESSID=your_session_id"
@@ -347,6 +356,19 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_acl' \
 #### Supprimer une ACL
 ```bash
 curl -X POST 'http://domain/api/admin_api.php?action=delete_acl&id=1' \
+  --cookie "PHPSESSID=your_session_id"
+```
+
+#### Créer un utilisateur externe (pré-création)
+```bash
+curl -X POST 'http://domain/api/admin_api.php?action=create_external_user' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "username": "ext.user",
+    "email": "ext.user@example.com",
+    "auth_method": "ad",
+    "is_active": 0
+  }' \
   --cookie "PHPSESSID=your_session_id"
 ```
 

@@ -605,6 +605,14 @@ tail -f /var/log/php/error.log
 
 La fonctionnalité ACL par fichier de zone permet de contrôler finement l'accès aux zones DNS pour les utilisateurs non-administrateurs. Un nouveau rôle `zone_editor` est disponible pour les utilisateurs qui doivent pouvoir modifier des zones spécifiques sans avoir accès à l'interface d'administration globale.
 
+### Politique d'autorisation AD/LDAP
+
+**Mapping OU ACL requis pour la connexion :** Les utilisateurs AD/LDAP ne sont autorisés à se connecter que s'ils :
+- Correspondent à au moins un mapping `auth_mappings` configuré, **OU**
+- Apparaissent dans au moins une entrée ACL (par username, rôle ou groupe AD)
+
+Si aucune de ces conditions n'est remplie, la connexion est refusée et tout compte local existant est désactivé (`is_active = 0`).
+
 ### Composants
 
 #### 1. Table `zone_acl_entries`
@@ -649,9 +657,11 @@ mysql -u dns3_user -p dns3_db < scripts/001_add_acl_entries_and_zone_editor.sql
 
 | Type       | Description                                    |
 |------------|------------------------------------------------|
-| `user`     | Identifiant utilisateur (user ID)              |
+| `user`     | Username (normalisé en minuscules)             |
 | `role`     | Nom du rôle (ex: `zone_editor`)                |
 | `ad_group` | DN ou nom du groupe Active Directory           |
+
+**Note :** Pour le type `user`, le `subject_identifier` peut être un username même si l'utilisateur n'existe pas encore en base de données. Cela permet de pré-autoriser des utilisateurs externes (AD/LDAP) avant leur première connexion.
 
 #### Bypass Admin
 
@@ -670,15 +680,30 @@ POST /api/admin_api.php?action=create_acl
 {
   "zone_id": 1,
   "subject_type": "user",
-  "subject_identifier": "42",
+  "subject_identifier": "john.doe",
   "permission": "write"
 }
 ```
+
+**Note :** Le `subject_identifier` pour le type `user` accepte un username (pas un ID). Cela permet de pré-autoriser des utilisateurs externes non encore créés.
 
 #### Supprimer une entrée ACL
 ```
 POST /api/admin_api.php?action=delete_acl&id=X
 ```
+
+#### Créer un utilisateur externe (pré-création)
+```json
+POST /api/admin_api.php?action=create_external_user
+{
+  "username": "john.doe",
+  "email": "john.doe@example.com",
+  "auth_method": "ad",
+  "is_active": 0
+}
+```
+
+Permet à un admin de pré-créer un utilisateur AD/LDAP. Le username est normalisé en minuscules. Par défaut, `is_active = 0`.
 
 ### Interface utilisateur
 
@@ -693,10 +718,10 @@ L'onglet "ACL" est disponible dans le modal d'édition d'une zone (accessible un
 | Fichier | Description |
 |---------|-------------|
 | `scripts/001_add_acl_entries_and_zone_editor.sql` | Migration SQL |
-| `includes/models/ZoneAcl.php` | Modèle ACL (CRUD + isAllowed) |
-| `includes/auth.php` | Méthodes isZoneEditor(), getUserRoles(), getUserContext() |
+| `includes/models/ZoneAcl.php` | Modèle ACL (CRUD + isAllowed + hasAnyAclForUser) |
+| `includes/auth.php` | Méthodes isZoneEditor(), getUserRoles(), getUserContext(), ACL check |
 | `includes/models/ZoneFile.php` | Méthodes listForUser(), countForUser() |
-| `api/admin_api.php` | Endpoints list_acl, create_acl, delete_acl |
+| `api/admin_api.php` | Endpoints list_acl, create_acl, delete_acl, create_external_user |
 | `zone-files.php` | Accès zone_editor + onglet ACL |
 | `assets/js/zone-files.js` | Fonctions JavaScript ACL |
 
@@ -727,12 +752,25 @@ L'onglet "ACL" est disponible dans le modal d'édition d'une zone (accessible un
 5. **Vérifier le bypass admin**
    - Un admin doit voir toutes les zones sans ACL explicite
 
+6. **Test connexion AD/LDAP avec ACL**
+   - Utilisateur membre d'un groupe mappé → autorisé
+   - Utilisateur non mappé MAIS présent dans une ACL (user/role/ad_group) → autorisé
+   - Utilisateur n'ayant ni mapping ni ACL → connexion refusée ; si compte local existant → is_active=0
+
+7. **Test pré-création utilisateur externe**
+   ```bash
+   curl -X POST 'http://domain/api/admin_api.php?action=create_external_user' \
+     -H 'Content-Type: application/json' \
+     -d '{"username": "ext.user", "auth_method": "ad", "is_active": 0}' \
+     --cookie "PHPSESSID=..."
+   ```
+
 ---
 
 ## Conclusion
 
 This implementation provides a complete, secure, and user-friendly admin interface for managing users, roles, and AD/LDAP mappings. It follows the existing code patterns, maintains consistency with the current UI, and is ready for production use after proper testing.
 
-L'intégration des mappings `auth_mappings` dans le flux d'authentification AD/LDAP est **opérationnelle**. Les utilisateurs AD/LDAP ne sont créés ou activés que s'ils correspondent à au moins un mapping configuré. Les comptes non mappés sont automatiquement désactivés pour renforcer la sécurité.
+L'intégration des mappings `auth_mappings` dans le flux d'authentification AD/LDAP est **opérationnelle**. Les utilisateurs AD/LDAP ne sont créés ou activés que s'ils correspondent à au moins un mapping configuré **OU** s'ils apparaissent dans une ACL. Les comptes non mappés et sans ACL sont automatiquement désactivés pour renforcer la sécurité.
 
 La fonctionnalité ACL par zone permet un contrôle d'accès granulaire pour les utilisateurs non-admin, avec support pour les utilisateurs, rôles et groupes AD.
