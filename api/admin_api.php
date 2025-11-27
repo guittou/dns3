@@ -561,8 +561,11 @@ try {
                 exit;
             }
             
-            // Email is optional for external users
-            $email = isset($input['email']) ? trim($input['email']) : $username . '@external';
+            // Email is optional for external users - use placeholder format if not provided
+            // Format: username@external.local (valid email format but clearly indicates external user)
+            $email = isset($input['email']) && !empty(trim($input['email'])) 
+                ? trim($input['email']) 
+                : $username . '@external.local';
             
             // Check if email already exists
             $emailStmt = $db->prepare("SELECT id FROM users WHERE email = ?");

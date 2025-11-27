@@ -24,6 +24,16 @@ class ZoneAcl {
     ];
 
     /**
+     * Normalize username to lowercase for consistent case-insensitive comparison
+     * 
+     * @param string $username Username to normalize
+     * @return string Normalized (lowercase, trimmed) username
+     */
+    private function normalizeUsername($username) {
+        return mb_strtolower(trim($username));
+    }
+
+    /**
      * List all ACL entries for a specific zone
      * 
      * @param int $zone_id Zone file ID
@@ -106,15 +116,14 @@ class ZoneAcl {
                     $user = $stmt->fetch();
                     if ($user) {
                         // Store username instead of ID for consistency
-                        $normalizedIdentifier = mb_strtolower($user['username']);
+                        $normalizedIdentifier = $this->normalizeUsername($user['username']);
                     } else {
                         // Not a valid user ID - treat as username
-                        $normalizedIdentifier = mb_strtolower(trim($subject_identifier));
+                        $normalizedIdentifier = $this->normalizeUsername($subject_identifier);
                     }
                 } else {
                     // Non-numeric identifier - treat as username
-                    // Normalize to lowercase for case-insensitive matching
-                    $normalizedIdentifier = mb_strtolower(trim($subject_identifier));
+                    $normalizedIdentifier = $this->normalizeUsername($subject_identifier);
                 }
                 
                 // Check if this username exists in the database (optional - just for info logging)
@@ -436,42 +445,37 @@ class ZoneAcl {
      */
     public function hasAnyAclForUser($username, array $roleIds = [], array $userGroups = []) {
         try {
-            // Normalize username for case-insensitive comparison
-            $normalizedUsername = mb_strtolower(trim($username));
+            // Normalize username using helper method
+            $normalizedUsername = $this->normalizeUsername($username);
             
             if (empty($normalizedUsername) && empty($roleIds) && empty($userGroups)) {
                 return false;
             }
             
-            // Build query to check for any matching ACL entries
-            $conditions = [];
-            $params = [];
-            
-            // Check for user-based ACL by username (case-insensitive)
-            // subject_identifier for 'user' type contains username (not user ID) for external users
-            if (!empty($normalizedUsername)) {
-                $conditions[] = "(zae.subject_type = 'user' AND LOWER(zae.subject_identifier) = ?)";
-                $params[] = $normalizedUsername;
-                
-                // Also check if there's a user in the users table with this username
-                // and if that user ID is referenced in an ACL
-                $conditions[] = "(zae.subject_type = 'user' AND zae.subject_identifier = (SELECT CAST(id AS CHAR) FROM users WHERE LOWER(username) = ? LIMIT 1))";
-                $params[] = $normalizedUsername;
-            }
-            
-            // Check for role-based ACL
+            // Pre-fetch role names if role IDs are provided (avoid N+1)
+            $roleNames = [];
             if (!empty($roleIds)) {
-                // Get role names from role IDs
                 $roleIdPlaceholders = implode(',', array_fill(0, count($roleIds), '?'));
                 $roleStmt = $this->db->prepare("SELECT name FROM roles WHERE id IN ($roleIdPlaceholders)");
                 $roleStmt->execute($roleIds);
                 $roleNames = $roleStmt->fetchAll(PDO::FETCH_COLUMN);
-                
-                if (!empty($roleNames)) {
-                    $roleNamePlaceholders = implode(',', array_fill(0, count($roleNames), '?'));
-                    $conditions[] = "(zae.subject_type = 'role' AND zae.subject_identifier IN ($roleNamePlaceholders))";
-                    $params = array_merge($params, $roleNames);
-                }
+            }
+            
+            // Build query to check for any matching ACL entries using EXISTS for better performance
+            $conditions = [];
+            $params = [];
+            
+            // Check for user-based ACL by username (case-insensitive)
+            if (!empty($normalizedUsername)) {
+                $conditions[] = "(zae.subject_type = 'user' AND LOWER(zae.subject_identifier) = ?)";
+                $params[] = $normalizedUsername;
+            }
+            
+            // Check for role-based ACL
+            if (!empty($roleNames)) {
+                $roleNamePlaceholders = implode(',', array_fill(0, count($roleNames), '?'));
+                $conditions[] = "(zae.subject_type = 'role' AND zae.subject_identifier IN ($roleNamePlaceholders))";
+                $params = array_merge($params, $roleNames);
             }
             
             // Check for AD group-based ACL
@@ -493,13 +497,14 @@ class ZoneAcl {
             
             $whereClause = implode(" OR ", $conditions);
             
-            $sql = "SELECT COUNT(*) as count FROM zone_acl_entries zae WHERE $whereClause LIMIT 1";
+            // Use EXISTS for better performance instead of COUNT(*)
+            $sql = "SELECT EXISTS(SELECT 1 FROM zone_acl_entries zae WHERE $whereClause) as has_acl";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute($params);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            return ($result['count'] ?? 0) > 0;
+            return (bool)($result['has_acl'] ?? 0);
         } catch (Exception $e) {
             error_log("ZoneAcl hasAnyAclForUser error: " . $e->getMessage());
             return false;
@@ -519,7 +524,7 @@ class ZoneAcl {
      */
     public function isAllowedByUsername($username, $zone_id, $required = 'read', $roleNames = [], $userGroups = []) {
         try {
-            $normalizedUsername = mb_strtolower(trim($username));
+            $normalizedUsername = $this->normalizeUsername($username);
             $requiredLevel = self::PERMISSION_HIERARCHY[$required] ?? 1;
             
             if (empty($normalizedUsername) || !$zone_id) {
@@ -543,17 +548,9 @@ class ZoneAcl {
 
                 switch ($entry['subject_type']) {
                     case 'user':
-                        // Username match (case-insensitive)
-                        if (mb_strtolower($entry['subject_identifier']) === $normalizedUsername) {
+                        // Username match (case-insensitive) - subject_identifier now stores username
+                        if ($this->normalizeUsername($entry['subject_identifier']) === $normalizedUsername) {
                             $matches = true;
-                        }
-                        // Also check if subject_identifier is a user ID that matches this username
-                        if (!$matches && is_numeric($entry['subject_identifier'])) {
-                            $userStmt = $this->db->prepare("SELECT id FROM users WHERE id = ? AND LOWER(username) = ?");
-                            $userStmt->execute([(int)$entry['subject_identifier'], $normalizedUsername]);
-                            if ($userStmt->fetch()) {
-                                $matches = true;
-                            }
                         }
                         break;
 
