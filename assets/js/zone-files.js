@@ -1679,6 +1679,12 @@ function switchTab(tabName) {
         pane.setAttribute('aria-hidden', !isActive);
     });
     
+    // Initialize ACL tab when first shown
+    if (tabName === 'acl' && window.CAN_MANAGE_ACL) {
+        // Initialize subject type options to ensure correct field visibility
+        updateAclSubjectOptions?.();
+    }
+    
     // Refresh editors if present (CodeMirror/ACE) after tab switch
     setTimeout(() => {
         try {
@@ -2642,6 +2648,24 @@ function showError(message) {
 }
 
 /**
+ * Normalize an ACL subject identifier based on its type
+ * For 'user' type, converts username to lowercase for consistency
+ * @param {string} identifier - The subject identifier
+ * @param {string} subjectType - The type of subject ('user', 'role', 'ad_group')
+ * @returns {string} - The normalized identifier
+ */
+function normalizeAclSubjectIdentifier(identifier, subjectType) {
+    if (!identifier || typeof identifier !== 'string') {
+        return identifier;
+    }
+    // Only normalize usernames to lowercase
+    if (subjectType === 'user') {
+        return identifier.toLowerCase();
+    }
+    return identifier;
+}
+
+/**
  * Handle generate zone file button click (delegated handler)
  */
 async function handleGenerateZoneFile() {
@@ -3337,7 +3361,11 @@ async function populateAclRolesSelect() {
  * Add new ACL entry
  */
 async function addAclEntry() {
-    const zoneId = document.getElementById('zoneId')?.value;
+    // Support both #zoneId input and window.currentZoneId as fallback
+    let zoneId = document.getElementById('zoneId')?.value;
+    if (!zoneId && window.currentZoneId) {
+        zoneId = window.currentZoneId;
+    }
     if (!zoneId) {
         showError('Aucune zone sélectionnée');
         return;
@@ -3373,6 +3401,9 @@ async function addAclEntry() {
         return;
     }
     
+    // Normalize subject identifier based on type (username to lowercase for 'user')
+    const normalizedIdentifier = normalizeAclSubjectIdentifier(subjectIdentifier, subjectType);
+    
     try {
         const apiBase = window.API_BASE || '/api/';
         const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
@@ -3389,7 +3420,7 @@ async function addAclEntry() {
             body: JSON.stringify({
                 zone_id: parseInt(zoneId, 10),
                 subject_type: subjectType,
-                subject_identifier: subjectIdentifier,
+                subject_identifier: normalizedIdentifier,
                 permission: permission
             })
         });

@@ -26,8 +26,8 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/User.php';
 
-// Set JSON header
-header('Content-Type: application/json');
+// Set JSON header with UTF-8 charset
+header('Content-Type: application/json; charset=utf-8');
 
 // Initialize authentication
 $auth = new Auth();
