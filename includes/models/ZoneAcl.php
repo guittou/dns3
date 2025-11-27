@@ -164,16 +164,25 @@ class ZoneAcl {
             $sql = "INSERT INTO zone_acl_entries (zone_file_id, subject_type, subject_identifier, permission, created_by, created_at)
                     VALUES (?, ?, ?, ?, ?, NOW())";
             
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
+            $params = [
                 $zone_id,
                 $subject_type,
                 $normalizedIdentifier,
                 $permission,
                 $created_by
-            ]);
+            ];
             
-            return $this->db->lastInsertId();
+            try {
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute($params);
+                return $this->db->lastInsertId();
+            } catch (PDOException $e) {
+                error_log("ZoneAcl addEntry INSERT error: " . $e->getMessage() . 
+                          " | SQLSTATE: " . $e->getCode() .
+                          " | Params: zone_id=$zone_id, subject_type=$subject_type, " .
+                          "subject_identifier=$normalizedIdentifier, permission=$permission, created_by=$created_by");
+                throw $e; // Re-throw to be caught by outer catch block
+            }
         } catch (Exception $e) {
             error_log("ZoneAcl addEntry error: " . $e->getMessage());
             return false;
