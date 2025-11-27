@@ -1679,6 +1679,14 @@ function switchTab(tabName) {
         pane.setAttribute('aria-hidden', !isActive);
     });
     
+    // Initialize ACL tab when first shown
+    if (tabName === 'acl' && window.CAN_MANAGE_ACL) {
+        // Initialize subject type options to ensure correct field visibility
+        if (typeof updateAclSubjectOptions === 'function') {
+            updateAclSubjectOptions();
+        }
+    }
+    
     // Refresh editors if present (CodeMirror/ACE) after tab switch
     setTimeout(() => {
         try {
@@ -3337,7 +3345,11 @@ async function populateAclRolesSelect() {
  * Add new ACL entry
  */
 async function addAclEntry() {
-    const zoneId = document.getElementById('zoneId')?.value;
+    // Support both #zoneId input and window.currentZoneId as fallback
+    let zoneId = document.getElementById('zoneId')?.value;
+    if (!zoneId && window.currentZoneId) {
+        zoneId = window.currentZoneId;
+    }
     if (!zoneId) {
         showError('Aucune zone sélectionnée');
         return;
@@ -3373,6 +3385,12 @@ async function addAclEntry() {
         return;
     }
     
+    // Normalize username to lowercase for 'user' type
+    let normalizedIdentifier = subjectIdentifier;
+    if (subjectType === 'user' && typeof subjectIdentifier === 'string') {
+        normalizedIdentifier = subjectIdentifier.toLowerCase();
+    }
+    
     try {
         const apiBase = window.API_BASE || '/api/';
         const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
@@ -3389,7 +3407,7 @@ async function addAclEntry() {
             body: JSON.stringify({
                 zone_id: parseInt(zoneId, 10),
                 subject_type: subjectType,
-                subject_identifier: subjectIdentifier,
+                subject_identifier: normalizedIdentifier,
                 permission: permission
             })
         });
