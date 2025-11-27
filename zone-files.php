@@ -340,7 +340,7 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                                 <select id="aclSubjectIdentifierSelect" class="form-control" style="display: none;">
                                     <option value="">Sélectionner...</option>
                                 </select>
-                                <input type="text" id="aclSubjectIdentifierInput" class="form-control" placeholder="CN ou UID de l'utilisateur (ex: jdupont)" style="display: block;">
+                                <input type="text" id="aclSubjectIdentifierInput" class="form-control" placeholder="CN ou UID de l'utilisateur (ex: jdupont, john.doe)" style="display: block;">
                             </div>
                             <div class="form-group" style="flex: 1; min-width: 120px;">
                                 <label for="aclPermission">Permission</label>
