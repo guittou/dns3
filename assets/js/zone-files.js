@@ -1682,9 +1682,7 @@ function switchTab(tabName) {
     // Initialize ACL tab when first shown
     if (tabName === 'acl' && window.CAN_MANAGE_ACL) {
         // Initialize subject type options to ensure correct field visibility
-        if (typeof updateAclSubjectOptions === 'function') {
-            updateAclSubjectOptions();
-        }
+        updateAclSubjectOptions?.();
     }
     
     // Refresh editors if present (CodeMirror/ACE) after tab switch
@@ -2650,6 +2648,24 @@ function showError(message) {
 }
 
 /**
+ * Normalize an ACL subject identifier based on its type
+ * For 'user' type, converts username to lowercase for consistency
+ * @param {string} identifier - The subject identifier
+ * @param {string} subjectType - The type of subject ('user', 'role', 'ad_group')
+ * @returns {string} - The normalized identifier
+ */
+function normalizeAclSubjectIdentifier(identifier, subjectType) {
+    if (!identifier || typeof identifier !== 'string') {
+        return identifier;
+    }
+    // Only normalize usernames to lowercase
+    if (subjectType === 'user') {
+        return identifier.toLowerCase();
+    }
+    return identifier;
+}
+
+/**
  * Handle generate zone file button click (delegated handler)
  */
 async function handleGenerateZoneFile() {
@@ -3385,11 +3401,8 @@ async function addAclEntry() {
         return;
     }
     
-    // Normalize username to lowercase for 'user' type
-    let normalizedIdentifier = subjectIdentifier;
-    if (subjectType === 'user' && typeof subjectIdentifier === 'string') {
-        normalizedIdentifier = subjectIdentifier.toLowerCase();
-    }
+    // Normalize subject identifier based on type (username to lowercase for 'user')
+    const normalizedIdentifier = normalizeAclSubjectIdentifier(subjectIdentifier, subjectType);
     
     try {
         const apiBase = window.API_BASE || '/api/';
