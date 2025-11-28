@@ -550,13 +550,12 @@ try {
                 // Optional zone_file_id filter - if provided, only return domain(s) for that specific zone
                 $zoneFileIdFilter = isset($_GET['zone_file_id']) ? (int)$_GET['zone_file_id'] : 0;
                 
-                // Get allowed zone IDs for non-admin users
-                $allowedZoneIds = null;
+                // Get allowed master zone IDs for non-admin users
                 $allowedMasterIds = [];
                 
                 if (!$auth->isAdmin()) {
+                    // Check if user has any ACL entries
                     $allowedZoneIds = $auth->getAllowedZoneIds('read');
-                    // If user has no ACL entries and no zone_editor role, return empty
                     if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
                         echo json_encode([
                             'success' => true,
@@ -565,95 +564,18 @@ try {
                         break;
                     }
                     
-                    // If zone_file_id filter is provided, verify user has access
+                    // If zone_file_id filter is provided, verify user has access (use expanded IDs)
                     if ($zoneFileIdFilter > 0) {
-                        if (!in_array($zoneFileIdFilter, $allowedZoneIds)) {
+                        $expandedIds = $auth->getExpandedZoneIds('read');
+                        if (!in_array($zoneFileIdFilter, $expandedIds) && !$auth->isZoneEditor()) {
                             http_response_code(403);
                             echo json_encode(['error' => 'Access denied to this zone']);
                             exit;
                         }
                     }
                     
-                    // For non-admin users with ACL entries, we need to find:
-                    // 1. Master zones the user has direct ACL on
-                    // 2. Parent master zones for include zones the user has ACL on
-                    if (!empty($allowedZoneIds)) {
-                        // Start with allowed zone IDs that are masters
-                        $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
-                        
-                        // First, get masters directly in allowedZoneIds
-                        $masterSql = "SELECT id FROM zone_files 
-                                      WHERE id IN ($placeholders) 
-                                      AND file_type = 'master' 
-                                      AND status = 'active'";
-                        $stmt = $dnsRecord->getConnection()->prepare($masterSql);
-                        $stmt->execute($allowedZoneIds);
-                        $directMasters = $stmt->fetchAll(PDO::FETCH_COLUMN);
-                        $allowedMasterIds = $directMasters;
-                        
-                        // Next, find parent masters for include zones in allowedZoneIds
-                        // Use recursive CTE or iterative approach to traverse zone_file_includes
-                        $includeSql = "SELECT DISTINCT id FROM zone_files 
-                                       WHERE id IN ($placeholders) 
-                                       AND file_type = 'include' 
-                                       AND status = 'active'";
-                        $stmt = $dnsRecord->getConnection()->prepare($includeSql);
-                        $stmt->execute($allowedZoneIds);
-                        $includeZoneIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-                        
-                        // For each include zone, traverse upward to find the top master
-                        foreach ($includeZoneIds as $includeId) {
-                            $currentId = $includeId;
-                            $visited = [];
-                            $maxIterations = MAX_ZONE_TRAVERSAL_DEPTH;
-                            $iterations = 0;
-                            
-                            while ($iterations < $maxIterations) {
-                                $iterations++;
-                                
-                                // Prevent cycles
-                                if (in_array($currentId, $visited)) {
-                                    break;
-                                }
-                                $visited[] = $currentId;
-                                
-                                // Find parent of current zone
-                                $parentSql = "SELECT zfi.parent_id, zf.file_type 
-                                              FROM zone_file_includes zfi
-                                              INNER JOIN zone_files zf ON zfi.parent_id = zf.id
-                                              WHERE zfi.include_id = ? AND zf.status = 'active'
-                                              LIMIT 1";
-                                $stmt = $dnsRecord->getConnection()->prepare($parentSql);
-                                $stmt->execute([$currentId]);
-                                $parent = $stmt->fetch();
-                                
-                                if (!$parent) {
-                                    // No parent found - check if current is a master
-                                    $typeSql = "SELECT file_type FROM zone_files WHERE id = ? AND status = 'active'";
-                                    $stmt = $dnsRecord->getConnection()->prepare($typeSql);
-                                    $stmt->execute([$currentId]);
-                                    $current = $stmt->fetch();
-                                    if ($current && $current['file_type'] === 'master') {
-                                        if (!in_array($currentId, $allowedMasterIds)) {
-                                            $allowedMasterIds[] = $currentId;
-                                        }
-                                    }
-                                    break;
-                                }
-                                
-                                // If parent is a master, add it and stop
-                                if ($parent['file_type'] === 'master') {
-                                    if (!in_array($parent['parent_id'], $allowedMasterIds)) {
-                                        $allowedMasterIds[] = $parent['parent_id'];
-                                    }
-                                    break;
-                                }
-                                
-                                // Parent is an include, continue traversing upward
-                                $currentId = $parent['parent_id'];
-                            }
-                        }
-                    }
+                    // Get expanded master zone IDs (includes parent masters for include zones)
+                    $allowedMasterIds = $auth->getExpandedMasterZoneIds('read');
                 }
                 
                 // Build domain query

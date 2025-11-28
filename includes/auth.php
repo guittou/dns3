@@ -673,6 +673,41 @@ class Auth {
     }
 
     /**
+     * Get all master zone file IDs that the current user can see
+     * For users with ACL on include zones, this includes the parent master zones
+     * Filters the expanded zone list to only return master zones
+     * 
+     * @param string $minPermission Minimum required permission level (read, write, admin)
+     * @return array Array of master zone_file_id values the user can access
+     */
+    public function getExpandedMasterZoneIds($minPermission = 'read') {
+        if (!$this->isLoggedIn()) {
+            return [];
+        }
+        
+        try {
+            $expandedIds = $this->getExpandedZoneIds($minPermission);
+            if (empty($expandedIds)) {
+                return [];
+            }
+            
+            // Filter to only return master zone IDs
+            $db = Database::getInstance()->getConnection();
+            $placeholders = implode(',', array_fill(0, count($expandedIds), '?'));
+            $sql = "SELECT id FROM zone_files 
+                    WHERE id IN ($placeholders) 
+                    AND file_type = 'master' 
+                    AND status = 'active'";
+            $stmt = $db->prepare($sql);
+            $stmt->execute($expandedIds);
+            return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) {
+            error_log("getExpandedMasterZoneIds error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
      * Check if the current user is allowed to access a specific zone
      * 
      * @param int $zoneFileId Zone file ID
