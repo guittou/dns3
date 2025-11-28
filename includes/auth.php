@@ -586,5 +586,29 @@ class Auth {
     public function getUserGroups() {
         return $_SESSION['user_groups'] ?? [];
     }
+
+    /**
+     * Check if current user has any zone ACL entry
+     * This allows non-admin users with ACL to access zone/DNS management pages.
+     * 
+     * @return bool True if user has at least one ACL entry for any zone
+     */
+    public function hasZoneAcl() {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        try {
+            require_once __DIR__ . '/models/Acl.php';
+            $acl = new Acl();
+            $username = $_SESSION['username'] ?? '';
+            $userGroups = $this->getUserGroups();
+            
+            return $acl->hasAnyAclForUser($username, $userGroups);
+        } catch (Exception $e) {
+            error_log("hasZoneAcl check error: " . $e->getMessage());
+            return false;
+        }
+    }
 }
 ?>

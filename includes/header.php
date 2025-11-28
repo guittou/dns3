@@ -62,10 +62,18 @@ if ($basePath === '') {
       <!-- ONGLETS: positionnés en bas du bandeau (centrés par rapport à la largeur du contenu) -->
       <div class="bandeau_onglets_row" role="navigation" aria-label="Navigation principale">
         <ul class="bandeau_onglets">
-          <?php if ($auth->isLoggedIn() && $auth->isAdmin()): ?>
-          <li><a href="<?php echo $basePath; ?>dns-management.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='dns-management.php') ? ' active' : ''; ?>">DNS</a></li>
-          <li><a href="<?php echo $basePath; ?>zone-files.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='zone-files.php' || basename($_SERVER['PHP_SELF'])==='zone-file.php') ? ' active' : ''; ?>">Zones</a></li>
-          <li><a href="<?php echo $basePath; ?>admin.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='admin.php') ? ' active' : ''; ?>">Administration</a></li>
+          <?php if ($auth->isLoggedIn()): ?>
+            <?php 
+            // Show DNS and Zones tabs if user is admin OR zone_editor OR has zone ACL
+            $canAccessZones = $auth->isAdmin() || $auth->isZoneEditor() || $auth->hasZoneAcl();
+            ?>
+            <?php if ($canAccessZones): ?>
+            <li><a href="<?php echo $basePath; ?>dns-management.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='dns-management.php') ? ' active' : ''; ?>">DNS</a></li>
+            <li><a href="<?php echo $basePath; ?>zone-files.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='zone-files.php' || basename($_SERVER['PHP_SELF'])==='zone-file.php') ? ' active' : ''; ?>">Zones</a></li>
+            <?php endif; ?>
+            <?php if ($auth->isAdmin()): ?>
+            <li><a href="<?php echo $basePath; ?>admin.php" class="bandeau_onglet<?php echo (basename($_SERVER['PHP_SELF'])==='admin.php') ? ' active' : ''; ?>">Administration</a></li>
+            <?php endif; ?>
           <?php endif; ?>
         </ul>
       </div>
