@@ -178,7 +178,7 @@ WHERE `zone_file_id` IS NOT NULL
 SELECT 'Migration completed. Verification:' AS status;
 
 -- Show view structure
-SHOW CREATE VIEW zone_acl_entries\G
+SHOW CREATE VIEW zone_acl_entries;
 
 -- Show sample data
 SELECT 'Sample zone_acl_entries data:' AS info;

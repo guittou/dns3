@@ -64,7 +64,7 @@ class ZoneAcl {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
             $errorInfo = $e->errorInfo ?? [];
-            $sqlState = $errorInfo[0] ?? $e->getCode();
+            $sqlState = $errorInfo[0] ?? 'HY000';
             $driverCode = $errorInfo[1] ?? 'N/A';
             error_log("ZoneAcl listForZone SQL error: " . $e->getMessage() . 
                       " | SQLSTATE: " . $sqlState .
@@ -187,7 +187,7 @@ class ZoneAcl {
         } catch (PDOException $e) {
             // Log detailed SQL error for debugging with full context
             $errorInfo = $e->errorInfo ?? [];
-            $sqlState = $errorInfo[0] ?? $e->getCode();
+            $sqlState = $errorInfo[0] ?? 'HY000';
             $driverCode = $errorInfo[1] ?? 'N/A';
             $driverMsg = $errorInfo[2] ?? $e->getMessage();
             
@@ -222,7 +222,7 @@ class ZoneAcl {
             return $stmt->rowCount() > 0;
         } catch (PDOException $e) {
             $errorInfo = $e->errorInfo ?? [];
-            $sqlState = $errorInfo[0] ?? $e->getCode();
+            $sqlState = $errorInfo[0] ?? 'HY000';
             $driverCode = $errorInfo[1] ?? 'N/A';
             error_log("ZoneAcl removeEntry SQL error: " . $e->getMessage() . 
                       " | SQLSTATE: " . $sqlState .
@@ -255,7 +255,7 @@ class ZoneAcl {
             return $result ?: null;
         } catch (PDOException $e) {
             $errorInfo = $e->errorInfo ?? [];
-            $sqlState = $errorInfo[0] ?? $e->getCode();
+            $sqlState = $errorInfo[0] ?? 'HY000';
             error_log("ZoneAcl getById SQL error: " . $e->getMessage() . 
                       " | SQLSTATE: " . $sqlState .
                       " | acl_id: " . $id);
