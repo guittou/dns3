@@ -851,6 +851,9 @@ try {
                     }
                 }
 
+                // Get database connection for direct queries
+                $db = Database::getInstance()->getConnection();
+                
                 // Build query based on whether domain_id filter is provided
                 if ($domain_id > 0) {
                     // When domain_id is provided, get master zone + all recursive includes
@@ -858,9 +861,6 @@ try {
                     $zoneFileIds = [$domain_id];
                     $visited = [$domain_id => true];
                     $queue = [$domain_id];
-                    
-                    // Get database connection for direct queries
-                    $db = Database::getInstance()->getConnection();
                     
                     while (!empty($queue)) {
                         $currentZoneFileId = array_shift($queue);
@@ -928,7 +928,6 @@ try {
                     
                     $sql .= " ORDER BY file_type DESC, name ASC";
                     
-                    $db = Database::getInstance()->getConnection();
                     $stmt = $db->prepare($sql);
                     $stmt->execute($params);
                     $zones = $stmt->fetchAll();
