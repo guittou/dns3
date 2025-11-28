@@ -19,11 +19,11 @@ if (!$auth->isLoggedIn()) {
 if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
     // Return JSON error for XHR requests, show HTML error for normal requests
     if (Auth::isXhrRequest()) {
-        Auth::sendJsonError(403, 'Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.');
+        Auth::sendJsonError(403, Auth::ERR_ZONE_ACCESS_DENIED);
     }
     echo '<div class="content-section">
             <div class="error-message">
-                Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.
+                ' . htmlspecialchars(Auth::ERR_ZONE_ACCESS_DENIED) . '
             </div>
           </div>';
     require_once 'includes/footer.php';

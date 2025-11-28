@@ -11,7 +11,7 @@ if (!$auth->isLoggedIn()) {
 if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
     // Return JSON error for XHR requests, redirect for normal requests
     if (Auth::isXhrRequest()) {
-        Auth::sendJsonError(403, 'Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.');
+        Auth::sendJsonError(403, Auth::ERR_ZONE_ACCESS_DENIED);
     }
     header('Location: ' . BASE_URL . 'index.php');
     exit;

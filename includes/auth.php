@@ -8,6 +8,11 @@ class Auth {
     private $db;
     private $acl = null;
 
+    /**
+     * Error message constants for access control
+     */
+    public const ERR_ZONE_ACCESS_DENIED = 'Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.';
+
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
     }
@@ -629,8 +634,10 @@ class Auth {
      * @return bool True if the request is an XHR request
      */
     public static function isXhrRequest() {
-        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-               strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        $xRequestedWith = isset($_SERVER['HTTP_X_REQUESTED_WITH']) 
+            ? $_SERVER['HTTP_X_REQUESTED_WITH'] 
+            : '';
+        return $xRequestedWith !== '' && strcasecmp($xRequestedWith, 'xmlhttprequest') === 0;
     }
 
     /**
@@ -643,7 +650,13 @@ class Auth {
     public static function sendJsonError($statusCode, $errorMessage) {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code($statusCode);
-        echo json_encode(['error' => $errorMessage]);
+        $json = json_encode(['error' => $errorMessage], JSON_UNESCAPED_UNICODE);
+        if ($json === false) {
+            // Fallback if JSON encoding fails
+            echo '{"error":"An error occurred"}';
+        } else {
+            echo $json;
+        }
         exit;
     }
 }
