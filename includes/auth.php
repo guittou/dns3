@@ -622,5 +622,29 @@ class Auth {
             return false;
         }
     }
+
+    /**
+     * Check if the current request is an XHR (AJAX) request
+     * 
+     * @return bool True if the request is an XHR request
+     */
+    public static function isXhrRequest() {
+        return !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+               strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    }
+
+    /**
+     * Send a JSON error response and exit
+     * Used for XHR requests that need to receive JSON errors instead of HTML redirects
+     * 
+     * @param int $statusCode HTTP status code (e.g., 401, 403)
+     * @param string $errorMessage Error message to send
+     */
+    public static function sendJsonError($statusCode, $errorMessage) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code($statusCode);
+        echo json_encode(['error' => $errorMessage]);
+        exit;
+    }
 }
 ?>
