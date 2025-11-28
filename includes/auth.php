@@ -629,6 +629,57 @@ class Auth {
     }
 
     /**
+     * Get all zone file IDs that the current user has access to
+     * Used to filter zone lists for non-admin users
+     * 
+     * @param string $minPermission Minimum required permission level (read, write, admin)
+     * @return array Array of zone_file_id values the user can access
+     */
+    public function getAllowedZoneIds($minPermission = 'read') {
+        if (!$this->isLoggedIn()) {
+            return [];
+        }
+        
+        try {
+            $username = $_SESSION['username'] ?? '';
+            $userGroups = $this->getUserGroups();
+            
+            return $this->getAcl()->getAllowedZoneIds($username, $minPermission, $userGroups);
+        } catch (Exception $e) {
+            error_log("getAllowedZoneIds error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Check if the current user is allowed to access a specific zone
+     * 
+     * @param int $zoneFileId Zone file ID
+     * @param string $requiredPermission Required permission level (read, write, admin)
+     * @return bool True if user has the required permission for this zone
+     */
+    public function isAllowedForZone($zoneFileId, $requiredPermission = 'read') {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        // Admins have access to all zones
+        if ($this->isAdmin()) {
+            return true;
+        }
+        
+        try {
+            $username = $_SESSION['username'] ?? '';
+            $userGroups = $this->getUserGroups();
+            
+            return $this->getAcl()->isAllowedForZone($username, $zoneFileId, $requiredPermission, $userGroups);
+        } catch (Exception $e) {
+            error_log("isAllowedForZone error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Apply auth mappings for a user based on their source (AD/LDAP) and groups/DN
      * Public helper method that can be called during authentication or later
      * 

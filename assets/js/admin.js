@@ -1058,10 +1058,8 @@
             var el = document.getElementById(elementId);
             if (el) {
                 el.addEventListener(eventType, handler);
-                console.debug('[admin.js] Listener attached: ' + description + ' (' + elementId + ')');
                 return true;
             } else {
-                console.debug('[admin.js] Element not found for listener: ' + elementId);
                 return false;
             }
         } catch (error) {
@@ -1103,18 +1101,14 @@
      * Initialize on page load
      */
     document.addEventListener('DOMContentLoaded', function() {
-        console.debug('[admin.js] DOMContentLoaded - Starting initialization');
-        
         try {
             initTabs();
-            console.debug('[admin.js] Tabs initialized');
         } catch (error) {
             console.error('[admin.js] Error initializing tabs:', error);
         }
         
         try {
             initFilters();
-            console.debug('[admin.js] Filters initialized');
         } catch (error) {
             console.error('[admin.js] Error initializing filters:', error);
         }
@@ -1123,7 +1117,6 @@
         try {
             loadUsers();
             loadRoles(); // Pre-load roles for dropdowns
-            console.debug('[admin.js] Initial data load started');
         } catch (error) {
             console.error('[admin.js] Error loading initial data:', error);
         }
@@ -1156,12 +1149,10 @@
                 var deactivateUserBtn = target.closest('.btn-deactivate-user');
                 
                 if (createUserBtn) {
-                    console.debug('[admin.js] Delegation fallback triggered for #btn-create-user');
                     if (typeof openCreateUserModal === 'function') {
                         openCreateUserModal();
                     }
                 } else if (createMappingBtn) {
-                    console.debug('[admin.js] Delegation fallback triggered for #btn-create-mapping');
                     if (typeof openCreateMappingModal === 'function') {
                         openCreateMappingModal();
                     }
@@ -1177,8 +1168,6 @@
                 console.error('[admin.js] Error in delegation fallback:', error);
             }
         });
-        
-        console.debug('[admin.js] Initialization complete');
         
         // Add CSS animations
         var style = document.createElement('style');

@@ -160,6 +160,7 @@ try {
     switch ($action) {
         case 'list':
             // List DNS records (requires authentication)
+            // For non-admin users, filter records to only show those in allowed zones
             requireAuth();
 
             $filters = [];
@@ -198,6 +199,30 @@ try {
                     exit;
                 }
                 $filters['zone_file_id'] = $zoneFileId;
+                
+                // For non-admin users, verify they have access to this zone
+                if (!$auth->isAdmin() && !$auth->isAllowedForZone($zoneFileId, 'read')) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Accès refusé à cette zone']);
+                    exit;
+                }
+            }
+
+            // For non-admin users, add zone filter based on ACL
+            if (!$auth->isAdmin() && !isset($filters['zone_file_id'])) {
+                $allowedZoneIds = $auth->getAllowedZoneIds('read');
+                if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
+                    // User has no zone access, return empty
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [],
+                        'count' => 0
+                    ]);
+                    break;
+                }
+                if (!empty($allowedZoneIds)) {
+                    $filters['zone_file_ids'] = $allowedZoneIds;
+                }
             }
 
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
@@ -507,9 +532,24 @@ try {
         case 'list_domains':
             // List domains from zone_files.domain (requires authentication)
             // COMPATIBILITY: Returns zone files with domain field set, formatted like legacy domaine_list
+            // For non-admin users, filter to only show domains they have ACL access to
             requireAuth();
 
             try {
+                // Get allowed zone IDs for non-admin users
+                $allowedZoneIds = null;
+                if (!$auth->isAdmin()) {
+                    $allowedZoneIds = $auth->getAllowedZoneIds('read');
+                    // If user has no ACL entries and no zone_editor role, return empty
+                    if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
+                        echo json_encode([
+                            'success' => true,
+                            'data' => []
+                        ]);
+                        break;
+                    }
+                }
+                
                 $sql = "SELECT zf.id, zf.domain, zf.id as zone_file_id, 
                                zf.name as zone_name,
                                zf.filename as zone_filename
@@ -517,11 +557,21 @@ try {
                         WHERE zf.domain IS NOT NULL 
                           AND zf.domain != ''
                           AND zf.status = 'active'
-                          AND zf.file_type = 'master'
-                        ORDER BY zf.domain ASC";
+                          AND zf.file_type = 'master'";
+                
+                $params = [];
+                
+                // Add ACL filter for non-admin users
+                if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
+                    $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                    $sql .= " AND zf.id IN ($placeholders)";
+                    $params = $allowedZoneIds;
+                }
+                
+                $sql .= " ORDER BY zf.domain ASC";
                 
                 $stmt = $dnsRecord->getConnection()->prepare($sql);
-                $stmt->execute();
+                $stmt->execute($params);
                 $domains = $stmt->fetchAll();
                 
                 echo json_encode([
@@ -539,6 +589,7 @@ try {
             // List zones (master + includes descendants) for a given zone (requires authentication)
             // Uses BFS on zone_file_includes to find all descendant zones
             // Now accepts zone_id parameter (domain_id is deprecated but mapped to zone_id for compatibility)
+            // For non-admin users, check ACL access to the master zone
             requireAuth();
 
             $domain_id = isset($_GET['domain_id']) ? (int)$_GET['domain_id'] : 0;
