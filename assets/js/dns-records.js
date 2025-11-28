@@ -654,17 +654,23 @@
     /**
      * Populate zone combobox for a specific domain
      * This updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
+     * Uses zone_api.php?action=list_zone_files&domain_id=... which applies ACL filtering for non-admin users
      */
     async function populateZoneComboboxForDomain(domainIdOrZoneId) {
         try {
-            // Try new API first (accepts zone_id) with fallback to old API (domain_id)
+            // Use the new list_zone_files endpoint from zone_api.php
+            // This applies ACL filtering for non-admin users
             let result;
             try {
-                // Try zone_id parameter (new API)
-                result = await apiCall('list_zones_by_domain', { zone_id: domainIdOrZoneId });
+                result = await zoneApiCall('list_zone_files', { domain_id: domainIdOrZoneId });
             } catch (e) {
-                // Fallback to domain_id parameter (old API)
-                result = await apiCall('list_zones_by_domain', { domain_id: domainIdOrZoneId });
+                console.warn('[populateZoneComboboxForDomain] list_zone_files failed, falling back:', e);
+                // Fallback to old API (list_zones_by_domain) if list_zone_files is not available
+                try {
+                    result = await apiCall('list_zones_by_domain', { zone_id: domainIdOrZoneId });
+                } catch (e2) {
+                    result = await apiCall('list_zones_by_domain', { domain_id: domainIdOrZoneId });
+                }
             }
             
             const zones = result.data || [];
