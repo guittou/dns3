@@ -859,12 +859,15 @@ try {
                     $visited = [$domain_id => true];
                     $queue = [$domain_id];
                     
+                    // Get database connection for direct queries
+                    $db = Database::getInstance()->getConnection();
+                    
                     while (!empty($queue)) {
                         $currentZoneFileId = array_shift($queue);
                         
                         // Find all zone files included by the current zone file
                         $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
-                        $stmt = $zoneFile->getConnection()->prepare($sql);
+                        $stmt = $db->prepare($sql);
                         $stmt->execute([$currentZoneFileId]);
                         $includes = $stmt->fetchAll();
                         
@@ -900,7 +903,7 @@ try {
                                 FROM zone_files 
                                 WHERE id IN ($placeholders) AND status = 'active'
                                 ORDER BY file_type DESC, name ASC"; // master first, then includes
-                        $stmt = $zoneFile->getConnection()->prepare($sql);
+                        $stmt = $db->prepare($sql);
                         $stmt->execute($zoneFileIds);
                         $zones = $stmt->fetchAll();
                     }
@@ -925,7 +928,8 @@ try {
                     
                     $sql .= " ORDER BY file_type DESC, name ASC";
                     
-                    $stmt = $zoneFile->getConnection()->prepare($sql);
+                    $db = Database::getInstance()->getConnection();
+                    $stmt = $db->prepare($sql);
                     $stmt->execute($params);
                     $zones = $stmt->fetchAll();
                     
