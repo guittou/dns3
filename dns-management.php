@@ -17,13 +17,19 @@ if (!$auth->isLoggedIn()) {
 
 // Allow access if user is admin OR zone_editor OR has any zone ACL
 if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
-    echo '<div class="content-section">
-            <div class="error-message">
-                Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.
-            </div>
-          </div>';
-    require_once 'includes/footer.php';
-    exit;
+    if (Auth::isXhrRequest()) {
+        // Return JSON error for XHR requests
+        Auth::sendJsonError(403, Auth::ERR_ZONE_ACCESS_DENIED);
+    } else {
+        // Show HTML error for normal requests
+        echo '<div class="content-section">
+                <div class="error-message">
+                    ' . htmlspecialchars(Auth::ERR_ZONE_ACCESS_DENIED) . '
+                </div>
+              </div>';
+        require_once 'includes/footer.php';
+        exit;
+    }
 }
 
 // Determine if user can manage all zones (admin) or only specific zones
