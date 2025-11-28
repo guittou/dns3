@@ -827,6 +827,120 @@ try {
             }
             break;
 
+        case 'list_zone_files':
+            // List zone files with optional domain_id filter and ACL enforcement
+            // For non-admin users, only returns zone_files the user has access to (ACL)
+            // Accepts optional domain_id parameter to filter by domain (master zone)
+            requireAuth();
+
+            $domain_id = isset($_GET['domain_id']) ? (int)$_GET['domain_id'] : 0;
+
+            try {
+                // Get allowed zone IDs for non-admin users
+                $allowedZoneIds = null;
+                if (!$auth->isAdmin()) {
+                    $allowedZoneIds = $auth->getAllowedZoneIds('read');
+                    
+                    // If user has no ACL entries and is not zone_editor, return empty result
+                    if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
+                        echo json_encode([
+                            'success' => true,
+                            'data' => []
+                        ]);
+                        break;
+                    }
+                }
+
+                // Build query based on whether domain_id filter is provided
+                if ($domain_id > 0) {
+                    // When domain_id is provided, get master zone + all recursive includes
+                    // using BFS traversal (like list_zones_by_domain in dns_api.php)
+                    $zoneFileIds = [$domain_id];
+                    $visited = [$domain_id => true];
+                    $queue = [$domain_id];
+                    
+                    while (!empty($queue)) {
+                        $currentZoneFileId = array_shift($queue);
+                        
+                        // Find all zone files included by the current zone file
+                        $sql = "SELECT include_id FROM zone_file_includes WHERE parent_id = ?";
+                        $stmt = $zoneFile->getConnection()->prepare($sql);
+                        $stmt->execute([$currentZoneFileId]);
+                        $includes = $stmt->fetchAll();
+                        
+                        foreach ($includes as $include) {
+                            $includeId = $include['include_id'];
+                            
+                            // Avoid cycles
+                            if (!isset($visited[$includeId])) {
+                                $visited[$includeId] = true;
+                                $zoneFileIds[] = $includeId;
+                                $queue[] = $includeId;
+                            }
+                        }
+                    }
+                    
+                    // If non-admin, filter to only allowed zones
+                    if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
+                        $zoneFileIds = array_values(array_intersect($zoneFileIds, $allowedZoneIds));
+                    } elseif ($allowedZoneIds !== null && empty($allowedZoneIds) && !$auth->isZoneEditor()) {
+                        // User has no access to any zones
+                        echo json_encode([
+                            'success' => true,
+                            'data' => []
+                        ]);
+                        break;
+                    }
+                    
+                    // Fetch zone file details for the filtered IDs
+                    $zones = [];
+                    if (!empty($zoneFileIds)) {
+                        $placeholders = implode(',', array_fill(0, count($zoneFileIds), '?'));
+                        $sql = "SELECT id, name, filename, file_type, parent_id, status, domain, directory, created_at, updated_at 
+                                FROM zone_files 
+                                WHERE id IN ($placeholders) AND status = 'active'
+                                ORDER BY file_type DESC, name ASC"; // master first, then includes
+                        $stmt = $zoneFile->getConnection()->prepare($sql);
+                        $stmt->execute($zoneFileIds);
+                        $zones = $stmt->fetchAll();
+                    }
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'data' => $zones
+                    ]);
+                } else {
+                    // No domain_id filter - return all active zone files (with ACL filtering for non-admin)
+                    $sql = "SELECT id, name, filename, file_type, parent_id, status, domain, directory, created_at, updated_at 
+                            FROM zone_files 
+                            WHERE status = 'active'";
+                    $params = [];
+                    
+                    // Add ACL filter for non-admin users
+                    if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
+                        $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                        $sql .= " AND id IN ($placeholders)";
+                        $params = $allowedZoneIds;
+                    }
+                    
+                    $sql .= " ORDER BY file_type DESC, name ASC";
+                    
+                    $stmt = $zoneFile->getConnection()->prepare($sql);
+                    $stmt->execute($params);
+                    $zones = $stmt->fetchAll();
+                    
+                    echo json_encode([
+                        'success' => true,
+                        'data' => $zones
+                    ]);
+                }
+            } catch (Exception $e) {
+                error_log("Error listing zone files: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to list zone files']);
+            }
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Invalid action']);
