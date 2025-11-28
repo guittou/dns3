@@ -9,12 +9,14 @@ if (!$auth->isLoggedIn()) {
 
 // Allow access if user is admin OR has zone_editor role OR has zone ACL entries
 if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
-    // Return JSON error for XHR requests, redirect for normal requests
     if (Auth::isXhrRequest()) {
+        // Return JSON error for XHR requests
         Auth::sendJsonError(403, Auth::ERR_ZONE_ACCESS_DENIED);
+    } else {
+        // Redirect for normal requests
+        header('Location: ' . BASE_URL . 'index.php');
+        exit;
     }
-    header('Location: ' . BASE_URL . 'index.php');
-    exit;
 }
 
 // Check if user can manage ACLs (admin only)
