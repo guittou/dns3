@@ -74,6 +74,7 @@ try {
 
             // Get allowed zone IDs for non-admin users (for ACL filtering)
             $allowedZoneIds = null;
+            $expandedZoneIds = null;
             if (!$auth->isAdmin()) {
                 $allowedZoneIds = $auth->getAllowedZoneIds('read');
                 // If user has no ACL entries, they can only see zones if they have zone_editor role
@@ -89,6 +90,10 @@ try {
                     ]);
                     break;
                 }
+                
+                // For non-admin users with ACL entries, expand to include parent masters
+                // This is needed when user has ACL on include zones but requests master zones
+                $expandedZoneIds = $auth->getExpandedZoneIds('read');
             }
 
             // Check if this is a recursive tree request
@@ -97,7 +102,9 @@ try {
 
             if ($master_id > 0 && $recursive) {
                 // For recursive tree, check if user has access to the master zone
-                if ($allowedZoneIds !== null && !in_array($master_id, $allowedZoneIds)) {
+                // Use expanded zone IDs which includes parent masters
+                $effectiveZoneIds = $expandedZoneIds !== null ? $expandedZoneIds : $allowedZoneIds;
+                if ($effectiveZoneIds !== null && !in_array($master_id, $effectiveZoneIds)) {
                     // User doesn't have ACL access to this master zone
                     http_response_code(403);
                     echo json_encode(['error' => 'Access denied to this zone']);
@@ -155,8 +162,10 @@ try {
                 }
                 
                 // Add ACL filter for non-admin users
-                if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
-                    $filters['zone_ids'] = $allowedZoneIds;
+                // Use expanded zone IDs to include parent masters for users with ACL on includes
+                $effectiveZoneIds = $expandedZoneIds !== null ? $expandedZoneIds : $allowedZoneIds;
+                if ($effectiveZoneIds !== null && !empty($effectiveZoneIds)) {
+                    $filters['zone_ids'] = $effectiveZoneIds;
                 }
 
                 $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : ($page - 1) * $per_page;
@@ -186,6 +195,7 @@ try {
         case 'search_zones':
             // Autocomplete search for zones (requires authentication)
             // Returns minimal payload for performance
+            // For non-admin users, filter to only show zones they have ACL access to
             requireAuth();
 
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
@@ -204,6 +214,22 @@ try {
             }
             // Only search active zones for autocomplete
             $filters['status'] = 'active';
+            
+            // For non-admin users, add ACL filter with expanded zone IDs
+            if (!$auth->isAdmin()) {
+                $expandedZoneIds = $auth->getExpandedZoneIds('read');
+                if (empty($expandedZoneIds) && !$auth->isZoneEditor()) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                    break;
+                }
+                
+                if (!empty($expandedZoneIds)) {
+                    $filters['zone_ids'] = $expandedZoneIds;
+                }
+            }
 
             $zones = $zoneFile->search($filters, $limit, 0);
 
@@ -239,6 +265,18 @@ try {
                 http_response_code(404);
                 echo json_encode(['error' => 'Zone file not found']);
                 exit;
+            }
+
+            // For non-admin users, verify they have access to this zone
+            // Use expanded zone IDs to allow access to parent masters if user has ACL on includes
+            if (!$auth->isAdmin()) {
+                $expandedZoneIds = $auth->getExpandedZoneIds('read');
+                
+                if (!in_array($id, $expandedZoneIds) && !$auth->isZoneEditor()) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Access denied to this zone']);
+                    exit;
+                }
             }
 
             // Get includes with limit to prevent OOM

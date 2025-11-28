@@ -267,6 +267,20 @@ try {
                 exit;
             }
 
+            // For non-admin users, verify they have access to the zone this record belongs to
+            // Use expanded zone IDs to allow access to records in zones for which user has parent ACL
+            if (!$auth->isAdmin()) {
+                $recordZoneId = $record['zone_file_id'] ?? null;
+                if ($recordZoneId) {
+                    $expandedZoneIds = $auth->getExpandedZoneIds('read');
+                    if (!in_array($recordZoneId, $expandedZoneIds) && !$auth->isZoneEditor()) {
+                        http_response_code(403);
+                        echo json_encode(['error' => 'Access denied to this record']);
+                        exit;
+                    }
+                }
+            }
+
             // Ensure zone fields are present
             if (!isset($record['zone_file_id']) || $record['zone_file_id'] === null) {
                 error_log("DNS API Warning: Record {$id} missing zone_file_id");
@@ -533,14 +547,19 @@ try {
             // List domains from zone_files.domain (requires authentication)
             // COMPATIBILITY: Returns zone files with domain field set, formatted like legacy domaine_list
             // For non-admin users, filter to only show domains they have ACL access to
+            // Also includes parent masters for users who have ACL on include zones
             requireAuth();
 
             try {
-                // Get allowed zone IDs for non-admin users
-                $allowedZoneIds = null;
+                // Optional zone_file_id filter - if provided, only return domain(s) for that specific zone
+                $zoneFileIdFilter = isset($_GET['zone_file_id']) ? (int)$_GET['zone_file_id'] : 0;
+                
+                // Get allowed master zone IDs for non-admin users
+                $allowedMasterIds = [];
+                
                 if (!$auth->isAdmin()) {
+                    // Check if user has any ACL entries
                     $allowedZoneIds = $auth->getAllowedZoneIds('read');
-                    // If user has no ACL entries and no zone_editor role, return empty
                     if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
                         echo json_encode([
                             'success' => true,
@@ -548,9 +567,23 @@ try {
                         ]);
                         break;
                     }
+                    
+                    // If zone_file_id filter is provided, verify user has access (use expanded IDs)
+                    if ($zoneFileIdFilter > 0) {
+                        $expandedIds = $auth->getExpandedZoneIds('read');
+                        if (!in_array($zoneFileIdFilter, $expandedIds) && !$auth->isZoneEditor()) {
+                            http_response_code(403);
+                            echo json_encode(['error' => 'Access denied to this zone']);
+                            exit;
+                        }
+                    }
+                    
+                    // Get expanded master zone IDs (includes parent masters for include zones)
+                    $allowedMasterIds = $auth->getExpandedMasterZoneIds('read');
                 }
                 
-                $sql = "SELECT zf.id, zf.domain, zf.id as zone_file_id, 
+                // Build domain query
+                $sql = "SELECT DISTINCT zf.id, zf.domain, zf.id as zone_file_id, 
                                zf.name as zone_name,
                                zf.filename as zone_filename
                         FROM zone_files zf
@@ -561,11 +594,23 @@ try {
                 
                 $params = [];
                 
-                // Add ACL filter for non-admin users
-                if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
-                    $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                // Apply zone_file_id filter if provided
+                if ($zoneFileIdFilter > 0) {
+                    $sql .= " AND zf.id = ?";
+                    $params[] = $zoneFileIdFilter;
+                }
+                // Add ACL filter for non-admin users using the expanded master list
+                elseif (!$auth->isAdmin() && !empty($allowedMasterIds)) {
+                    $placeholders = implode(',', array_fill(0, count($allowedMasterIds), '?'));
                     $sql .= " AND zf.id IN ($placeholders)";
-                    $params = $allowedZoneIds;
+                    $params = array_merge($params, $allowedMasterIds);
+                } elseif (!$auth->isAdmin() && empty($allowedMasterIds) && !$auth->isZoneEditor()) {
+                    // User has ACL but no masters (shouldn't happen, but safety check)
+                    echo json_encode([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                    break;
                 }
                 
                 $sql .= " ORDER BY zf.domain ASC";
