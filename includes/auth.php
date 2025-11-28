@@ -2,12 +2,26 @@
 // Authentication handler for database, Active Directory, and OpenLDAP
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/models/Acl.php';
 
 class Auth {
     private $db;
+    private $acl = null;
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
+    }
+
+    /**
+     * Get the Acl instance (lazy-loaded and cached)
+     * 
+     * @return Acl The ACL model instance
+     */
+    private function getAcl() {
+        if ($this->acl === null) {
+            $this->acl = new Acl();
+        }
+        return $this->acl;
     }
 
     /**
@@ -585,6 +599,28 @@ class Auth {
      */
     public function getUserGroups() {
         return $_SESSION['user_groups'] ?? [];
+    }
+
+    /**
+     * Check if current user has any zone ACL entry
+     * This allows non-admin users with ACL to access zone/DNS management pages.
+     * 
+     * @return bool True if user has at least one ACL entry for any zone
+     */
+    public function hasZoneAcl() {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        try {
+            $username = $_SESSION['username'] ?? '';
+            $userGroups = $this->getUserGroups();
+            
+            return $this->getAcl()->hasAnyAclForUser($username, $userGroups);
+        } catch (Exception $e) {
+            error_log("hasZoneAcl check error: " . $e->getMessage());
+            return false;
+        }
     }
 }
 ?>

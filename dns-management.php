@@ -1,29 +1,40 @@
 <?php
 /**
  * DNS Management Page
- * Interface for managing DNS records (admin only)
+ * Interface for managing DNS records
+ * Accessible to admins, zone editors, and users with zone ACL entries
  */
 require_once 'includes/header.php';
 ?>
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/dns-records-add.css">
 <?php
 
-// Check if user is logged in and is admin
+// Check if user is logged in
 if (!$auth->isLoggedIn()) {
     header('Location: ' . BASE_URL . 'login.php');
     exit;
 }
 
-if (!$auth->isAdmin()) {
+// Allow access if user is admin OR zone_editor OR has any zone ACL
+if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
     echo '<div class="content-section">
             <div class="error-message">
-                Vous devez être administrateur pour accéder à cette page.
+                Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.
             </div>
           </div>';
     require_once 'includes/footer.php';
     exit;
 }
+
+// Determine if user can manage all zones (admin) or only specific zones
+$isAdmin = $auth->isAdmin();
 ?>
+<script>
+// Pass admin status to JavaScript for UI adjustments only.
+// SECURITY NOTE: This variable is for UI enhancements (showing/hiding buttons).
+// All critical authorization decisions are validated server-side in the API endpoints.
+window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
+</script>
 
 <div class="content-section">
     <h1 style="margin-bottom: 20px;">Gestion des enregistrements DNS</h1>

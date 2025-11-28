@@ -1,13 +1,14 @@
 <?php
 require_once __DIR__ . '/includes/header.php';
 
-// Check if user is logged in and is admin
+// Check if user is logged in
 if (!$auth->isLoggedIn()) {
     header('Location: ' . BASE_URL . 'login.php');
     exit;
 }
 
-if (!$auth->isAdmin()) {
+// Allow access if user is admin OR zone_editor OR has any zone ACL
+if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
     header('Location: ' . BASE_URL . 'index.php');
     exit;
 }
@@ -18,7 +19,16 @@ if ($zone_id <= 0) {
     header('Location: ' . BASE_URL . 'zone-files.php');
     exit;
 }
+
+// Determine if user is admin (for full access) or needs ACL check
+$isAdmin = $auth->isAdmin();
 ?>
+<script>
+// Pass admin status to JavaScript for UI adjustments only.
+// SECURITY NOTE: This variable is for UI enhancements (showing/hiding buttons).
+// All critical authorization decisions are validated server-side in the API endpoints.
+window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
+</script>
 
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/zone-files.css">
 
