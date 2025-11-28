@@ -639,9 +639,11 @@ class Auth {
      */
     public function applyAuthMappings($source, array $dnOrGroups, $userId) {
         try {
-            if (!$userId || !in_array($source, ['ad', 'ldap'])) {
+            // Validate userId is a positive integer
+            if (!is_numeric($userId) || (int)$userId <= 0 || !in_array($source, ['ad', 'ldap'])) {
                 return [];
             }
+            $userId = (int)$userId;
             
             // For AD, $dnOrGroups are the group memberships
             // For LDAP, $dnOrGroups typically contains a single user DN
@@ -677,7 +679,8 @@ class Auth {
      */
     public function userHasRole($userId, $roleName) {
         try {
-            if (!$userId || empty($roleName)) {
+            // Validate userId is a positive integer
+            if (!is_numeric($userId) || (int)$userId <= 0 || empty($roleName)) {
                 return false;
             }
             

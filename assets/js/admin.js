@@ -182,14 +182,17 @@
 
     /**
      * Precheck if users tab is accessible
-     * Returns { success: true } or { accessDenied: true }
+     * Returns { success: true }, { accessDenied: true }, or { networkError: true, message: ... }
      */
     async function loadUsersPrecheck() {
         try {
             const url = getApiUrl('list_users', { limit: 1 });
             const response = await fetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 credentials: 'same-origin'
             });
             
@@ -198,8 +201,9 @@
             }
             return { success: true };
         } catch (error) {
-            console.error('Users precheck error:', error);
-            return { success: true }; // Allow tab switch on network errors
+            console.error('Users precheck network error:', error);
+            // Allow tab switch on network errors but log the distinction
+            return { success: true, networkError: true, message: error.message };
         }
     }
 
@@ -211,7 +215,10 @@
             const url = getApiUrl('list_roles', {});
             const response = await fetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 credentials: 'same-origin'
             });
             
@@ -220,8 +227,8 @@
             }
             return { success: true };
         } catch (error) {
-            console.error('Roles precheck error:', error);
-            return { success: true };
+            console.error('Roles precheck network error:', error);
+            return { success: true, networkError: true, message: error.message };
         }
     }
 
@@ -233,7 +240,10 @@
             const url = getApiUrl('list_mappings', {});
             const response = await fetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
                 credentials: 'same-origin'
             });
             
@@ -242,8 +252,8 @@
             }
             return { success: true };
         } catch (error) {
-            console.error('Mappings precheck error:', error);
-            return { success: true };
+            console.error('Mappings precheck network error:', error);
+            return { success: true, networkError: true, message: error.message };
         }
     }
 
