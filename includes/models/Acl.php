@@ -179,17 +179,20 @@ class Acl {
             // Get user ID if exists
             $userId = $this->getUserIdByUsername($normalizedUsername);
             
-            // Get user's role names
+            // Get user's role names and IDs (pre-fetch to avoid N+1 queries)
             $roleNames = [];
+            $roleIds = [];
             if ($userId) {
                 $roleStmt = $this->db->prepare("
-                    SELECT r.name 
+                    SELECT r.id, r.name 
                     FROM user_roles ur 
                     INNER JOIN roles r ON ur.role_id = r.id 
                     WHERE ur.user_id = ?
                 ");
                 $roleStmt->execute([$userId]);
-                $roleNames = $roleStmt->fetchAll(PDO::FETCH_COLUMN);
+                $roles = $roleStmt->fetchAll(PDO::FETCH_ASSOC);
+                $roleNames = array_column($roles, 'name');
+                $roleIds = array_column($roles, 'id');
             }
             
             // Get all ACL entries for this zone
@@ -247,18 +250,9 @@ class Acl {
                     $matches = true;
                 }
                 
-                if (!$matches && $entry['role_id']) {
-                    // Check if user has this role
-                    $roleCheckStmt = $this->db->prepare("
-                        SELECT COUNT(*) as has_role 
-                        FROM user_roles 
-                        WHERE user_id = ? AND role_id = ?
-                    ");
-                    $roleCheckStmt->execute([$userId, $entry['role_id']]);
-                    $roleCheck = $roleCheckStmt->fetch(PDO::FETCH_ASSOC);
-                    if ($roleCheck && $roleCheck['has_role'] > 0) {
-                        $matches = true;
-                    }
+                // Check if user has this role (using pre-fetched role IDs to avoid N+1 queries)
+                if (!$matches && $entry['role_id'] && in_array((int)$entry['role_id'], $roleIds)) {
+                    $matches = true;
                 }
 
                 if ($matches && $permissionLevel > $maxPermissionLevel) {

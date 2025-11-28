@@ -237,15 +237,18 @@ class AuthModel {
                 
                 if ($authMethod === 'ad') {
                     // For AD: check if user is member of the mapped group
+                    // Use mb_strtolower for proper Unicode case-insensitive comparison
+                    $mappingLower = mb_strtolower($mapping['dn_or_group']);
                     foreach ($groups as $group_dn) {
-                        if (strcasecmp($group_dn, $mapping['dn_or_group']) === 0) {
+                        if (mb_strtolower($group_dn) === $mappingLower) {
                             $matches = true;
                             break;
                         }
                     }
                 } elseif ($authMethod === 'ldap') {
                     // For LDAP: check if user DN contains the mapped DN/OU path
-                    if ($userDn && stripos($userDn, $mapping['dn_or_group']) !== false) {
+                    // Use mb_stripos for Unicode-safe case-insensitive search
+                    if ($userDn && mb_stripos($userDn, $mapping['dn_or_group']) !== false) {
                         $matches = true;
                     }
                 }
