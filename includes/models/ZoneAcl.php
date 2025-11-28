@@ -153,9 +153,9 @@ class ZoneAcl {
             }
             // For ad_group, we accept any string as the DN/group name
 
-            // Check if entry already exists
+            // Check if entry already exists (case-insensitive for subject_identifier)
             $sql = "SELECT id FROM zone_acl_entries 
-                    WHERE zone_file_id = ? AND subject_type = ? AND subject_identifier = ?";
+                    WHERE zone_file_id = ? AND subject_type = ? AND LOWER(subject_identifier) = LOWER(?)";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$zone_id, $subject_type, $normalizedIdentifier]);
             $existing = $stmt->fetch();

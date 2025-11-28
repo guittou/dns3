@@ -5,10 +5,22 @@
 -- Context: Production has acl_entries with resource_type/resource_id schema.
 --          Code expects zone_file_id/subject_type/subject_identifier columns.
 --
+-- IMPORTANT: This script should be run by a DBA with CREATE/ALTER/DROP privileges.
+-- RECOMMENDATION: Create a backup (mysqldump) before running this migration.
+--
 -- Run with: mysql -u dns3_user -p dns3_db < scripts/003_migrate_acl_schema.sql
 --
 -- Rollback: Old columns (user_id, role_id, resource_type, resource_id) are preserved.
 --           To rollback, drop the new columns and the view.
+--
+-- What this migration does:
+-- 1. Adds zone_file_id, subject_type, subject_identifier columns if absent
+-- 2. Migrates existing zone ACL data (resource_type='zone')
+-- 3. Maps 'delete' permission -> 'admin'
+-- 4. Normalizes all subject_identifier values to lowercase
+-- 5. Creates indexes on zone_file_id and (subject_type, subject_identifier(191))
+-- 6. Drops the CHECK constraint chk_user_or_role if it exists
+-- 7. Creates zone_acl_entries view for code compatibility
 
 -- --------------------------------------------------------
 -- 1. Add new columns to acl_entries table if they don't exist
@@ -91,7 +103,7 @@ SET @idx_subject_exists = (
 );
 
 SET @sql = IF(@idx_subject_exists = 0, 
-    'ALTER TABLE acl_entries ADD INDEX idx_acl_subject (subject_type, subject_identifier(100))',
+    'ALTER TABLE acl_entries ADD INDEX idx_acl_subject (subject_type, subject_identifier(191))',
     'SELECT ''Index idx_acl_subject already exists'' AS info'
 );
 PREPARE stmt FROM @sql;
@@ -144,16 +156,62 @@ SET permission = 'admin'
 WHERE permission = 'delete' 
 AND resource_type = 'zone';
 
--- Log migration results
-SELECT 'Data migration completed.' AS status;
-SELECT COUNT(*) AS migrated_entries 
-FROM acl_entries 
-WHERE resource_type = 'zone' 
-AND zone_file_id IS NOT NULL 
-AND subject_type IS NOT NULL;
+-- --------------------------------------------------------
+-- 4. Normalize all subject_identifier values to lowercase
+-- --------------------------------------------------------
+-- This ensures case-insensitive comparisons work correctly
+
+SELECT 'Normalizing subject_identifier to lowercase...' AS status;
+
+UPDATE acl_entries 
+SET subject_identifier = LOWER(subject_identifier) 
+WHERE subject_identifier IS NOT NULL 
+AND subject_identifier != LOWER(subject_identifier);
+
+SELECT 'Subject identifiers normalized.' AS status;
 
 -- --------------------------------------------------------
--- 4. Create or replace zone_acl_entries view
+-- 5. Drop CHECK constraint chk_user_or_role (if exists)
+-- --------------------------------------------------------
+-- The new schema allows entries without user_id or role_id
+-- (using subject_type and subject_identifier instead)
+-- 
+-- Note: MySQL 8.0.16+ supports DROP CHECK directly.
+-- For older versions, the constraint may need to be removed differently.
+
+SELECT 'Attempting to drop CHECK constraint chk_user_or_role...' AS status;
+
+-- Try to drop the CHECK constraint (MySQL 8.0.16+)
+-- This may fail silently on older MySQL versions
+SET @check_exists = (
+    SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+    WHERE TABLE_SCHEMA = DATABASE() 
+    AND TABLE_NAME = 'acl_entries' 
+    AND CONSTRAINT_NAME = 'chk_user_or_role'
+    AND CONSTRAINT_TYPE = 'CHECK'
+);
+
+SET @sql = IF(@check_exists > 0, 
+    'ALTER TABLE acl_entries DROP CHECK chk_user_or_role',
+    'SELECT ''CHECK constraint chk_user_or_role does not exist or already removed'' AS info'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Verify CHECK constraint was removed
+SELECT 
+    CASE 
+        WHEN COUNT(*) = 0 THEN 'CHECK constraint chk_user_or_role successfully removed or not present'
+        ELSE 'WARNING: CHECK constraint chk_user_or_role still exists'
+    END AS constraint_status
+FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE TABLE_SCHEMA = DATABASE() 
+AND TABLE_NAME = 'acl_entries' 
+AND CONSTRAINT_NAME = 'chk_user_or_role';
+
+-- --------------------------------------------------------
+-- 6. Create or replace zone_acl_entries view
 -- --------------------------------------------------------
 -- This view provides compatibility for code that references zone_acl_entries
 -- It filters to only show zone-type ACL entries with the expected columns
@@ -173,7 +231,17 @@ WHERE `zone_file_id` IS NOT NULL
   AND `subject_identifier` IS NOT NULL;
 
 -- --------------------------------------------------------
--- 5. Verify migration success
+-- 7. Log migration results
+-- --------------------------------------------------------
+SELECT 'Data migration completed.' AS status;
+SELECT COUNT(*) AS migrated_entries 
+FROM acl_entries 
+WHERE resource_type = 'zone' 
+AND zone_file_id IS NOT NULL 
+AND subject_type IS NOT NULL;
+
+-- --------------------------------------------------------
+-- 8. Verify migration success
 -- --------------------------------------------------------
 SELECT 'Migration completed. Verification:' AS status;
 
@@ -200,3 +268,11 @@ FROM INFORMATION_SCHEMA.STATISTICS
 WHERE TABLE_SCHEMA = DATABASE() 
 AND TABLE_NAME = 'acl_entries' 
 AND INDEX_NAME IN ('idx_zone_file_id', 'idx_acl_subject');
+
+-- Verify CHECK constraint status
+SELECT 'CHECK constraint status:' AS info;
+SELECT COUNT(*) AS check_constraint_count
+FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS 
+WHERE TABLE_SCHEMA = DATABASE() 
+AND TABLE_NAME = 'acl_entries' 
+AND CONSTRAINT_NAME = 'chk_user_or_role';

@@ -427,59 +427,138 @@ try {
             
         case 'create_acl':
             // Create a new ACL entry for a zone
+            // Supports the new schema with subject_identifier normalization
             require_once __DIR__ . '/../includes/models/ZoneAcl.php';
+            require_once __DIR__ . '/../includes/models/Acl.php';
             
-            $input = json_decode(file_get_contents('php://input'), true);
+            // Read JSON body
+            $rawInput = file_get_contents('php://input');
+            $input = json_decode($rawInput, true);
+            
+            if ($input === null && json_last_error() !== JSON_ERROR_NONE) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Invalid JSON input: ' . json_last_error_msg()]);
+                exit;
+            }
             
             if (!$input || !isset($input['zone_id']) || !isset($input['subject_type']) || 
                 !isset($input['subject_identifier']) || !isset($input['permission'])) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Missing required fields: zone_id, subject_type, subject_identifier, permission']);
+                echo json_encode([
+                    'error' => 'Champs obligatoires manquants: zone_id, subject_type, subject_identifier, permission',
+                    'error_en' => 'Missing required fields: zone_id, subject_type, subject_identifier, permission'
+                ]);
                 exit;
             }
             
             $zone_id = (int)$input['zone_id'];
             if ($zone_id <= 0) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid zone_id']);
+                echo json_encode([
+                    'error' => 'zone_id invalide',
+                    'error_en' => 'Invalid zone_id'
+                ]);
                 exit;
             }
             
             // Validate subject_type
             $valid_types = ['user', 'role', 'ad_group'];
-            if (!in_array($input['subject_type'], $valid_types)) {
+            $subject_type = trim($input['subject_type']);
+            if (!in_array($subject_type, $valid_types)) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid subject_type. Must be: user, role, or ad_group']);
+                echo json_encode([
+                    'error' => 'subject_type invalide. Doit être: user, role, ou ad_group',
+                    'error_en' => 'Invalid subject_type. Must be: user, role, or ad_group'
+                ]);
                 exit;
             }
             
             // Validate permission
             $valid_permissions = ['read', 'write', 'admin'];
-            if (!in_array($input['permission'], $valid_permissions)) {
+            $permission = trim($input['permission']);
+            if (!in_array($permission, $valid_permissions)) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid permission. Must be: read, write, or admin']);
+                echo json_encode([
+                    'error' => 'permission invalide. Doit être: read, write, ou admin',
+                    'error_en' => 'Invalid permission. Must be: read, write, or admin'
+                ]);
                 exit;
             }
             
+            // Process subject_identifier
+            $subject_identifier = trim($input['subject_identifier']);
+            if (empty($subject_identifier)) {
+                http_response_code(400);
+                echo json_encode([
+                    'error' => 'subject_identifier ne peut pas être vide',
+                    'error_en' => 'subject_identifier cannot be empty'
+                ]);
+                exit;
+            }
+            
+            // Normalize username to lowercase for 'user' type
+            if ($subject_type === 'user') {
+                // If numeric ID provided, try to resolve to username
+                if (is_numeric($subject_identifier)) {
+                    $db = Database::getInstance()->getConnection();
+                    $stmt = $db->prepare("SELECT username FROM users WHERE id = ?");
+                    $stmt->execute([(int)$subject_identifier]);
+                    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+                    if ($user) {
+                        // Use the resolved username (will be normalized in addEntry)
+                        $subject_identifier = $user['username'];
+                    }
+                    // If not found, keep as-is - will be treated as username string
+                }
+                // Normalize to lowercase
+                $subject_identifier = mb_strtolower($subject_identifier);
+            }
+            
+            // Validate role exists for 'role' type
+            if ($subject_type === 'role') {
+                $db = Database::getInstance()->getConnection();
+                $stmt = $db->prepare("SELECT id FROM roles WHERE name = ?");
+                $stmt->execute([$subject_identifier]);
+                if (!$stmt->fetch()) {
+                    http_response_code(400);
+                    echo json_encode([
+                        'error' => "Le rôle '$subject_identifier' n'existe pas",
+                        'error_en' => "Role '$subject_identifier' does not exist"
+                    ]);
+                    exit;
+                }
+            }
+            
+            // Use ZoneAcl model for consistency with existing code
             $zoneAcl = new ZoneAcl();
             $acl_id = $zoneAcl->addEntry(
                 $zone_id,
-                $input['subject_type'],
-                $input['subject_identifier'],
-                $input['permission'],
+                $subject_type,
+                $subject_identifier,
+                $permission,
                 $currentUser['id']
             );
             
             if (!$acl_id) {
                 http_response_code(500);
-                echo json_encode(['error' => 'Failed to create ACL entry. Subject may not exist.']);
+                echo json_encode([
+                    'error' => "Échec de la création de l'entrée ACL. Vérifiez les logs pour plus de détails.",
+                    'error_en' => 'Failed to create ACL entry. Check logs for details.'
+                ]);
                 exit;
             }
             
             echo json_encode([
                 'success' => true,
-                'message' => 'ACL entry created successfully',
-                'data' => ['id' => $acl_id]
+                'message' => 'Entrée ACL créée avec succès',
+                'message_en' => 'ACL entry created successfully',
+                'data' => [
+                    'id' => $acl_id,
+                    'zone_id' => $zone_id,
+                    'subject_type' => $subject_type,
+                    'subject_identifier' => $subject_identifier,
+                    'permission' => $permission
+                ]
             ]);
             break;
             
