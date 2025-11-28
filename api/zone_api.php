@@ -74,6 +74,7 @@ try {
 
             // Get allowed zone IDs for non-admin users (for ACL filtering)
             $allowedZoneIds = null;
+            $expandedZoneIds = null;
             if (!$auth->isAdmin()) {
                 $allowedZoneIds = $auth->getAllowedZoneIds('read');
                 // If user has no ACL entries, they can only see zones if they have zone_editor role
@@ -89,6 +90,76 @@ try {
                     ]);
                     break;
                 }
+                
+                // For non-admin users with ACL entries, expand to include parent masters
+                // This is needed when user has ACL on include zones but requests master zones
+                if (!empty($allowedZoneIds)) {
+                    $expandedZoneIds = $allowedZoneIds; // Start with original allowed zones
+                    
+                    // Find include zones in the allowed list
+                    $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                    $includeSql = "SELECT DISTINCT id FROM zone_files 
+                                   WHERE id IN ($placeholders) 
+                                   AND file_type = 'include' 
+                                   AND status = 'active'";
+                    $db = Database::getInstance()->getConnection();
+                    $stmt = $db->prepare($includeSql);
+                    $stmt->execute($allowedZoneIds);
+                    $includeZoneIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    // For each include zone, traverse upward to find the top master
+                    $maxTraversal = 100; // Safety limit
+                    foreach ($includeZoneIds as $includeId) {
+                        $currentId = $includeId;
+                        $visited = [];
+                        $iterations = 0;
+                        
+                        while ($iterations < $maxTraversal) {
+                            $iterations++;
+                            
+                            // Prevent cycles
+                            if (in_array($currentId, $visited)) {
+                                break;
+                            }
+                            $visited[] = $currentId;
+                            
+                            // Find parent of current zone
+                            $parentSql = "SELECT zfi.parent_id, zf.file_type 
+                                          FROM zone_file_includes zfi
+                                          INNER JOIN zone_files zf ON zfi.parent_id = zf.id
+                                          WHERE zfi.include_id = ? AND zf.status = 'active'
+                                          LIMIT 1";
+                            $stmt = $db->prepare($parentSql);
+                            $stmt->execute([$currentId]);
+                            $parent = $stmt->fetch();
+                            
+                            if (!$parent) {
+                                // No parent found - check if current is a master
+                                $typeSql = "SELECT file_type FROM zone_files WHERE id = ? AND status = 'active'";
+                                $stmt = $db->prepare($typeSql);
+                                $stmt->execute([$currentId]);
+                                $current = $stmt->fetch();
+                                if ($current && $current['file_type'] === 'master') {
+                                    if (!in_array($currentId, $expandedZoneIds)) {
+                                        $expandedZoneIds[] = $currentId;
+                                    }
+                                }
+                                break;
+                            }
+                            
+                            // If parent is a master, add it and stop
+                            if ($parent['file_type'] === 'master') {
+                                if (!in_array($parent['parent_id'], $expandedZoneIds)) {
+                                    $expandedZoneIds[] = $parent['parent_id'];
+                                }
+                                break;
+                            }
+                            
+                            // Parent is an include, continue traversing upward
+                            $currentId = $parent['parent_id'];
+                        }
+                    }
+                }
             }
 
             // Check if this is a recursive tree request
@@ -97,7 +168,9 @@ try {
 
             if ($master_id > 0 && $recursive) {
                 // For recursive tree, check if user has access to the master zone
-                if ($allowedZoneIds !== null && !in_array($master_id, $allowedZoneIds)) {
+                // Use expanded zone IDs which includes parent masters
+                $effectiveZoneIds = $expandedZoneIds !== null ? $expandedZoneIds : $allowedZoneIds;
+                if ($effectiveZoneIds !== null && !in_array($master_id, $effectiveZoneIds)) {
                     // User doesn't have ACL access to this master zone
                     http_response_code(403);
                     echo json_encode(['error' => 'Access denied to this zone']);
@@ -155,8 +228,10 @@ try {
                 }
                 
                 // Add ACL filter for non-admin users
-                if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
-                    $filters['zone_ids'] = $allowedZoneIds;
+                // Use expanded zone IDs to include parent masters for users with ACL on includes
+                $effectiveZoneIds = $expandedZoneIds !== null ? $expandedZoneIds : $allowedZoneIds;
+                if ($effectiveZoneIds !== null && !empty($effectiveZoneIds)) {
+                    $filters['zone_ids'] = $effectiveZoneIds;
                 }
 
                 $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : ($page - 1) * $per_page;

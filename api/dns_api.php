@@ -533,11 +533,17 @@ try {
             // List domains from zone_files.domain (requires authentication)
             // COMPATIBILITY: Returns zone files with domain field set, formatted like legacy domaine_list
             // For non-admin users, filter to only show domains they have ACL access to
+            // Also includes parent masters for users who have ACL on include zones
             requireAuth();
 
             try {
+                // Optional zone_file_id filter - if provided, only return domain(s) for that specific zone
+                $zoneFileIdFilter = isset($_GET['zone_file_id']) ? (int)$_GET['zone_file_id'] : 0;
+                
                 // Get allowed zone IDs for non-admin users
                 $allowedZoneIds = null;
+                $allowedMasterIds = [];
+                
                 if (!$auth->isAdmin()) {
                     $allowedZoneIds = $auth->getAllowedZoneIds('read');
                     // If user has no ACL entries and no zone_editor role, return empty
@@ -548,9 +554,100 @@ try {
                         ]);
                         break;
                     }
+                    
+                    // If zone_file_id filter is provided, verify user has access
+                    if ($zoneFileIdFilter > 0) {
+                        if (!in_array($zoneFileIdFilter, $allowedZoneIds)) {
+                            http_response_code(403);
+                            echo json_encode(['error' => 'Access denied to this zone']);
+                            exit;
+                        }
+                    }
+                    
+                    // For non-admin users with ACL entries, we need to find:
+                    // 1. Master zones the user has direct ACL on
+                    // 2. Parent master zones for include zones the user has ACL on
+                    if (!empty($allowedZoneIds)) {
+                        // Start with allowed zone IDs that are masters
+                        $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                        
+                        // First, get masters directly in allowedZoneIds
+                        $masterSql = "SELECT id FROM zone_files 
+                                      WHERE id IN ($placeholders) 
+                                      AND file_type = 'master' 
+                                      AND status = 'active'";
+                        $stmt = $dnsRecord->getConnection()->prepare($masterSql);
+                        $stmt->execute($allowedZoneIds);
+                        $directMasters = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                        $allowedMasterIds = $directMasters;
+                        
+                        // Next, find parent masters for include zones in allowedZoneIds
+                        // Use recursive CTE or iterative approach to traverse zone_file_includes
+                        $includeSql = "SELECT DISTINCT id FROM zone_files 
+                                       WHERE id IN ($placeholders) 
+                                       AND file_type = 'include' 
+                                       AND status = 'active'";
+                        $stmt = $dnsRecord->getConnection()->prepare($includeSql);
+                        $stmt->execute($allowedZoneIds);
+                        $includeZoneIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                        
+                        // For each include zone, traverse upward to find the top master
+                        foreach ($includeZoneIds as $includeId) {
+                            $currentId = $includeId;
+                            $visited = [];
+                            $maxIterations = MAX_ZONE_TRAVERSAL_DEPTH;
+                            $iterations = 0;
+                            
+                            while ($iterations < $maxIterations) {
+                                $iterations++;
+                                
+                                // Prevent cycles
+                                if (in_array($currentId, $visited)) {
+                                    break;
+                                }
+                                $visited[] = $currentId;
+                                
+                                // Find parent of current zone
+                                $parentSql = "SELECT zfi.parent_id, zf.file_type 
+                                              FROM zone_file_includes zfi
+                                              INNER JOIN zone_files zf ON zfi.parent_id = zf.id
+                                              WHERE zfi.include_id = ? AND zf.status = 'active'
+                                              LIMIT 1";
+                                $stmt = $dnsRecord->getConnection()->prepare($parentSql);
+                                $stmt->execute([$currentId]);
+                                $parent = $stmt->fetch();
+                                
+                                if (!$parent) {
+                                    // No parent found - check if current is a master
+                                    $typeSql = "SELECT file_type FROM zone_files WHERE id = ? AND status = 'active'";
+                                    $stmt = $dnsRecord->getConnection()->prepare($typeSql);
+                                    $stmt->execute([$currentId]);
+                                    $current = $stmt->fetch();
+                                    if ($current && $current['file_type'] === 'master') {
+                                        if (!in_array($currentId, $allowedMasterIds)) {
+                                            $allowedMasterIds[] = $currentId;
+                                        }
+                                    }
+                                    break;
+                                }
+                                
+                                // If parent is a master, add it and stop
+                                if ($parent['file_type'] === 'master') {
+                                    if (!in_array($parent['parent_id'], $allowedMasterIds)) {
+                                        $allowedMasterIds[] = $parent['parent_id'];
+                                    }
+                                    break;
+                                }
+                                
+                                // Parent is an include, continue traversing upward
+                                $currentId = $parent['parent_id'];
+                            }
+                        }
+                    }
                 }
                 
-                $sql = "SELECT zf.id, zf.domain, zf.id as zone_file_id, 
+                // Build domain query
+                $sql = "SELECT DISTINCT zf.id, zf.domain, zf.id as zone_file_id, 
                                zf.name as zone_name,
                                zf.filename as zone_filename
                         FROM zone_files zf
@@ -561,11 +658,23 @@ try {
                 
                 $params = [];
                 
-                // Add ACL filter for non-admin users
-                if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
-                    $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                // Apply zone_file_id filter if provided
+                if ($zoneFileIdFilter > 0) {
+                    $sql .= " AND zf.id = ?";
+                    $params[] = $zoneFileIdFilter;
+                }
+                // Add ACL filter for non-admin users using the expanded master list
+                elseif (!$auth->isAdmin() && !empty($allowedMasterIds)) {
+                    $placeholders = implode(',', array_fill(0, count($allowedMasterIds), '?'));
                     $sql .= " AND zf.id IN ($placeholders)";
-                    $params = $allowedZoneIds;
+                    $params = array_merge($params, $allowedMasterIds);
+                } elseif (!$auth->isAdmin() && empty($allowedMasterIds) && !$auth->isZoneEditor()) {
+                    // User has ACL but no masters (shouldn't happen, but safety check)
+                    echo json_encode([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                    break;
                 }
                 
                 $sql .= " ORDER BY zf.domain ASC";
