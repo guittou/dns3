@@ -267,6 +267,16 @@ try {
                 exit;
             }
 
+            // For non-admin users, verify they have access to the zone this record belongs to
+            if (!$auth->isAdmin()) {
+                $recordZoneId = $record['zone_file_id'] ?? null;
+                if ($recordZoneId && !$auth->isAllowedForZone($recordZoneId, 'read')) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Access denied to this record']);
+                    exit;
+                }
+            }
+
             // Ensure zone fields are present
             if (!isset($record['zone_file_id']) || $record['zone_file_id'] === null) {
                 error_log("DNS API Warning: Record {$id} missing zone_file_id");

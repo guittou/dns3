@@ -261,6 +261,7 @@ try {
         case 'search_zones':
             // Autocomplete search for zones (requires authentication)
             // Returns minimal payload for performance
+            // For non-admin users, filter to only show zones they have ACL access to
             requireAuth();
 
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
@@ -279,6 +280,78 @@ try {
             }
             // Only search active zones for autocomplete
             $filters['status'] = 'active';
+            
+            // For non-admin users, add ACL filter with expanded zone IDs
+            if (!$auth->isAdmin()) {
+                $allowedZoneIds = $auth->getAllowedZoneIds('read');
+                if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
+                    echo json_encode([
+                        'success' => true,
+                        'data' => []
+                    ]);
+                    break;
+                }
+                
+                // Expand to include parent masters for include zones
+                if (!empty($allowedZoneIds)) {
+                    $expandedZoneIds = $allowedZoneIds;
+                    $db = Database::getInstance()->getConnection();
+                    $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                    $includeSql = "SELECT DISTINCT id FROM zone_files 
+                                   WHERE id IN ($placeholders) 
+                                   AND file_type = 'include' 
+                                   AND status = 'active'";
+                    $stmt = $db->prepare($includeSql);
+                    $stmt->execute($allowedZoneIds);
+                    $includeZoneIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    $maxTraversal = 100;
+                    foreach ($includeZoneIds as $includeId) {
+                        $currentId = $includeId;
+                        $visited = [];
+                        $iterations = 0;
+                        
+                        while ($iterations < $maxTraversal) {
+                            $iterations++;
+                            if (in_array($currentId, $visited)) break;
+                            $visited[] = $currentId;
+                            
+                            $parentSql = "SELECT zfi.parent_id, zf.file_type 
+                                          FROM zone_file_includes zfi
+                                          INNER JOIN zone_files zf ON zfi.parent_id = zf.id
+                                          WHERE zfi.include_id = ? AND zf.status = 'active'
+                                          LIMIT 1";
+                            $stmt = $db->prepare($parentSql);
+                            $stmt->execute([$currentId]);
+                            $parent = $stmt->fetch();
+                            
+                            if (!$parent) {
+                                $typeSql = "SELECT file_type FROM zone_files WHERE id = ? AND status = 'active'";
+                                $stmt = $db->prepare($typeSql);
+                                $stmt->execute([$currentId]);
+                                $current = $stmt->fetch();
+                                if ($current && $current['file_type'] === 'master') {
+                                    if (!in_array($currentId, $expandedZoneIds)) {
+                                        $expandedZoneIds[] = $currentId;
+                                    }
+                                }
+                                break;
+                            }
+                            
+                            if ($parent['file_type'] === 'master') {
+                                if (!in_array($parent['parent_id'], $expandedZoneIds)) {
+                                    $expandedZoneIds[] = $parent['parent_id'];
+                                }
+                                break;
+                            }
+                            
+                            $currentId = $parent['parent_id'];
+                        }
+                    }
+                    
+                    $filters['zone_ids'] = $expandedZoneIds;
+                }
+            }
 
             $zones = $zoneFile->search($filters, $limit, 0);
 
@@ -314,6 +387,77 @@ try {
                 http_response_code(404);
                 echo json_encode(['error' => 'Zone file not found']);
                 exit;
+            }
+
+            // For non-admin users, verify they have access to this zone
+            // Use expanded zone IDs to allow access to parent masters if user has ACL on includes
+            if (!$auth->isAdmin()) {
+                $allowedZoneIds = $auth->getAllowedZoneIds('read');
+                
+                // Expand to include parent masters for include zones
+                $expandedZoneIds = $allowedZoneIds;
+                if (!empty($allowedZoneIds)) {
+                    $db = Database::getInstance()->getConnection();
+                    $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
+                    $includeSql = "SELECT DISTINCT id FROM zone_files 
+                                   WHERE id IN ($placeholders) 
+                                   AND file_type = 'include' 
+                                   AND status = 'active'";
+                    $stmt = $db->prepare($includeSql);
+                    $stmt->execute($allowedZoneIds);
+                    $includeZoneIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    // Traverse upward to find parent masters
+                    $maxTraversal = 100;
+                    foreach ($includeZoneIds as $includeId) {
+                        $currentId = $includeId;
+                        $visited = [];
+                        $iterations = 0;
+                        
+                        while ($iterations < $maxTraversal) {
+                            $iterations++;
+                            if (in_array($currentId, $visited)) break;
+                            $visited[] = $currentId;
+                            
+                            $parentSql = "SELECT zfi.parent_id, zf.file_type 
+                                          FROM zone_file_includes zfi
+                                          INNER JOIN zone_files zf ON zfi.parent_id = zf.id
+                                          WHERE zfi.include_id = ? AND zf.status = 'active'
+                                          LIMIT 1";
+                            $stmt = $db->prepare($parentSql);
+                            $stmt->execute([$currentId]);
+                            $parent = $stmt->fetch();
+                            
+                            if (!$parent) {
+                                $typeSql = "SELECT file_type FROM zone_files WHERE id = ? AND status = 'active'";
+                                $stmt = $db->prepare($typeSql);
+                                $stmt->execute([$currentId]);
+                                $current = $stmt->fetch();
+                                if ($current && $current['file_type'] === 'master') {
+                                    if (!in_array($currentId, $expandedZoneIds)) {
+                                        $expandedZoneIds[] = $currentId;
+                                    }
+                                }
+                                break;
+                            }
+                            
+                            if ($parent['file_type'] === 'master') {
+                                if (!in_array($parent['parent_id'], $expandedZoneIds)) {
+                                    $expandedZoneIds[] = $parent['parent_id'];
+                                }
+                                break;
+                            }
+                            
+                            $currentId = $parent['parent_id'];
+                        }
+                    }
+                }
+                
+                if (!in_array($id, $expandedZoneIds) && !$auth->isZoneEditor()) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Access denied to this zone']);
+                    exit;
+                }
             }
 
             // Get includes with limit to prevent OOM

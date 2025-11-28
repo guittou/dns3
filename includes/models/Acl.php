@@ -398,6 +398,94 @@ class Acl {
     }
 
     /**
+     * Expand allowed zone IDs to include parent master zones for include zones
+     * This allows users with ACL on include zones to also see their parent masters
+     * 
+     * @param array $zoneIds Array of zone_file_id values to expand
+     * @return array Expanded array including original zones plus parent masters
+     */
+    public function expandZoneIdsToMasters(array $zoneIds) {
+        if (empty($zoneIds)) {
+            return [];
+        }
+        
+        try {
+            $expandedZoneIds = $zoneIds;
+            
+            // Find include zones in the list
+            $placeholders = implode(',', array_fill(0, count($zoneIds), '?'));
+            $includeSql = "SELECT DISTINCT id FROM zone_files 
+                           WHERE id IN ($placeholders) 
+                           AND file_type = 'include' 
+                           AND status = 'active'";
+            $stmt = $this->db->prepare($includeSql);
+            $stmt->execute($zoneIds);
+            $includeZoneIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            // For each include zone, traverse upward to find the top master
+            $maxTraversal = 100; // Safety limit to prevent infinite loops
+            foreach ($includeZoneIds as $includeId) {
+                $currentId = $includeId;
+                $visited = [];
+                $iterations = 0;
+                
+                while ($iterations < $maxTraversal) {
+                    $iterations++;
+                    
+                    // Prevent cycles
+                    if (in_array($currentId, $visited)) {
+                        break;
+                    }
+                    $visited[] = $currentId;
+                    
+                    // Find parent of current zone
+                    $parentSql = "SELECT zfi.parent_id, zf.file_type 
+                                  FROM zone_file_includes zfi
+                                  INNER JOIN zone_files zf ON zfi.parent_id = zf.id
+                                  WHERE zfi.include_id = ? AND zf.status = 'active'
+                                  LIMIT 1";
+                    $stmt = $this->db->prepare($parentSql);
+                    $stmt->execute([$currentId]);
+                    $parent = $stmt->fetch();
+                    
+                    if (!$parent) {
+                        // No parent found - check if current is a master
+                        $typeSql = "SELECT file_type FROM zone_files WHERE id = ? AND status = 'active'";
+                        $stmt = $this->db->prepare($typeSql);
+                        $stmt->execute([$currentId]);
+                        $current = $stmt->fetch();
+                        if ($current && $current['file_type'] === 'master') {
+                            if (!in_array($currentId, $expandedZoneIds)) {
+                                $expandedZoneIds[] = $currentId;
+                            }
+                        }
+                        break;
+                    }
+                    
+                    // If parent is a master, add it and stop
+                    if ($parent['file_type'] === 'master') {
+                        if (!in_array($parent['parent_id'], $expandedZoneIds)) {
+                            $expandedZoneIds[] = $parent['parent_id'];
+                        }
+                        break;
+                    }
+                    
+                    // Parent is an include, continue traversing upward
+                    $currentId = $parent['parent_id'];
+                }
+            }
+            
+            return $expandedZoneIds;
+        } catch (PDOException $e) {
+            $this->logSqlError('expandZoneIdsToMasters', $e, []);
+            return $zoneIds; // Return original list on error
+        } catch (Exception $e) {
+            error_log("Acl expandZoneIdsToMasters error: " . $e->getMessage());
+            return $zoneIds;
+        }
+    }
+
+    /**
      * Add a new ACL entry for a zone (upsert behavior)
      * Inserts into the new schema (zone_file_id/subject_type/subject_identifier)
      * and also fills resource_type/resource_id for backward compatibility.
