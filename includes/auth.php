@@ -2,12 +2,26 @@
 // Authentication handler for database, Active Directory, and OpenLDAP
 
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/models/Acl.php';
 
 class Auth {
     private $db;
+    private $acl = null;
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
+    }
+
+    /**
+     * Get the Acl instance (lazy-loaded and cached)
+     * 
+     * @return Acl The ACL model instance
+     */
+    private function getAcl() {
+        if ($this->acl === null) {
+            $this->acl = new Acl();
+        }
+        return $this->acl;
     }
 
     /**
@@ -599,12 +613,10 @@ class Auth {
         }
         
         try {
-            require_once __DIR__ . '/models/Acl.php';
-            $acl = new Acl();
             $username = $_SESSION['username'] ?? '';
             $userGroups = $this->getUserGroups();
             
-            return $acl->hasAnyAclForUser($username, $userGroups);
+            return $this->getAcl()->hasAnyAclForUser($username, $userGroups);
         } catch (Exception $e) {
             error_log("hasZoneAcl check error: " . $e->getMessage());
             return false;

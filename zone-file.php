@@ -24,11 +24,11 @@ if ($zone_id <= 0) {
 $isAdmin = $auth->isAdmin();
 ?>
 <script>
-// Pass admin status to JavaScript for UI adjustments
+// Pass admin status to JavaScript for UI adjustments only.
+// SECURITY NOTE: This variable is for UI enhancements (showing/hiding buttons).
+// All critical authorization decisions are validated server-side in the API endpoints.
 window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
 </script>
-<?php
-?>
 
 <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/zone-files.css">
 

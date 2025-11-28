@@ -68,15 +68,26 @@ CREATE TABLE acl_entries_new (
     INDEX idx_zone_file_id (zone_file_id),
     INDEX idx_acl_subject (subject_type, subject_identifier(191)),
     INDEX idx_user_id (user_id),
-    INDEX idx_role_id (role_id),
+    INDEX idx_role_id (role_id)
     
-    -- Foreign key constraints (optional, depends on your setup)
-    -- CONSTRAINT fk_acl_zone_file FOREIGN KEY (zone_file_id) REFERENCES zone_files(id) ON DELETE CASCADE,
-    -- CONSTRAINT fk_acl_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    -- CONSTRAINT fk_acl_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
-    -- CONSTRAINT fk_acl_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+    -- FOREIGN KEY CONSTRAINTS:
+    -- The constraints below are commented out by default because:
+    -- 1. They may fail if the referenced tables don't exist yet
+    -- 2. They add overhead on INSERT/UPDATE/DELETE operations
+    -- 3. The original table may not have had these constraints
+    --
+    -- To enable foreign key constraints, uncomment the lines below AFTER:
+    -- 1. Verifying the referenced tables (zone_files, users, roles) exist
+    -- 2. Ensuring all existing data has valid foreign key references
+    -- 3. Understanding the CASCADE behavior (ON DELETE CASCADE will delete ACL entries when zones are deleted)
+    --
+    -- Example (add these before the closing parenthesis, removing the comment markers):
+    -- , CONSTRAINT fk_acl_zone_file FOREIGN KEY (zone_file_id) REFERENCES zone_files(id) ON DELETE CASCADE
+    -- , CONSTRAINT fk_acl_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    -- , CONSTRAINT fk_acl_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+    -- , CONSTRAINT fk_acl_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
     
-    -- NOTE: No CHECK constraint! This is the key difference.
+    -- NOTE: No CHECK constraint! This is the key difference from the original table.
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SELECT 'New table created successfully.' AS status;

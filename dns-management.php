@@ -30,11 +30,11 @@ if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
 $isAdmin = $auth->isAdmin();
 ?>
 <script>
-// Pass admin status to JavaScript for UI adjustments
+// Pass admin status to JavaScript for UI adjustments only.
+// SECURITY NOTE: This variable is for UI enhancements (showing/hiding buttons).
+// All critical authorization decisions are validated server-side in the API endpoints.
 window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
 </script>
-<?php
-?>
 
 <div class="content-section">
     <h1 style="margin-bottom: 20px;">Gestion des enregistrements DNS</h1>
