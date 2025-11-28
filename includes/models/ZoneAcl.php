@@ -62,8 +62,18 @@ class ZoneAcl {
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$zone_id]);
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            $errorInfo = $e->errorInfo ?? [];
+            $sqlState = $errorInfo[0] ?? $e->getCode();
+            $driverCode = $errorInfo[1] ?? 'N/A';
+            error_log("ZoneAcl listForZone SQL error: " . $e->getMessage() . 
+                      " | SQLSTATE: " . $sqlState .
+                      " | Driver code: " . $driverCode .
+                      " | zone_id: " . $zone_id);
+            return [];
         } catch (Exception $e) {
-            error_log("ZoneAcl listForZone error: " . $e->getMessage());
+            error_log("ZoneAcl listForZone error: " . $e->getMessage() . 
+                      " | zone_id: " . $zone_id);
             return [];
         }
     }
@@ -175,13 +185,25 @@ class ZoneAcl {
             
             return $this->db->lastInsertId();
         } catch (PDOException $e) {
-            // Log detailed SQL error for debugging (without sensitive identifier data)
+            // Log detailed SQL error for debugging with full context
+            $errorInfo = $e->errorInfo ?? [];
+            $sqlState = $errorInfo[0] ?? $e->getCode();
+            $driverCode = $errorInfo[1] ?? 'N/A';
+            $driverMsg = $errorInfo[2] ?? $e->getMessage();
+            
             error_log("ZoneAcl addEntry SQL error: " . $e->getMessage() . 
-                      " | SQLSTATE: " . $e->getCode() .
-                      " | Context: zone_id=$zone_id, subject_type=$subject_type, permission=$permission");
+                      " | SQLSTATE: " . $sqlState .
+                      " | Driver code: " . $driverCode .
+                      " | Driver message: " . $driverMsg .
+                      " | Context: zone_id=$zone_id, subject_type=$subject_type, " .
+                      "subject_identifier=" . ($normalizedIdentifier ?? $subject_identifier) . 
+                      ", permission=$permission, created_by=$created_by");
             return false;
         } catch (Exception $e) {
-            error_log("ZoneAcl addEntry error: " . $e->getMessage());
+            // Log general exception with context
+            error_log("ZoneAcl addEntry error: " . $e->getMessage() . 
+                      " | Context: zone_id=$zone_id, subject_type=$subject_type, " .
+                      "permission=$permission, created_by=$created_by");
             return false;
         }
     }
@@ -198,8 +220,18 @@ class ZoneAcl {
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
             return $stmt->rowCount() > 0;
+        } catch (PDOException $e) {
+            $errorInfo = $e->errorInfo ?? [];
+            $sqlState = $errorInfo[0] ?? $e->getCode();
+            $driverCode = $errorInfo[1] ?? 'N/A';
+            error_log("ZoneAcl removeEntry SQL error: " . $e->getMessage() . 
+                      " | SQLSTATE: " . $sqlState .
+                      " | Driver code: " . $driverCode .
+                      " | acl_id: " . $id);
+            return false;
         } catch (Exception $e) {
-            error_log("ZoneAcl removeEntry error: " . $e->getMessage());
+            error_log("ZoneAcl removeEntry error: " . $e->getMessage() . 
+                      " | acl_id: " . $id);
             return false;
         }
     }
@@ -221,8 +253,16 @@ class ZoneAcl {
             $stmt->execute([$id]);
             $result = $stmt->fetch(PDO::FETCH_ASSOC);
             return $result ?: null;
+        } catch (PDOException $e) {
+            $errorInfo = $e->errorInfo ?? [];
+            $sqlState = $errorInfo[0] ?? $e->getCode();
+            error_log("ZoneAcl getById SQL error: " . $e->getMessage() . 
+                      " | SQLSTATE: " . $sqlState .
+                      " | acl_id: " . $id);
+            return null;
         } catch (Exception $e) {
-            error_log("ZoneAcl getById error: " . $e->getMessage());
+            error_log("ZoneAcl getById error: " . $e->getMessage() . 
+                      " | acl_id: " . $id);
             return null;
         }
     }
