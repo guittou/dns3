@@ -72,11 +72,38 @@ try {
                 $per_page = min(100, max(1, (int)$_GET['limit']));
             }
 
+            // Get allowed zone IDs for non-admin users (for ACL filtering)
+            $allowedZoneIds = null;
+            if (!$auth->isAdmin()) {
+                $allowedZoneIds = $auth->getAllowedZoneIds('read');
+                // If user has no ACL entries, they can only see zones if they have zone_editor role
+                if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
+                    // Return empty result - user has no access to any zones
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [],
+                        'total' => 0,
+                        'page' => 1,
+                        'per_page' => $per_page,
+                        'total_pages' => 0
+                    ]);
+                    break;
+                }
+            }
+
             // Check if this is a recursive tree request
             $master_id = isset($_GET['master_id']) ? (int)$_GET['master_id'] : 0;
             $recursive = isset($_GET['recursive']) && $_GET['recursive'] == '1';
 
             if ($master_id > 0 && $recursive) {
+                // For recursive tree, check if user has access to the master zone
+                if ($allowedZoneIds !== null && !in_array($master_id, $allowedZoneIds)) {
+                    // User doesn't have ACL access to this master zone
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Access denied to this zone']);
+                    exit;
+                }
+                
                 // Return recursive tree: master + all its descendants
                 $zones = $zoneFile->getRecursiveTree($master_id, $per_page);
                 $total = count($zones);
@@ -125,6 +152,11 @@ try {
                 
                 if (isset($_GET['owner']) && $_GET['owner'] !== '') {
                     $filters['owner'] = (int)$_GET['owner'];
+                }
+                
+                // Add ACL filter for non-admin users
+                if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
+                    $filters['zone_ids'] = $allowedZoneIds;
                 }
 
                 $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : ($page - 1) * $per_page;

@@ -30,7 +30,7 @@ class DnsRecord {
     /**
      * Search DNS records with filters
      * 
-     * @param array $filters Optional filters (name, type, status, domain_id)
+     * @param array $filters Optional filters (name, type, status, domain_id, zone_file_id, zone_file_ids)
      * @param int $limit Maximum number of results
      * @param int $offset Pagination offset
      * @return array Array of DNS records
@@ -56,8 +56,14 @@ class DnsRecord {
         $params = [];
         $domainName = '';
         
+        // Handle zone_file_ids filter (ACL-based filtering for non-admin users)
+        if (isset($filters['zone_file_ids']) && is_array($filters['zone_file_ids']) && !empty($filters['zone_file_ids'])) {
+            $placeholders = implode(',', array_fill(0, count($filters['zone_file_ids']), '?'));
+            $sql .= " AND dr.zone_file_id IN ($placeholders)";
+            $params = array_merge($params, $filters['zone_file_ids']);
+        }
         // Handle zone_file_id filter (exact match) - takes priority over domain_id
-        if (isset($filters['zone_file_id']) && $filters['zone_file_id'] > 0) {
+        elseif (isset($filters['zone_file_id']) && $filters['zone_file_id'] > 0) {
             $sql .= " AND dr.zone_file_id = ?";
             $params[] = $filters['zone_file_id'];
             

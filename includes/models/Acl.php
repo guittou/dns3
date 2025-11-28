@@ -276,6 +276,128 @@ class Acl {
     }
 
     /**
+     * Get all zone file IDs that a user has access to with at least the minimum permission level
+     * 
+     * This method checks:
+     * 1. Direct user ACL by subject_identifier (username, case-insensitive)
+     * 2. Direct user ACL by user_id (legacy column)
+     * 3. Role-based ACL via user_roles lookup
+     * 4. AD group-based ACL (for AD/LDAP users)
+     * 
+     * @param string $username Username to check (case-insensitive)
+     * @param string $minPermission Minimum required permission level (read, write, admin)
+     * @param array $userGroups Optional array of AD group DNs the user belongs to
+     * @return array Array of zone_file_id values the user can access
+     */
+    public function getAllowedZoneIds($username, $minPermission = 'read', array $userGroups = []) {
+        try {
+            $normalizedUsername = $this->normalizeUsername($username);
+            $requiredLevel = self::PERMISSION_HIERARCHY[$minPermission] ?? 1;
+            
+            if (empty($normalizedUsername)) {
+                return [];
+            }
+            
+            // Get user ID if exists (for legacy user_id column check)
+            $userId = $this->getUserIdByUsername($normalizedUsername);
+            
+            // Get user's role IDs and names
+            $roleIds = [];
+            $roleNames = [];
+            if ($userId) {
+                $roleStmt = $this->db->prepare("
+                    SELECT r.id, r.name 
+                    FROM user_roles ur 
+                    INNER JOIN roles r ON ur.role_id = r.id 
+                    WHERE ur.user_id = ?
+                ");
+                $roleStmt->execute([$userId]);
+                $roles = $roleStmt->fetchAll(PDO::FETCH_ASSOC);
+                $roleIds = array_column($roles, 'id');
+                $roleNames = array_column($roles, 'name');
+            }
+            
+            // Build query conditions
+            $conditions = [];
+            $params = [];
+            
+            // Check 1: Direct user ACL by subject_identifier (username, case-insensitive)
+            $conditions[] = "(ae.subject_type = 'user' AND LOWER(ae.subject_identifier) = ?)";
+            $params[] = $normalizedUsername;
+            
+            // Check 2: Direct user ACL by user_id (legacy column)
+            if ($userId) {
+                $conditions[] = "(ae.user_id = ?)";
+                $params[] = $userId;
+            }
+            
+            // Check 3: Role-based ACL via user_roles
+            if (!empty($roleNames)) {
+                $roleNamePlaceholders = implode(',', array_fill(0, count($roleNames), '?'));
+                $conditions[] = "(ae.subject_type = 'role' AND ae.subject_identifier IN ($roleNamePlaceholders))";
+                $params = array_merge($params, $roleNames);
+            }
+            
+            if (!empty($roleIds)) {
+                $roleIdPlaceholders = implode(',', array_fill(0, count($roleIds), '?'));
+                $conditions[] = "(ae.role_id IN ($roleIdPlaceholders))";
+                $params = array_merge($params, $roleIds);
+            }
+            
+            // Check 4: AD group-based ACL
+            if (!empty($userGroups)) {
+                foreach ($userGroups as $group) {
+                    // Case-insensitive exact match
+                    $conditions[] = "(ae.subject_type = 'ad_group' AND LOWER(ae.subject_identifier) = LOWER(?))";
+                    $params[] = $group;
+                    
+                    // Also check if group DN contains the subject_identifier (OU matching)
+                    $conditions[] = "(ae.subject_type = 'ad_group' AND LOWER(?) LIKE CONCAT('%', LOWER(ae.subject_identifier), '%'))";
+                    $params[] = $group;
+                }
+            }
+            
+            if (empty($conditions)) {
+                return [];
+            }
+            
+            $whereClause = implode(" OR ", $conditions);
+            
+            // Permission level filter using CASE expression
+            $permLevelCase = "CASE ae.permission 
+                WHEN 'admin' THEN 3 
+                WHEN 'write' THEN 2 
+                WHEN 'read' THEN 1 
+                ELSE 0 
+            END";
+            
+            // Get distinct zone_file_ids with sufficient permission
+            $sql = "SELECT DISTINCT ae.zone_file_id
+                    FROM acl_entries ae
+                    WHERE ($whereClause)
+                    AND ae.zone_file_id IS NOT NULL
+                    AND $permLevelCase >= ?";
+            
+            $params[] = $requiredLevel;
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            
+            return array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'zone_file_id');
+        } catch (PDOException $e) {
+            $this->logSqlError('getAllowedZoneIds', $e, [
+                'username' => $username,
+                'minPermission' => $minPermission
+            ]);
+            return [];
+        } catch (Exception $e) {
+            error_log("Acl getAllowedZoneIds error: " . $e->getMessage() . 
+                      " | username: $username");
+            return [];
+        }
+    }
+
+    /**
      * Add a new ACL entry for a zone (upsert behavior)
      * Inserts into the new schema (zone_file_id/subject_type/subject_identifier)
      * and also fills resource_type/resource_id for backward compatibility.

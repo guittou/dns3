@@ -17,7 +17,7 @@ class ZoneFile {
     /**
      * Search zone files with filters
      * 
-     * @param array $filters Optional filters (name, file_type, status, owner, q for general search)
+     * @param array $filters Optional filters (name, file_type, status, owner, q for general search, zone_ids for ACL filtering)
      * @param int $limit Maximum number of results
      * @param int $offset Pagination offset
      * @return array Array of zone files
@@ -36,6 +36,13 @@ class ZoneFile {
                 WHERE 1=1";
         
         $params = [];
+        
+        // ACL filter: restrict to specific zone IDs (for non-admin users)
+        if (isset($filters['zone_ids']) && is_array($filters['zone_ids']) && !empty($filters['zone_ids'])) {
+            $placeholders = implode(',', array_fill(0, count($filters['zone_ids']), '?'));
+            $sql .= " AND zf.id IN ($placeholders)";
+            $params = array_merge($params, $filters['zone_ids']);
+        }
         
         // Support 'q' parameter for general search (searches name and filename)
         if (isset($filters['q']) && $filters['q'] !== '') {
@@ -110,6 +117,13 @@ class ZoneFile {
                 WHERE 1=1";
         
         $params = [];
+        
+        // ACL filter: restrict to specific zone IDs (for non-admin users)
+        if (isset($filters['zone_ids']) && is_array($filters['zone_ids']) && !empty($filters['zone_ids'])) {
+            $placeholders = implode(',', array_fill(0, count($filters['zone_ids']), '?'));
+            $sql .= " AND zf.id IN ($placeholders)";
+            $params = array_merge($params, $filters['zone_ids']);
+        }
         
         // Support 'q' parameter for general search
         if (isset($filters['q']) && $filters['q'] !== '') {
