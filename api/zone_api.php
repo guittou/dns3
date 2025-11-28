@@ -100,7 +100,7 @@ try {
                 if ($allowedZoneIds !== null && !in_array($master_id, $allowedZoneIds)) {
                     // User doesn't have ACL access to this master zone
                     http_response_code(403);
-                    echo json_encode(['error' => 'Accès refusé à cette zone']);
+                    echo json_encode(['error' => 'Access denied to this zone']);
                     exit;
                 }
                 

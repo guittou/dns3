@@ -203,7 +203,7 @@ try {
                 // For non-admin users, verify they have access to this zone
                 if (!$auth->isAdmin() && !$auth->isAllowedForZone($zoneFileId, 'read')) {
                     http_response_code(403);
-                    echo json_encode(['error' => 'Accès refusé à cette zone']);
+                    echo json_encode(['error' => 'Access denied to this zone']);
                     exit;
                 }
             }
