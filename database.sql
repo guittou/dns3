@@ -106,13 +106,20 @@ CREATE TABLE `auth_mappings` (
 -- --------------------------------------------------------
 -- Table structure for table `acl_entries`
 -- --------------------------------------------------------
+-- This table supports both legacy schema (user_id/role_id/resource_type/resource_id)
+-- and new zone-specific schema (zone_file_id/subject_type/subject_identifier).
+-- The CHECK constraint chk_user_or_role has been removed to allow entries
+-- that use subject_identifier without requiring user_id or role_id.
 DROP TABLE IF EXISTS `acl_entries`;
 CREATE TABLE `acl_entries` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `user_id` int(11) DEFAULT NULL,
   `role_id` int(11) DEFAULT NULL,
-  `resource_type` enum('dns_record','zone','global') NOT NULL,
+  `resource_type` enum('dns_record','zone','global') DEFAULT NULL,
   `resource_id` int(11) DEFAULT NULL,
+  `zone_file_id` int(11) DEFAULT NULL COMMENT 'Reference to zone_files.id for zone ACL entries',
+  `subject_type` enum('user','role','ad_group') DEFAULT NULL COMMENT 'Type of ACL subject',
+  `subject_identifier` varchar(255) DEFAULT NULL COMMENT 'Username (lowercase), role name, or AD group DN',
   `permission` enum('read','write','delete','admin') NOT NULL,
   `status` enum('enabled','disabled') DEFAULT 'enabled',
   `created_by` int(11) NOT NULL,
@@ -126,12 +133,32 @@ CREATE TABLE `acl_entries` (
   KEY `idx_role_id` (`role_id`),
   KEY `idx_resource` (`resource_type`,`resource_id`),
   KEY `idx_status` (`status`),
+  KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_acl_subject` (`subject_type`,`subject_identifier`(191)),
   CONSTRAINT `acl_entries_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `acl_entries_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `acl_entries_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
-  CONSTRAINT `acl_entries_ibfk_4` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`),
-  CONSTRAINT `chk_user_or_role` CHECK (`user_id` is not null or `role_id` is not null)
+  CONSTRAINT `acl_entries_ibfk_4` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+-- View for zone_acl_entries (compatibility layer)
+-- --------------------------------------------------------
+-- This view provides compatibility for code that references zone_acl_entries
+-- It filters acl_entries to show only zone-type entries with the new schema columns
+CREATE OR REPLACE VIEW `zone_acl_entries` AS
+SELECT
+  `id`,
+  `zone_file_id`,
+  `subject_type`,
+  `subject_identifier`,
+  `permission`,
+  `created_by`,
+  `created_at`
+FROM `acl_entries`
+WHERE `zone_file_id` IS NOT NULL 
+  AND `subject_type` IS NOT NULL 
+  AND `subject_identifier` IS NOT NULL;
 
 -- --------------------------------------------------------
 -- Table structure for table `acl_history`
