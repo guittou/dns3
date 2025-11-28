@@ -899,7 +899,7 @@ try {
                     $zones = [];
                     if (!empty($zoneFileIds)) {
                         $placeholders = implode(',', array_fill(0, count($zoneFileIds), '?'));
-                        $sql = "SELECT id, name, filename, file_type, parent_id, status, domain, directory, created_at, updated_at 
+                        $sql = "SELECT id, name, filename, file_type, status, domain, directory, created_at, updated_at 
                                 FROM zone_files 
                                 WHERE id IN ($placeholders) AND status = 'active'
                                 ORDER BY file_type DESC, name ASC"; // master first, then includes
@@ -914,7 +914,7 @@ try {
                     ]);
                 } else {
                     // No domain_id filter - return all active zone files (with ACL filtering for non-admin)
-                    $sql = "SELECT id, name, filename, file_type, parent_id, status, domain, directory, created_at, updated_at 
+                    $sql = "SELECT id, name, filename, file_type, status, domain, directory, created_at, updated_at 
                             FROM zone_files 
                             WHERE status = 'active'";
                     $params = [];
