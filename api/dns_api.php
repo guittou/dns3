@@ -268,12 +268,16 @@ try {
             }
 
             // For non-admin users, verify they have access to the zone this record belongs to
+            // Use expanded zone IDs to allow access to records in zones for which user has parent ACL
             if (!$auth->isAdmin()) {
                 $recordZoneId = $record['zone_file_id'] ?? null;
-                if ($recordZoneId && !$auth->isAllowedForZone($recordZoneId, 'read')) {
-                    http_response_code(403);
-                    echo json_encode(['error' => 'Access denied to this record']);
-                    exit;
+                if ($recordZoneId) {
+                    $expandedZoneIds = $auth->getExpandedZoneIds('read');
+                    if (!in_array($recordZoneId, $expandedZoneIds) && !$auth->isZoneEditor()) {
+                        http_response_code(403);
+                        echo json_encode(['error' => 'Access denied to this record']);
+                        exit;
+                    }
                 }
             }
 

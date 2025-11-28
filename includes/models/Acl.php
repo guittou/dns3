@@ -24,6 +24,12 @@ class Acl {
         'write' => 2,
         'read' => 1
     ];
+    
+    /**
+     * Maximum iterations for zone include hierarchy traversal
+     * Used to prevent infinite loops in case of circular references
+     */
+    private const MAX_INCLUDE_TRAVERSAL = 100;
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
@@ -423,13 +429,12 @@ class Acl {
             $includeZoneIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
             
             // For each include zone, traverse upward to find the top master
-            $maxTraversal = 100; // Safety limit to prevent infinite loops
             foreach ($includeZoneIds as $includeId) {
                 $currentId = $includeId;
                 $visited = [];
                 $iterations = 0;
                 
-                while ($iterations < $maxTraversal) {
+                while ($iterations < self::MAX_INCLUDE_TRAVERSAL) {
                     $iterations++;
                     
                     // Prevent cycles
