@@ -7,8 +7,10 @@ $auth = new Auth();
 $error = '';
 $success = '';
 
-// Handle logout via GET parameter
-if (isset($_GET['logout'])) {
+// Handle logout via GET parameter (only on GET requests, not POST)
+// This prevents the logout from firing when the login form is submitted
+// from a URL like login.php?logout=1
+if (isset($_GET['logout']) && $_SERVER['REQUEST_METHOD'] === 'GET') {
     $auth->logout();
     $success = 'Vous avez été déconnecté avec succès.';
 }
@@ -52,7 +54,7 @@ require_once 'includes/header.php';
         <div class="success-message"><?php echo htmlspecialchars($success); ?></div>
     <?php endif; ?>
 
-    <form method="POST" action="">
+    <form method="POST" action="<?php echo htmlspecialchars(BASE_URL . 'login.php'); ?>">
         <div class="form-group">
             <label for="username">Nom d'utilisateur</label>
             <input type="text" id="username" name="username" required autocomplete="username" value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>">

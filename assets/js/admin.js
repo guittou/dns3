@@ -25,6 +25,7 @@
 
     /**
      * Make an API call
+     * Handles JSON responses including 403 access denied errors
      */
     async function apiCall(action, params = {}, method = 'GET', body = null) {
         try {
@@ -34,6 +35,7 @@
                 method: method,
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 credentials: 'same-origin'
             };
@@ -51,6 +53,13 @@
                 const text = await response.text();
                 console.error('Failed to parse JSON response:', text);
                 throw new Error('Invalid JSON response from server');
+            }
+
+            // Handle 403 Forbidden with specific error message
+            if (response.status === 403) {
+                const errorMsg = data.error || 'Accès refusé';
+                console.warn('Access denied (403):', errorMsg);
+                throw new Error(errorMsg);
             }
 
             if (!response.ok) {
@@ -109,37 +118,133 @@
 
     /**
      * Tab switching
+     * Fetches tab content before activating to handle 403 errors gracefully
      */
     function initTabs() {
         const tabButtons = document.querySelectorAll('.admin-tab-button');
         const tabContents = document.querySelectorAll('.admin-tab-content');
 
         tabButtons.forEach(button => {
-            button.addEventListener('click', () => {
+            button.addEventListener('click', async () => {
                 const tabName = button.getAttribute('data-tab');
                 
-                // Update active tab button
-                tabButtons.forEach(btn => btn.classList.remove('active'));
-                button.classList.add('active');
-                
-                // Update active tab content
-                tabContents.forEach(content => content.classList.remove('active'));
-                document.getElementById(`tab-${tabName}`).classList.add('active');
-                
-                // Load data for the active tab
-                switch(tabName) {
-                    case 'users':
-                        loadUsers();
-                        break;
-                    case 'roles':
-                        loadRoles();
-                        break;
-                    case 'mappings':
-                        loadMappings();
-                        break;
+                // Fetch content before activating tab
+                // This ensures we can handle 403 errors without switching tabs
+                try {
+                    let loadResult;
+                    switch(tabName) {
+                        case 'users':
+                            loadResult = await loadUsersPrecheck();
+                            break;
+                        case 'roles':
+                            loadResult = await loadRolesPrecheck();
+                            break;
+                        case 'mappings':
+                            loadResult = await loadMappingsPrecheck();
+                            break;
+                        default:
+                            loadResult = { success: true };
+                    }
+                    
+                    // If access denied (403), show error and don't switch tab
+                    if (loadResult && loadResult.accessDenied) {
+                        showAlert('Accès refusé à cet onglet.', 'error');
+                        return;
+                    }
+                    
+                    // Update active tab button
+                    tabButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    
+                    // Update active tab content
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    document.getElementById(`tab-${tabName}`).classList.add('active');
+                    
+                    // Load data for the active tab (full load after precheck succeeded)
+                    switch(tabName) {
+                        case 'users':
+                            loadUsers();
+                            break;
+                        case 'roles':
+                            loadRoles();
+                            break;
+                        case 'mappings':
+                            loadMappings();
+                            break;
+                    }
+                } catch (error) {
+                    console.error('Tab switch error:', error);
+                    showAlert('Erreur lors du chargement de l\'onglet: ' + error.message, 'error');
                 }
             });
         });
+    }
+
+    /**
+     * Precheck if users tab is accessible
+     * Returns { success: true } or { accessDenied: true }
+     */
+    async function loadUsersPrecheck() {
+        try {
+            const url = getApiUrl('list_users', { limit: 1 });
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            });
+            
+            if (response.status === 403) {
+                return { accessDenied: true };
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Users precheck error:', error);
+            return { success: true }; // Allow tab switch on network errors
+        }
+    }
+
+    /**
+     * Precheck if roles tab is accessible
+     */
+    async function loadRolesPrecheck() {
+        try {
+            const url = getApiUrl('list_roles', {});
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            });
+            
+            if (response.status === 403) {
+                return { accessDenied: true };
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Roles precheck error:', error);
+            return { success: true };
+        }
+    }
+
+    /**
+     * Precheck if mappings tab is accessible
+     */
+    async function loadMappingsPrecheck() {
+        try {
+            const url = getApiUrl('list_mappings', {});
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            });
+            
+            if (response.status === 403) {
+                return { accessDenied: true };
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Mappings precheck error:', error);
+            return { success: true };
+        }
     }
 
     /**

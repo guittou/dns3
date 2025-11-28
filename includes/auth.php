@@ -629,6 +629,75 @@ class Auth {
     }
 
     /**
+     * Apply auth mappings for a user based on their source (AD/LDAP) and groups/DN
+     * Public helper method that can be called during authentication or later
+     * 
+     * @param string $source Authentication source ('ad' or 'ldap')
+     * @param array $dnOrGroups Array of AD group DNs or LDAP user DN (wrapped in array)
+     * @param int $userId User ID to apply mappings for
+     * @return array Array of role IDs that were applied
+     */
+    public function applyAuthMappings($source, array $dnOrGroups, $userId) {
+        try {
+            if (!$userId || !in_array($source, ['ad', 'ldap'])) {
+                return [];
+            }
+            
+            // For AD, $dnOrGroups are the group memberships
+            // For LDAP, $dnOrGroups typically contains a single user DN
+            $groups = ($source === 'ad') ? $dnOrGroups : [];
+            $userDn = ($source === 'ldap' && !empty($dnOrGroups)) ? $dnOrGroups[0] : '';
+            
+            $matchedRoleIds = $this->getRoleIdsFromMappings($source, $groups, $userDn);
+            
+            foreach ($matchedRoleIds as $roleId) {
+                // Assign role to user (INSERT IGNORE / ON DUPLICATE KEY UPDATE)
+                $stmt = $this->db->prepare(
+                    "INSERT INTO user_roles (user_id, role_id, assigned_at) 
+                     VALUES (?, ?, NOW()) 
+                     ON DUPLICATE KEY UPDATE assigned_at = NOW()"
+                );
+                $stmt->execute([$userId, $roleId]);
+            }
+            
+            return $matchedRoleIds;
+        } catch (Exception $e) {
+            error_log("applyAuthMappings error: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Check if a user has a specific role by role name
+     * Public helper method for checking role membership
+     * 
+     * @param int $userId User ID to check
+     * @param string $roleName Role name to check for
+     * @return bool True if user has the specified role
+     */
+    public function userHasRole($userId, $roleName) {
+        try {
+            if (!$userId || empty($roleName)) {
+                return false;
+            }
+            
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*) as has_role
+                FROM user_roles ur
+                INNER JOIN roles r ON ur.role_id = r.id
+                WHERE ur.user_id = ? AND r.name = ?
+            ");
+            $stmt->execute([$userId, $roleName]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            return (int)($result['has_role'] ?? 0) > 0;
+        } catch (Exception $e) {
+            error_log("userHasRole error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Check if the current request is an XHR (AJAX) request
      * 
      * @return bool True if the request is an XHR request
