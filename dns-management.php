@@ -17,6 +17,13 @@ if (!$auth->isLoggedIn()) {
 
 // Allow access if user is admin OR zone_editor OR has any zone ACL
 if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
+    // Return JSON error for XHR requests, show HTML error for normal requests
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(403);
+        echo json_encode(['error' => 'Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.']);
+        exit;
+    }
     echo '<div class="content-section">
             <div class="error-message">
                 Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.

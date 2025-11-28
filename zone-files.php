@@ -7,8 +7,15 @@ if (!$auth->isLoggedIn()) {
     exit;
 }
 
-// Allow access if user is admin OR has zone_editor role
-if (!$auth->isAdmin() && !$auth->isZoneEditor()) {
+// Allow access if user is admin OR has zone_editor role OR has zone ACL entries
+if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
+    // Return JSON error for XHR requests, redirect for normal requests
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(403);
+        echo json_encode(['error' => 'Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.']);
+        exit;
+    }
     header('Location: ' . BASE_URL . 'index.php');
     exit;
 }
