@@ -900,15 +900,14 @@ try {
                     $zones = [];
                     if (!empty($zoneFileIds)) {
                         $placeholders = implode(',', array_fill(0, count($zoneFileIds), '?'));
-                        $sql = "SELECT zf.id, zf.name, zf.filename, zf.file_type, zf.status, zf.domain, zf.directory, 
-                                       zf.created_at, zf.updated_at,
-                                       zfi.parent_id,
-                                       parent_zf.name as parent_name
+                        $sql = "SELECT zf.id, zf.name, zf.filename, zf.file_type, zf.status, 
+                                       zf.domain, zf.directory, zf.created_at, zf.updated_at,
+                                       zfi.parent_id, parent_zf.name as parent_name
                                 FROM zone_files zf
                                 LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
                                 LEFT JOIN zone_files parent_zf ON zfi.parent_id = parent_zf.id
                                 WHERE zf.id IN ($placeholders) AND zf.status = 'active'
-                                ORDER BY zf.file_type DESC, zf.name ASC"; // master first, then includes
+                                ORDER BY zf.file_type DESC, zf.name ASC";
                         $stmt = $db->prepare($sql);
                         $stmt->execute($zoneFileIds);
                         $zones = $stmt->fetchAll();
@@ -921,10 +920,9 @@ try {
                 } else {
                     // No domain_id filter - return all active zone files (with ACL filtering for non-admin)
                     // Include parent_id and parent_name via LEFT JOIN on zone_file_includes
-                    $sql = "SELECT zf.id, zf.name, zf.filename, zf.file_type, zf.status, zf.domain, zf.directory, 
-                                   zf.created_at, zf.updated_at,
-                                   zfi.parent_id,
-                                   parent_zf.name as parent_name
+                    $sql = "SELECT zf.id, zf.name, zf.filename, zf.file_type, zf.status, 
+                                   zf.domain, zf.directory, zf.created_at, zf.updated_at,
+                                   zfi.parent_id, parent_zf.name as parent_name
                             FROM zone_files zf
                             LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
                             LEFT JOIN zone_files parent_zf ON zfi.parent_id = parent_zf.id
@@ -951,12 +949,10 @@ try {
                 }
             } catch (PDOException $e) {
                 // Log detailed SQL error for debugging
-                $errorInfo = $e->errorInfo ?? [];
-                $sqlState = $errorInfo[0] ?? 'HY000';
-                $driverCode = $errorInfo[1] ?? 'N/A';
-                $driverMsg = $errorInfo[2] ?? $e->getMessage();
+                // PDOException's getCode() returns SQLSTATE code
+                $sqlState = $e->getCode();
                 error_log("Error listing zone files - SQL Error: " . $e->getMessage() . 
-                          " | SQLSTATE: $sqlState | Driver code: $driverCode | Driver message: $driverMsg");
+                          " | SQLSTATE: $sqlState");
                 http_response_code(500);
                 echo json_encode(['error' => 'Failed to list zone files: database error']);
             } catch (Exception $e) {
