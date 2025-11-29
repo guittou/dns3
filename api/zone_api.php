@@ -100,6 +100,10 @@ try {
                 $per_page = min(100, max(1, (int)$_GET['limit']));
             }
 
+            // Optional include_parents parameter (only admins can use this)
+            // When include_parents=1, expand zone IDs to include parent masters
+            $include_parents = isset($_GET['include_parents']) && $_GET['include_parents'] === '1';
+
             // Get allowed zone IDs for non-admin users (for ACL filtering)
             $allowedZoneIds = null;
             $expandedZoneIds = null;
@@ -119,9 +123,19 @@ try {
                     break;
                 }
                 
-                // For non-admin users with ACL entries, expand to include parent masters
-                // This is needed when user has ACL on include zones but requests master zones
-                $expandedZoneIds = $auth->getExpandedZoneIds('read');
+                // For non-admin users: do NOT expand to include parent masters by default
+                // Users should only see zones they have explicit ACL on
+                // This ensures the zone file combobox only shows zones the user is authorized to access
+                $expandedZoneIds = $allowedZoneIds;
+            } else {
+                // For admins: optionally expand to include parent masters if include_parents=1
+                if ($include_parents) {
+                    // Get all zone IDs first (admins have access to all)
+                    // Then expand to include parent masters if needed
+                    // Note: For admins, $allowedZoneIds and $expandedZoneIds remain null
+                    // which means no ACL filtering is applied (admin sees all zones)
+                }
+                // If admin and no include_parents, leave both null to see all zones
             }
 
             // Check if this is a recursive tree request
@@ -190,7 +204,8 @@ try {
                 }
                 
                 // Add ACL filter for non-admin users
-                // Use expanded zone IDs to include parent masters for users with ACL on includes
+                // For non-admins: use only explicitly allowed zone IDs (no parent master expansion)
+                // This ensures the zone file combobox only shows zones the user has direct ACL on
                 $effectiveZoneIds = $expandedZoneIds !== null ? $expandedZoneIds : $allowedZoneIds;
                 if ($effectiveZoneIds !== null && !empty($effectiveZoneIds)) {
                     $filters['zone_ids'] = $effectiveZoneIds;
@@ -243,10 +258,11 @@ try {
             // Only search active zones for autocomplete
             $filters['status'] = 'active';
             
-            // For non-admin users, add ACL filter with expanded zone IDs
+            // For non-admin users, add ACL filter - only show zones they have direct ACL on
+            // Do NOT expand to include parent masters (to keep combobox showing only authorized zones)
             if (!$auth->isAdmin()) {
-                $expandedZoneIds = $auth->getExpandedZoneIds('read');
-                if (empty($expandedZoneIds) && !$auth->isZoneEditor()) {
+                $allowedZoneIds = $auth->getAllowedZoneIds('read');
+                if (empty($allowedZoneIds) && !$auth->isZoneEditor()) {
                     echo json_encode([
                         'success' => true,
                         'data' => []
@@ -254,8 +270,8 @@ try {
                     break;
                 }
                 
-                if (!empty($expandedZoneIds)) {
-                    $filters['zone_ids'] = $expandedZoneIds;
+                if (!empty($allowedZoneIds)) {
+                    $filters['zone_ids'] = $allowedZoneIds;
                 }
             }
 
@@ -297,6 +313,7 @@ try {
 
             // For non-admin users, verify they have access to this zone
             // Use expanded zone IDs to allow access to parent masters if user has ACL on includes
+            // This is needed for tree navigation even though the combobox only shows direct ACL zones
             if (!$auth->isAdmin()) {
                 $expandedZoneIds = $auth->getExpandedZoneIds('read');
                 
