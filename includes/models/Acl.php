@@ -666,5 +666,40 @@ class Acl {
                   " | Driver message: $driverMsg" .
                   " | Context: $contextStr");
     }
+
+    /**
+     * Check if a user has any ACL entry on zone resources
+     * Used to determine if a user should see the DNS tab
+     * 
+     * @param string $username Username to check (case-insensitive)
+     * @return bool True if user has at least one ACL entry on zones
+     */
+    public function hasAnyZoneAcl(string $username): bool {
+        $username = mb_strtolower(trim($username));
+        if ($username === '') {
+            return false;
+        }
+        
+        try {
+            $sql = "SELECT 1 FROM acl_entries a 
+                    LEFT JOIN users u ON a.user_id = u.id 
+                    WHERE a.resource_type = 'zone' 
+                    AND a.status = 'enabled' 
+                    AND (
+                        (a.subject_type = 'user' AND LOWER(a.subject_identifier) = :username) 
+                        OR (a.user_id IS NOT NULL AND LOWER(u.username) = :username)
+                    ) 
+                    LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([':username' => $username]);
+            return (bool)$stmt->fetchColumn();
+        } catch (PDOException $e) {
+            $this->logSqlError('hasAnyZoneAcl', $e, ['username' => $username]);
+            return false;
+        } catch (Exception $e) {
+            error_log("Acl hasAnyZoneAcl error: " . $e->getMessage() . " | username: $username");
+            return false;
+        }
+    }
 }
 ?>
