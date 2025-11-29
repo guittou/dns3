@@ -7,14 +7,15 @@ if (!$auth->isLoggedIn()) {
     exit;
 }
 
-// Allow access if user is admin OR has zone_editor role OR has zone ACL entries
-if (!$auth->isAdmin() && !$auth->isZoneEditor() && !$auth->hasZoneAcl()) {
+// Zone files management is restricted to admins only
+if (!$auth->isAdmin()) {
     if (Auth::isXhrRequest()) {
         // Return JSON error for XHR requests
-        Auth::sendJsonError(403, Auth::ERR_ZONE_ACCESS_DENIED);
+        Auth::sendJsonError(403, 'Cette page est réservée aux administrateurs.');
     } else {
-        // Redirect for normal requests
-        header('Location: ' . BASE_URL . 'index.php');
+        // Show access denied page for normal requests
+        http_response_code(403);
+        include __DIR__ . '/templates/access_denied.php';
         exit;
     }
 }
