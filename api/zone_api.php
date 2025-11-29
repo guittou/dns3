@@ -100,10 +100,6 @@ try {
                 $per_page = min(100, max(1, (int)$_GET['limit']));
             }
 
-            // Optional include_parents parameter (only admins can use this)
-            // When include_parents=1, expand zone IDs to include parent masters
-            $include_parents = isset($_GET['include_parents']) && $_GET['include_parents'] === '1';
-
             // Get allowed zone IDs for non-admin users (for ACL filtering)
             $allowedZoneIds = null;
             $expandedZoneIds = null;
@@ -127,16 +123,9 @@ try {
                 // Users should only see zones they have explicit ACL on
                 // This ensures the zone file combobox only shows zones the user is authorized to access
                 $expandedZoneIds = $allowedZoneIds;
-            } else {
-                // For admins: optionally expand to include parent masters if include_parents=1
-                if ($include_parents) {
-                    // Get all zone IDs first (admins have access to all)
-                    // Then expand to include parent masters if needed
-                    // Note: For admins, $allowedZoneIds and $expandedZoneIds remain null
-                    // which means no ACL filtering is applied (admin sees all zones)
-                }
-                // If admin and no include_parents, leave both null to see all zones
             }
+            // Note: For admins, $allowedZoneIds and $expandedZoneIds remain null
+            // which means no ACL filtering is applied (admin sees all zones)
 
             // Check if this is a recursive tree request
             $master_id = isset($_GET['master_id']) ? (int)$_GET['master_id'] : 0;
