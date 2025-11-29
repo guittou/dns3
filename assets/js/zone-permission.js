@@ -50,7 +50,7 @@
         if (!zoneFileId) return null;
         
         // Build URL using the robust helper
-        const url = buildApiPath('zone_api.php?action=get_zone_permission&zone_file_id=' + encodeURIComponent(zoneFileId));
+        const url = buildApiPath(`zone_api.php?action=get_zone_permission&zone_file_id=${encodeURIComponent(zoneFileId)}`);
         
         try {
             const res = await fetch(url, {
