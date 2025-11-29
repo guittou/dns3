@@ -12,6 +12,7 @@ class Auth {
      * Error message constants for access control
      */
     public const ERR_ZONE_ACCESS_DENIED = 'Vous devez être administrateur ou avoir des permissions sur au moins une zone pour accéder à cette page.';
+    public const ERR_ADMIN_ONLY = 'Cette page est réservée aux administrateurs.';
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();

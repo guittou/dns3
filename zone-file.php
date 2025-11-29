@@ -11,7 +11,7 @@ if (!$auth->isLoggedIn()) {
 if (!$auth->isAdmin()) {
     if (Auth::isXhrRequest()) {
         // Return JSON error for XHR requests
-        Auth::sendJsonError(403, 'Cette page est réservée aux administrateurs.');
+        Auth::sendJsonError(403, Auth::ERR_ADMIN_ONLY);
     } else {
         // Show access denied page for normal requests
         http_response_code(403);

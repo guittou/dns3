@@ -67,9 +67,7 @@ if ($basePath === '') {
             // Determine tab visibility:
             // - DNS tab: visible if user is admin OR has zone ACL entries
             // - Zones tab: visible ONLY if user is admin
-            $acl = new Acl();
-            $currentUsername = $user['username'] ?? '';
-            $canSeeDnsTab = $auth->isAdmin() || $acl->hasAnyZoneAcl($currentUsername);
+            $canSeeDnsTab = $auth->isAdmin() || $auth->hasZoneAcl();
             $canSeeZonesTab = $auth->isAdmin();
             ?>
             <?php if ($canSeeDnsTab): ?>
