@@ -58,6 +58,34 @@ $action = $_GET['action'] ?? '';
 $zoneFile = new ZoneFile();
 
 try {
+    // Handle get_zone_permission action - returns user's permission level for a zone
+    if ($action === 'get_zone_permission') {
+        requireAuth();
+        $zone_file_id = isset($_GET['zone_file_id']) ? (int)$_GET['zone_file_id'] : 0;
+
+        if (!$zone_file_id) {
+            http_response_code(400);
+            echo json_encode(['error' => 'missing_zone_file_id']);
+            exit;
+        }
+
+        // Check permission levels in order: admin > write > read
+        if ($auth->isAllowedForZone($zone_file_id, 'admin')) {
+            echo json_encode(['permission' => 'admin']);
+            exit;
+        } elseif ($auth->isAllowedForZone($zone_file_id, 'write')) {
+            echo json_encode(['permission' => 'write']);
+            exit;
+        } elseif ($auth->isAllowedForZone($zone_file_id, 'read')) {
+            echo json_encode(['permission' => 'read']);
+            exit;
+        } else {
+            http_response_code(403);
+            echo json_encode(['permission' => null, 'error' => 'forbidden']);
+            exit;
+        }
+    }
+
     switch ($action) {
         case 'list_zones':
             // List zone files with pagination (requires authentication)
