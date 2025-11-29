@@ -46,32 +46,39 @@
 
     /**
      * Apply UI changes based on permission level
+     * Hides Save and Delete buttons for read-only users, keeps Cancel button always visible
      * @param {string|null} permission - Permission level ('admin', 'write', 'read', or null)
      */
     function applyUiPermission(permission) {
-        const deleteButtons = document.querySelectorAll('.btn-delete-record, .btn-delete');
         const saveButton = document.querySelector('#record-save-btn');
+        const deleteButton = document.querySelector('#record-delete-btn');
+        const cancelButton = document.querySelector('#record-cancel-btn');
         const canWrite = (permission === 'admin' || permission === 'write');
         
-        // Enable/disable delete buttons
-        deleteButtons.forEach(btn => {
-            btn.disabled = !canWrite;
-            if (!canWrite) {
-                btn.title = 'Vous n\'avez pas les droits pour supprimer cet enregistrement';
-            } else {
-                btn.title = '';
-            }
-        });
-        
-        // Enable/disable save button
+        // Hide/show save button based on permission
         if (saveButton) {
-            saveButton.disabled = !canWrite;
-            if (!canWrite) {
-                saveButton.title = 'Vous n\'avez pas les droits pour modifier cet enregistrement';
-            } else {
-                saveButton.title = '';
-            }
+            saveButton.style.display = canWrite ? '' : 'none';
         }
+        
+        // Hide/show delete button based on permission
+        if (deleteButton) {
+            deleteButton.style.display = canWrite ? '' : 'none';
+        }
+        
+        // Cancel button should ALWAYS be visible and enabled
+        if (cancelButton) {
+            cancelButton.style.display = '';
+            cancelButton.disabled = false;
+        }
+    }
+
+    /**
+     * Apply modal buttons visibility based on permission
+     * This is the function called directly by other modules
+     * @param {string|null} permission - Permission level ('admin', 'write', 'read', or null)
+     */
+    function applyModalButtons(permission) {
+        applyUiPermission(permission);
     }
 
     /**
@@ -133,7 +140,8 @@
     // Expose functions globally for use by other modules
     window.zonePermission = {
         getZonePermission: getZonePermission,
-        applyUiPermission: applyUiPermission
+        applyUiPermission: applyUiPermission,
+        applyModalButtons: applyModalButtons
     };
 
     // Initialize on DOM ready
