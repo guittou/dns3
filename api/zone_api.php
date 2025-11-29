@@ -69,9 +69,6 @@ try {
             exit;
         }
 
-        $currentUser = $auth->getCurrentUser();
-        $username = $currentUser['username'] ?? '';
-        
         // Check permission levels in order: admin > write > read
         if ($auth->isAllowedForZone($zone_file_id, 'admin')) {
             echo json_encode(['permission' => 'admin']);
