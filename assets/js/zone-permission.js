@@ -13,6 +13,35 @@
     'use strict';
 
     /**
+     * Helper to build API URL robustly
+     * Handles cases where BASE_URL may or may not contain the 'api' segment
+     * @param {string} endpoint - The API endpoint (e.g., 'zone_api.php?action=...')
+     * @returns {string} The complete API URL
+     */
+    function buildApiPath(endpoint) {
+        // Use API_BASE if available (already includes /api/), otherwise fallback to BASE_URL
+        const apiBase = (typeof window.API_BASE !== 'undefined' && window.API_BASE) 
+            ? String(window.API_BASE) 
+            : '';
+        const base = apiBase || ((typeof window.BASE_URL !== 'undefined' && window.BASE_URL) ? String(window.BASE_URL) : '/');
+        
+        // Normalize: remove trailing slashes from base
+        const b = base.replace(/\/+$/, '');
+        // Normalize: remove leading slashes from endpoint
+        const e = String(endpoint).replace(/^\/+/, '');
+        
+        // If API_BASE is used and already contains 'api/', don't add 'api/' prefix
+        // If BASE_URL is used (no 'api/' segment), prepend 'api/' to endpoint
+        if (apiBase) {
+            // API_BASE already ends with 'api/', so just append the endpoint
+            return b + '/' + e;
+        } else {
+            // BASE_URL doesn't contain 'api/', so prepend it
+            return b + '/api/' + e;
+        }
+    }
+
+    /**
      * Get the user's permission level for a specific zone file
      * @param {number|string} zoneFileId - The zone file ID to check
      * @returns {Promise<string|null>} Permission level ('admin', 'write', 'read') or null if forbidden/error
@@ -20,10 +49,8 @@
     async function getZonePermission(zoneFileId) {
         if (!zoneFileId) return null;
         
-        // Use window.API_BASE or window.BASE_URL or fallback to current origin
-        const apiBase = window.API_BASE || window.BASE_URL || '';
-        const normalizedBase = apiBase.endsWith('/') ? apiBase : (apiBase ? apiBase + '/' : '');
-        const url = `${normalizedBase}api/zone_api.php?action=get_zone_permission&zone_file_id=${encodeURIComponent(zoneFileId)}`;
+        // Build URL using the robust helper
+        const url = buildApiPath('zone_api.php?action=get_zone_permission&zone_file_id=' + encodeURIComponent(zoneFileId));
         
         try {
             const res = await fetch(url, {
@@ -46,23 +73,34 @@
 
     /**
      * Apply UI changes based on permission level
-     * Hides Save and Delete buttons for read-only users, keeps Cancel button always visible
+     * Only hides Save and Delete buttons for explicit read-only users
+     * When permission is absent/undefined, buttons are shown (server-side security handles 403)
      * @param {string|null} permission - Permission level ('admin', 'write', 'read', or null)
      */
     function applyUiPermission(permission) {
         const saveButton = document.querySelector('#record-save-btn');
         const deleteButton = document.querySelector('#record-delete-btn');
         const cancelButton = document.querySelector('#record-cancel-btn');
-        const canWrite = (permission === 'admin' || permission === 'write');
         
-        // Hide/show save button based on permission
-        if (saveButton) {
-            saveButton.style.display = canWrite ? '' : 'none';
+        // Only hide buttons when permission is explicitly 'read'
+        // If permission is undefined/null, show buttons (UX) and let server-side security handle 403
+        const isReadOnly = (permission === 'read');
+        
+        // Log warning if permission is missing (helps debugging)
+        if (typeof permission === 'undefined' || permission === null) {
+            console.warn('applyUiPermission: permission not provided for this record — defaulting to show Save/Delete. Ensure API returns permission/can_write.');
         }
         
-        // Hide/show delete button based on permission
+        // Show/hide save button based on permission
+        if (saveButton) {
+            saveButton.style.display = isReadOnly ? 'none' : '';
+            saveButton.disabled = isReadOnly;
+        }
+        
+        // Show/hide delete button based on permission
         if (deleteButton) {
-            deleteButton.style.display = canWrite ? '' : 'none';
+            deleteButton.style.display = isReadOnly ? 'none' : '';
+            deleteButton.disabled = isReadOnly;
         }
         
         // Cancel button should ALWAYS be visible and enabled
@@ -75,6 +113,8 @@
     /**
      * Apply modal buttons visibility based on permission
      * This is the function called directly by other modules
+     * Only hides Save and Delete buttons for explicit read-only users
+     * When permission is absent/undefined, buttons are shown (UX) and server-side handles 403
      * @param {string|null} permission - Permission level ('admin', 'write', 'read', or null)
      */
     function applyModalButtons(permission) {
@@ -141,8 +181,12 @@
     window.zonePermission = {
         getZonePermission: getZonePermission,
         applyUiPermission: applyUiPermission,
-        applyModalButtons: applyModalButtons
+        applyModalButtons: applyModalButtons,
+        buildApiPath: buildApiPath
     };
+    
+    // Also expose buildApiPath directly on window for easy access
+    window.buildApiPath = buildApiPath;
 
     // Initialize on DOM ready
     if (document.readyState === 'loading') {
