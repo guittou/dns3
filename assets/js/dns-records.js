@@ -200,6 +200,15 @@
     }
 
     /**
+     * Check if user can write to a record's zone based on API response
+     * @param {Object} record - Record object with can_write field from API
+     * @returns {boolean} True if user can write (modify/delete) the record
+     */
+    function canWriteRecord(record) {
+        return record && (record.can_write === 1 || record.can_write === true);
+    }
+
+    /**
      * Helper: hide a combobox list related to an input (robust selector + aria/class cleanup)
      */
     function hideComboboxListForInput(input) {
@@ -1688,7 +1697,7 @@
                 const zoneDisplay = escapeHtml(record.zone_name || '-');
                 
                 // Determine if user can write to this record's zone
-                const canWrite = record.can_write === 1 || record.can_write === true;
+                const canWrite = canWriteRecord(record);
                 
                 // Build actions cell based on permissions
                 let actionsHtml = '';
@@ -2483,8 +2492,8 @@
             updateDnsPreview();
 
             // Apply permission-based button visibility
-            // Use record.permission and can_write from API response
-            const canWrite = record.can_write === 1 || record.can_write === true;
+            // Use canWriteRecord helper to check permission from API response
+            const canWrite = canWriteRecord(record);
             
             // Show/hide save button based on permission
             if (saveBtn) {
