@@ -300,8 +300,8 @@ try {
             break;
 
         case 'create':
-            // Create a new DNS record (admin only)
-            requireAdmin();
+            // Create a new DNS record (requires write permission on zone)
+            requireAuth();
 
             // Get JSON input
             $input = json_decode(file_get_contents('php://input'), true);
@@ -316,6 +316,14 @@ try {
             if (!isset($input['zone_file_id']) || empty($input['zone_file_id'])) {
                 http_response_code(400);
                 echo json_encode(['error' => 'Missing required field: zone_file_id']);
+                exit;
+            }
+
+            // Check write permission on the zone_file
+            $zone_file_id = (int)$input['zone_file_id'];
+            if (!$auth->isAllowedForZone($zone_file_id, 'write')) {
+                http_response_code(403);
+                echo json_encode(['error' => 'forbidden']);
                 exit;
             }
 
@@ -402,8 +410,8 @@ try {
             break;
 
         case 'update':
-            // Update a DNS record (admin only)
-            requireAdmin();
+            // Update a DNS record (requires write permission on zone)
+            requireAuth();
 
             $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
             if ($id <= 0) {
@@ -416,6 +424,29 @@ try {
             $input = json_decode(file_get_contents('php://input'), true);
             if (!$input) {
                 $input = $_POST;
+            }
+
+            // Fetch existing record to get zone_file_id for permission check
+            $existingRecord = $dnsRecord->getById($id);
+            if (!$existingRecord) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Record not found']);
+                exit;
+            }
+
+            // Determine zone_file_id - use from input if provided, otherwise use existing
+            $zone_file_id = (int)($input['zone_file_id'] ?? $existingRecord['zone_file_id'] ?? 0);
+            if (!$zone_file_id) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Missing zone_file_id']);
+                exit;
+            }
+
+            // Check write permission on the zone_file
+            if (!$auth->isAllowedForZone($zone_file_id, 'write')) {
+                http_response_code(403);
+                echo json_encode(['error' => 'forbidden']);
+                exit;
             }
 
             // Explicitly remove last_seen if provided by client (security)
@@ -502,8 +533,8 @@ try {
             break;
 
         case 'set_status':
-            // Change record status (admin only)
-            requireAdmin();
+            // Change record status (requires write permission on zone)
+            requireAuth();
 
             $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
             $status = $_GET['status'] ?? '';
@@ -519,6 +550,14 @@ try {
             if (!$record) {
                 http_response_code(404);
                 echo json_encode(['error' => 'Record not found']);
+                exit;
+            }
+
+            // Check write permission on the zone_file
+            $zone_file_id = (int)($record['zone_file_id'] ?? 0);
+            if (!$zone_file_id || !$auth->isAllowedForZone($zone_file_id, 'write')) {
+                http_response_code(403);
+                echo json_encode(['error' => 'forbidden']);
                 exit;
             }
 
