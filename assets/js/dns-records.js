@@ -200,6 +200,15 @@
     }
 
     /**
+     * Check if user can write to a record's zone based on API response
+     * @param {Object} record - Record object with can_write field from API
+     * @returns {boolean} True if user can write (modify/delete) the record
+     */
+    function canWriteRecord(record) {
+        return record && (record.can_write === 1 || record.can_write === true);
+    }
+
+    /**
      * Helper: hide a combobox list related to an input (robust selector + aria/class cleanup)
      */
     function hideComboboxListForInput(input) {
@@ -1686,6 +1695,25 @@
 
                 const domainDisplay = escapeHtml(record.domain_name || '-');
                 const zoneDisplay = escapeHtml(record.zone_name || '-');
+                
+                // Determine if user can write to this record's zone
+                const canWrite = canWriteRecord(record);
+                
+                // Build actions cell based on permissions
+                let actionsHtml = '';
+                if (canWrite) {
+                    actionsHtml = `<button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Modifier</button>`;
+                    if (record.status !== 'deleted') {
+                        actionsHtml += ` <button class="btn-small btn-delete" onclick="dnsRecords.deleteRecord(${record.id})">Supprimer</button>`;
+                    }
+                    if (record.status === 'deleted') {
+                        actionsHtml += ` <button class="btn-small btn-restore" onclick="dnsRecords.restoreRecord(${record.id})">Restaurer</button>`;
+                    }
+                } else {
+                    // Read-only: show Edit button only (modal will hide Save/Delete) + read-only badge
+                    actionsHtml = `<button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Voir</button>`;
+                    actionsHtml += ` <span class="badge badge-readonly" title="Vous n'avez pas les droits d'écriture sur cette zone">Lecture seule</span>`;
+                }
 
                 row.innerHTML = `
                     <td class="col-domain">${domainDisplay}</td>
@@ -1698,11 +1726,7 @@
                     <td class="col-updated">${record.updated_at ? formatDateTime(record.updated_at) : (record.created_at ? formatDateTime(record.created_at) : '-')}</td>
                     <td class="col-lastseen">${record.last_seen ? formatDateTime(record.last_seen) : '-'}</td>
                     <td class="col-status"><span class="status-badge status-${record.status}">${escapeHtml(record.status)}</span></td>
-                    <td class="col-actions">
-                        <button class="btn-small btn-edit" onclick="dnsRecords.openEditModal(${record.id})">Modifier</button>
-                        ${record.status !== 'deleted' ? `<button class="btn-small btn-delete" onclick="dnsRecords.deleteRecord(${record.id})">Supprimer</button>` : ''}
-                        ${record.status === 'deleted' ? `<button class="btn-small btn-restore" onclick="dnsRecords.restoreRecord(${record.id})">Restaurer</button>` : ''}
-                    </td>
+                    <td class="col-actions">${actionsHtml}</td>
                 `;
 
                 // Au clic sur la ligne : autocomplete domain + zone (ignorer clics sur actions)
@@ -2438,10 +2462,11 @@
             const formView = document.getElementById('dns-form');
             const saveBtn = document.getElementById('record-save-btn');
             const previousBtn = document.getElementById('record-previous-btn');
+            const deleteBtn = document.getElementById('record-delete-btn');
+            const cancelBtn = document.getElementById('record-cancel-btn');
             
             if (typeView) typeView.style.display = 'none';
             if (formView) formView.style.display = 'block';
-            if (saveBtn) saveBtn.style.display = 'inline-block';
             if (previousBtn) previousBtn.style.display = 'none'; // No previous button in edit mode
             
             // Convert SQL datetime to datetime-local format (if expires_at exists)
@@ -2466,14 +2491,37 @@
             // Update DNS preview immediately with loaded record data
             updateDnsPreview();
 
-            // Show and bind delete button for edit mode
-            const deleteBtn = document.getElementById('record-delete-btn');
+            // Apply permission-based button visibility
+            // Use canWriteRecord helper to check permission from API response
+            const canWrite = canWriteRecord(record);
+            
+            // Show/hide save button based on permission
+            if (saveBtn) {
+                saveBtn.style.display = canWrite ? 'inline-block' : 'none';
+            }
+            
+            // Show/hide delete button based on permission and record status
             if (deleteBtn) {
-                deleteBtn.style.display = 'block';
-                // Remove any previous click listeners and add new one
-                deleteBtn.onclick = function() {
-                    dnsRecords.deleteRecord(recordId);
-                };
+                if (canWrite && record.status !== 'deleted') {
+                    deleteBtn.style.display = 'block';
+                    // Remove any previous click listeners and add new one
+                    deleteBtn.onclick = function() {
+                        dnsRecords.deleteRecord(recordId);
+                    };
+                } else {
+                    deleteBtn.style.display = 'none';
+                }
+            }
+            
+            // Cancel button should ALWAYS be visible
+            if (cancelBtn) {
+                cancelBtn.style.display = '';
+                cancelBtn.disabled = false;
+            }
+            
+            // Also update modal title if read-only
+            if (!canWrite) {
+                title.textContent = 'Consulter l\'enregistrement DNS';
             }
 
             modal.style.display = 'block';

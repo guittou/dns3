@@ -241,6 +241,42 @@ try {
             }
             unset($record); // break reference
 
+            // Add permission and can_write fields to each record based on user's zone file ACL
+            $currentUser = $auth->getCurrentUser();
+            $username = $currentUser['username'] ?? '';
+            
+            // Collect distinct zone_file_ids
+            $zoneIds = [];
+            foreach ($records as $r) {
+                if (isset($r['zone_file_id']) && $r['zone_file_id'] !== null) {
+                    $zoneIds[(int)$r['zone_file_id']] = true;
+                }
+            }
+            $zoneIds = array_keys($zoneIds);
+            
+            // Determine permission level for each zone
+            $zonePermissions = [];
+            foreach ($zoneIds as $zid) {
+                if ($auth->isAllowedForZone($zid, 'admin')) {
+                    $zonePermissions[$zid] = 'admin';
+                } elseif ($auth->isAllowedForZone($zid, 'write')) {
+                    $zonePermissions[$zid] = 'write';
+                } elseif ($auth->isAllowedForZone($zid, 'read')) {
+                    $zonePermissions[$zid] = 'read';
+                } else {
+                    $zonePermissions[$zid] = null;
+                }
+            }
+            
+            // Attach permission and can_write to each record
+            foreach ($records as &$r) {
+                $zid = isset($r['zone_file_id']) ? (int)$r['zone_file_id'] : 0;
+                $perm = $zonePermissions[$zid] ?? null;
+                $r['permission'] = $perm;
+                $r['can_write'] = ($perm === 'admin' || $perm === 'write') ? 1 : 0;
+            }
+            unset($r); // break reference
+
             echo json_encode([
                 'success' => true,
                 'data' => $records,
@@ -287,6 +323,24 @@ try {
             }
             if (!isset($record['zone_name']) || $record['zone_name'] === null || $record['zone_name'] === '') {
                 error_log("DNS API Warning: Record {$id} missing zone_name");
+            }
+
+            // Add permission and can_write fields based on user's zone file ACL
+            $zoneFileId = isset($record['zone_file_id']) ? (int)$record['zone_file_id'] : 0;
+            if ($zoneFileId > 0) {
+                if ($auth->isAllowedForZone($zoneFileId, 'admin')) {
+                    $record['permission'] = 'admin';
+                } elseif ($auth->isAllowedForZone($zoneFileId, 'write')) {
+                    $record['permission'] = 'write';
+                } elseif ($auth->isAllowedForZone($zoneFileId, 'read')) {
+                    $record['permission'] = 'read';
+                } else {
+                    $record['permission'] = null;
+                }
+                $record['can_write'] = ($record['permission'] === 'admin' || $record['permission'] === 'write') ? 1 : 0;
+            } else {
+                $record['permission'] = null;
+                $record['can_write'] = 0;
             }
 
             // Also get history
