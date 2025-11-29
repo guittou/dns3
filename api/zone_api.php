@@ -896,13 +896,18 @@ try {
                     }
                     
                     // Fetch zone file details for the filtered IDs
+                    // Include parent_id and parent_name via LEFT JOIN on zone_file_includes
                     $zones = [];
                     if (!empty($zoneFileIds)) {
                         $placeholders = implode(',', array_fill(0, count($zoneFileIds), '?'));
-                        $sql = "SELECT id, name, filename, file_type, status, domain, directory, created_at, updated_at 
-                                FROM zone_files 
-                                WHERE id IN ($placeholders) AND status = 'active'
-                                ORDER BY file_type DESC, name ASC"; // master first, then includes
+                        $sql = "SELECT zf.id, zf.name, zf.filename, zf.file_type, zf.status, 
+                                       zf.domain, zf.directory, zf.created_at, zf.updated_at,
+                                       zfi.parent_id, parent_zf.name as parent_name
+                                FROM zone_files zf
+                                LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                                LEFT JOIN zone_files parent_zf ON zfi.parent_id = parent_zf.id
+                                WHERE zf.id IN ($placeholders) AND zf.status = 'active'
+                                ORDER BY zf.file_type DESC, zf.name ASC";
                         $stmt = $db->prepare($sql);
                         $stmt->execute($zoneFileIds);
                         $zones = $stmt->fetchAll();
@@ -914,19 +919,24 @@ try {
                     ]);
                 } else {
                     // No domain_id filter - return all active zone files (with ACL filtering for non-admin)
-                    $sql = "SELECT id, name, filename, file_type, status, domain, directory, created_at, updated_at 
-                            FROM zone_files 
-                            WHERE status = 'active'";
+                    // Include parent_id and parent_name via LEFT JOIN on zone_file_includes
+                    $sql = "SELECT zf.id, zf.name, zf.filename, zf.file_type, zf.status, 
+                                   zf.domain, zf.directory, zf.created_at, zf.updated_at,
+                                   zfi.parent_id, parent_zf.name as parent_name
+                            FROM zone_files zf
+                            LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                            LEFT JOIN zone_files parent_zf ON zfi.parent_id = parent_zf.id
+                            WHERE zf.status = 'active'";
                     $params = [];
                     
                     // Add ACL filter for non-admin users
                     if ($allowedZoneIds !== null && !empty($allowedZoneIds)) {
                         $placeholders = implode(',', array_fill(0, count($allowedZoneIds), '?'));
-                        $sql .= " AND id IN ($placeholders)";
+                        $sql .= " AND zf.id IN ($placeholders)";
                         $params = $allowedZoneIds;
                     }
                     
-                    $sql .= " ORDER BY file_type DESC, name ASC";
+                    $sql .= " ORDER BY zf.file_type DESC, zf.name ASC";
                     
                     $stmt = $db->prepare($sql);
                     $stmt->execute($params);
@@ -937,6 +947,14 @@ try {
                         'data' => $zones
                     ]);
                 }
+            } catch (PDOException $e) {
+                // Log detailed SQL error for debugging
+                // PDOException's getCode() returns SQLSTATE code
+                $sqlState = $e->getCode();
+                error_log("Error listing zone files - SQL Error: " . $e->getMessage() . 
+                          " | SQLSTATE: $sqlState");
+                http_response_code(500);
+                echo json_encode(['error' => 'Failed to list zone files: database error']);
             } catch (Exception $e) {
                 error_log("Error listing zone files: " . $e->getMessage());
                 http_response_code(500);
