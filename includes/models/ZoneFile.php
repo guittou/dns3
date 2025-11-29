@@ -15,6 +15,14 @@ class ZoneFile {
     }
 
     /**
+     * Get database connection for direct queries
+     * @return PDO Database connection
+     */
+    public function getConnection() {
+        return $this->db;
+    }
+
+    /**
      * Search zone files with filters
      * 
      * @param array $filters Optional filters (name, file_type, status, owner, q for general search, zone_ids for ACL filtering)
