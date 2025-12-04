@@ -12,6 +12,8 @@ DNS3 is a PHP web application for managing DNS zone files and records. It suppor
 - **Multi-source Authentication**: Database, Active Directory, and OpenLDAP support
 - **Role-based Access Control**: Granular permissions via ACL entries
 
+> **Database Schema**: The canonical schema is in `database.sql` (exported 2025-12-04). For detailed documentation including table descriptions, foreign keys, and example queries, see [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
+
 > **Note**: The Applications feature has been removed. Any migrations that previously created the `applications` table have been archived. The `domaine_list` table has also been removed; domains are now managed directly in the `zone_files` table via the `domain` field.
 
 ## Installation
@@ -110,7 +112,7 @@ All settings are in `config.php`:
 
 - **TTL Behavior**: If a record's TTL is NULL, the zone's default TTL is used during file generation.
 - **Backups**: Use `mysqldump -u user -p dns3_db > backup.sql` before major changes.
-- **Database Setup**: For new installations, import `database.sql` (or `structure_ok_dns3_db.sql`) to initialize the database. The legacy migration files have been removed from this repository (they remain in Git history if needed).
+- **Database Setup**: For new installations, import `database.sql` to initialize the database. The schema was last exported on **2025-12-04** from `structure_ok_dns3_db.sql`. For detailed schema documentation, see [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
 - **Zone Validation**: Runs `named-checkzone` and stores results in `zone_file_validation` table.
 
 ## Authentification AD/LDAP — Contrôle par Mappings
