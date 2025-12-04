@@ -3027,7 +3027,6 @@
             const url = getApiUrl('get_record_history', { record_id: recordId });
             const response = await fetch(url, {
                 method: 'GET',
-                headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin'
             });
 
@@ -3160,8 +3159,11 @@
                 toggleBtn.setAttribute('aria-expanded', 'true');
             }
             
-            // Lazy load history if not already loaded
-            if (!panel.dataset.loaded || panel.dataset.recordId !== String(recordId)) {
+            // Lazy load history if not already loaded for this record
+            const currentRecordId = panel.dataset.recordId || '';
+            const needsLoad = panel.dataset.loaded !== 'true' || currentRecordId !== String(recordId);
+            
+            if (needsLoad) {
                 content.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
                 
                 const history = await fetchRecordHistory(recordId);

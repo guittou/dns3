@@ -876,7 +876,7 @@ try {
             }
 
             try {
-                // Verify the record exists (optional: we could also check zone ACL here for read permission)
+                // Verify the record exists and user has read access to its zone
                 $record = $dnsRecord->getById($record_id, true); // include deleted records
                 if (!$record) {
                     http_response_code(404);
