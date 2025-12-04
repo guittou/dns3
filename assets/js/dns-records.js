@@ -3014,6 +3014,7 @@
     
     /**
      * Fetch record history from API
+     * Defensive implementation with fallback for BASE_URL
      * @param {number} recordId - The record ID to fetch history for
      * @returns {Promise<Array>} - Array of history entries or empty array on error
      */
@@ -3027,7 +3028,10 @@
             const url = getApiUrl('get_record_history', { record_id: recordId });
             const response = await fetch(url, {
                 method: 'GET',
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             });
 
             const text = await response.text();
@@ -3137,9 +3141,34 @@
 
     /**
      * Toggle history panel visibility and load history if needed
+     * DEPRECATED: This function is kept for backward compatibility.
+     * The new implementation uses a dedicated modal (recordHistoryModal).
      * @param {number} recordId - The record ID to load history for
      */
     async function toggleHistoryPanel(recordId) {
+        // Try new modal first
+        const historyModal = document.getElementById('recordHistoryModal');
+        const historyContainer = document.getElementById('record-history-container');
+        
+        if (historyModal && historyContainer) {
+            // Use new modal approach
+            historyContainer.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
+            
+            // Open modal
+            if (typeof window.openHistoryModal === 'function') {
+                window.openHistoryModal();
+            } else {
+                historyModal.style.display = 'block';
+                historyModal.classList.add('open');
+            }
+            
+            // Fetch and render history
+            const history = await fetchRecordHistory(recordId);
+            renderRecordHistory(historyContainer, history);
+            return;
+        }
+        
+        // Fallback: Old inline panel approach (for backward compatibility)
         const panel = document.getElementById('record-history-panel');
         const content = document.getElementById('record-history-content');
         const toggleBtn = document.getElementById('record-history-toggle');
@@ -3183,9 +3212,28 @@
     }
 
     /**
-     * Reset history panel state (called when modal opens)
+     * Reset history panel/modal state (called when edit modal opens)
+     * Works with both old inline panel and new modal approach
      */
     function resetHistoryPanel() {
+        // New modal approach
+        const historyContainer = document.getElementById('record-history-container');
+        if (historyContainer) {
+            historyContainer.innerHTML = '';
+        }
+        
+        // Close history modal if open
+        const historyModal = document.getElementById('recordHistoryModal');
+        if (historyModal) {
+            if (typeof window.closeHistoryModal === 'function') {
+                window.closeHistoryModal();
+            } else {
+                historyModal.style.display = 'none';
+                historyModal.classList.remove('open');
+            }
+        }
+        
+        // Old inline panel approach (backward compatibility)
         const panel = document.getElementById('record-history-panel');
         const content = document.getElementById('record-history-content');
         const toggleBtn = document.getElementById('record-history-toggle');

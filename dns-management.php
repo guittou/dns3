@@ -249,17 +249,12 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
                     <input type="text" id="record-last-seen" name="last_seen" disabled readonly placeholder="Non encore consulté">
                 </div>
                 
-                <!-- Record History Section (edit mode only, lazy-loaded) -->
+                <!-- Record History Section (edit mode only) -->
                 <div class="form-row" id="record-history-section">
                     <div class="form-group">
-                        <button type="button" id="record-history-toggle" class="btn-history-toggle" aria-expanded="false" aria-controls="record-history-panel" onclick="dnsRecords.toggleHistoryPanel(document.getElementById('dns-form').dataset.recordId)">
+                        <button type="button" id="btn-open-history" class="btn-history-toggle">
                             Voir l'historique
                         </button>
-                        <div id="record-history-panel" class="history-panel" style="display: none;" role="region" aria-labelledby="record-history-toggle">
-                            <div id="record-history-content" class="history-content">
-                                <!-- History will be loaded here -->
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -276,10 +271,118 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
     </div>
 </div>
 
+<!-- Record History Modal (fixed-size, scrollable) -->
+<div id="recordHistoryModal" class="dns-modal history-modal">
+    <div class="dns-modal-content history-modal-content">
+        <div class="dns-modal-header">
+            <h2>Historique de l'enregistrement</h2>
+            <button type="button" class="dns-modal-close" onclick="window.closeHistoryModal()">&times;</button>
+        </div>
+        <div class="dns-modal-body">
+            <div id="record-history-container" class="history-container">
+                <!-- History will be loaded here -->
+            </div>
+        </div>
+        <div class="dns-modal-footer">
+            <button type="button" class="btn-cancel" onclick="window.closeHistoryModal()">Fermer</button>
+        </div>
+    </div>
+</div>
+
 <script src="<?php echo BASE_URL; ?>assets/js/modal-utils.js"></script>
 <script src="<?php echo BASE_URL; ?>assets/js/combobox-utils.js"></script>
 <script src="<?php echo BASE_URL; ?>assets/js/dns-records.js"></script>
 <script src="<?php echo BASE_URL; ?>assets/js/zone-permission.js"></script>
+
+<script>
+// History modal functions and event handlers
+// This script must run AFTER dns-records.js to access window.fetchRecordHistory/renderRecordHistory
+(function() {
+    'use strict';
+    
+    // Open history modal function
+    window.openHistoryModal = function() {
+        var modal = document.getElementById('recordHistoryModal');
+        if (!modal) return;
+        
+        // Try Bootstrap modal if available
+        if (typeof jQuery !== 'undefined' && jQuery.fn && jQuery.fn.modal) {
+            jQuery(modal).modal('show');
+        } else {
+            // Fallback: vanilla JS
+            modal.style.display = 'block';
+            modal.classList.add('open');
+        }
+    };
+    
+    // Close history modal function
+    window.closeHistoryModal = function() {
+        var modal = document.getElementById('recordHistoryModal');
+        if (!modal) return;
+        
+        // Try Bootstrap modal if available
+        if (typeof jQuery !== 'undefined' && jQuery.fn && jQuery.fn.modal) {
+            jQuery(modal).modal('hide');
+        } else {
+            // Fallback: vanilla JS
+            modal.style.display = 'none';
+            modal.classList.remove('open');
+        }
+    };
+    
+    // Button click handler - lazy load history when opening the modal
+    var btnOpenHistory = document.getElementById('btn-open-history');
+    if (btnOpenHistory) {
+        btnOpenHistory.addEventListener('click', function() {
+            var form = document.getElementById('dns-form');
+            var recordId = form && form.dataset.recordId ? parseInt(form.dataset.recordId, 10) : 0;
+            
+            if (!recordId || recordId <= 0) {
+                console.warn('[History Modal] No valid recordId found');
+                return;
+            }
+            
+            // Show spinner in container
+            var container = document.getElementById('record-history-container');
+            if (container) {
+                container.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
+            }
+            
+            // Open the modal
+            window.openHistoryModal();
+            
+            // Fetch and render history using functions from dns-records.js
+            if (typeof window.fetchRecordHistory === 'function') {
+                window.fetchRecordHistory(recordId).then(function(rows) {
+                    if (typeof window.renderRecordHistory === 'function' && container) {
+                        window.renderRecordHistory(container, rows);
+                    }
+                }).catch(function(error) {
+                    console.error('[History Modal] Error fetching history:', error);
+                    if (container) {
+                        container.innerHTML = '<p class="history-empty">Erreur lors du chargement de l\'historique.</p>';
+                    }
+                });
+            } else {
+                console.warn('[History Modal] fetchRecordHistory function not available');
+                if (container) {
+                    container.innerHTML = '<p class="history-empty">Erreur: fonction de chargement indisponible.</p>';
+                }
+            }
+        });
+    }
+    
+    // Close modal on outside click
+    var historyModal = document.getElementById('recordHistoryModal');
+    if (historyModal) {
+        historyModal.addEventListener('click', function(event) {
+            if (event.target === historyModal) {
+                window.closeHistoryModal();
+            }
+        });
+    }
+})();
+</script>
 
 <?php
 require_once 'includes/footer.php';
