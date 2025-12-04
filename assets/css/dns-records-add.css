@@ -257,3 +257,51 @@
         max-width: 150px;
     }
 }
+
+/* ==========================================================================
+   Record History Modal (dedicated fixed-size modal)
+   ========================================================================== */
+
+/* History modal container - uses same base styles as dns-modal */
+.history-modal {
+    z-index: 1060; /* Higher than edit modal to stack on top */
+}
+
+/* History modal content - fixed size */
+.history-modal-content {
+    max-width: 700px;
+    width: 90%;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* History container - scrollable */
+.history-container {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+/* Ensure history modal footer stays at bottom */
+.history-modal .dns-modal-footer {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-top: 1px solid #dee2e6;
+    text-align: right;
+}
+
+/* Responsive adjustments for history modal */
+@media (max-width: 768px) {
+    .history-modal-content {
+        max-width: 95%;
+        max-height: 80vh;
+    }
+    
+    .history-container {
+        max-height: 55vh;
+    }
+}

@@ -866,7 +866,12 @@ try {
 
         case 'get_record_history':
             // Get history for a specific DNS record (requires authentication, read-only)
-            requireAuth();
+            // Returns 403 if not authenticated (per API spec)
+            if (!$auth->isLoggedIn()) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'Authentication required']);
+                exit;
+            }
 
             $record_id = isset($_GET['record_id']) ? (int)$_GET['record_id'] : 0;
             if ($record_id <= 0) {
