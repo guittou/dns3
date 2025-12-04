@@ -534,30 +534,28 @@ function attachZoneSearchInput() {
             searchQuery = val;
             
             if (val.length === 0) {
-                // Empty query: reset search and reload full data if needed
+                // Empty query: reset search and always reload full data to restore cache
                 currentPage = 1;
-                if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
-                    renderZonesTable();
-                } else {
-                    await loadZonesData();
-                    renderZonesTable();
-                }
+                await loadZonesData();
+                renderZonesTable();
                 return;
             }
             
-            // Try client-side filtering first
+            // Try client-side filtering first (if cache is populated)
             const clientResults = clientFilterZones(val);
             if (clientResults !== null) {
                 // Client-side filtering available, just re-render table
+                // (renderZonesTable will apply the searchQuery filter)
                 currentPage = 1;
                 renderZonesTable();
                 return;
             }
             
-            // Fallback to server search
+            // Fallback to server search (cache was empty)
             try {
                 const results = await serverSearchZones(val);
-                // Merge server results into cache for consistency
+                // Store server results in cache for rendering
+                // Note: These are partial results; when search is cleared, loadZonesData() will restore full data
                 window.ZONES_ALL = results;
                 currentPage = 1;
                 renderZonesTable();
