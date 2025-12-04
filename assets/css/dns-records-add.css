@@ -263,8 +263,9 @@
    ========================================================================== */
 
 /* History modal container - uses same base styles as dns-modal */
+/* The edit modal (.dns-modal) uses z-index: 2000, so we use 2010 to stack on top */
 .history-modal {
-    z-index: 1060; /* Higher than edit modal to stack on top */
+    z-index: 2010;
 }
 
 /* History modal content - fixed size */

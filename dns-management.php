@@ -289,51 +289,16 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
     </div>
 </div>
 
+<script src="<?php echo BASE_URL; ?>assets/js/modal-utils.js"></script>
+<script src="<?php echo BASE_URL; ?>assets/js/combobox-utils.js"></script>
+<script src="<?php echo BASE_URL; ?>assets/js/dns-records.js"></script>
+<script src="<?php echo BASE_URL; ?>assets/js/zone-permission.js"></script>
+
 <script>
-// Lazy-load history when opening the modal
+// History modal functions and event handlers
+// This script must run AFTER dns-records.js to access window.fetchRecordHistory/renderRecordHistory
 (function() {
     'use strict';
-    
-    var btnOpenHistory = document.getElementById('btn-open-history');
-    if (btnOpenHistory) {
-        btnOpenHistory.addEventListener('click', function() {
-            var form = document.getElementById('dns-form');
-            var recordId = form && form.dataset.recordId ? parseInt(form.dataset.recordId, 10) : 0;
-            
-            if (!recordId || recordId <= 0) {
-                console.warn('[History Modal] No valid recordId found');
-                return;
-            }
-            
-            // Show spinner in container
-            var container = document.getElementById('record-history-container');
-            if (container) {
-                container.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
-            }
-            
-            // Open the modal
-            window.openHistoryModal();
-            
-            // Fetch and render history
-            if (typeof window.fetchRecordHistory === 'function') {
-                window.fetchRecordHistory(recordId).then(function(rows) {
-                    if (typeof window.renderRecordHistory === 'function' && container) {
-                        window.renderRecordHistory(container, rows);
-                    }
-                }).catch(function(error) {
-                    console.error('[History Modal] Error fetching history:', error);
-                    if (container) {
-                        container.innerHTML = '<p class="history-empty">Erreur lors du chargement de l\'historique.</p>';
-                    }
-                });
-            } else {
-                console.warn('[History Modal] fetchRecordHistory function not available');
-                if (container) {
-                    container.innerHTML = '<p class="history-empty">Erreur: fonction de chargement indisponible.</p>';
-                }
-            }
-        });
-    }
     
     // Open history modal function
     window.openHistoryModal = function() {
@@ -365,6 +330,48 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
         }
     };
     
+    // Button click handler - lazy load history when opening the modal
+    var btnOpenHistory = document.getElementById('btn-open-history');
+    if (btnOpenHistory) {
+        btnOpenHistory.addEventListener('click', function() {
+            var form = document.getElementById('dns-form');
+            var recordId = form && form.dataset.recordId ? parseInt(form.dataset.recordId, 10) : 0;
+            
+            if (!recordId || recordId <= 0) {
+                console.warn('[History Modal] No valid recordId found');
+                return;
+            }
+            
+            // Show spinner in container
+            var container = document.getElementById('record-history-container');
+            if (container) {
+                container.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
+            }
+            
+            // Open the modal
+            window.openHistoryModal();
+            
+            // Fetch and render history using functions from dns-records.js
+            if (typeof window.fetchRecordHistory === 'function') {
+                window.fetchRecordHistory(recordId).then(function(rows) {
+                    if (typeof window.renderRecordHistory === 'function' && container) {
+                        window.renderRecordHistory(container, rows);
+                    }
+                }).catch(function(error) {
+                    console.error('[History Modal] Error fetching history:', error);
+                    if (container) {
+                        container.innerHTML = '<p class="history-empty">Erreur lors du chargement de l\'historique.</p>';
+                    }
+                });
+            } else {
+                console.warn('[History Modal] fetchRecordHistory function not available');
+                if (container) {
+                    container.innerHTML = '<p class="history-empty">Erreur: fonction de chargement indisponible.</p>';
+                }
+            }
+        });
+    }
+    
     // Close modal on outside click
     var historyModal = document.getElementById('recordHistoryModal');
     if (historyModal) {
@@ -376,11 +383,6 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
     }
 })();
 </script>
-
-<script src="<?php echo BASE_URL; ?>assets/js/modal-utils.js"></script>
-<script src="<?php echo BASE_URL; ?>assets/js/combobox-utils.js"></script>
-<script src="<?php echo BASE_URL; ?>assets/js/dns-records.js"></script>
-<script src="<?php echo BASE_URL; ?>assets/js/zone-permission.js"></script>
 
 <?php
 require_once 'includes/footer.php';
