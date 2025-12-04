@@ -250,6 +250,145 @@ The script reports FQDNs that couldn't be matched to a master zone. Common reaso
   - Increasing `max_heap_table_size` and `tmp_table_size`
   - Processing logs in smaller batches
 
+### Option A — Adjust Server Configuration (If You Control the Server)
+
+#### Why This Is Needed
+
+MEMORY temporary tables are limited by `max_heap_table_size` and `tmp_table_size` server variables. The default value (typically 16MB) may be insufficient for large numbers of FQDNs (100k+). When the limit is exceeded, MySQL/MariaDB either converts the table to disk-based storage (slower) or returns an error.
+
+#### Check Current Settings
+
+```sql
+SHOW VARIABLES LIKE 'max_heap_table_size';
+SHOW VARIABLES LIKE 'tmp_table_size';
+SHOW VARIABLES LIKE 'max_allowed_packet';
+```
+
+Or in a single query:
+
+```sql
+SELECT @@max_heap_table_size, @@tmp_table_size, @@max_allowed_packet;
+```
+
+#### Estimate Required Memory
+
+Use this formula to estimate memory needs:
+
+```
+estimated_bytes = (avg_fqdn_length + row_overhead) * number_of_rows
+```
+
+Where `row_overhead` is approximately 20-30 bytes per row for internal MySQL structures.
+
+**Example calculation:**
+- Average FQDN length: 60 bytes
+- Number of rows: 100,000
+- Row overhead: 20 bytes
+
+```
+estimated_bytes = (60 + 20) * 100000 = 8,000,000 bytes ≈ 8 MB
+```
+
+For safety margin, allocate 2-4x the estimated size. For 100k FQDNs, 32-64MB should suffice. For 1M+ FQDNs, consider 256MB or more.
+
+#### Increase Limits Temporarily (Non-Persistent)
+
+These changes take effect immediately but are lost on server restart:
+
+```sql
+-- Set to 256MB
+SET GLOBAL max_heap_table_size = 268435456;  -- 256MB
+SET GLOBAL tmp_table_size = 268435456;       -- 256MB
+```
+
+**Note:** New sessions will use the new values. Existing sessions retain their old values unless you also run:
+
+```sql
+SET SESSION max_heap_table_size = 268435456;
+SET SESSION tmp_table_size = 268435456;
+```
+
+#### Make Changes Persistent (my.cnf)
+
+To persist the changes across server restarts, edit your MySQL/MariaDB configuration file:
+
+**Location:** `/etc/mysql/my.cnf`, `/etc/my.cnf`, or `/etc/mysql/mariadb.conf.d/50-server.cnf`
+
+Add under the `[mysqld]` section:
+
+```ini
+[mysqld]
+max_heap_table_size = 256M
+tmp_table_size      = 256M
+```
+
+(You can also use raw bytes: `268435456` for 256MB)
+
+**Restart the service to apply:**
+
+```bash
+# For MariaDB
+sudo systemctl restart mariadb
+
+# For MySQL
+sudo systemctl restart mysql
+```
+
+#### Adjust max_allowed_packet (For Large INSERTs)
+
+If you encounter "packet too large" errors with large batch sizes, increase `max_allowed_packet`:
+
+**Temporary (immediate, non-persistent):**
+
+```sql
+SET GLOBAL max_allowed_packet = 67108864;  -- 64MB
+```
+
+**Persistent (in my.cnf):**
+
+```ini
+[mysqld]
+max_allowed_packet = 64M
+```
+
+#### Warnings and Recommendations
+
+- **Memory impact:** These settings allocate memory per table/session. Increase only according to available RAM and expected concurrency.
+- **Concurrency:** If multiple scripts or servers run concurrently, size accordingly or prefer `ENGINE=InnoDB` or the `LOAD DATA` approach.
+- **Testing:** Always test on a small sample before production runs.
+- **Monitoring:** Monitor server memory usage and track temporary table statistics.
+
+#### Monitor and Verify After Changes
+
+Check temporary table creation statistics:
+
+```sql
+SHOW GLOBAL STATUS LIKE 'Created_tmp%';
+```
+
+This shows:
+- `Created_tmp_disk_tables`: Tables created on disk (slow)
+- `Created_tmp_tables`: Total temporary tables created
+- `Created_tmp_files`: Temporary files created
+
+A high ratio of `Created_tmp_disk_tables` to `Created_tmp_tables` indicates memory limits are too low.
+
+Verify current settings:
+
+```sql
+SELECT @@max_heap_table_size, @@tmp_table_size, @@max_allowed_packet;
+```
+
+### Alternative Options (If Server Changes Are Not Possible)
+
+If you cannot modify server configuration, consider these alternatives:
+
+1. **Use ENGINE=InnoDB for temporary tables**: Modify the script to use InnoDB instead of MEMORY. This is slower but not limited by heap size.
+
+2. **Use LOAD DATA LOCAL INFILE**: For very large datasets, this approach is more efficient than batched INSERTs (see below).
+
+3. **Process by master zone on client-side**: Split the input by domain/master zone and process in smaller groups.
+
 ### Batch Size
 
 The `--batch` parameter controls INSERT batch size:
