@@ -3284,9 +3284,11 @@
             historyModalContent.style.maxWidth = editRect.width + 'px';
             historyModalContent.style.minHeight = Math.min(editRect.height, window.innerHeight * 0.8) + 'px';
             
-            // Copy classes from edit modal dialog for consistent sizing
+            // Copy modal size classes from edit modal for consistent sizing
+            // (e.g., modal-lg, modal-sm, modal-xl from Bootstrap)
             const editClasses = editModalContent.className.split(' ').filter(function(c) {
-                return c.indexOf('modal-') === 0 && c !== 'modal-content';
+                // Copy modal size classes but exclude content wrapper class
+                return c.indexOf('modal-') === 0 && c !== 'dns-modal-content';
             });
             editClasses.forEach(function(cls) {
                 if (!historyModalContent.classList.contains(cls)) {
@@ -3338,10 +3340,13 @@
             }
         }
         
-        // Fetch and render history
+        // Fetch and render history (defensive check for function availability)
         try {
+            if (typeof fetchRecordHistory !== 'function') {
+                throw new Error('fetchRecordHistory function not available');
+            }
             const rows = await fetchRecordHistory(recordId);
-            if (container) {
+            if (container && typeof renderRecordHistory === 'function') {
                 renderRecordHistory(container, rows);
             }
         } catch (error) {
