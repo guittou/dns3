@@ -116,3 +116,144 @@
         text-align: left;
     }
 }
+
+/* ==========================================================================
+   Record History Panel Styles
+   ========================================================================== */
+
+/* History toggle button */
+.btn-history-toggle {
+    background-color: #6c757d;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.15s ease-in-out;
+    margin-top: 8px;
+}
+
+.btn-history-toggle:hover {
+    background-color: #5a6268;
+}
+
+.btn-history-toggle:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.5);
+}
+
+.btn-history-toggle[aria-expanded="true"] {
+    background-color: #545b62;
+}
+
+/* History panel container */
+.history-panel {
+    margin-top: 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.history-content {
+    padding: 12px;
+}
+
+/* History loading/empty messages */
+.history-loading,
+.history-empty {
+    color: #6c757d;
+    font-style: italic;
+    text-align: center;
+    padding: 16px;
+    margin: 0;
+}
+
+/* History table */
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.history-table thead {
+    background-color: #e9ecef;
+}
+
+.history-table th,
+.history-table td {
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: top;
+}
+
+.history-table th {
+    font-weight: 600;
+    color: #495057;
+    white-space: nowrap;
+}
+
+.history-table tbody tr:hover {
+    background-color: #fff;
+}
+
+.history-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* History table columns */
+.history-date {
+    white-space: nowrap;
+    color: #6c757d;
+    font-size: 12px;
+}
+
+.history-user {
+    white-space: nowrap;
+}
+
+.history-details {
+    word-break: break-word;
+    max-width: 300px;
+}
+
+/* Action badges */
+.action-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.action-badge.action-created {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.action-badge.action-updated {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.action-badge.action-status_changed {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+/* Responsive history table */
+@media (max-width: 600px) {
+    .history-table th,
+    .history-table td {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+    
+    .history-details {
+        max-width: 150px;
+    }
+}
