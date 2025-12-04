@@ -452,6 +452,157 @@ function syncSelectedIds() {
 }
 
 /**
+ * Build API path normalizing BASE_URL and avoiding double /api/
+ * @param {string} endpoint - API endpoint (e.g., 'zone_api.php?action=search_zones')
+ * @returns {string} - Properly normalized API URL
+ */
+function buildApiPath(endpoint) {
+    const base = (typeof window.BASE_URL !== 'undefined' && window.BASE_URL) ? String(window.BASE_URL) : '/';
+    const b = base.replace(/\/+$/, '');
+    const e = String(endpoint).replace(/^\/+/, '');
+    // If base already ends with /api or endpoint starts with api/, don't add /api/
+    if (b.match(/\/api$/) || e.startsWith('api/')) {
+        return b + '/' + e;
+    }
+    return b + '/api/' + e;
+}
+
+/**
+ * Perform server-side search for zones
+ * @param {string} query - Search query
+ * @returns {Promise<Array>} - Array of zone objects
+ */
+async function serverSearchZones(query) {
+    const url = buildApiPath(`zone_api.php?action=search_zones&q=${encodeURIComponent(query)}&file_type=include&limit=20`);
+    try {
+        const res = await fetch(url, { 
+            credentials: 'same-origin', 
+            headers: { 'X-Requested-With': 'XMLHttpRequest' } 
+        });
+        if (!res.ok) return [];
+        const json = await res.json();
+        return json.data || [];
+    } catch (err) {
+        console.warn('serverSearchZones failed', err);
+        return [];
+    }
+}
+
+/**
+ * Filter zones client-side using cached ZONES_ALL
+ * @param {string} query - Search query
+ * @returns {Array|null} - Filtered array of zones, or null if cache is empty
+ */
+function clientFilterZones(query) {
+    if (!window.ZONES_ALL || !Array.isArray(window.ZONES_ALL) || window.ZONES_ALL.length === 0) {
+        return null;
+    }
+    const q = query.toLowerCase();
+    return window.ZONES_ALL.filter(z => {
+        const name = (z.name || '').toLowerCase();
+        const filename = (z.filename || '').toLowerCase();
+        return name.includes(q) || filename.includes(q);
+    });
+}
+
+/**
+ * Attach search handler to #searchInput with debouncing
+ * Uses client-side filtering first, falls back to server search if cache is empty
+ * Updates the global searchQuery variable and re-renders the table
+ */
+function attachZoneSearchInput() {
+    const DEBOUNCE_MS = 250;
+    
+    const input = document.getElementById('searchInput');
+    if (!input) {
+        console.log('[attachZoneSearchInput] #searchInput not found on this page');
+        return;
+    }
+    
+    // Check if already bound to prevent duplicate handlers (using data attribute for consistency)
+    if (input.dataset.searchHandlerBound === 'true') {
+        return;
+    }
+    input.dataset.searchHandlerBound = 'true';
+
+    input.addEventListener('input', function(e) {
+        clearTimeout(searchTimeout);
+        const val = (e.target.value || '').trim();
+        
+        searchTimeout = setTimeout(async () => {
+            // Update global searchQuery variable
+            searchQuery = val;
+            
+            if (val.length === 0) {
+                // Empty query: reset search and always reload full data to restore cache
+                currentPage = 1;
+                await loadZonesData();
+                renderZonesTable();
+                return;
+            }
+            
+            // Try client-side filtering first (if cache is populated)
+            const clientResults = clientFilterZones(val);
+            if (clientResults !== null) {
+                // Client-side filtering available, just re-render table
+                // (renderZonesTable will apply the searchQuery filter)
+                currentPage = 1;
+                renderZonesTable();
+                return;
+            }
+            
+            // Fallback to server search (cache was empty)
+            try {
+                const results = await serverSearchZones(val);
+                // Store server results in cache for rendering
+                // Note: These are partial results; when search is cleared, loadZonesData() will restore full data
+                window.ZONES_ALL = results;
+                currentPage = 1;
+                renderZonesTable();
+            } catch (err) {
+                console.warn('[attachZoneSearchInput] Server search failed:', err);
+            }
+        }, DEBOUNCE_MS);
+    });
+    
+    console.log('[attachZoneSearchInput] Search handler attached to #searchInput');
+}
+
+/**
+ * Attach change handler to #filterStatus select
+ * Updates the global filterStatus variable and reloads/re-renders the table
+ */
+function attachFilterStatusHandler() {
+    const select = document.getElementById('filterStatus');
+    if (!select) {
+        console.log('[attachFilterStatusHandler] #filterStatus not found on this page');
+        return;
+    }
+    
+    // Check if already bound to prevent duplicate handlers (using data attribute for consistency)
+    if (select.dataset.filterHandlerBound === 'true') {
+        return;
+    }
+    select.dataset.filterHandlerBound = 'true';
+    
+    select.addEventListener('change', async function(e) {
+        // Update global filterStatus variable
+        filterStatus = e.target.value;
+        currentPage = 1;
+        
+        // Reload data from server with new status filter
+        await loadZonesData();
+        renderZonesTable();
+    });
+    
+    console.log('[attachFilterStatusHandler] Filter status handler attached to #filterStatus');
+}
+
+// Expose search functions globally
+window.buildApiPath = buildApiPath;
+window.attachZoneSearchInput = attachZoneSearchInput;
+
+/**
  * Ensure zone files initialization and expose helpers on window
  * Should be called before any combobox initialization
  * 
@@ -460,6 +611,7 @@ function syncSelectedIds() {
  * - Exposes helper functions to window for global access
  * - Defensively binds click handler to "Nouveau fichier de zone" button if present
  * - Defensively binds click handler to "Réinitialiser" button with accent-neutralized search
+ * - Attaches search handler to #searchInput for debounced zone search
  * - Uses data attributes to prevent duplicate bindings
  * - Wraps event wiring in try/catch to avoid breaking initialization
  */
@@ -519,6 +671,12 @@ function ensureZoneFilesInit() {
             // Mark as bound to prevent duplicate bindings
             resetButton.dataset.handlerBound = 'true';
         }
+        
+        // Attach search handler to #searchInput for debounced zone search
+        attachZoneSearchInput();
+        
+        // Attach filter status handler for status dropdown
+        attachFilterStatusHandler();
     } catch (error) {
         // Log warning but don't break initialization
         console.warn('ensureZoneFilesInit: Failed to bind event handlers:', error);
