@@ -213,6 +213,10 @@ WHERE u.username = 'admin' AND r.name = 'admin';
 
 For detailed documentation, see [docs/SUMMARY.md](docs/SUMMARY.md).
 
+### Utilities / Scripts
+
+- **Log-based last_seen updater**: `scripts/update_last_seen_from_bind_logs.sh` — parse les logs BIND (plain / .gz), extrait les FQDN uniques pour un type de requête (par défaut A), résout master/includes et met à jour en batch `dns_records.last_seen`. Voir la documentation complète : [docs/UPDATE_LAST_SEEN_FROM_BIND_LOGS.md](docs/UPDATE_LAST_SEEN_FROM_BIND_LOGS.md)
+
 ## License
 
 This project is open source under the MIT License.
