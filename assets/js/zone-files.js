@@ -519,11 +519,11 @@ function attachZoneSearchInput() {
         return;
     }
     
-    // Check if already bound to prevent duplicate handlers
-    if (input._zoneSearchHandlerBound) {
+    // Check if already bound to prevent duplicate handlers (using data attribute for consistency)
+    if (input.dataset.searchHandlerBound === 'true') {
         return;
     }
-    input._zoneSearchHandlerBound = true;
+    input.dataset.searchHandlerBound = 'true';
 
     input.addEventListener('input', function(e) {
         clearTimeout(searchTimeout);
@@ -579,11 +579,11 @@ function attachFilterStatusHandler() {
         return;
     }
     
-    // Check if already bound to prevent duplicate handlers
-    if (select._filterStatusHandlerBound) {
+    // Check if already bound to prevent duplicate handlers (using data attribute for consistency)
+    if (select.dataset.filterHandlerBound === 'true') {
         return;
     }
-    select._filterStatusHandlerBound = true;
+    select.dataset.filterHandlerBound = 'true';
     
     select.addEventListener('change', async function(e) {
         // Update global filterStatus variable
