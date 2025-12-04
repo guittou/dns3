@@ -346,11 +346,13 @@ function hasAncestorRecursive(current, target, visited):
 
 ## Migration Notes
 
-1. **Column Rename**: `master_id` → `parent_id` in zone_file_includes
+1. **Column Rename**: `master_id` → `parent_id` in zone_file_includes (completed as of 2025-12-04 schema export)
 2. **New Column**: `position` added with default 0
 3. **Content Size**: TEXT → MEDIUMTEXT for large zones
 4. **Idempotent**: Can be run multiple times safely
 5. **Backward Compatible**: Nullable zone_file_id in dns_records
+
+> **Note**: For complete schema documentation, see [docs/DB_SCHEMA.md](DB_SCHEMA.md).
 
 ## Documentation Provided
 

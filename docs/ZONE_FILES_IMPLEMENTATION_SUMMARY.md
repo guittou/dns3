@@ -17,9 +17,10 @@ This documentation describes the zone file management feature of the DNS3 system
    - Status: active, inactive, deleted
 
 2. **zone_file_includes**
-   - Junction table for master/include relationships
-   - Links master zones to their include files
-   - Fields: master_id, include_id, created_at
+   - Junction table for parent/include relationships (supports recursive nesting)
+   - Links parent zones (master or include) to their include files
+   - Fields: id, parent_id, include_id, position, created_at
+   - Note: `parent_id` replaced the older `master_id` column name
 
 3. **zone_file_history**
    - Audit trail for zone file changes
