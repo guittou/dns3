@@ -331,43 +331,18 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
     };
     
     // Button click handler - lazy load history when opening the modal
+    // Uses window.openRecordHistoryModalForCurrentRecord() which handles:
+    // - Getting recordId from form
+    // - Showing spinner
+    // - Syncing modal size with edit modal
+    // - Fetching and rendering history
     var btnOpenHistory = document.getElementById('btn-open-history');
     if (btnOpenHistory) {
         btnOpenHistory.addEventListener('click', function() {
-            var form = document.getElementById('dns-form');
-            var recordId = form && form.dataset.recordId ? parseInt(form.dataset.recordId, 10) : 0;
-            
-            if (!recordId || recordId <= 0) {
-                console.warn('[History Modal] No valid recordId found');
-                return;
-            }
-            
-            // Show spinner in container
-            var container = document.getElementById('record-history-container');
-            if (container) {
-                container.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
-            }
-            
-            // Open the modal
-            window.openHistoryModal();
-            
-            // Fetch and render history using functions from dns-records.js
-            if (typeof window.fetchRecordHistory === 'function') {
-                window.fetchRecordHistory(recordId).then(function(rows) {
-                    if (typeof window.renderRecordHistory === 'function' && container) {
-                        window.renderRecordHistory(container, rows);
-                    }
-                }).catch(function(error) {
-                    console.error('[History Modal] Error fetching history:', error);
-                    if (container) {
-                        container.innerHTML = '<p class="history-empty">Erreur lors du chargement de l\'historique.</p>';
-                    }
-                });
+            if (typeof window.openRecordHistoryModalForCurrentRecord === 'function') {
+                window.openRecordHistoryModalForCurrentRecord();
             } else {
-                console.warn('[History Modal] fetchRecordHistory function not available');
-                if (container) {
-                    container.innerHTML = '<p class="history-empty">Erreur: fonction de chargement indisponible.</p>';
-                }
+                console.warn('[History Modal] openRecordHistoryModalForCurrentRecord function not available');
             }
         });
     }

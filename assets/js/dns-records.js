@@ -3253,6 +3253,111 @@
     }
 
     /**
+     * Alias for resetHistoryPanel for API consistency with spec
+     * Called from openEditModal() to reset modal state
+     */
+    function resetRecordHistoryModalState() {
+        resetHistoryPanel();
+    }
+
+    /**
+     * Sync history modal size with edit modal
+     * Copies the width/height from dns-modal-content to history-modal-content
+     * so the history modal has the same size as the edit popup
+     */
+    function syncHistoryModalSize() {
+        const editModalContent = document.querySelector('#dns-modal .dns-modal-content');
+        const historyModalContent = document.querySelector('#recordHistoryModal .dns-modal-content');
+        
+        if (!editModalContent || !historyModalContent) {
+            console.warn('[syncHistoryModalSize] Modal content elements not found');
+            return;
+        }
+        
+        // Get computed styles from edit modal
+        const editStyles = window.getComputedStyle(editModalContent);
+        const editRect = editModalContent.getBoundingClientRect();
+        
+        // Apply size to history modal if edit modal is visible
+        if (editRect.width > 0 && editRect.height > 0) {
+            historyModalContent.style.width = editRect.width + 'px';
+            historyModalContent.style.maxWidth = editRect.width + 'px';
+            historyModalContent.style.minHeight = Math.min(editRect.height, window.innerHeight * 0.8) + 'px';
+            
+            // Copy modal size classes from edit modal for consistent sizing
+            // (e.g., modal-lg, modal-sm, modal-xl from Bootstrap)
+            const editClasses = editModalContent.className.split(' ').filter(function(c) {
+                // Copy modal size classes but exclude content wrapper class
+                return c.indexOf('modal-') === 0 && c !== 'dns-modal-content';
+            });
+            editClasses.forEach(function(cls) {
+                if (!historyModalContent.classList.contains(cls)) {
+                    historyModalContent.classList.add(cls);
+                }
+            });
+        }
+        
+        // Ensure history modal body is scrollable
+        const historyBody = historyModalContent.querySelector('.dns-modal-body');
+        if (historyBody) {
+            historyBody.style.overflowY = 'auto';
+            historyBody.style.maxHeight = 'calc(70vh - 120px)';
+        }
+    }
+
+    /**
+     * Open record history modal for the currently editing record
+     * Called from the #btn-open-history button click handler
+     * Syncs modal size, shows spinner, fetches history, and opens modal
+     */
+    async function openRecordHistoryModalForCurrentRecord() {
+        const form = document.getElementById('dns-form');
+        const recordId = form && form.dataset.recordId ? parseInt(form.dataset.recordId, 10) : 0;
+        
+        if (!recordId || recordId <= 0) {
+            console.warn('[openRecordHistoryModalForCurrentRecord] No valid recordId found');
+            return;
+        }
+        
+        // Show spinner in container
+        const container = document.getElementById('record-history-container');
+        if (container) {
+            container.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
+        }
+        
+        // Sync modal size with edit modal
+        syncHistoryModalSize();
+        
+        // Open the history modal
+        if (typeof window.openHistoryModal === 'function') {
+            window.openHistoryModal();
+        } else {
+            // Fallback if openHistoryModal not yet defined
+            const historyModal = document.getElementById('recordHistoryModal');
+            if (historyModal) {
+                historyModal.style.display = 'block';
+                historyModal.classList.add('open');
+            }
+        }
+        
+        // Fetch and render history (defensive check for function availability)
+        try {
+            if (typeof fetchRecordHistory !== 'function') {
+                throw new Error('fetchRecordHistory function not available');
+            }
+            const rows = await fetchRecordHistory(recordId);
+            if (container && typeof renderRecordHistory === 'function') {
+                renderRecordHistory(container, rows);
+            }
+        } catch (error) {
+            console.error('[openRecordHistoryModalForCurrentRecord] Error fetching history:', error);
+            if (container) {
+                container.innerHTML = '<p class="history-empty">Erreur lors du chargement de l\'historique.</p>';
+            }
+        }
+    }
+
+    /**
      * Debounce function for search input
      */
     function debounce(func, wait) {
@@ -3305,6 +3410,9 @@
     window.renderRecordHistory = renderRecordHistory;
     window.toggleHistoryPanel = toggleHistoryPanel;
     window.resetHistoryPanel = resetHistoryPanel;
+    window.resetRecordHistoryModalState = resetRecordHistoryModalState;
+    window.syncHistoryModalSize = syncHistoryModalSize;
+    window.openRecordHistoryModalForCurrentRecord = openRecordHistoryModalForCurrentRecord;
     
     // Expose modal error handling functions
     window.showModalError = showModalError;
