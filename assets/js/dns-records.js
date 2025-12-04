@@ -3108,20 +3108,24 @@
             
             // Build details summary
             let details = [];
-            if (row.name) details.push('Nom: ' + escapeHtml(row.name));
-            if (row.record_type) details.push('Type: ' + escapeHtml(row.record_type));
-            if (row.value) details.push('Valeur: ' + escapeHtml(row.value.substring(0, 50) + (row.value.length > 50 ? '...' : '')));
-            if (row.ttl !== null && row.ttl !== undefined) details.push('TTL: ' + escapeHtml(row.ttl));
-            if (row.old_status && row.new_status && row.action === 'status_changed') {
-                details.push(escapeHtml(row.old_status) + ' → ' + escapeHtml(row.new_status));
+            if (row.name) details.push('Nom: ' + escapeHtml(String(row.name)));
+            if (row.record_type) details.push('Type: ' + escapeHtml(String(row.record_type)));
+            if (row.value) {
+                const valueStr = String(row.value);
+                const truncated = valueStr.substring(0, 50) + (valueStr.length > 50 ? '...' : '');
+                details.push('Valeur: ' + escapeHtml(truncated));
             }
-            if (row.notes) details.push(escapeHtml(row.notes));
+            if (row.ttl !== null && row.ttl !== undefined) details.push('TTL: ' + escapeHtml(String(row.ttl)));
+            if (row.old_status && row.new_status && row.action === 'status_changed') {
+                details.push(escapeHtml(String(row.old_status)) + ' → ' + escapeHtml(String(row.new_status)));
+            }
+            if (row.notes) details.push(escapeHtml(String(row.notes)));
             
             const detailsStr = details.length > 0 ? details.join(', ') : '-';
             
             tr.innerHTML = `
                 <td class="history-date">${dateStr}</td>
-                <td class="history-action"><span class="action-badge action-${escapeHtml(row.action)}">${actionLabel}</span></td>
+                <td class="history-action"><span class="action-badge action-${escapeHtml(String(row.action))}">${actionLabel}</span></td>
                 <td class="history-user">${username}</td>
                 <td class="history-details">${detailsStr}</td>
             `;
