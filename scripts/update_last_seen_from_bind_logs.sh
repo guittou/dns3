@@ -58,11 +58,9 @@ DRY_RUN=0
 LOG_FILE=""
 
 # Script state
-SCRIPT_NAME="$(basename "$0")"
 SCRIPT_START="$(date +%Y-%m-%d\ %H:%M:%S)"
 TOTAL_LINES_PARSED=0
 UNIQUE_FQDNS=0
-MATCHED_RECORDS=0
 
 # =============================================================================
 # Helper functions
@@ -75,7 +73,8 @@ usage() {
 }
 
 log_msg() {
-    local msg="[$(date +%Y-%m-%d\ %H:%M:%S)] $*"
+    local msg
+    msg="[$(date +%Y-%m-%d\ %H:%M:%S)] $*"
     if [[ -n "$LOG_FILE" ]]; then
         echo "$msg" | tee -a "$LOG_FILE"
     else
@@ -92,6 +91,8 @@ die() {
     exit 1
 }
 
+# Cleanup function called on script exit (via trap)
+# shellcheck disable=SC2317
 cleanup() {
     local exit_code=$?
     if [[ -f "${SQL_FILE:-}" ]]; then
@@ -181,16 +182,16 @@ fi
 
 # Prompt for password if not provided and not using .my.cnf
 if [[ -z "$DB_PASS" && ! -f ~/.my.cnf ]]; then
-    read -s -p "Enter MySQL password for ${DB_USER}@${DB_HOST}: " DB_PASS
+    read -r -s -p "Enter MySQL password for ${DB_USER}@${DB_HOST}: " DB_PASS
     echo
 fi
 
-# Build mysql options
-MYSQL_OPTS="-h $DB_HOST -P $DB_PORT -u $DB_USER"
+# Build mysql options as an array for safe quoting
+MYSQL_OPTS=(-h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER")
 if [[ -n "$DB_PASS" ]]; then
-    MYSQL_OPTS="$MYSQL_OPTS -p$DB_PASS"
+    MYSQL_OPTS+=(-p"$DB_PASS")
 fi
-MYSQL_OPTS="$MYSQL_OPTS $DB_NAME"
+MYSQL_OPTS+=("$DB_NAME")
 
 # =============================================================================
 # Initialize logging
@@ -284,7 +285,9 @@ normalize_fqdns() {
         fqdn="${fqdn%.}"
         
         # Skip if too short or contains invalid characters
-        if [[ ${#fqdn} -lt 1 || ! "$fqdn" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]]; then
+        # Valid: starts with alphanumeric, contains only alphanumeric/dots/hyphens, ends with alphanumeric
+        # Single character domains like 'a' are valid
+        if [[ ${#fqdn} -lt 1 || ! "$fqdn" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$|^[a-z0-9]$ ]]; then
             continue
         fi
         
@@ -611,8 +614,7 @@ log_msg "Executing SQL against database..."
 log_msg "------------------------------------------"
 
 # Execute and capture output
-# shellcheck disable=SC2086
-if output=$(mysql $MYSQL_OPTS --batch --table < "$SQL_FILE" 2>&1); then
+if output=$(mysql "${MYSQL_OPTS[@]}" --batch --table < "$SQL_FILE" 2>&1); then
     if [[ -n "$LOG_FILE" ]]; then
         echo "$output" | tee -a "$LOG_FILE"
     else
