@@ -544,6 +544,49 @@ WHERE TABLE_SCHEMA = 'dns3_db' AND REFERENCED_TABLE_NAME IS NOT NULL;
 
 ---
 
+## CTE and Temporary Table Requirements
+
+### WITH RECURSIVE Support
+
+Some utility scripts and queries in DNS3 use `WITH RECURSIVE` Common Table Expressions (CTEs) to traverse hierarchical data such as zone include relationships. This feature requires:
+
+- **MariaDB 10.2.2+** or **MySQL 8.0+**
+
+The `scripts/update_last_seen_from_bind_logs.sh` script uses CTEs to expand the full include tree when matching DNS records.
+
+Example CTE usage:
+```sql
+WITH RECURSIVE zone_tree AS (
+    SELECT id FROM zone_files WHERE id = :master_id
+    UNION ALL
+    SELECT zfi.include_id
+    FROM zone_file_includes zfi
+    JOIN zone_tree zt ON zfi.parent_id = zt.id
+)
+SELECT * FROM zone_tree;
+```
+
+### Temporary Table Engine Considerations
+
+The batch updater script creates temporary tables using `ENGINE=MEMORY` for speed. For large datasets (>100k rows), consider:
+
+1. **Increase memory limits**:
+   ```sql
+   SET GLOBAL max_heap_table_size = 256*1024*1024;  -- 256MB
+   SET GLOBAL tmp_table_size = 256*1024*1024;
+   ```
+
+2. **Use InnoDB for temp tables** (requires schema modification in script):
+   ```sql
+   CREATE TEMPORARY TABLE tmp_fqdns (...) ENGINE=InnoDB;
+   ```
+
+3. **Process data in smaller batches** using the `--batch` option.
+
+See [UPDATE_LAST_SEEN_FROM_BIND_LOGS.md](UPDATE_LAST_SEEN_FROM_BIND_LOGS.md) for detailed performance guidance.
+
+---
+
 ## Known Documentation Divergences
 
 The following documentation files may contain outdated terminology that differs from the current schema:

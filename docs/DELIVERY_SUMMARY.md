@@ -394,6 +394,32 @@ function hasAncestorRecursive(current, target, visited):
 6. **Test API**: Verify all endpoints work correctly
 7. **Production Ready**: Deploy when testing is complete
 
+## Utilities / Scripts
+
+### Log-based last_seen Updater
+
+The `scripts/update_last_seen_from_bind_logs.sh` script parses BIND DNS query logs, extracts unique FQDNs for a given query type (default: A), and batch-updates `dns_records.last_seen` for all matching records.
+
+**Features:**
+- Parses plain text and gzip-compressed log files
+- Supports stdin input for piped workflows
+- Resolves master zones using longest-match heuristics
+- Expands includes recursively via WITH RECURSIVE CTE
+- Supports `--dry-run` mode for previewing changes
+- Writes detailed execution logs with `--log-file`
+
+**Example usage:**
+```bash
+./scripts/update_last_seen_from_bind_logs.sh \
+    --db-host db.example.com \
+    --db-user dns3_updater \
+    --logs "/var/log/named/query.log,/var/log/named/query.log.1.gz" \
+    --dry-run \
+    --log-file /tmp/last_seen_update.log
+```
+
+For complete documentation, see [UPDATE_LAST_SEEN_FROM_BIND_LOGS.md](UPDATE_LAST_SEEN_FROM_BIND_LOGS.md).
+
 ## Contact
 
 This implementation is complete and ready for testing. All files have been committed to the branch `copilot/implement-zone-file-management`.
