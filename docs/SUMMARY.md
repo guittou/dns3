@@ -75,6 +75,7 @@ This directory contains the main documentation for the DNS3 project. Older draft
 
 ### Other Documentation
 - [Include Inlining Documentation](INCLUDE_INLINING_DOCUMENTATION.md) - Include file inlining
+- [Update last_seen from BIND Logs](UPDATE_LAST_SEEN_FROM_BIND_LOGS.md) - Script et documentation pour mettre à jour last_seen à partir des logs de requêtes BIND
 
 ## Archive
 
