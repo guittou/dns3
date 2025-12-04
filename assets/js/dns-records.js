@@ -2227,11 +2227,18 @@
         const lastSeenGroup = document.getElementById('record-last-seen-group');
         const deleteBtn = document.getElementById('record-delete-btn');
         const domainDiv = document.getElementById('dns-modal-domain');
+        const historySection = document.getElementById('record-history-section');
         
         if (!modal || !form || !title) return;
 
         // Clear any previous errors
         clearModalError('dns');
+        
+        // Reset and hide history panel for create mode
+        resetHistoryPanel();
+        if (historySection) {
+            historySection.style.display = 'none';
+        }
 
         // Set title with new text
         title.textContent = 'Ajouter un enregistrement DNS';
@@ -2352,6 +2359,9 @@
 
             // Clear any previous errors
             clearModalError('dns');
+            
+            // Reset history panel state
+            resetHistoryPanel();
 
             // Set title with new text
             title.textContent = 'Modifier l\'enregistrement DNS';
@@ -2522,6 +2532,12 @@
             // Also update modal title if read-only
             if (!canWrite) {
                 title.textContent = 'Consulter l\'enregistrement DNS';
+            }
+            
+            // Show history section in edit mode
+            const historySection = document.getElementById('record-history-section');
+            if (historySection) {
+                historySection.style.display = 'block';
             }
 
             modal.style.display = 'block';
@@ -2992,6 +3008,202 @@
         }
     }
 
+    // =========================================================================
+    // Record History Functions
+    // =========================================================================
+    
+    /**
+     * Fetch record history from API
+     * @param {number} recordId - The record ID to fetch history for
+     * @returns {Promise<Array>} - Array of history entries or empty array on error
+     */
+    async function fetchRecordHistory(recordId) {
+        if (!recordId || recordId <= 0) {
+            console.warn('[fetchRecordHistory] Invalid recordId:', recordId);
+            return [];
+        }
+
+        try {
+            const url = getApiUrl('get_record_history', { record_id: recordId });
+            const response = await fetch(url, {
+                method: 'GET',
+                credentials: 'same-origin'
+            });
+
+            const text = await response.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (jsonError) {
+                console.error('[fetchRecordHistory] Failed to parse JSON:', jsonError);
+                return [];
+            }
+
+            if (!response.ok || !data.success) {
+                console.error('[fetchRecordHistory] API error:', data.error || response.statusText);
+                return [];
+            }
+
+            return data.data || [];
+        } catch (error) {
+            console.error('[fetchRecordHistory] Exception:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Render record history into a container
+     * @param {HTMLElement} container - The container element to render into
+     * @param {Array} rows - Array of history entries
+     */
+    function renderRecordHistory(container, rows) {
+        if (!container) {
+            console.warn('[renderRecordHistory] Container element not provided');
+            return;
+        }
+
+        // Clear container
+        container.innerHTML = '';
+
+        if (!rows || rows.length === 0) {
+            container.innerHTML = '<p class="history-empty">Aucun historique disponible pour cet enregistrement.</p>';
+            return;
+        }
+
+        // Create compact table
+        const table = document.createElement('table');
+        table.className = 'history-table';
+        
+        // Header
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th>Date</th>
+                <th>Action</th>
+                <th>Utilisateur</th>
+                <th>Détails</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        // Body
+        const tbody = document.createElement('tbody');
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            
+            // Format date
+            const dateStr = row.changed_at ? formatDateTime(row.changed_at) : '-';
+            
+            // Format action
+            const actionLabels = {
+                'created': 'Créé',
+                'updated': 'Modifié',
+                'status_changed': 'Statut modifié'
+            };
+            const actionLabel = actionLabels[row.action] || row.action;
+            
+            // Username
+            const username = escapeHtml(row.changed_by_username || 'Inconnu');
+            
+            // Build details summary
+            let details = [];
+            if (row.name) details.push('Nom: ' + escapeHtml(String(row.name)));
+            if (row.record_type) details.push('Type: ' + escapeHtml(String(row.record_type)));
+            if (row.value) {
+                const valueStr = String(row.value);
+                const truncated = valueStr.substring(0, 50) + (valueStr.length > 50 ? '...' : '');
+                details.push('Valeur: ' + escapeHtml(truncated));
+            }
+            if (row.ttl !== null && row.ttl !== undefined) details.push('TTL: ' + escapeHtml(String(row.ttl)));
+            if (row.old_status && row.new_status && row.action === 'status_changed') {
+                details.push(escapeHtml(String(row.old_status)) + ' → ' + escapeHtml(String(row.new_status)));
+            }
+            if (row.notes) details.push(escapeHtml(String(row.notes)));
+            
+            const detailsStr = details.length > 0 ? details.join(', ') : '-';
+            
+            tr.innerHTML = `
+                <td class="history-date">${dateStr}</td>
+                <td class="history-action"><span class="action-badge action-${escapeHtml(String(row.action))}">${actionLabel}</span></td>
+                <td class="history-user">${username}</td>
+                <td class="history-details">${detailsStr}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+
+        container.appendChild(table);
+    }
+
+    /**
+     * Toggle history panel visibility and load history if needed
+     * @param {number} recordId - The record ID to load history for
+     */
+    async function toggleHistoryPanel(recordId) {
+        const panel = document.getElementById('record-history-panel');
+        const content = document.getElementById('record-history-content');
+        const toggleBtn = document.getElementById('record-history-toggle');
+        
+        if (!panel || !content) {
+            console.warn('[toggleHistoryPanel] History panel elements not found');
+            return;
+        }
+
+        const isHidden = panel.style.display === 'none' || !panel.style.display;
+        
+        if (isHidden) {
+            // Show panel
+            panel.style.display = 'block';
+            if (toggleBtn) {
+                toggleBtn.textContent = 'Masquer l\'historique';
+                toggleBtn.setAttribute('aria-expanded', 'true');
+            }
+            
+            // Lazy load history if not already loaded for this record
+            const currentRecordId = panel.dataset.recordId || '';
+            const needsLoad = panel.dataset.loaded !== 'true' || currentRecordId !== String(recordId);
+            
+            if (needsLoad) {
+                content.innerHTML = '<p class="history-loading">Chargement de l\'historique...</p>';
+                
+                const history = await fetchRecordHistory(recordId);
+                renderRecordHistory(content, history);
+                
+                panel.dataset.loaded = 'true';
+                panel.dataset.recordId = String(recordId);
+            }
+        } else {
+            // Hide panel
+            panel.style.display = 'none';
+            if (toggleBtn) {
+                toggleBtn.textContent = 'Voir l\'historique';
+                toggleBtn.setAttribute('aria-expanded', 'false');
+            }
+        }
+    }
+
+    /**
+     * Reset history panel state (called when modal opens)
+     */
+    function resetHistoryPanel() {
+        const panel = document.getElementById('record-history-panel');
+        const content = document.getElementById('record-history-content');
+        const toggleBtn = document.getElementById('record-history-toggle');
+        
+        if (panel) {
+            panel.style.display = 'none';
+            panel.dataset.loaded = '';
+            panel.dataset.recordId = '';
+        }
+        if (content) {
+            content.innerHTML = '';
+        }
+        if (toggleBtn) {
+            toggleBtn.textContent = 'Voir l\'historique';
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
     /**
      * Debounce function for search input
      */
@@ -3015,7 +3227,8 @@
         closeModal,
         submitDnsForm,
         deleteRecord,
-        restoreRecord
+        restoreRecord,
+        toggleHistoryPanel
     };
 
     // Expose helper functions globally for event handlers
@@ -3038,6 +3251,12 @@
     window.fillModalZonefileSelectFiltered = fillModalZonefileSelectFiltered;
     window.activateModalSelectGuard = activateModalSelectGuard;
     window.activateModalComboboxGuard = activateModalComboboxGuard;
+    
+    // Expose record history functions
+    window.fetchRecordHistory = fetchRecordHistory;
+    window.renderRecordHistory = renderRecordHistory;
+    window.toggleHistoryPanel = toggleHistoryPanel;
+    window.resetHistoryPanel = resetHistoryPanel;
     
     // Expose modal error handling functions
     window.showModalError = showModalError;

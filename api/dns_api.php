@@ -864,6 +864,62 @@ try {
             }
             break;
 
+        case 'get_record_history':
+            // Get history for a specific DNS record (requires authentication, read-only)
+            requireAuth();
+
+            $record_id = isset($_GET['record_id']) ? (int)$_GET['record_id'] : 0;
+            if ($record_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => 'Invalid record_id: must be a positive integer']);
+                exit;
+            }
+
+            try {
+                // Verify the record exists and user has read access to its zone
+                $record = $dnsRecord->getById($record_id, true); // include deleted records
+                if (!$record) {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => 'Record not found']);
+                    exit;
+                }
+
+                // For non-admin users, verify they have read access to the zone this record belongs to
+                if (!$auth->isAdmin()) {
+                    $recordZoneId = $record['zone_file_id'] ?? null;
+                    if ($recordZoneId) {
+                        $expandedZoneIds = $auth->getExpandedZoneIds('read');
+                        if (!in_array($recordZoneId, $expandedZoneIds) && !$auth->isZoneEditor()) {
+                            http_response_code(403);
+                            echo json_encode(['success' => false, 'error' => 'Access denied to this record']);
+                            exit;
+                        }
+                    }
+                }
+
+                // Query history with username join, limited to 200 rows
+                $sql = "SELECT h.*, u.username as changed_by_username
+                        FROM dns_record_history h
+                        LEFT JOIN users u ON h.changed_by = u.id
+                        WHERE h.record_id = ?
+                        ORDER BY h.changed_at DESC
+                        LIMIT 200";
+                
+                $stmt = $dnsRecord->getConnection()->prepare($sql);
+                $stmt->execute([$record_id]);
+                $history = $stmt->fetchAll();
+
+                echo json_encode([
+                    'success' => true,
+                    'data' => $history
+                ]);
+            } catch (Exception $e) {
+                error_log("Error getting record history: " . $e->getMessage());
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => 'Failed to get record history']);
+            }
+            break;
+
         default:
             http_response_code(400);
             echo json_encode(['error' => 'Invalid action']);

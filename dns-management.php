@@ -248,6 +248,20 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
                     <label for="record-last-seen">Vu pour la dernière fois</label>
                     <input type="text" id="record-last-seen" name="last_seen" disabled readonly placeholder="Non encore consulté">
                 </div>
+                
+                <!-- Record History Section (edit mode only, lazy-loaded) -->
+                <div class="form-row" id="record-history-section">
+                    <div class="form-group">
+                        <button type="button" id="record-history-toggle" class="btn-history-toggle" aria-expanded="false" aria-controls="record-history-panel" onclick="dnsRecords.toggleHistoryPanel(document.getElementById('dns-form').dataset.recordId)">
+                            Voir l'historique
+                        </button>
+                        <div id="record-history-panel" class="history-panel" style="display: none;" role="region" aria-labelledby="record-history-toggle">
+                            <div id="record-history-content" class="history-content">
+                                <!-- History will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="dns-modal-footer">
                     <div class="modal-action-bar">
