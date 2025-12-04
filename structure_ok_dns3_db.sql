@@ -29,6 +29,9 @@ CREATE TABLE `acl_entries` (
   `role_id` int(11) DEFAULT NULL,
   `resource_type` enum('dns_record','zone','global') NOT NULL,
   `resource_id` int(11) DEFAULT NULL,
+  `zone_file_id` int(11) DEFAULT NULL COMMENT 'Reference to zone_files.id for zone ACL entries',
+  `subject_type` enum('user','role','ad_group') DEFAULT NULL COMMENT 'Type of ACL subject',
+  `subject_identifier` varchar(255) DEFAULT NULL COMMENT 'User ID/username, role name, or AD group DN',
   `permission` enum('read','write','delete','admin') NOT NULL,
   `status` enum('enabled','disabled') DEFAULT 'enabled',
   `created_by` int(11) NOT NULL,
@@ -42,10 +45,79 @@ CREATE TABLE `acl_entries` (
   KEY `idx_role_id` (`role_id`),
   KEY `idx_resource` (`resource_type`,`resource_id`),
   KEY `idx_status` (`status`),
+  KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_acl_subject` (`subject_type`,`subject_identifier`(100)),
   CONSTRAINT `acl_entries_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   CONSTRAINT `acl_entries_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
   CONSTRAINT `acl_entries_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
-  CONSTRAINT `acl_entries_ibfk_4` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `acl_entries_ibfk_4` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `acl_entries_new`
+--
+
+DROP TABLE IF EXISTS `acl_entries_new`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `acl_entries_new` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `resource_type` varchar(50) DEFAULT NULL COMMENT 'Legacy: Type of resource (zone, etc.)',
+  `resource_id` int(11) DEFAULT NULL COMMENT 'Legacy: ID of the resource',
+  `zone_file_id` int(11) DEFAULT NULL COMMENT 'Reference to zone_files.id for zone ACL entries',
+  `subject_type` enum('user','role','ad_group') DEFAULT NULL COMMENT 'Type of ACL subject',
+  `subject_identifier` varchar(255) DEFAULT NULL COMMENT 'User ID/username, role name, or AD group DN',
+  `user_id` int(11) DEFAULT NULL COMMENT 'Legacy: Reference to users.id',
+  `role_id` int(11) DEFAULT NULL COMMENT 'Legacy: Reference to roles.id',
+  `permission` enum('read','write','admin','delete') NOT NULL DEFAULT 'read' COMMENT 'Permission level',
+  `status` enum('enabled','disabled') NOT NULL DEFAULT 'enabled' COMMENT 'ACL entry status',
+  `created_by` int(11) DEFAULT NULL COMMENT 'User who created this entry',
+  `created_at` datetime DEFAULT current_timestamp() COMMENT 'Creation timestamp',
+  PRIMARY KEY (`id`),
+  KEY `idx_resource` (`resource_type`,`resource_id`),
+  KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_acl_subject` (`subject_type`,`subject_identifier`(191)),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_role_id` (`role_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `acl_entries_old`
+--
+
+DROP TABLE IF EXISTS `acl_entries_old`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `acl_entries_old` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `role_id` int(11) DEFAULT NULL,
+  `resource_type` enum('dns_record','zone','global') NOT NULL,
+  `resource_id` int(11) DEFAULT NULL,
+  `zone_file_id` int(11) DEFAULT NULL COMMENT 'Reference to zone_files.id for zone ACL entries',
+  `subject_type` enum('user','role','ad_group') DEFAULT NULL COMMENT 'Type of ACL subject',
+  `subject_identifier` varchar(255) DEFAULT NULL COMMENT 'User ID/username, role name, or AD group DN',
+  `permission` enum('read','write','delete','admin') NOT NULL,
+  `status` enum('enabled','disabled') DEFAULT 'enabled',
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_by` int(11) DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `created_by` (`created_by`),
+  KEY `updated_by` (`updated_by`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_role_id` (`role_id`),
+  KEY `idx_resource` (`resource_type`,`resource_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_acl_subject` (`subject_type`,`subject_identifier`(100)),
+  CONSTRAINT `acl_entries_old_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `acl_entries_old_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `acl_entries_old_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `acl_entries_old_ibfk_4` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`),
   CONSTRAINT `chk_user_or_role` CHECK (`user_id` is not null or `role_id` is not null)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -76,7 +148,7 @@ CREATE TABLE `acl_history` (
   KEY `idx_acl_id` (`acl_id`),
   KEY `idx_action` (`action`),
   KEY `idx_changed_at` (`changed_at`),
-  CONSTRAINT `acl_history_ibfk_1` FOREIGN KEY (`acl_id`) REFERENCES `acl_entries` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `acl_history_ibfk_1` FOREIGN KEY (`acl_id`) REFERENCES `acl_entries_old` (`id`) ON DELETE CASCADE,
   CONSTRAINT `acl_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -140,7 +212,7 @@ CREATE TABLE `dns_record_history` (
   KEY `idx_changed_at` (`changed_at`),
   CONSTRAINT `dns_record_history_ibfk_1` FOREIGN KEY (`record_id`) REFERENCES `dns_records` (`id`) ON DELETE CASCADE,
   CONSTRAINT `dns_record_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -187,7 +259,7 @@ CREATE TABLE `dns_records` (
   KEY `idx_zone_file_id` (`zone_file_id`),
   CONSTRAINT `dns_records_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
   CONSTRAINT `dns_records_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=218853 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=218855 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -268,8 +340,26 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`),
   KEY `idx_username` (`username`),
   KEY `idx_email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Temporary table structure for view `zone_acl_entries`
+--
+
+DROP TABLE IF EXISTS `zone_acl_entries`;
+/*!50001 DROP VIEW IF EXISTS `zone_acl_entries`*/;
+SET @saved_cs_client     = @@character_set_client;
+SET character_set_client = utf8mb4;
+/*!50001 CREATE VIEW `zone_acl_entries` AS SELECT
+ 1 AS `id`,
+  1 AS `zone_file_id`,
+  1 AS `subject_type`,
+  1 AS `subject_identifier`,
+  1 AS `permission`,
+  1 AS `created_by`,
+  1 AS `created_at` */;
+SET character_set_client = @saved_cs_client;
 
 --
 -- Table structure for table `zone_file_history`
@@ -299,7 +389,7 @@ CREATE TABLE `zone_file_history` (
   KEY `idx_changed_at` (`changed_at`),
   CONSTRAINT `zone_file_history_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
   CONSTRAINT `zone_file_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=45 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=47 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -369,7 +459,7 @@ CREATE TABLE `zone_file_validation` (
   KEY `idx_zone_file_checked` (`zone_file_id`,`checked_at` DESC),
   CONSTRAINT `zone_file_validation_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
   CONSTRAINT `zone_file_validation_ibfk_2` FOREIGN KEY (`run_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=168 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=172 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -406,6 +496,24 @@ CREATE TABLE `zone_files` (
   CONSTRAINT `zone_files_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=54011 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Final view structure for view `zone_acl_entries`
+--
+
+/*!50001 DROP VIEW IF EXISTS `zone_acl_entries`*/;
+/*!50001 SET @saved_cs_client          = @@character_set_client */;
+/*!50001 SET @saved_cs_results         = @@character_set_results */;
+/*!50001 SET @saved_col_connection     = @@collation_connection */;
+/*!50001 SET character_set_client      = utf8mb3 */;
+/*!50001 SET character_set_results     = utf8mb3 */;
+/*!50001 SET collation_connection      = utf8mb3_general_ci */;
+/*!50001 CREATE ALGORITHM=UNDEFINED */
+/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 VIEW `zone_acl_entries` AS select `acl_entries`.`id` AS `id`,`acl_entries`.`zone_file_id` AS `zone_file_id`,`acl_entries`.`subject_type` AS `subject_type`,`acl_entries`.`subject_identifier` AS `subject_identifier`,`acl_entries`.`permission` AS `permission`,`acl_entries`.`created_by` AS `created_by`,`acl_entries`.`created_at` AS `created_at` from `acl_entries` where `acl_entries`.`zone_file_id` is not null and `acl_entries`.`subject_type` is not null and `acl_entries`.`subject_identifier` is not null */;
+/*!50001 SET character_set_client      = @saved_cs_client */;
+/*!50001 SET character_set_results     = @saved_cs_results */;
+/*!50001 SET collation_connection      = @saved_col_connection */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -416,4 +524,4 @@ CREATE TABLE `zone_files` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-28 12:05:17
+-- Dump completed on 2025-12-04 10:43:16
