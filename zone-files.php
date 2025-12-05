@@ -44,9 +44,14 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
     <div class="header-bar" style="display: flex; justify-content: space-between; align-items: center;">
         <h1>Gestion des fichiers de zone</h1>
         <?php if ($isAdmin): ?>
-        <button id="btn-new-domain" class="btn-create" onclick="openCreateMasterModal()">
-            <i class="fas fa-plus"></i> Nouveau domaine
-        </button>
+        <div style="display: flex; gap: 10px;">
+            <button id="btn-edit-domain" class="btn-secondary" onclick="openEditMasterModal()" disabled style="display: none;">
+                <i class="fas fa-edit"></i> Modifier domaine
+            </button>
+            <button id="btn-new-domain" class="btn-create" onclick="openCreateMasterModal()">
+                <i class="fas fa-plus"></i> Nouveau domaine
+            </button>
+        </div>
         <?php endif; ?>
     </div>
 </div>
@@ -153,7 +158,7 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
 
 <!-- Create Master Modal (Nouveau domaine) -->
 <div id="master-create-modal" class="dns-modal">
-    <div class="dns-modal-content">
+    <div class="dns-modal-content modal-large">
         <div class="dns-modal-header">
             <h2>Nouveau domaine</h2>
             <button class="dns-modal-close" onclick="closeCreateZoneModal()" aria-label="Fermer">&times;</button>
@@ -185,6 +190,48 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                     <input id="master-directory" class="form-control" type="text" placeholder="Exemple: /etc/bind/zones">
                     <small class="form-text text-muted">Répertoire pour les directives $INCLUDE (optionnel)</small>
                 </div>
+                
+                <!-- SOA and TTL Configuration Section -->
+                <fieldset style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px;">
+                    <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Configuration SOA / TTL</legend>
+                    
+                    <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div class="form-group">
+                            <label for="master-default-ttl">$TTL par défaut (secondes)</label>
+                            <input id="master-default-ttl" class="form-control" type="number" min="1" value="86400" placeholder="86400">
+                            <small class="form-text text-muted">Valeur par défaut: 86400 (24h)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="master-soa-rname">Contact (RNAME)</label>
+                            <input id="master-soa-rname" class="form-control" type="text" placeholder="hostmaster@example.com">
+                            <small class="form-text text-muted">Email de contact pour la zone</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 10px;">
+                        <div class="form-group">
+                            <label for="master-soa-refresh">Refresh (secondes)</label>
+                            <input id="master-soa-refresh" class="form-control" type="number" min="1" value="10800" placeholder="10800">
+                            <small class="form-text text-muted">Défaut: 10800 (3h)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="master-soa-retry">Retry (secondes)</label>
+                            <input id="master-soa-retry" class="form-control" type="number" min="1" value="900" placeholder="900">
+                            <small class="form-text text-muted">Défaut: 900 (15min)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="master-soa-expire">Expire (secondes)</label>
+                            <input id="master-soa-expire" class="form-control" type="number" min="1" value="604800" placeholder="604800">
+                            <small class="form-text text-muted">Défaut: 604800 (7j)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="master-soa-minimum">Minimum (secondes)</label>
+                            <input id="master-soa-minimum" class="form-control" type="number" min="1" value="3600" placeholder="3600">
+                            <small class="form-text text-muted">Défaut: 3600 (1h)</small>
+                        </div>
+                    </div>
+                </fieldset>
+                
                 <div class="dns-modal-footer">
                     <div class="modal-action-bar">
                         <button type="button" id="master-save-btn" class="btn-success modal-action-button" onclick="createZone()">Créer</button>
@@ -269,6 +316,47 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                                 <small class="form-text text-muted">Vous pouvez réassigner cet include à un autre parent.</small>
                             </div>
                         </div>
+                        
+                        <!-- SOA and TTL Configuration (only for master zones) -->
+                        <fieldset id="zoneSoaFieldset" style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px; display: none;">
+                            <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Configuration SOA / TTL</legend>
+                            
+                            <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div class="form-group">
+                                    <label for="zoneDefaultTtl">$TTL par défaut (secondes)</label>
+                                    <input id="zoneDefaultTtl" class="form-control" type="number" min="1" placeholder="86400">
+                                    <small class="form-text text-muted">Valeur par défaut: 86400 (24h)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoneSoaRname">Contact (RNAME)</label>
+                                    <input id="zoneSoaRname" class="form-control" type="text" placeholder="hostmaster@example.com">
+                                    <small class="form-text text-muted">Email de contact pour la zone</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 10px;">
+                                <div class="form-group">
+                                    <label for="zoneSoaRefresh">Refresh (secondes)</label>
+                                    <input id="zoneSoaRefresh" class="form-control" type="number" min="1" placeholder="10800">
+                                    <small class="form-text text-muted">Défaut: 10800 (3h)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoneSoaRetry">Retry (secondes)</label>
+                                    <input id="zoneSoaRetry" class="form-control" type="number" min="1" placeholder="900">
+                                    <small class="form-text text-muted">Défaut: 900 (15min)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoneSoaExpire">Expire (secondes)</label>
+                                    <input id="zoneSoaExpire" class="form-control" type="number" min="1" placeholder="604800">
+                                    <small class="form-text text-muted">Défaut: 604800 (7j)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoneSoaMinimum">Minimum (secondes)</label>
+                                    <input id="zoneSoaMinimum" class="form-control" type="number" min="1" placeholder="3600">
+                                    <small class="form-text text-muted">Défaut: 3600 (1h)</small>
+                                </div>
+                            </div>
+                        </fieldset>
                     </form>
                 </div>
                 
