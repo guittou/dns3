@@ -1,7 +1,5 @@
 # PR: fix(api/testdata/ui): return zone_file_id & zone_name; ensure generator fills zone_file_id; add UI fallback
 
-> **Archive Note (2025-12-05)**: Some scripts referenced in this document (`scripts/generate_test_data.php`, `scripts/cleanup_zones_and_records.sh`) have been removed during schema cleanup. This document is preserved for historical reference only.
-
 ## Summary
 
 This PR addresses the issue where the DNS Records table shows the zone filename but the edit popup does not pre-select the zone (empty select). The root cause was:
