@@ -1329,10 +1329,8 @@ class ZoneFile {
         // Format RNAME (contact)
         $rname = $this->formatSoaRname($zone['soa_rname'] ?? '');
         
-        // Ensure MNAME has trailing dot
-        if (!empty($mname) && substr($mname, -1) !== '.') {
-            $mname .= '.';
-        }
+        // Normalize MNAME with trailing dot, or use default if empty
+        $mname = $this->normalizeFqdn($mname);
         if (empty($mname)) {
             $mname = 'ns1.' . ($zone['domain'] ?? $zone['name']) . '.';
         }
