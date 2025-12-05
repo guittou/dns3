@@ -2082,26 +2082,21 @@ async function saveZone() {
             const soaExpire = document.getElementById('zoneSoaExpire')?.value?.trim();
             const soaMinimum = document.getElementById('zoneSoaMinimum')?.value?.trim();
             
-            // Validate SOA/TTL numeric fields (if provided)
-            if (defaultTtl && (!Number.isInteger(parseInt(defaultTtl)) || parseInt(defaultTtl) < 1)) {
-                showModalError('zoneModal', 'Le $TTL par défaut doit être un entier positif.');
-                return;
-            }
-            if (soaRefresh && (!Number.isInteger(parseInt(soaRefresh)) || parseInt(soaRefresh) < 1)) {
-                showModalError('zoneModal', 'Le refresh SOA doit être un entier positif.');
-                return;
-            }
-            if (soaRetry && (!Number.isInteger(parseInt(soaRetry)) || parseInt(soaRetry) < 1)) {
-                showModalError('zoneModal', 'Le retry SOA doit être un entier positif.');
-                return;
-            }
-            if (soaExpire && (!Number.isInteger(parseInt(soaExpire)) || parseInt(soaExpire) < 1)) {
-                showModalError('zoneModal', 'L\'expire SOA doit être un entier positif.');
-                return;
-            }
-            if (soaMinimum && (!Number.isInteger(parseInt(soaMinimum)) || parseInt(soaMinimum) < 1)) {
-                showModalError('zoneModal', 'Le minimum SOA doit être un entier positif.');
-                return;
+            // Validate SOA/TTL numeric fields using helper function
+            const soaFields = [
+                { value: defaultTtl, name: 'Le $TTL par défaut' },
+                { value: soaRefresh, name: 'Le refresh SOA' },
+                { value: soaRetry, name: 'Le retry SOA' },
+                { value: soaExpire, name: 'L\'expire SOA' },
+                { value: soaMinimum, name: 'Le minimum SOA' }
+            ];
+            
+            for (const field of soaFields) {
+                const validation = validatePositiveInteger(field.value, field.name);
+                if (!validation.valid) {
+                    showModalError('zoneModal', validation.error);
+                    return;
+                }
             }
             
             data.default_ttl = defaultTtl || null;
@@ -2814,26 +2809,21 @@ async function createZone() {
             return;
         }
         
-        // Validate SOA/TTL numeric fields (if provided)
-        if (defaultTtl && (!Number.isInteger(parseInt(defaultTtl)) || parseInt(defaultTtl) < 1)) {
-            showModalError('createZone', 'Le $TTL par défaut doit être un entier positif.');
-            return;
-        }
-        if (soaRefresh && (!Number.isInteger(parseInt(soaRefresh)) || parseInt(soaRefresh) < 1)) {
-            showModalError('createZone', 'Le refresh SOA doit être un entier positif.');
-            return;
-        }
-        if (soaRetry && (!Number.isInteger(parseInt(soaRetry)) || parseInt(soaRetry) < 1)) {
-            showModalError('createZone', 'Le retry SOA doit être un entier positif.');
-            return;
-        }
-        if (soaExpire && (!Number.isInteger(parseInt(soaExpire)) || parseInt(soaExpire) < 1)) {
-            showModalError('createZone', 'L\'expire SOA doit être un entier positif.');
-            return;
-        }
-        if (soaMinimum && (!Number.isInteger(parseInt(soaMinimum)) || parseInt(soaMinimum) < 1)) {
-            showModalError('createZone', 'Le minimum SOA doit être un entier positif.');
-            return;
+        // Validate SOA/TTL numeric fields using helper function
+        const soaFields = [
+            { value: defaultTtl, name: 'Le $TTL par défaut' },
+            { value: soaRefresh, name: 'Le refresh SOA' },
+            { value: soaRetry, name: 'Le retry SOA' },
+            { value: soaExpire, name: 'L\'expire SOA' },
+            { value: soaMinimum, name: 'Le minimum SOA' }
+        ];
+        
+        for (const field of soaFields) {
+            const validation = validatePositiveInteger(field.value, field.name);
+            if (!validation.valid) {
+                showModalError('createZone', validation.error);
+                return;
+            }
         }
         
         // Prepare data for API call
@@ -2888,6 +2878,24 @@ async function createZone() {
 /**
  * Utility functions
  */
+
+/**
+ * Validate that a value is a positive integer
+ * @param {string} value - The value to validate
+ * @param {string} fieldName - The field name for error message
+ * @returns {{valid: boolean, error: string|null}}
+ */
+function validatePositiveInteger(value, fieldName) {
+    if (!value || value === '') {
+        return { valid: true, error: null }; // Empty is valid (optional field)
+    }
+    const parsed = parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+        return { valid: false, error: `${fieldName} doit être un entier positif.` };
+    }
+    return { valid: true, error: null };
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
