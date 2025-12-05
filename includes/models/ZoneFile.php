@@ -1291,17 +1291,35 @@ class ZoneFile {
     /**
      * Format RNAME (contact email) for SOA record
      * Converts email@domain.com to email.domain.com. format
+     * Completes short names (without dots) with the zone domain
      * 
      * @param string $rname Contact email (may contain @ or be in DNS format)
+     * @param string $zoneDomain Zone domain for completing short names
      * @return string RNAME in DNS format (with trailing dot)
      */
-    public function formatSoaRname($rname) {
+    public function formatSoaRname($rname, $zoneDomain = '') {
+        // Get the zone domain (remove trailing dot if present for processing)
+        $zoneDomain = rtrim(trim($zoneDomain), '.');
+        
         if (empty($rname)) {
+            // Default to hostmaster.<zone_domain>. or hostmaster. if no zone domain
+            if (!empty($zoneDomain)) {
+                return 'hostmaster.' . $zoneDomain . '.';
+            }
             return 'hostmaster.';
         }
         
-        // Replace @ with . for DNS format
-        $formatted = str_replace('@', '.', $rname);
+        // Replace @ with . for DNS format (email style: user@domain -> user.domain)
+        $formatted = str_replace('@', '.', trim($rname));
+        
+        // Remove trailing dot temporarily to check if it contains a dot
+        $withoutTrailingDot = rtrim($formatted, '.');
+        
+        // If the value doesn't contain a dot (short form like "hostmaster"),
+        // complete it with the zone domain
+        if (strpos($withoutTrailingDot, '.') === false && !empty($zoneDomain)) {
+            $formatted = $withoutTrailingDot . '.' . $zoneDomain;
+        }
         
         // Ensure trailing dot for FQDN
         if (substr($formatted, -1) !== '.') {
@@ -1326,13 +1344,16 @@ class ZoneFile {
         $expire = $zone['soa_expire'] ?? 604800;   // 7 days
         $minimum = $zone['soa_minimum'] ?? 3600;   // 1 hour
         
-        // Format RNAME (contact)
-        $rname = $this->formatSoaRname($zone['soa_rname'] ?? '');
+        // Get zone domain for completing short RNAME/MNAME values
+        $zoneDomain = $zone['domain'] ?? $zone['name'] ?? '';
+        
+        // Format RNAME (contact) - pass zone domain for completing short names
+        $rname = $this->formatSoaRname($zone['soa_rname'] ?? '', $zoneDomain);
         
         // Normalize MNAME with trailing dot, or use default if empty
         $mname = $this->normalizeFqdn($mname);
         if (empty($mname)) {
-            $mname = 'ns1.' . ($zone['domain'] ?? $zone['name']) . '.';
+            $mname = 'ns1.' . $zoneDomain . '.';
         }
         
         // Generate serial if not provided (YYYYMMDDnn format)
