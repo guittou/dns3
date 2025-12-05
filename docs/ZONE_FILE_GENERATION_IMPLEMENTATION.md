@@ -240,9 +240,9 @@ Include zones use a stricter validation that only allows simple identifiers:
 
 | Rule | Description |
 |------|-------------|
-| Format | Simple alphanumeric string (e.g., `inc_m1_1`, `common1`) |
-| Allowed characters | Letters (a-z, A-Z), digits (0-9) |
-| Special characters | Not allowed (no dots, hyphens, or underscores) |
+| Format | Simple alphanumeric string (e.g., `incm1`, `common1`) |
+| Allowed characters | Lowercase letters (a-z), digits (0-9) |
+| Special characters | Not allowed (no dots, hyphens, underscores, or uppercase letters) |
 
 **Examples of valid include zone names:**
 - `inc1`
@@ -250,6 +250,7 @@ Include zones use a stricter validation that only allows simple identifiers:
 - `zone123`
 
 **Examples of invalid include zone names:**
+- `Inc1` (uppercase not allowed)
 - `inc-1` (hyphen not allowed)
 - `common.records` (dot not allowed)
 - `zone_include` (underscore not allowed)

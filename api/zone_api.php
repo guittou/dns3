@@ -374,10 +374,10 @@ try {
                     exit;
                 }
             } else {
-                // Include zones: validate as simple identifier (only [a-z0-9])
-                if (!preg_match('/^[a-z0-9]+$/i', $zoneName)) {
+                // Include zones: validate as simple identifier (only lowercase [a-z0-9])
+                if (!preg_match('/^[a-z0-9]+$/', $zoneName)) {
                     http_response_code(400);
-                    echo json_encode(['error' => 'Le Nom doit contenir uniquement des lettres et des chiffres, sans espaces ni caractères spéciaux.']);
+                    echo json_encode(['error' => 'Le Nom doit contenir uniquement des lettres minuscules et des chiffres, sans espaces ni caractères spéciaux.']);
                     exit;
                 }
             }
@@ -507,10 +507,10 @@ try {
                         exit;
                     }
                 } else {
-                    // Include zones: validate as simple identifier (only [a-z0-9])
-                    if (!preg_match('/^[a-z0-9]+$/i', $zoneName)) {
+                    // Include zones: validate as simple identifier (only lowercase [a-z0-9])
+                    if (!preg_match('/^[a-z0-9]+$/', $zoneName)) {
                         http_response_code(400);
-                        echo json_encode(['error' => 'Le Nom doit contenir uniquement des lettres et des chiffres, sans espaces ni caractères spéciaux.']);
+                        echo json_encode(['error' => 'Le Nom doit contenir uniquement des lettres minuscules et des chiffres, sans espaces ni caractères spéciaux.']);
                         exit;
                     }
                 }
