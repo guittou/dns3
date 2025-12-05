@@ -414,7 +414,7 @@ class ZoneFile {
     /**
      * Create a new zone file
      * 
-     * @param array $data Zone file data (name, filename, directory, file_type, content)
+     * @param array $data Zone file data (name, filename, directory, file_type, content, default_ttl, soa_*)
      * @param int $user_id User creating the zone file
      * @return int|bool New zone file ID or false on failure
      */
@@ -422,16 +422,32 @@ class ZoneFile {
         try {
             $this->db->beginTransaction();
             
-            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, default_ttl, soa_refresh, soa_retry, soa_expire, soa_minimum, soa_rname, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
             
-            // Only set domain if file_type is 'master' and domain is provided
+            // Only set domain and SOA fields if file_type is 'master'
             $domain = null;
-            if (isset($data['domain']) && ($data['file_type'] ?? 'master') === 'master') {
-                $domain = trim($data['domain']);
-                if ($domain === '') {
-                    $domain = null;
+            $defaultTtl = null;
+            $soaRefresh = null;
+            $soaRetry = null;
+            $soaExpire = null;
+            $soaMinimum = null;
+            $soaRname = null;
+            
+            if (($data['file_type'] ?? 'master') === 'master') {
+                if (isset($data['domain'])) {
+                    $domain = trim($data['domain']);
+                    if ($domain === '') {
+                        $domain = null;
+                    }
                 }
+                // SOA/TTL fields
+                $defaultTtl = isset($data['default_ttl']) && $data['default_ttl'] !== '' ? (int)$data['default_ttl'] : null;
+                $soaRefresh = isset($data['soa_refresh']) && $data['soa_refresh'] !== '' ? (int)$data['soa_refresh'] : null;
+                $soaRetry = isset($data['soa_retry']) && $data['soa_retry'] !== '' ? (int)$data['soa_retry'] : null;
+                $soaExpire = isset($data['soa_expire']) && $data['soa_expire'] !== '' ? (int)$data['soa_expire'] : null;
+                $soaMinimum = isset($data['soa_minimum']) && $data['soa_minimum'] !== '' ? (int)$data['soa_minimum'] : null;
+                $soaRname = isset($data['soa_rname']) && trim($data['soa_rname']) !== '' ? trim($data['soa_rname']) : null;
             }
             
             $stmt = $this->db->prepare($sql);
@@ -442,6 +458,12 @@ class ZoneFile {
                 $data['content'] ?? null,
                 $data['file_type'] ?? 'master',
                 $domain,
+                $defaultTtl,
+                $soaRefresh,
+                $soaRetry,
+                $soaExpire,
+                $soaMinimum,
+                $soaRname,
                 $user_id
             ]);
             
@@ -463,7 +485,7 @@ class ZoneFile {
      * Update a zone file
      * 
      * @param int $id Zone file ID
-     * @param array $data Updated zone file data
+     * @param array $data Updated zone file data (includes default_ttl, soa_* fields)
      * @param int $user_id User updating the zone file
      * @return bool Success status
      */
@@ -488,18 +510,46 @@ class ZoneFile {
             
             $sql = "UPDATE zone_files 
                     SET name = ?, filename = ?, directory = ?, content = ?, file_type = ?, domain = ?,
+                        default_ttl = ?, soa_refresh = ?, soa_retry = ?, soa_expire = ?, soa_minimum = ?, soa_rname = ?,
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
             
-            // Only allow domain for master zones
+            $fileType = $data['file_type'] ?? $current['file_type'];
+            
+            // Only allow domain and SOA fields for master zones
             $domain = $current['domain'] ?? null;
-            if (isset($data['domain'])) {
-                $fileType = $data['file_type'] ?? $current['file_type'];
-                if ($fileType === 'master') {
+            $defaultTtl = $current['default_ttl'] ?? null;
+            $soaRefresh = $current['soa_refresh'] ?? null;
+            $soaRetry = $current['soa_retry'] ?? null;
+            $soaExpire = $current['soa_expire'] ?? null;
+            $soaMinimum = $current['soa_minimum'] ?? null;
+            $soaRname = $current['soa_rname'] ?? null;
+            
+            if ($fileType === 'master') {
+                if (isset($data['domain'])) {
                     $domain = trim($data['domain']);
                     if ($domain === '') {
                         $domain = null;
                     }
+                }
+                // SOA/TTL fields
+                if (array_key_exists('default_ttl', $data)) {
+                    $defaultTtl = $data['default_ttl'] !== '' && $data['default_ttl'] !== null ? (int)$data['default_ttl'] : null;
+                }
+                if (array_key_exists('soa_refresh', $data)) {
+                    $soaRefresh = $data['soa_refresh'] !== '' && $data['soa_refresh'] !== null ? (int)$data['soa_refresh'] : null;
+                }
+                if (array_key_exists('soa_retry', $data)) {
+                    $soaRetry = $data['soa_retry'] !== '' && $data['soa_retry'] !== null ? (int)$data['soa_retry'] : null;
+                }
+                if (array_key_exists('soa_expire', $data)) {
+                    $soaExpire = $data['soa_expire'] !== '' && $data['soa_expire'] !== null ? (int)$data['soa_expire'] : null;
+                }
+                if (array_key_exists('soa_minimum', $data)) {
+                    $soaMinimum = $data['soa_minimum'] !== '' && $data['soa_minimum'] !== null ? (int)$data['soa_minimum'] : null;
+                }
+                if (array_key_exists('soa_rname', $data)) {
+                    $soaRname = trim($data['soa_rname']) !== '' ? trim($data['soa_rname']) : null;
                 }
             }
             
@@ -509,8 +559,14 @@ class ZoneFile {
                 $data['filename'] ?? $current['filename'],
                 isset($data['directory']) ? $data['directory'] : $current['directory'],
                 isset($data['content']) ? $data['content'] : $current['content'],
-                $data['file_type'] ?? $current['file_type'],
+                $fileType,
                 $domain,
+                $defaultTtl,
+                $soaRefresh,
+                $soaRetry,
+                $soaExpire,
+                $soaMinimum,
+                $soaRname,
                 $user_id,
                 $id
             ]);
@@ -1148,6 +1204,7 @@ class ZoneFile {
 
     /**
      * Generate complete zone file content with includes and DNS records
+     * Uses zone's default_ttl for $TTL directive and soa_* fields for SOA record timers
      * 
      * @param int $zoneId Zone file ID
      * @return string|null Generated zone file content or null on error
@@ -1161,6 +1218,11 @@ class ZoneFile {
             }
             
             $content = '';
+            
+            // Add $TTL directive if default_ttl is set (for master zones)
+            if ($zone['file_type'] === 'master' && !empty($zone['default_ttl'])) {
+                $content .= '$TTL ' . $zone['default_ttl'] . "\n\n";
+            }
             
             // Add zone's own content first
             if (!empty($zone['content'])) {
@@ -1205,6 +1267,73 @@ class ZoneFile {
             error_log("ZoneFile generateZoneFile error: " . $e->getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Format RNAME (contact email) for SOA record
+     * Converts email@domain.com to email.domain.com. format
+     * 
+     * @param string $rname Contact email (may contain @ or be in DNS format)
+     * @return string RNAME in DNS format (with trailing dot)
+     */
+    public function formatSoaRname($rname) {
+        if (empty($rname)) {
+            return 'hostmaster.';
+        }
+        
+        // Replace @ with . for DNS format
+        $formatted = str_replace('@', '.', $rname);
+        
+        // Ensure trailing dot for FQDN
+        if (substr($formatted, -1) !== '.') {
+            $formatted .= '.';
+        }
+        
+        return $formatted;
+    }
+    
+    /**
+     * Generate SOA record string using zone's SOA settings
+     * 
+     * @param array $zone Zone file data with SOA fields
+     * @param string $mname Primary nameserver (MNAME)
+     * @param int|null $serial SOA serial (if null, generates YYYYMMDDnn format)
+     * @return string SOA record in BIND format
+     */
+    public function generateSoaRecord($zone, $mname, $serial = null) {
+        // Default values matching RFC recommendations
+        $refresh = $zone['soa_refresh'] ?? 10800;  // 3 hours
+        $retry = $zone['soa_retry'] ?? 900;        // 15 minutes
+        $expire = $zone['soa_expire'] ?? 604800;   // 7 days
+        $minimum = $zone['soa_minimum'] ?? 3600;   // 1 hour
+        
+        // Format RNAME (contact)
+        $rname = $this->formatSoaRname($zone['soa_rname'] ?? '');
+        
+        // Ensure MNAME has trailing dot
+        if (!empty($mname) && substr($mname, -1) !== '.') {
+            $mname .= '.';
+        }
+        if (empty($mname)) {
+            $mname = 'ns1.' . ($zone['domain'] ?? $zone['name']) . '.';
+        }
+        
+        // Generate serial if not provided (YYYYMMDDnn format)
+        if ($serial === null) {
+            $serial = date('Ymd') . '01';
+        }
+        
+        // Format: @ IN SOA mname rname ( serial refresh retry expire minimum )
+        return sprintf(
+            "@ IN SOA %s %s (\n    %s ; Serial\n    %d ; Refresh\n    %d ; Retry\n    %d ; Expire\n    %d ; Minimum\n)",
+            $mname,
+            $rname,
+            $serial,
+            $refresh,
+            $retry,
+            $expire,
+            $minimum
+        );
     }
     
     /**

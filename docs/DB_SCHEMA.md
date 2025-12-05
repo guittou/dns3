@@ -12,6 +12,7 @@ This document describes the database schema for the DNS3 application, including 
 
 | Date       | Summary                                                                 |
 |------------|-------------------------------------------------------------------------|
+| 2025-12-05 | **SOA/TTL Fields for Zone Files**: Added columns `default_ttl`, `soa_refresh`, `soa_retry`, `soa_expire`, `soa_minimum`, `soa_rname` to `zone_files` table for customizable SOA timers and default TTL. See `migrations/20251205_add_soa_fields_to_zone_files.sql`. |
 | 2025-12-05 | **Extended DNS Record Types Migration**: Migrated `dns_records.record_type` from ENUM to VARCHAR(50) for extensibility. Added new columns for SRV, TLSA, SSHFP, CAA, NAPTR, SVCB/HTTPS, LOC, and RP record types. Added `record_types` reference table with UI categories. See `migrations/README.md` for details. |
 | 2025-12-05 | Removed legacy/migration tables (`acl_entries_old`, `acl_entries_new`, `zone_file_includes_new`). Updated `acl_history` FK reference. |
 | 2025-12-04 | Initial schema documentation based on `structure_ok_dns3_db.sql` export |
@@ -149,12 +150,20 @@ Primary table for DNS zone files. Supports both master zones and include files.
 | `file_type` | ENUM('master','include')          | Type of zone file                                |
 | `status`    | ENUM('active','inactive','deleted')| Zone status                                     |
 | `domain`    | VARCHAR(255) NULL                 | Domain name for master zones (migrated from domaine_list) |
+| `default_ttl` | INT(11) DEFAULT 86400           | Default TTL for zone records (seconds) - used in $TTL directive |
+| `soa_refresh` | INT(11) DEFAULT 10800           | SOA refresh timer (seconds)                      |
+| `soa_retry` | INT(11) DEFAULT 900               | SOA retry timer (seconds)                        |
+| `soa_expire` | INT(11) DEFAULT 604800           | SOA expire timer (seconds)                       |
+| `soa_minimum` | INT(11) DEFAULT 3600            | SOA minimum/negative caching TTL (seconds)       |
+| `soa_rname` | VARCHAR(255) NULL                 | SOA RNAME - contact email for zone               |
 | `created_by`| INT(11) NULL                      | FK → users.id                                    |
 | `updated_by`| INT(11) NULL                      | FK → users.id                                    |
 | `created_at`| TIMESTAMP                         | Creation time                                    |
 | `updated_at`| TIMESTAMP NULL                    | Last update time                                 |
 
 **Indexes**: `idx_name`, `idx_file_type`, `idx_status`, `idx_created_by`, `idx_zone_type_status_name`, `idx_directory`, `idx_domain`
+
+> **Migration Note (2025-12-05)**: Added columns `default_ttl`, `soa_refresh`, `soa_retry`, `soa_expire`, `soa_minimum`, and `soa_rname` to support customizable SOA timers and default TTL for master zones. See `migrations/20251205_add_soa_fields_to_zone_files.sql` for the ALTER TABLE statements.
 
 ---
 

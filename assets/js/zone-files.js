@@ -978,6 +978,7 @@ async function onZoneDomainSelected(masterZoneId) {
         }
         if (btnEditDomain) {
             btnEditDomain.style.display = 'inline-block';
+            btnEditDomain.disabled = false;
         }
         
         // Populate zone file combobox for the selected domain (without auto-selecting)
@@ -988,6 +989,7 @@ async function onZoneDomainSelected(masterZoneId) {
         }
         if (btnEditDomain) {
             btnEditDomain.style.display = 'none';
+            btnEditDomain.disabled = true;
         }
         
         // Clear zone file combobox
@@ -1744,6 +1746,26 @@ async function openZoneModal(zoneId) {
         if (group) {
             group.style.display = ((zone.file_type || 'master') === 'master') ? 'block' : 'none';
         }
+        
+        // Populate SOA/TTL fields (only visible for master zones)
+        const zoneSoaFieldset = document.getElementById('zoneSoaFieldset');
+        if (zoneSoaFieldset) {
+            zoneSoaFieldset.style.display = ((zone.file_type || 'master') === 'master') ? 'block' : 'none';
+        }
+        
+        // Set SOA/TTL field values
+        const zoneDefaultTtlEl = document.getElementById('zoneDefaultTtl');
+        if (zoneDefaultTtlEl) zoneDefaultTtlEl.value = zone.default_ttl || '';
+        const zoneSoaRnameEl = document.getElementById('zoneSoaRname');
+        if (zoneSoaRnameEl) zoneSoaRnameEl.value = zone.soa_rname || '';
+        const zoneSoaRefreshEl = document.getElementById('zoneSoaRefresh');
+        if (zoneSoaRefreshEl) zoneSoaRefreshEl.value = zone.soa_refresh || '';
+        const zoneSoaRetryEl = document.getElementById('zoneSoaRetry');
+        if (zoneSoaRetryEl) zoneSoaRetryEl.value = zone.soa_retry || '';
+        const zoneSoaExpireEl = document.getElementById('zoneSoaExpire');
+        if (zoneSoaExpireEl) zoneSoaExpireEl.value = zone.soa_expire || '';
+        const zoneSoaMinimumEl = document.getElementById('zoneSoaMinimum');
+        if (zoneSoaMinimumEl) zoneSoaMinimumEl.value = zone.soa_minimum || '';
 
         if (typeof populateZoneIncludes === 'function') try { await populateZoneIncludes(zone.id); } catch (e) {}
         
@@ -2014,7 +2036,10 @@ function loadIncludesList(includes) {
  * Setup change detection
  */
 function setupChangeDetection() {
-    const inputs = ['zoneName', 'zoneFilename', 'zoneDirectory', 'zoneStatus', 'zoneContent', 'zoneParent'];
+    const inputs = [
+        'zoneName', 'zoneFilename', 'zoneDirectory', 'zoneStatus', 'zoneContent', 'zoneParent', 'zoneDomain',
+        'zoneDefaultTtl', 'zoneSoaRname', 'zoneSoaRefresh', 'zoneSoaRetry', 'zoneSoaExpire', 'zoneSoaMinimum'
+    ];
     inputs.forEach(id => {
         const elem = document.getElementById(id);
         if (elem) {
@@ -2045,9 +2070,41 @@ async function saveZone() {
             content: content
         };
         
-        // Add domain field only for master zones
+        // Add domain and SOA/TTL fields only for master zones
         if (currentZone.file_type === 'master') {
             data.domain = document.getElementById('zoneDomain').value || null;
+            
+            // Get SOA/TTL fields
+            const defaultTtl = document.getElementById('zoneDefaultTtl')?.value?.trim();
+            const soaRname = document.getElementById('zoneSoaRname')?.value?.trim();
+            const soaRefresh = document.getElementById('zoneSoaRefresh')?.value?.trim();
+            const soaRetry = document.getElementById('zoneSoaRetry')?.value?.trim();
+            const soaExpire = document.getElementById('zoneSoaExpire')?.value?.trim();
+            const soaMinimum = document.getElementById('zoneSoaMinimum')?.value?.trim();
+            
+            // Validate SOA/TTL numeric fields using helper function
+            const soaFields = [
+                { value: defaultTtl, name: 'Le $TTL par défaut' },
+                { value: soaRefresh, name: 'Le refresh SOA' },
+                { value: soaRetry, name: 'Le retry SOA' },
+                { value: soaExpire, name: 'L\'expire SOA' },
+                { value: soaMinimum, name: 'Le minimum SOA' }
+            ];
+            
+            for (const field of soaFields) {
+                const validation = validatePositiveInteger(field.value, field.name);
+                if (!validation.valid) {
+                    showModalError('zoneModal', validation.error);
+                    return;
+                }
+            }
+            
+            data.default_ttl = defaultTtl || null;
+            data.soa_rname = soaRname || null;
+            data.soa_refresh = soaRefresh || null;
+            data.soa_retry = soaRetry || null;
+            data.soa_expire = soaExpire || null;
+            data.soa_minimum = soaMinimum || null;
         }
         
         // Handle status change separately if needed
@@ -2724,6 +2781,14 @@ async function createZone() {
         const filename = document.getElementById('master-filename').value?.trim() || '';
         const directory = document.getElementById('master-directory').value?.trim() || null;
         
+        // Get SOA/TTL fields
+        const defaultTtl = document.getElementById('master-default-ttl').value?.trim() || '';
+        const soaRname = document.getElementById('master-soa-rname').value?.trim() || '';
+        const soaRefresh = document.getElementById('master-soa-refresh').value?.trim() || '';
+        const soaRetry = document.getElementById('master-soa-retry').value?.trim() || '';
+        const soaExpire = document.getElementById('master-soa-expire').value?.trim() || '';
+        const soaMinimum = document.getElementById('master-soa-minimum').value?.trim() || '';
+        
         // Validate zone name with strict validation
         const nameValidation = validateZoneName(name);
         if (!nameValidation.valid) {
@@ -2744,6 +2809,23 @@ async function createZone() {
             return;
         }
         
+        // Validate SOA/TTL numeric fields using helper function
+        const soaFields = [
+            { value: defaultTtl, name: 'Le $TTL par défaut' },
+            { value: soaRefresh, name: 'Le refresh SOA' },
+            { value: soaRetry, name: 'Le retry SOA' },
+            { value: soaExpire, name: 'L\'expire SOA' },
+            { value: soaMinimum, name: 'Le minimum SOA' }
+        ];
+        
+        for (const field of soaFields) {
+            const validation = validatePositiveInteger(field.value, field.name);
+            if (!validation.valid) {
+                showModalError('createZone', validation.error);
+                return;
+            }
+        }
+        
         // Prepare data for API call
         const data = {
             name: name,
@@ -2751,7 +2833,13 @@ async function createZone() {
             file_type: 'master', // Always create as master from "Nouveau domaine" button
             content: '', // Empty content for new master zones - content omitted
             domain: domain || null,
-            directory: directory
+            directory: directory,
+            default_ttl: defaultTtl || null,
+            soa_rname: soaRname || null,
+            soa_refresh: soaRefresh || null,
+            soa_retry: soaRetry || null,
+            soa_expire: soaExpire || null,
+            soa_minimum: soaMinimum || null
         };
 
         const response = await zoneApiCall('create_zone', {
@@ -2790,6 +2878,24 @@ async function createZone() {
 /**
  * Utility functions
  */
+
+/**
+ * Validate that a value is a positive integer
+ * @param {string} value - The value to validate
+ * @param {string} fieldName - The field name for error message
+ * @returns {{valid: boolean, error: string|null}}
+ */
+function validatePositiveInteger(value, fieldName) {
+    if (!value || value === '') {
+        return { valid: true, error: null }; // Empty is valid (optional field)
+    }
+    const parsed = parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed < 1) {
+        return { valid: false, error: `${fieldName} doit être un entier positif.` };
+    }
+    return { valid: true, error: null };
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
