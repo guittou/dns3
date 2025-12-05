@@ -12,6 +12,7 @@ This document describes the database schema for the DNS3 application, including 
 
 | Date       | Summary                                                                 |
 |------------|-------------------------------------------------------------------------|
+| 2025-12-05 | **Extended DNS Record Types Migration**: Migrated `dns_records.record_type` from ENUM to VARCHAR(50) for extensibility. Added new columns for SRV, TLSA, SSHFP, CAA, NAPTR, SVCB/HTTPS, LOC, and RP record types. Added `record_types` reference table with UI categories. See `migrations/README.md` for details. |
 | 2025-12-05 | Removed legacy/migration tables (`acl_entries_old`, `acl_entries_new`, `zone_file_includes_new`). Updated `acl_history` FK reference. |
 | 2025-12-04 | Initial schema documentation based on `structure_ok_dns3_db.sql` export |
 
@@ -222,24 +223,85 @@ Stores validation results from `named-checkzone` command.
 
 ## DNS Records
 
+### record_types
+
+Reference table for extensible DNS record types with UI categorization. This table provides a catalog of supported record types.
+
+| Column       | Type                      | Description                                        |
+|--------------|---------------------------|----------------------------------------------------|
+| `name`       | VARCHAR(50) PK            | Record type name (e.g., A, AAAA, CNAME)            |
+| `category`   | VARCHAR(50) DEFAULT 'other'| Category for UI grouping (pointing, extended, mail)|
+| `description`| VARCHAR(255) NULL         | Human-readable description                         |
+| `created_at` | TIMESTAMP                 | Creation time                                      |
+
+**Categories**:
+- `pointing`: A, AAAA, NS, CNAME, DNAME
+- `extended`: CAA, TXT, NAPTR, SRV, LOC, SSHFP, TLSA, RP, SVCB, HTTPS
+- `mail`: MX, SPF, DKIM, DMARC
+- `other`: PTR, SOA
+
+---
+
 ### dns_records
 
-Primary table for DNS records (A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, SRV).
+Primary table for DNS records. Supports basic types (A, AAAA, CNAME, etc.) and extended types (SRV, CAA, TLSA, SSHFP, NAPTR, SVCB/HTTPS, LOC, RP).
 
 | Column       | Type                                             | Description                                     |
 |--------------|--------------------------------------------------|-------------------------------------------------|
 | `id`         | INT(11) PK AUTO_INCREMENT                        | Unique record identifier                        |
 | `zone_file_id`| INT(11) NULL                                    | FK → zone_files.id (associated zone)            |
-| `record_type`| ENUM('A','AAAA','CNAME','MX','TXT','NS','SOA','PTR','SRV') | DNS record type               |
+| `record_type`| VARCHAR(50) NOT NULL                             | DNS record type (extensible)                    |
 | `name`       | VARCHAR(255)                                     | Record name (hostname)                          |
-| `value`      | TEXT                                             | Record value                                    |
+| `value`      | TEXT                                             | Record value (for backward compatibility)       |
+| **Basic Type Fields** |                                          |                                                 |
 | `address_ipv4`| VARCHAR(15) NULL                                | IPv4 address for A records                      |
 | `address_ipv6`| VARCHAR(45) NULL                                | IPv6 address for AAAA records                   |
 | `cname_target`| VARCHAR(255) NULL                               | Target hostname for CNAME records               |
 | `ptrdname`   | VARCHAR(255) NULL                                | Reverse DNS name for PTR records                |
-| `txt`        | TEXT NULL                                        | Text content for TXT records                    |
-| `ttl`        | INT(11) DEFAULT 3600                             | Time to live (seconds)                          |
+| `txt`        | TEXT NULL                                        | Text content for TXT/SPF/DKIM/DMARC records     |
+| `mx_target`  | VARCHAR(255) NULL                                | Target mail server for MX records               |
+| `ns_target`  | VARCHAR(255) NULL                                | Target nameserver for NS records                |
+| `dname_target`| VARCHAR(255) NULL                               | Target for DNAME records                        |
+| **SRV Record Fields** |                                           |                                                 |
 | `priority`   | INT(11) NULL                                     | Priority (for MX, SRV)                          |
+| `port`       | INT(11) NULL                                     | Port number for SRV records                     |
+| `weight`     | INT(11) NULL                                     | Weight for SRV records                          |
+| `srv_target` | VARCHAR(255) NULL                                | Target hostname for SRV records                 |
+| **TLSA Record Fields** |                                          |                                                 |
+| `tlsa_usage` | TINYINT NULL                                     | TLSA certificate usage (0-3)                    |
+| `tlsa_selector`| TINYINT NULL                                   | TLSA selector (0=full cert, 1=SPKI)             |
+| `tlsa_matching`| TINYINT NULL                                   | TLSA matching type (0=exact, 1=SHA256, 2=SHA512)|
+| `tlsa_data`  | TEXT NULL                                        | TLSA certificate association data (hex)         |
+| **SSHFP Record Fields** |                                         |                                                 |
+| `sshfp_algo` | TINYINT NULL                                     | SSHFP algorithm (1=RSA, 2=DSA, 3=ECDSA, 4=Ed25519)|
+| `sshfp_type` | TINYINT NULL                                     | SSHFP fingerprint type (1=SHA1, 2=SHA256)       |
+| `sshfp_fingerprint`| TEXT NULL                                  | SSHFP fingerprint (hex)                         |
+| **CAA Record Fields** |                                           |                                                 |
+| `caa_flag`   | TINYINT NULL                                     | CAA critical flag (0 or 128)                    |
+| `caa_tag`    | VARCHAR(32) NULL                                 | CAA tag (issue, issuewild, iodef)               |
+| `caa_value`  | TEXT NULL                                        | CAA value (e.g., letsencrypt.org)               |
+| **NAPTR Record Fields** |                                         |                                                 |
+| `naptr_order`| INT(11) NULL                                     | NAPTR order (lower = higher priority)           |
+| `naptr_pref` | INT(11) NULL                                     | NAPTR preference (lower = higher priority)      |
+| `naptr_flags`| VARCHAR(16) NULL                                 | NAPTR flags (e.g., U, S, A)                     |
+| `naptr_service`| VARCHAR(64) NULL                               | NAPTR service (e.g., E2U+sip)                   |
+| `naptr_regexp`| TEXT NULL                                       | NAPTR regexp substitution expression            |
+| `naptr_replacement`| VARCHAR(255) NULL                          | NAPTR replacement domain                        |
+| **SVCB/HTTPS Record Fields** |                                    |                                                 |
+| `svc_priority`| INT(11) NULL                                    | SVCB/HTTPS priority (0=AliasMode)               |
+| `svc_target` | VARCHAR(255) NULL                                | SVCB/HTTPS target name                          |
+| `svc_params` | TEXT NULL                                        | SVCB/HTTPS params (JSON or key=value pairs)     |
+| **RP Record Fields** |                                            |                                                 |
+| `rp_mbox`    | VARCHAR(255) NULL                                | RP mailbox (email as domain)                    |
+| `rp_txt`     | VARCHAR(255) NULL                                | RP TXT domain reference                         |
+| **LOC Record Fields** |                                           |                                                 |
+| `loc_latitude`| VARCHAR(50) NULL                                | LOC latitude                                    |
+| `loc_longitude`| VARCHAR(50) NULL                               | LOC longitude                                   |
+| `loc_altitude`| VARCHAR(50) NULL                                | LOC altitude                                    |
+| **Generic Storage** |                                             |                                                 |
+| `rdata_json` | TEXT NULL                                        | JSON storage for complex record data            |
+| **Metadata Fields** |                                             |                                                 |
+| `ttl`        | INT(11) DEFAULT 3600                             | Time to live (seconds)                          |
 | `requester`  | VARCHAR(255) NULL                                | Person or system requesting this record         |
 | `status`     | ENUM('active','disabled','deleted')              | Record status                                   |
 | `expires_at` | DATETIME NULL                                    | Expiration date for temporary records           |
@@ -251,7 +313,9 @@ Primary table for DNS records (A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, SRV).
 | `created_at` | TIMESTAMP                                        | Creation time                                   |
 | `updated_at` | TIMESTAMP NULL                                   | Last update time                                |
 
-**Indexes**: `idx_name`, `idx_type`, `idx_status`, `idx_created_by`, `idx_expires_at`, `idx_ticket_ref`, `idx_address_ipv4`, `idx_address_ipv6`, `idx_cname_target`, `idx_zone_file_id`
+**Indexes**: `idx_name`, `idx_type`, `idx_status`, `idx_created_by`, `idx_expires_at`, `idx_ticket_ref`, `idx_address_ipv4`, `idx_address_ipv6`, `idx_cname_target`, `idx_zone_file_id`, `idx_srv_target`, `idx_mx_target`, `idx_ns_target`
+
+> **Note**: The `record_type` column has been migrated from ENUM to VARCHAR(50) to support extensible record types. See [migrations/README.md](../migrations/README.md) for migration details.
 
 ---
 
@@ -265,7 +329,7 @@ Audit trail for DNS record changes.
 | `record_id`  | INT(11)                                          | FK → dns_records.id            |
 | `zone_file_id`| INT(11) NULL                                    | Zone file at time of change    |
 | `action`     | ENUM('created','updated','status_changed')       | Type of change                 |
-| `record_type`| ENUM('A','AAAA','CNAME','MX','TXT','NS','SOA','PTR','SRV') | Record type at time of change |
+| `record_type`| VARCHAR(50) NOT NULL                             | Record type at time of change  |
 | `name`       | VARCHAR(255)                                     | Record name at time of change  |
 | `value`      | TEXT                                             | Record value at time of change |
 | `address_ipv4`| VARCHAR(15) NULL                                | IPv4 at time of change         |

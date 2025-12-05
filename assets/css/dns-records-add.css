@@ -45,6 +45,82 @@
     box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
 }
 
+/* ==========================================================================
+   Type Selection Categories (OVH-style)
+   ========================================================================== */
+
+.type-selection-view {
+    padding: 1rem;
+}
+
+.type-category {
+    margin-bottom: 1.5rem;
+}
+
+.type-category:last-child {
+    margin-bottom: 0;
+}
+
+.type-category-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 0.75rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.type-buttons-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.type-button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: 1px solid #0d6efd;
+    background-color: #fff;
+    color: #0d6efd;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    min-width: 60px;
+    text-align: center;
+}
+
+.type-button:hover {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+.type-button:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* Helper types (SPF, DKIM, DMARC) - styled slightly different */
+.type-button-helper {
+    border-color: #6c757d;
+    color: #6c757d;
+}
+
+.type-button-helper:hover {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+.type-button-helper:focus {
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+}
+
+/* ==========================================================================
+   Zone File Combobox Styles
+   ========================================================================== */
+
 .modal-subtitle-zonefile {
     display: block;
     padding: 0;
@@ -114,6 +190,16 @@
         max-width: 100%;
         min-width: 0;
         text-align: left;
+    }
+    
+    .type-buttons-container {
+        justify-content: flex-start;
+    }
+    
+    .type-button {
+        min-width: 50px;
+        padding: 0.4rem 0.8rem;
+        font-size: 0.85rem;
     }
 }
 

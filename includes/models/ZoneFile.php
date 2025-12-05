@@ -1257,6 +1257,7 @@ class ZoneFile {
     
     /**
      * Get the value for a DNS record based on its type
+     * Formats the record data appropriately for BIND zone file syntax
      * 
      * @param array $record DNS record data
      * @return string Record value
@@ -1274,15 +1275,24 @@ class ZoneFile {
             case 'CNAME':
                 return $record['cname_target'] ?? $record['value'];
             
+            case 'DNAME':
+                return $record['dname_target'] ?? $record['value'];
+            
             case 'PTR':
                 return $record['ptrdname'] ?? $record['value'];
             
             case 'MX':
                 $priority = isset($record['priority']) ? $record['priority'] : 10;
-                $target = $record['value'];
+                $target = $record['mx_target'] ?? $record['value'];
                 return "$priority $target";
             
+            case 'NS':
+                return $record['ns_target'] ?? $record['value'];
+            
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 $txt = $record['txt'] ?? $record['value'];
                 // Ensure TXT records are properly quoted
                 if (substr($txt, 0, 1) !== '"') {
@@ -1290,19 +1300,98 @@ class ZoneFile {
                 }
                 return $txt;
             
-            case 'NS':
-                return $record['value'];
-            
             case 'SOA':
                 return $record['value'];
             
             case 'SRV':
                 // SRV format: priority weight port target
-                $priority = isset($record['priority']) ? $record['priority'] : 10;
-                return "$priority " . $record['value'];
+                // Note: All SRV fields should come from the record; defaults only for backward compat
+                $priority = isset($record['priority']) && $record['priority'] !== null ? $record['priority'] : 0;
+                $weight = isset($record['weight']) && $record['weight'] !== null ? $record['weight'] : 0;
+                // Port is required for SRV - if not set, try to extract from legacy 'value' field
+                $port = isset($record['port']) && $record['port'] !== null ? $record['port'] : null;
+                $target = $record['srv_target'] ?? null;
+                
+                // Backward compatibility: if srv_target or port missing, try to parse legacy value
+                if (($target === null || $port === null) && isset($record['value'])) {
+                    $parts = preg_split('/\s+/', trim($record['value']));
+                    if (count($parts) >= 2 && $port === null) {
+                        $port = $parts[0];
+                    }
+                    if (count($parts) >= 1 && $target === null) {
+                        $target = end($parts);
+                    }
+                }
+                
+                // Ensure we have required values
+                $port = $port !== null ? $port : 0;
+                $target = $target ?? '.';
+                
+                return "$priority $weight $port $target";
+            
+            case 'CAA':
+                // CAA format: flag tag "value"
+                $flag = isset($record['caa_flag']) ? $record['caa_flag'] : 0;
+                $tag = $record['caa_tag'] ?? 'issue';
+                $value = $record['caa_value'] ?? '';
+                return "$flag $tag \"$value\"";
+            
+            case 'TLSA':
+                // TLSA format: usage selector matching certificate_data
+                $usage = isset($record['tlsa_usage']) ? $record['tlsa_usage'] : 3;
+                $selector = isset($record['tlsa_selector']) ? $record['tlsa_selector'] : 1;
+                $matching = isset($record['tlsa_matching']) ? $record['tlsa_matching'] : 1;
+                $data = $record['tlsa_data'] ?? '';
+                return "$usage $selector $matching $data";
+            
+            case 'SSHFP':
+                // SSHFP format: algorithm fingerprint_type fingerprint
+                $algo = isset($record['sshfp_algo']) ? $record['sshfp_algo'] : 1;
+                $fpType = isset($record['sshfp_type']) ? $record['sshfp_type'] : 2;
+                $fingerprint = $record['sshfp_fingerprint'] ?? '';
+                return "$algo $fpType $fingerprint";
+            
+            case 'NAPTR':
+                // NAPTR format: order preference "flags" "service" "regexp" replacement
+                $order = isset($record['naptr_order']) ? $record['naptr_order'] : 100;
+                $pref = isset($record['naptr_pref']) ? $record['naptr_pref'] : 10;
+                $flags = $record['naptr_flags'] ?? '';
+                $service = $record['naptr_service'] ?? '';
+                $regexp = $record['naptr_regexp'] ?? '';
+                $replacement = $record['naptr_replacement'] ?? '.';
+                return "$order $pref \"$flags\" \"$service\" \"$regexp\" $replacement";
+            
+            case 'SVCB':
+            case 'HTTPS':
+                // SVCB/HTTPS format: priority target [params]
+                $priority = isset($record['svc_priority']) ? $record['svc_priority'] : 1;
+                $target = $record['svc_target'] ?? '.';
+                $params = $record['svc_params'] ?? '';
+                $result = "$priority $target";
+                if ($params) {
+                    $result .= " $params";
+                }
+                return $result;
+            
+            case 'LOC':
+                // LOC format: latitude longitude [altitude] [size] [hp] [vp]
+                $lat = $record['loc_latitude'] ?? '';
+                $lon = $record['loc_longitude'] ?? '';
+                $alt = $record['loc_altitude'] ?? '';
+                $result = "$lat $lon";
+                if ($alt) {
+                    $result .= " $alt";
+                }
+                return $result;
+            
+            case 'RP':
+                // RP format: mailbox txt_domain
+                $mbox = $record['rp_mbox'] ?? '.';
+                $txt = $record['rp_txt'] ?? '.';
+                return "$mbox $txt";
             
             default:
-                return $record['value'];
+                return $record['value'] ?? '';
         }
     }
 
