@@ -195,7 +195,7 @@
      * @returns {boolean} True if valid hostname
      */
     function isValidHostname(str) {
-        if (!str || str === '' || str === '.') return true;
+        if (!str || str === '.') return true;
         // Basic FQDN validation: alphanumeric, hyphens, dots, optional trailing dot
         const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?\.?$/;
         return hostnameRegex.test(str);
@@ -330,8 +330,8 @@
                 break;
                 
             case 'CAA':
-                if (data.caa_flag !== 0 && data.caa_flag !== 128) {
-                    return { valid: false, error: 'Le flag CAA doit être 0 ou 128' };
+                if (!isValidIntRange(data.caa_flag, 0, 255)) {
+                    return { valid: false, error: 'Le flag CAA doit être un entier entre 0 et 255' };
                 }
                 if (!['issue', 'issuewild', 'iodef'].includes(data.caa_tag)) {
                     return { valid: false, error: 'Le tag CAA doit être issue, issuewild ou iodef' };
@@ -3178,7 +3178,7 @@
             case 'HTTPS':
                 data.svc_priority = parseInt(document.getElementById('record-svc-priority').value, 10) || 1;
                 dedicatedValue = document.getElementById('record-svc-target').value || '.';
-                data.svc_target = dedicatedValue === '.' ? '.' : normalizeHostname(dedicatedValue);
+                data.svc_target = normalizeHostname(dedicatedValue);
                 data.svc_params = document.getElementById('record-svc-params').value || '';
                 break;
             case 'LOC':
