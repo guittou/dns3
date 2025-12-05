@@ -55,74 +55,6 @@ CREATE TABLE `acl_entries` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `acl_entries_new`
---
-
-DROP TABLE IF EXISTS `acl_entries_new`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `acl_entries_new` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `resource_type` varchar(50) DEFAULT NULL COMMENT 'Legacy: Type of resource (zone, etc.)',
-  `resource_id` int(11) DEFAULT NULL COMMENT 'Legacy: ID of the resource',
-  `zone_file_id` int(11) DEFAULT NULL COMMENT 'Reference to zone_files.id for zone ACL entries',
-  `subject_type` enum('user','role','ad_group') DEFAULT NULL COMMENT 'Type of ACL subject',
-  `subject_identifier` varchar(255) DEFAULT NULL COMMENT 'User ID/username, role name, or AD group DN',
-  `user_id` int(11) DEFAULT NULL COMMENT 'Legacy: Reference to users.id',
-  `role_id` int(11) DEFAULT NULL COMMENT 'Legacy: Reference to roles.id',
-  `permission` enum('read','write','admin','delete') NOT NULL DEFAULT 'read' COMMENT 'Permission level',
-  `status` enum('enabled','disabled') NOT NULL DEFAULT 'enabled' COMMENT 'ACL entry status',
-  `created_by` int(11) DEFAULT NULL COMMENT 'User who created this entry',
-  `created_at` datetime DEFAULT current_timestamp() COMMENT 'Creation timestamp',
-  PRIMARY KEY (`id`),
-  KEY `idx_resource` (`resource_type`,`resource_id`),
-  KEY `idx_zone_file_id` (`zone_file_id`),
-  KEY `idx_acl_subject` (`subject_type`,`subject_identifier`(191)),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_role_id` (`role_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `acl_entries_old`
---
-
-DROP TABLE IF EXISTS `acl_entries_old`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `acl_entries_old` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) DEFAULT NULL,
-  `role_id` int(11) DEFAULT NULL,
-  `resource_type` enum('dns_record','zone','global') NOT NULL,
-  `resource_id` int(11) DEFAULT NULL,
-  `zone_file_id` int(11) DEFAULT NULL COMMENT 'Reference to zone_files.id for zone ACL entries',
-  `subject_type` enum('user','role','ad_group') DEFAULT NULL COMMENT 'Type of ACL subject',
-  `subject_identifier` varchar(255) DEFAULT NULL COMMENT 'User ID/username, role name, or AD group DN',
-  `permission` enum('read','write','delete','admin') NOT NULL,
-  `status` enum('enabled','disabled') DEFAULT 'enabled',
-  `created_by` int(11) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `updated_by` int(11) DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `created_by` (`created_by`),
-  KEY `updated_by` (`updated_by`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_role_id` (`role_id`),
-  KEY `idx_resource` (`resource_type`,`resource_id`),
-  KEY `idx_status` (`status`),
-  KEY `idx_zone_file_id` (`zone_file_id`),
-  KEY `idx_acl_subject` (`subject_type`,`subject_identifier`(100)),
-  CONSTRAINT `acl_entries_old_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `acl_entries_old_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `acl_entries_old_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
-  CONSTRAINT `acl_entries_old_ibfk_4` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`),
-  CONSTRAINT `chk_user_or_role` CHECK (`user_id` is not null or `role_id` is not null)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `acl_history`
 --
 
@@ -148,7 +80,7 @@ CREATE TABLE `acl_history` (
   KEY `idx_acl_id` (`acl_id`),
   KEY `idx_action` (`action`),
   KEY `idx_changed_at` (`changed_at`),
-  CONSTRAINT `acl_history_ibfk_1` FOREIGN KEY (`acl_id`) REFERENCES `acl_entries_old` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `acl_history_ibfk_1` FOREIGN KEY (`acl_id`) REFERENCES `acl_entries` (`id`) ON DELETE CASCADE,
   CONSTRAINT `acl_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -416,28 +348,6 @@ CREATE TABLE `zone_file_includes` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `zone_file_includes_new`
---
-
-DROP TABLE IF EXISTS `zone_file_includes_new`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `zone_file_includes_new` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `parent_id` int(11) NOT NULL COMMENT 'ID of parent zone file (can be master or include)',
-  `include_id` int(11) NOT NULL COMMENT 'ID of include zone file',
-  `position` int(11) DEFAULT 0 COMMENT 'Order position for includes',
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `unique_parent_include` (`parent_id`,`include_id`),
-  UNIQUE KEY `unique_include` (`include_id`) COMMENT 'Enforce single parent per include',
-  KEY `idx_parent_id` (`parent_id`),
-  KEY `idx_include_id` (`include_id`),
-  KEY `idx_position` (`position`)
-) ENGINE=InnoDB AUTO_INCREMENT=21617 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `zone_file_validation`
 --
 
@@ -524,4 +434,4 @@ CREATE TABLE `zone_files` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-04 13:13:47
+-- Dump completed on 2025-12-05  8:28:46
