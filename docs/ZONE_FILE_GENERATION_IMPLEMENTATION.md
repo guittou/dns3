@@ -203,3 +203,60 @@ Example: `admin@example.com` becomes `admin.example.com.`
 - The directory field is optional (NULL is allowed)
 - The "# Includes" column has been removed from the table view as requested
 - All changes maintain backward compatibility with existing data
+
+## Zone Name Validation
+
+The application uses different validation rules for zone names depending on the zone type:
+
+### Master Zones (FQDN Format)
+
+Master zones accept valid Fully Qualified Domain Names (FQDN):
+
+| Rule | Description |
+|------|-------------|
+| Format | `label.label.label` (e.g., `example.com`, `sub.example.com`) |
+| Trailing dot | Optional (e.g., `example.com.` is also valid) |
+| Total length | Maximum 253 characters (excluding trailing dot) |
+| Label length | Maximum 63 characters per label |
+| Allowed characters | Lowercase letters (a-z), digits (0-9), hyphens (-) |
+| Label restrictions | Cannot start or end with a hyphen |
+| Case | Automatically normalized to lowercase |
+
+**Examples of valid master zone names:**
+- `example.com`
+- `sub.domain.example.org`
+- `test-domain.net`
+- `example.com.` (trailing dot)
+
+**Examples of invalid master zone names:**
+- `-example.com` (starts with hyphen)
+- `example-.com` (ends with hyphen)
+- `test_domain.com` (underscore not allowed)
+- `example..com` (empty label)
+
+### Include Zones (Simple Identifier Format)
+
+Include zones use a stricter validation that only allows simple identifiers:
+
+| Rule | Description |
+|------|-------------|
+| Format | Simple alphanumeric string (e.g., `incm1`, `common1`) |
+| Allowed characters | Lowercase letters (a-z), digits (0-9) |
+| Special characters | Not allowed (no dots, hyphens, underscores, or uppercase letters) |
+
+**Examples of valid include zone names:**
+- `inc1`
+- `common`
+- `zone123`
+
+**Examples of invalid include zone names:**
+- `Inc1` (uppercase not allowed)
+- `inc-1` (hyphen not allowed)
+- `common.records` (dot not allowed)
+- `zone_include` (underscore not allowed)
+
+### Validation Implementation
+
+- **Frontend**: Uses `validateMasterZoneName()` for master zones and `validateZoneName()` for includes
+- **Backend**: Uses `DnsValidator::validateName()` for master zones and regex pattern for includes
+- Both frontend and backend validations are applied to ensure consistency

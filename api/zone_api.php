@@ -361,6 +361,27 @@ try {
                 exit;
             }
 
+            // Server-side validation of zone name based on file_type
+            $fileType = $input['file_type'] ?? 'master';
+            $zoneName = trim($input['name']);
+            
+            if ($fileType === 'master') {
+                // Master zones: validate as FQDN (use DnsValidator::validateName)
+                $nameResult = DnsValidator::validateName($zoneName, true);
+                if (!$nameResult['valid']) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Nom de zone invalide: ' . $nameResult['error']]);
+                    exit;
+                }
+            } else {
+                // Include zones: validate as simple identifier (only lowercase [a-z0-9])
+                if (!preg_match('/^[a-z0-9]+$/', $zoneName)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Le Nom doit contenir uniquement des lettres minuscules et des chiffres, sans espaces ni caractères spéciaux.']);
+                    exit;
+                }
+            }
+
             // Validate directory field
             if (isset($input['directory']) && $input['directory'] !== null && $input['directory'] !== '') {
                 $directory = trim($input['directory']);
@@ -460,6 +481,38 @@ try {
                     http_response_code(400);
                     echo json_encode(['error' => 'Invalid file_type. Must be: master or include']);
                     exit;
+                }
+            }
+
+            // Server-side validation of zone name if provided
+            if (isset($input['name']) && trim($input['name']) !== '') {
+                $zoneName = trim($input['name']);
+                
+                // Get current zone to determine file_type
+                $currentZone = $zoneFile->getById($id);
+                if (!$currentZone) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'Zone file not found']);
+                    exit;
+                }
+                
+                $fileType = $input['file_type'] ?? $currentZone['file_type'];
+                
+                if ($fileType === 'master') {
+                    // Master zones: validate as FQDN (use DnsValidator::validateName)
+                    $nameResult = DnsValidator::validateName($zoneName, true);
+                    if (!$nameResult['valid']) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Nom de zone invalide: ' . $nameResult['error']]);
+                        exit;
+                    }
+                } else {
+                    // Include zones: validate as simple identifier (only lowercase [a-z0-9])
+                    if (!preg_match('/^[a-z0-9]+$/', $zoneName)) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Le Nom doit contenir uniquement des lettres minuscules et des chiffres, sans espaces ni caractères spéciaux.']);
+                        exit;
+                    }
                 }
             }
 
