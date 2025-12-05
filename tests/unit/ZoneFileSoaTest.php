@@ -76,7 +76,7 @@ class ZoneFileSoaTest extends TestCase {
         
         $instance = $zoneFile->newInstanceWithoutConstructor();
         
-        $result = $method->invoke($instance, 'hostmaster@example.com');
+        $result = $method->invoke($instance, 'hostmaster@example.com', '');
         $this->assertEquals('hostmaster.example.com.', $result);
     }
     
@@ -87,19 +87,32 @@ class ZoneFileSoaTest extends TestCase {
         
         $instance = $zoneFile->newInstanceWithoutConstructor();
         
-        $result = $method->invoke($instance, 'hostmaster.example.com');
+        $result = $method->invoke($instance, 'hostmaster.example.com', '');
         $this->assertEquals('hostmaster.example.com.', $result);
     }
     
-    public function testFormatSoaRnameEmpty() {
+    public function testFormatSoaRnameEmptyWithoutZoneDomain() {
         $zoneFile = new ReflectionClass(ZoneFile::class);
         $method = $zoneFile->getMethod('formatSoaRname');
         $method->setAccessible(true);
         
         $instance = $zoneFile->newInstanceWithoutConstructor();
         
-        $result = $method->invoke($instance, '');
+        // Without zone domain, returns default hostmaster.
+        $result = $method->invoke($instance, '', '');
         $this->assertEquals('hostmaster.', $result);
+    }
+    
+    public function testFormatSoaRnameEmptyWithZoneDomain() {
+        $zoneFile = new ReflectionClass(ZoneFile::class);
+        $method = $zoneFile->getMethod('formatSoaRname');
+        $method->setAccessible(true);
+        
+        $instance = $zoneFile->newInstanceWithoutConstructor();
+        
+        // With zone domain, returns hostmaster.<zone_domain>.
+        $result = $method->invoke($instance, '', 'example.com');
+        $this->assertEquals('hostmaster.example.com.', $result);
     }
     
     public function testFormatSoaRnameWithTrailingDot() {
@@ -109,8 +122,44 @@ class ZoneFileSoaTest extends TestCase {
         
         $instance = $zoneFile->newInstanceWithoutConstructor();
         
-        $result = $method->invoke($instance, 'admin.example.com.');
+        $result = $method->invoke($instance, 'admin.example.com.', '');
         $this->assertEquals('admin.example.com.', $result);
+    }
+    
+    public function testFormatSoaRnameShortFormWithZoneDomain() {
+        $zoneFile = new ReflectionClass(ZoneFile::class);
+        $method = $zoneFile->getMethod('formatSoaRname');
+        $method->setAccessible(true);
+        
+        $instance = $zoneFile->newInstanceWithoutConstructor();
+        
+        // Short form (no dot) should be completed with zone domain
+        $result = $method->invoke($instance, 'hostmaster', 'example.com');
+        $this->assertEquals('hostmaster.example.com.', $result);
+    }
+    
+    public function testFormatSoaRnameShortFormWithZoneDomainTrailingDot() {
+        $zoneFile = new ReflectionClass(ZoneFile::class);
+        $method = $zoneFile->getMethod('formatSoaRname');
+        $method->setAccessible(true);
+        
+        $instance = $zoneFile->newInstanceWithoutConstructor();
+        
+        // Zone domain with trailing dot should be handled correctly
+        $result = $method->invoke($instance, 'admin', 'example.com.');
+        $this->assertEquals('admin.example.com.', $result);
+    }
+    
+    public function testFormatSoaRnameShortFormWithoutZoneDomain() {
+        $zoneFile = new ReflectionClass(ZoneFile::class);
+        $method = $zoneFile->getMethod('formatSoaRname');
+        $method->setAccessible(true);
+        
+        $instance = $zoneFile->newInstanceWithoutConstructor();
+        
+        // Short form without zone domain - just adds trailing dot
+        $result = $method->invoke($instance, 'hostmaster', '');
+        $this->assertEquals('hostmaster.', $result);
     }
     
     // ========== generateSoaRecord Tests ==========
@@ -213,6 +262,28 @@ class ZoneFileSoaTest extends TestCase {
         
         // Verify trailing dot is added
         $this->assertStringContainsString('ns1.example.com.', $result);
+    }
+    
+    public function testGenerateSoaRecordWithEmptyZoneDomain() {
+        $zoneFile = new ReflectionClass(ZoneFile::class);
+        $method = $zoneFile->getMethod('generateSoaRecord');
+        $method->setAccessible(true);
+        
+        $instance = $zoneFile->newInstanceWithoutConstructor();
+        
+        // Edge case: zone with no domain and no name
+        $zone = [
+            'name' => '',
+            'domain' => ''
+        ];
+        
+        // Pass empty mname - should use localhost fallback
+        $result = $method->invoke($instance, $zone, '', '2025120501');
+        
+        // Verify fallback MNAME is used (ns1.localhost.)
+        $this->assertStringContainsString('ns1.localhost.', $result);
+        // Verify fallback RNAME is used (hostmaster.)
+        $this->assertStringContainsString('hostmaster.', $result);
     }
 }
 ?>
