@@ -1,7 +1,7 @@
 # DNS3 Database Schema Documentation
 
-> **Last Updated**: 2025-12-04  
-> **Schema Source**: `structure_ok_dns3_db.sql`  
+> **Last Updated**: 2025-12-05  
+> **Schema Source**: `database.sql`  
 > **Exported From**: MariaDB 10.11.14
 
 This document describes the database schema for the DNS3 application, including all tables, their purpose, fields, foreign keys, and indexes.
@@ -12,6 +12,7 @@ This document describes the database schema for the DNS3 application, including 
 
 | Date       | Summary                                                                 |
 |------------|-------------------------------------------------------------------------|
+| 2025-12-05 | Removed legacy/migration tables (`acl_entries_old`, `acl_entries_new`, `zone_file_includes_new`). Updated `acl_history` FK reference. |
 | 2025-12-04 | Initial schema documentation based on `structure_ok_dns3_db.sql` export |
 
 ---
@@ -36,7 +37,7 @@ This document describes the database schema for the DNS3 application, including 
    - [acl_entries](#acl_entries)
    - [acl_history](#acl_history)
    - [zone_acl_entries (view)](#zone_acl_entries-view)
-5. [Legacy/Migration Tables](#legacymigration-tables)
+5. [Schema Cleanup Note (2025-12-05)](#schema-cleanup-note-2025-12-05)
 6. [Foreign Keys Summary](#foreign-keys-summary)
 7. [History & Audit Policy](#history--audit-policy)
 8. [Useful SQL Queries](#useful-sql-queries)
@@ -318,7 +319,7 @@ Audit trail for ACL changes.
 | Column       | Type                                   | Description              |
 |--------------|----------------------------------------|--------------------------|
 | `id`         | INT(11) PK AUTO_INCREMENT              | Unique history entry     |
-| `acl_id`     | INT(11)                                | FK → acl_entries_old.id  |
+| `acl_id`     | INT(11)                                | FK → acl_entries.id      |
 | `action`     | ENUM('created','updated','status_changed') | Type of change       |
 | `user_id`    | INT(11) NULL                           | User at time of change   |
 | `role_id`    | INT(11) NULL                           | Role at time of change   |
@@ -347,17 +348,17 @@ WHERE zone_file_id IS NOT NULL
 
 ---
 
-## Legacy/Migration Tables
+## Schema Cleanup Note (2025-12-05)
 
-The following tables exist for backward compatibility or migration purposes:
+The following legacy/migration tables have been removed from the database schema:
 
-| Table                  | Purpose                                              |
-|------------------------|------------------------------------------------------|
-| `acl_entries_old`      | Backup of old ACL entries structure with CHECK constraint |
-| `acl_entries_new`      | Alternate ACL structure during migration             |
-| `zone_file_includes_new`| Alternate includes structure during migration       |
+| Removed Table             | Previous Purpose                                              |
+|---------------------------|--------------------------------------------------------------|
+| `acl_entries_old`         | Backup of old ACL entries structure with CHECK constraint    |
+| `acl_entries_new`         | Alternate ACL structure during migration                     |
+| `zone_file_includes_new`  | Alternate includes structure during migration                |
 
-These tables may be removed in future versions after migration is complete.
+The current schema uses only the canonical tables (`acl_entries`, `zone_file_includes`) documented above.
 
 ---
 

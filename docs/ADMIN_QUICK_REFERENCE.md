@@ -377,9 +377,9 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_external_user' \
 - Voit uniquement les zones avec ACL configuré
 - Pas d'accès à `admin.php`
 
-### Migration SQL
+### Installation du schéma
 ```bash
-mysql -u dns3_user -p dns3_db < scripts/001_add_acl_entries_and_zone_editor.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
 
 ---
