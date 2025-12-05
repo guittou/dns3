@@ -637,10 +637,12 @@ CREATE TABLE zone_acl_entries (
 - Ne donne PAS accès à l'interface d'administration (`admin.php`)
 - L'accès aux zones est contrôlé par les entrées ACL
 
-#### 3. Migration SQL
+#### 3. Schéma de base de données
+
+Le schéma ACL est inclus dans `database.sql`. Pour une installation fraîche, importez simplement le schéma complet :
 
 ```bash
-mysql -u dns3_user -p dns3_db < scripts/001_add_acl_entries_and_zone_editor.sql
+mysql -u dns3_user -p dns3_db < database.sql
 ```
 
 ### Fonctionnement
@@ -717,7 +719,7 @@ L'onglet "ACL" est disponible dans le modal d'édition d'une zone (accessible un
 
 | Fichier | Description |
 |---------|-------------|
-| `scripts/001_add_acl_entries_and_zone_editor.sql` | Migration SQL |
+| `database.sql` | Schéma de base de données complet (inclut les tables ACL) |
 | `includes/models/ZoneAcl.php` | Modèle ACL (CRUD + isAllowed + hasAnyAclForUser) |
 | `includes/auth.php` | Méthodes isZoneEditor(), getUserRoles(), getUserContext(), ACL check |
 | `includes/models/ZoneFile.php` | Méthodes listForUser(), countForUser() |
@@ -727,9 +729,9 @@ L'onglet "ACL" est disponible dans le modal d'édition d'une zone (accessible un
 
 ### Tests manuels
 
-1. **Import de la migration**
+1. **Importer le schéma de base de données**
    ```bash
-   mysql -u dns3_user -p dns3_db < scripts/001_add_acl_entries_and_zone_editor.sql
+   mysql -u dns3_user -p dns3_db < database.sql
    ```
 
 2. **Vérifier le rôle zone_editor**
