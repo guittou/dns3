@@ -483,6 +483,7 @@ CREATE TABLE `zone_files` (
   `soa_expire` int(11) DEFAULT 604800 COMMENT 'SOA expire timer (seconds)',
   `soa_minimum` int(11) DEFAULT 3600 COMMENT 'SOA minimum/negative caching TTL (seconds)',
   `soa_rname` varchar(255) DEFAULT NULL COMMENT 'SOA RNAME - contact email for zone',
+  `mname` varchar(255) DEFAULT NULL COMMENT 'SOA MNAME - primary master nameserver for zone',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
   KEY `updated_by` (`updated_by`),

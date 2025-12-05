@@ -422,8 +422,8 @@ class ZoneFile {
         try {
             $this->db->beginTransaction();
             
-            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, default_ttl, soa_refresh, soa_retry, soa_expire, soa_minimum, soa_rname, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, default_ttl, soa_refresh, soa_retry, soa_expire, soa_minimum, soa_rname, mname, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
             
             // Only set domain and SOA fields if file_type is 'master'
             $domain = null;
@@ -433,6 +433,7 @@ class ZoneFile {
             $soaExpire = null;
             $soaMinimum = null;
             $soaRname = null;
+            $mname = null;
             
             if (($data['file_type'] ?? 'master') === 'master') {
                 if (isset($data['domain'])) {
@@ -448,6 +449,10 @@ class ZoneFile {
                 $soaExpire = isset($data['soa_expire']) && $data['soa_expire'] !== '' ? (int)$data['soa_expire'] : null;
                 $soaMinimum = isset($data['soa_minimum']) && $data['soa_minimum'] !== '' ? (int)$data['soa_minimum'] : null;
                 $soaRname = isset($data['soa_rname']) && trim($data['soa_rname']) !== '' ? trim($data['soa_rname']) : null;
+                // MNAME (primary master nameserver)
+                if (isset($data['mname']) && trim($data['mname']) !== '') {
+                    $mname = $this->normalizeFqdn(trim($data['mname']));
+                }
             }
             
             $stmt = $this->db->prepare($sql);
@@ -464,6 +469,7 @@ class ZoneFile {
                 $soaExpire,
                 $soaMinimum,
                 $soaRname,
+                $mname,
                 $user_id
             ]);
             
@@ -485,7 +491,7 @@ class ZoneFile {
      * Update a zone file
      * 
      * @param int $id Zone file ID
-     * @param array $data Updated zone file data (includes default_ttl, soa_* fields)
+     * @param array $data Updated zone file data (includes default_ttl, soa_*, mname fields)
      * @param int $user_id User updating the zone file
      * @return bool Success status
      */
@@ -510,7 +516,7 @@ class ZoneFile {
             
             $sql = "UPDATE zone_files 
                     SET name = ?, filename = ?, directory = ?, content = ?, file_type = ?, domain = ?,
-                        default_ttl = ?, soa_refresh = ?, soa_retry = ?, soa_expire = ?, soa_minimum = ?, soa_rname = ?,
+                        default_ttl = ?, soa_refresh = ?, soa_retry = ?, soa_expire = ?, soa_minimum = ?, soa_rname = ?, mname = ?,
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
             
@@ -524,6 +530,7 @@ class ZoneFile {
             $soaExpire = $current['soa_expire'] ?? null;
             $soaMinimum = $current['soa_minimum'] ?? null;
             $soaRname = $current['soa_rname'] ?? null;
+            $mname = $current['mname'] ?? null;
             
             if ($fileType === 'master') {
                 if (isset($data['domain'])) {
@@ -551,6 +558,10 @@ class ZoneFile {
                 if (array_key_exists('soa_rname', $data)) {
                     $soaRname = trim($data['soa_rname']) !== '' ? trim($data['soa_rname']) : null;
                 }
+                // MNAME (primary master nameserver)
+                if (array_key_exists('mname', $data)) {
+                    $mname = trim($data['mname']) !== '' ? $this->normalizeFqdn(trim($data['mname'])) : null;
+                }
             }
             
             $stmt = $this->db->prepare($sql);
@@ -567,6 +578,7 @@ class ZoneFile {
                 $soaExpire,
                 $soaMinimum,
                 $soaRname,
+                $mname,
                 $user_id,
                 $id
             ]);
@@ -1204,7 +1216,7 @@ class ZoneFile {
 
     /**
      * Generate complete zone file content with includes and DNS records
-     * Uses zone's default_ttl for $TTL directive and soa_* fields for SOA record timers
+     * Uses zone's default_ttl for $TTL directive, mname and soa_* fields for SOA record
      * 
      * @param int $zoneId Zone file ID
      * @return string|null Generated zone file content or null on error
@@ -1219,12 +1231,19 @@ class ZoneFile {
             
             $content = '';
             
-            // Add $TTL directive if default_ttl is set (for master zones)
-            if ($zone['file_type'] === 'master' && !empty($zone['default_ttl'])) {
-                $content .= '$TTL ' . $zone['default_ttl'] . "\n\n";
+            // For master zones, add $TTL directive and SOA record
+            if ($zone['file_type'] === 'master') {
+                // Add $TTL directive if default_ttl is set
+                $defaultTtl = !empty($zone['default_ttl']) ? $zone['default_ttl'] : 86400;
+                $content .= '$TTL ' . $defaultTtl . "\n\n";
+                
+                // Generate SOA record using stored mname or default
+                $mname = !empty($zone['mname']) ? $zone['mname'] : null;
+                $soaRecord = $this->generateSoaRecord($zone, $mname);
+                $content .= $soaRecord . "\n\n";
             }
             
-            // Add zone's own content first
+            // Add zone's own content
             if (!empty($zone['content'])) {
                 $content .= $zone['content'];
                 // Ensure there's a newline after content
@@ -1334,6 +1353,27 @@ class ZoneFile {
             $expire,
             $minimum
         );
+    }
+    
+    /**
+     * Normalize a hostname to FQDN format (with trailing dot)
+     * 
+     * @param string $hostname Hostname to normalize
+     * @return string Hostname with trailing dot
+     */
+    public function normalizeFqdn($hostname) {
+        if (empty($hostname)) {
+            return '';
+        }
+        
+        $hostname = trim($hostname);
+        
+        // Ensure trailing dot for FQDN
+        if (substr($hostname, -1) !== '.') {
+            $hostname .= '.';
+        }
+        
+        return $hostname;
     }
     
     /**

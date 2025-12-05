@@ -1826,6 +1826,8 @@ async function openZoneModal(zoneId) {
         // Set SOA/TTL field values
         const zoneDefaultTtlEl = document.getElementById('zoneDefaultTtl');
         if (zoneDefaultTtlEl) zoneDefaultTtlEl.value = zone.default_ttl || '';
+        const zoneMnameEl = document.getElementById('zoneMname');
+        if (zoneMnameEl) zoneMnameEl.value = zone.mname || '';
         const zoneSoaRnameEl = document.getElementById('zoneSoaRname');
         if (zoneSoaRnameEl) zoneSoaRnameEl.value = zone.soa_rname || '';
         const zoneSoaRefreshEl = document.getElementById('zoneSoaRefresh');
@@ -2146,6 +2148,7 @@ async function saveZone() {
             
             // Get SOA/TTL fields
             const defaultTtl = document.getElementById('zoneDefaultTtl')?.value?.trim();
+            const mname = document.getElementById('zoneMname')?.value?.trim();
             const soaRname = document.getElementById('zoneSoaRname')?.value?.trim();
             const soaRefresh = document.getElementById('zoneSoaRefresh')?.value?.trim();
             const soaRetry = document.getElementById('zoneSoaRetry')?.value?.trim();
@@ -2170,6 +2173,8 @@ async function saveZone() {
             }
             
             data.default_ttl = defaultTtl || null;
+            // Normalize MNAME with trailing dot if provided
+            data.mname = mname ? normalizeFqdn(mname) : null;
             data.soa_rname = soaRname || null;
             data.soa_refresh = soaRefresh || null;
             data.soa_retry = soaRetry || null;
@@ -2853,6 +2858,7 @@ async function createZone() {
         
         // Get SOA/TTL fields
         const defaultTtl = document.getElementById('master-default-ttl').value?.trim() || '';
+        const mname = document.getElementById('master-mname').value?.trim() || '';
         const soaRname = document.getElementById('master-soa-rname').value?.trim() || '';
         const soaRefresh = document.getElementById('master-soa-refresh').value?.trim() || '';
         const soaRetry = document.getElementById('master-soa-retry').value?.trim() || '';
@@ -2896,6 +2902,9 @@ async function createZone() {
             }
         }
         
+        // Normalize MNAME with trailing dot if provided
+        const normalizedMname = mname ? normalizeFqdn(mname) : null;
+        
         // Prepare data for API call
         // Normalize zone name to lowercase for consistency (FQDN standard)
         const normalizedName = name.toLowerCase();
@@ -2907,6 +2916,7 @@ async function createZone() {
             domain: domain || null,
             directory: directory,
             default_ttl: defaultTtl || null,
+            mname: normalizedMname,
             soa_rname: soaRname || null,
             soa_refresh: soaRefresh || null,
             soa_retry: soaRetry || null,
@@ -2966,6 +2976,26 @@ function validatePositiveInteger(value, fieldName) {
         return { valid: false, error: `${fieldName} doit être un entier positif.` };
     }
     return { valid: true, error: null };
+}
+
+/**
+ * Normalize a hostname to FQDN format (with trailing dot)
+ * @param {string} hostname - The hostname to normalize
+ * @returns {string} Hostname with trailing dot
+ */
+function normalizeFqdn(hostname) {
+    if (!hostname || typeof hostname !== 'string') {
+        return '';
+    }
+    
+    hostname = hostname.trim();
+    
+    // Ensure trailing dot for FQDN
+    if (hostname && !hostname.endsWith('.')) {
+        hostname += '.';
+    }
+    
+    return hostname;
 }
 
 function escapeHtml(text) {

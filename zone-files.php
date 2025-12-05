@@ -202,6 +202,11 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                             <small class="form-text text-muted">Valeur par défaut: 86400 (24h)</small>
                         </div>
                         <div class="form-group">
+                            <label for="master-mname">Serveur primaire (MNAME)</label>
+                            <input id="master-mname" class="form-control" type="text" placeholder="ns1.example.com.">
+                            <small class="form-text text-muted">Serveur DNS maître pour la zone</small>
+                        </div>
+                        <div class="form-group">
                             <label for="master-soa-rname">Contact (RNAME)</label>
                             <input id="master-soa-rname" class="form-control" type="text" placeholder="hostmaster@example.com">
                             <small class="form-text text-muted">Email de contact pour la zone</small>
@@ -326,6 +331,11 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                                     <label for="zoneDefaultTtl">$TTL par défaut (secondes)</label>
                                     <input id="zoneDefaultTtl" class="form-control" type="number" min="1" placeholder="86400">
                                     <small class="form-text text-muted">Valeur par défaut: 86400 (24h)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoneMname">Serveur primaire (MNAME)</label>
+                                    <input id="zoneMname" class="form-control" type="text" placeholder="ns1.example.com.">
+                                    <small class="form-text text-muted">Serveur DNS maître pour la zone</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="zoneSoaRname">Contact (RNAME)</label>
