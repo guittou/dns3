@@ -105,7 +105,9 @@ function validateRecordByType($recordType, $data) {
     foreach ($required as $field) {
         // For dedicated fields, also accept 'value' as an alias for backward compatibility
         if ($field !== 'name') {
-            $hasDedicatedField = isset($data[$field]) && (is_numeric($data[$field]) || trim($data[$field]) !== '');
+            // Check if field exists and is not empty (note: 0 is a valid value for numeric fields)
+            $fieldValue = $data[$field] ?? null;
+            $hasDedicatedField = isset($data[$field]) && ($fieldValue === 0 || $fieldValue === '0' || (is_numeric($fieldValue) || (is_string($fieldValue) && trim($fieldValue) !== '')));
             $hasValueAlias = isset($data['value']) && trim($data['value']) !== '';
             // For simple types, value can substitute the dedicated field
             $simpleTypes = ['A', 'AAAA', 'CNAME', 'PTR', 'TXT', 'NS', 'MX', 'DNAME', 'SPF', 'DKIM', 'DMARC'];

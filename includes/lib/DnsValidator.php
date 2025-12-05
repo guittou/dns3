@@ -346,8 +346,8 @@ class DnsValidator {
                 return self::validateTXT($value);
                 
             default:
-                // Allow unknown types but warn (for extensibility)
-                return ['valid' => true, 'error' => null, 'warning' => "Unknown record type: $recordType"];
+                // Allow unknown types for extensibility (no error, just pass validation)
+                return ['valid' => true, 'error' => null];
         }
     }
     

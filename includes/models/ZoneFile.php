@@ -1305,10 +1305,28 @@ class ZoneFile {
             
             case 'SRV':
                 // SRV format: priority weight port target
-                $priority = isset($record['priority']) ? $record['priority'] : 0;
-                $weight = isset($record['weight']) ? $record['weight'] : 0;
-                $port = isset($record['port']) ? $record['port'] : 0;
-                $target = $record['srv_target'] ?? $record['value'];
+                // Note: All SRV fields should come from the record; defaults only for backward compat
+                $priority = isset($record['priority']) && $record['priority'] !== null ? $record['priority'] : 0;
+                $weight = isset($record['weight']) && $record['weight'] !== null ? $record['weight'] : 0;
+                // Port is required for SRV - if not set, try to extract from legacy 'value' field
+                $port = isset($record['port']) && $record['port'] !== null ? $record['port'] : null;
+                $target = $record['srv_target'] ?? null;
+                
+                // Backward compatibility: if srv_target or port missing, try to parse legacy value
+                if (($target === null || $port === null) && isset($record['value'])) {
+                    $parts = preg_split('/\s+/', trim($record['value']));
+                    if (count($parts) >= 2 && $port === null) {
+                        $port = $parts[0];
+                    }
+                    if (count($parts) >= 1 && $target === null) {
+                        $target = end($parts);
+                    }
+                }
+                
+                // Ensure we have required values
+                $port = $port !== null ? $port : 0;
+                $target = $target ?? '.';
+                
                 return "$priority $weight $port $target";
             
             case 'CAA':
