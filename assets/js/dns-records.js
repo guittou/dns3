@@ -196,8 +196,9 @@
      */
     function isValidHostname(str) {
         if (!str || str === '.') return true;
-        // Basic FQDN validation: alphanumeric, hyphens, dots, optional trailing dot
-        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?\.?$/;
+        // Robust FQDN validation: enforces proper label structure (1-63 chars per label),
+        // prevents consecutive dots, and ensures labels don't start/end with hyphens
+        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.?$/;
         return hostnameRegex.test(str);
     }
 
@@ -2470,7 +2471,8 @@
                 const flags = document.getElementById('record-naptr-flags').value || '';
                 const service = document.getElementById('record-naptr-service').value || '';
                 const regexp = document.getElementById('record-naptr-regexp').value || '';
-                const replacement = document.getElementById('record-naptr-replacement').value || '.';
+                const rawReplacement = document.getElementById('record-naptr-replacement').value || '.';
+                const replacement = rawReplacement === '.' ? '.' : normalizeHostname(rawReplacement);
                 value = `${order} ${pref} "${flags}" "${service}" "${regexp}" ${replacement}`;
                 break;
             }
@@ -3172,7 +3174,7 @@
                 data.naptr_service = document.getElementById('record-naptr-service').value || '';
                 data.naptr_regexp = document.getElementById('record-naptr-regexp').value || '';
                 dedicatedValue = document.getElementById('record-naptr-replacement').value || '.';
-                data.naptr_replacement = dedicatedValue;
+                data.naptr_replacement = dedicatedValue === '.' ? '.' : normalizeHostname(dedicatedValue);
                 break;
             case 'SVCB':
             case 'HTTPS':
