@@ -796,6 +796,75 @@ function validateZoneName(name) {
 }
 
 /**
+ * Validation helper: Validate master zone name as FQDN
+ * Accepts valid FQDN with or without trailing dot
+ * Each label must contain only [a-z0-9-], and cannot start/end with '-'
+ * Total length 1..253 characters, each label 1..63 characters
+ * @param {string} name - The zone name to validate (FQDN format)
+ * @returns {object} - {valid: boolean, error: string|null}
+ */
+function validateMasterZoneName(name) {
+    if (!name || typeof name !== 'string') {
+        return { valid: false, error: 'Le Nom de la zone est requis.' };
+    }
+    
+    // Normalize to lowercase and trim
+    let normalized = name.trim().toLowerCase();
+    if (normalized === '') {
+        return { valid: false, error: 'Le Nom de la zone est requis.' };
+    }
+    
+    // Remove trailing dot if present (FQDN format)
+    if (normalized.endsWith('.')) {
+        normalized = normalized.slice(0, -1);
+    }
+    
+    // After removing trailing dot, check if empty
+    if (normalized === '') {
+        return { valid: false, error: 'Le Nom de la zone ne peut pas être seulement un point.' };
+    }
+    
+    // Check total length (max 253 characters excluding trailing dot)
+    if (normalized.length > 253) {
+        return { valid: false, error: 'Le Nom de la zone dépasse la longueur maximale de 253 caractères.' };
+    }
+    
+    // Split into labels
+    const labels = normalized.split('.');
+    
+    // Validate each label
+    for (const label of labels) {
+        // Check label is not empty
+        if (label === '') {
+            return { valid: false, error: 'Le Nom de la zone contient un label vide (deux points consécutifs).' };
+        }
+        
+        // Check label length (max 63 characters)
+        if (label.length > 63) {
+            return { valid: false, error: 'Chaque partie du nom de zone ne peut pas dépasser 63 caractères.' };
+        }
+        
+        // Check valid characters: only lowercase letters a-z, digits 0-9, and hyphens
+        const validPattern = /^[a-z0-9-]+$/;
+        if (!validPattern.test(label)) {
+            return { valid: false, error: 'Le Nom de la zone contient des caractères invalides. Seuls les lettres (a-z), chiffres (0-9) et tirets (-) sont autorisés.' };
+        }
+        
+        // Cannot start with hyphen
+        if (label.startsWith('-')) {
+            return { valid: false, error: 'Chaque partie du nom de zone ne peut pas commencer par un tiret (-).' };
+        }
+        
+        // Cannot end with hyphen
+        if (label.endsWith('-')) {
+            return { valid: false, error: 'Chaque partie du nom de zone ne peut pas se terminer par un tiret (-).' };
+        }
+    }
+    
+    return { valid: true, error: null };
+}
+
+/**
  * Validation helper: Validate filename
  * Must not contain spaces and must end with .db (case insensitive)
  * @param {string} filename - The filename to validate
@@ -865,6 +934,7 @@ function clearModalError(modalKey) {
 // Export validation helpers to window for reusability
 window.__validateDomainLabel = validateDomainLabel;
 window.__validateZoneName = validateZoneName;
+window.__validateMasterZoneName = validateMasterZoneName;
 window.__validateFilename = validateFilename;
 window.__showModalError = showModalError;
 window.__clearModalError = clearModalError;
@@ -2789,8 +2859,8 @@ async function createZone() {
         const soaExpire = document.getElementById('master-soa-expire').value?.trim() || '';
         const soaMinimum = document.getElementById('master-soa-minimum').value?.trim() || '';
         
-        // Validate zone name with strict validation
-        const nameValidation = validateZoneName(name);
+        // Validate zone name as FQDN for master zones
+        const nameValidation = validateMasterZoneName(name);
         if (!nameValidation.valid) {
             showModalError('createZone', nameValidation.error);
             return;
@@ -2827,8 +2897,10 @@ async function createZone() {
         }
         
         // Prepare data for API call
+        // Normalize zone name to lowercase for consistency (FQDN standard)
+        const normalizedName = name.toLowerCase();
         const data = {
-            name: name,
+            name: normalizedName,
             filename: filename,
             file_type: 'master', // Always create as master from "Nouveau domaine" button
             content: '', // Empty content for new master zones - content omitted
