@@ -489,5 +489,159 @@ For questions or issues:
 
 ---
 
-Last Updated: 2024-10-20
-Version: 1.0
+## Extended DNS Record Types Support
+
+### Overview
+
+The DNS management modal now supports all extended DNS record types with dedicated form fields and real-time BIND-style preview. The following record types are fully supported:
+
+### Supported Record Types
+
+| Category | Types | Description |
+|----------|-------|-------------|
+| Pointing | A, AAAA, NS, CNAME, DNAME | Basic DNS pointing records |
+| Extended | CAA, TXT, NAPTR, SRV, LOC, SSHFP, TLSA, RP, SVCB, HTTPS | Extended/specialized records |
+| Mail | MX, SPF, DKIM, DMARC | Mail-related records (SPF/DKIM/DMARC stored as TXT) |
+| Other | PTR, SOA | Reverse DNS and zone authority |
+
+### API Field Mapping
+
+Each extended record type uses dedicated fields in the API:
+
+#### MX Records
+```json
+{
+    "record_type": "MX",
+    "name": "example.com",
+    "mx_target": "mail.example.com",
+    "priority": 10
+}
+```
+
+#### NS Records
+```json
+{
+    "record_type": "NS",
+    "name": "example.com",
+    "ns_target": "ns1.example.com"
+}
+```
+
+#### SRV Records
+```json
+{
+    "record_type": "SRV",
+    "name": "_sip._tcp.example.com",
+    "priority": 10,
+    "weight": 5,
+    "port": 5060,
+    "srv_target": "sipserver.example.com"
+}
+```
+
+#### CAA Records
+```json
+{
+    "record_type": "CAA",
+    "name": "example.com",
+    "caa_flag": 0,
+    "caa_tag": "issue",
+    "caa_value": "letsencrypt.org"
+}
+```
+
+#### TLSA Records
+```json
+{
+    "record_type": "TLSA",
+    "name": "_443._tcp.example.com",
+    "tlsa_usage": 3,
+    "tlsa_selector": 1,
+    "tlsa_matching": 1,
+    "tlsa_data": "a1b2c3d4..."
+}
+```
+
+#### SSHFP Records
+```json
+{
+    "record_type": "SSHFP",
+    "name": "server.example.com",
+    "sshfp_algo": 4,
+    "sshfp_type": 2,
+    "sshfp_fingerprint": "abcdef123456..."
+}
+```
+
+#### NAPTR Records
+```json
+{
+    "record_type": "NAPTR",
+    "name": "example.com",
+    "naptr_order": 100,
+    "naptr_pref": 10,
+    "naptr_flags": "U",
+    "naptr_service": "E2U+sip",
+    "naptr_regexp": "!^.*$!sip:info@example.com!",
+    "naptr_replacement": "."
+}
+```
+
+#### SVCB/HTTPS Records
+```json
+{
+    "record_type": "HTTPS",
+    "name": "example.com",
+    "svc_priority": 1,
+    "svc_target": ".",
+    "svc_params": "alpn=h2 port=443"
+}
+```
+
+#### LOC Records
+```json
+{
+    "record_type": "LOC",
+    "name": "example.com",
+    "loc_latitude": "52 22 23.000 N",
+    "loc_longitude": "4 53 32.000 E",
+    "loc_altitude": "-2.00m"
+}
+```
+
+#### RP Records
+```json
+{
+    "record_type": "RP",
+    "name": "example.com",
+    "rp_mbox": "admin.example.com",
+    "rp_txt": "."
+}
+```
+
+### BIND-Style Preview
+
+The modal displays a real-time BIND-style preview that updates as you fill in the form fields. Examples:
+
+- **MX**: `example.com. 300 IN MX 10 mail.example.com.`
+- **SRV**: `_sip._tcp.example.com. 300 IN SRV 10 5 5060 sipserver.example.com.`
+- **CAA**: `example.com. 300 IN CAA 0 issue "letsencrypt.org"`
+- **TLSA**: `_443._tcp.example.com. 300 IN TLSA 3 1 1 a1b2c3d4...`
+
+### Hostname Normalization
+
+Target hostnames (MX, NS, SRV, CNAME, etc.) are automatically normalized with a trailing dot when submitted to ensure proper FQDN format.
+
+### Validation
+
+Client-side validation includes:
+- Required field checks
+- Numeric range validation (priority 0-65535, port 0-65535, etc.)
+- IP address format validation (A/AAAA records)
+- Hostname format validation (no IP addresses in CNAME/MX/NS targets)
+- Hex string validation (TLSA data, SSHFP fingerprint)
+
+---
+
+Last Updated: 2025-12-05
+Version: 1.1

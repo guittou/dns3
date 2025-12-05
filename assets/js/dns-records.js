@@ -172,6 +172,58 @@
     }
 
     /**
+     * Normalize hostname by adding trailing dot if missing (for FQDN)
+     * @param {string} hostname - The hostname to normalize
+     * @returns {string} Normalized hostname with trailing dot
+     */
+    function normalizeHostname(hostname) {
+        if (!hostname || hostname === '' || hostname === '.') {
+            return hostname || '';
+        }
+        // Trim whitespace
+        hostname = hostname.trim();
+        // Add trailing dot if not present (except for @ and relative names without dots)
+        if (hostname !== '@' && hostname.includes('.') && !hostname.endsWith('.')) {
+            return hostname + '.';
+        }
+        return hostname;
+    }
+
+    /**
+     * Check if a string is a valid hostname (FQDN)
+     * @param {string} str - The string to check
+     * @returns {boolean} True if valid hostname
+     */
+    function isValidHostname(str) {
+        if (!str || str === '' || str === '.') return true;
+        // Basic FQDN validation: alphanumeric, hyphens, dots, optional trailing dot
+        const hostnameRegex = /^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?\.?$/;
+        return hostnameRegex.test(str);
+    }
+
+    /**
+     * Check if a value is a valid integer within a range
+     * @param {any} value - The value to check
+     * @param {number} min - Minimum value (inclusive)
+     * @param {number} max - Maximum value (inclusive)
+     * @returns {boolean} True if valid integer in range
+     */
+    function isValidIntRange(value, min, max) {
+        const num = parseInt(value, 10);
+        return !isNaN(num) && num >= min && num <= max;
+    }
+
+    /**
+     * Check if a string is a valid hex string
+     * @param {string} str - The string to check
+     * @returns {boolean} True if valid hex string
+     */
+    function isValidHex(str) {
+        if (!str) return false;
+        return /^[0-9A-Fa-f]+$/.test(str);
+    }
+
+    /**
      * Validate payload data for a specific record type
      * @param {string} recordType - The DNS record type
      * @param {Object} data - The payload data to validate
@@ -180,10 +232,19 @@
     function validatePayloadForType(recordType, data) {
         const requiredFields = REQUIRED_BY_TYPE[recordType] || ['name'];
         
-        // Check required fields
+        // Check required fields (except for numeric fields that can be 0)
         for (const field of requiredFields) {
-            if (!data[field] || String(data[field]).trim() === '') {
-                return { valid: false, error: `Le champ "${field}" est requis pour le type ${recordType}` };
+            const value = data[field];
+            // Allow 0 as valid value for numeric fields
+            const isNumericField = ['priority', 'port', 'weight', 'svc_priority', 'naptr_order', 'naptr_pref', 'caa_flag', 'tlsa_usage', 'tlsa_selector', 'tlsa_matching', 'sshfp_algo', 'sshfp_type'].includes(field);
+            if (isNumericField) {
+                if (value === undefined || value === null || value === '') {
+                    return { valid: false, error: `Le champ "${field}" est requis pour le type ${recordType}` };
+                }
+            } else {
+                if (!value || String(value).trim() === '') {
+                    return { valid: false, error: `Le champ "${field}" est requis pour le type ${recordType}` };
+                }
             }
         }
         
@@ -206,22 +267,141 @@
                 if (isIPv4(data.cname_target) || isIPv6(data.cname_target)) {
                     return { valid: false, error: 'La cible CNAME ne peut pas être une adresse IP (doit être un nom d\'hôte)' };
                 }
-                // Basic FQDN validation
-                if (!data.cname_target.match(/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/)) {
+                if (!isValidHostname(data.cname_target)) {
                     return { valid: false, error: 'La cible CNAME doit être un nom d\'hôte valide' };
                 }
                 break;
                 
             case 'PTR':
-                // PTR requires reverse DNS name from user
-                if (!data.ptrdname.match(/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/)) {
-                    return { valid: false, error: 'Le nom PTR doit être un nom d\'hôte valide (nom DNS inversé requis)' };
+                if (!isValidHostname(data.ptrdname)) {
+                    return { valid: false, error: 'Le nom PTR doit être un nom d\'hôte valide' };
                 }
                 break;
                 
             case 'TXT':
-                if (data.txt.trim().length === 0) {
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
+                if (!data.txt || data.txt.trim().length === 0) {
                     return { valid: false, error: 'Le contenu du champ TXT ne peut pas être vide' };
+                }
+                break;
+                
+            case 'NS':
+                if (isIPv4(data.ns_target) || isIPv6(data.ns_target)) {
+                    return { valid: false, error: 'La cible NS ne peut pas être une adresse IP (doit être un nom d\'hôte)' };
+                }
+                if (!isValidHostname(data.ns_target)) {
+                    return { valid: false, error: 'La cible NS doit être un nom d\'hôte valide' };
+                }
+                break;
+                
+            case 'DNAME':
+                if (!isValidHostname(data.dname_target)) {
+                    return { valid: false, error: 'La cible DNAME doit être un nom d\'hôte valide' };
+                }
+                break;
+                
+            case 'MX':
+                if (isIPv4(data.mx_target) || isIPv6(data.mx_target)) {
+                    return { valid: false, error: 'La cible MX ne peut pas être une adresse IP (doit être un nom d\'hôte)' };
+                }
+                if (!isValidHostname(data.mx_target)) {
+                    return { valid: false, error: 'La cible MX doit être un nom d\'hôte valide' };
+                }
+                if (!isValidIntRange(data.priority, 0, 65535)) {
+                    return { valid: false, error: 'La priorité MX doit être un entier entre 0 et 65535' };
+                }
+                break;
+                
+            case 'SRV':
+                if (!isValidIntRange(data.priority, 0, 65535)) {
+                    return { valid: false, error: 'La priorité SRV doit être un entier entre 0 et 65535' };
+                }
+                if (!isValidIntRange(data.weight, 0, 65535)) {
+                    return { valid: false, error: 'Le poids SRV doit être un entier entre 0 et 65535' };
+                }
+                if (!isValidIntRange(data.port, 0, 65535)) {
+                    return { valid: false, error: 'Le port SRV doit être un entier entre 0 et 65535' };
+                }
+                if (!isValidHostname(data.srv_target)) {
+                    return { valid: false, error: 'La cible SRV doit être un nom d\'hôte valide' };
+                }
+                break;
+                
+            case 'CAA':
+                if (data.caa_flag !== 0 && data.caa_flag !== 128) {
+                    return { valid: false, error: 'Le flag CAA doit être 0 ou 128' };
+                }
+                if (!['issue', 'issuewild', 'iodef'].includes(data.caa_tag)) {
+                    return { valid: false, error: 'Le tag CAA doit être issue, issuewild ou iodef' };
+                }
+                if (!data.caa_value || data.caa_value.trim().length === 0) {
+                    return { valid: false, error: 'La valeur CAA ne peut pas être vide' };
+                }
+                break;
+                
+            case 'TLSA':
+                if (!isValidIntRange(data.tlsa_usage, 0, 3)) {
+                    return { valid: false, error: 'L\'usage TLSA doit être entre 0 et 3' };
+                }
+                if (!isValidIntRange(data.tlsa_selector, 0, 1)) {
+                    return { valid: false, error: 'Le sélecteur TLSA doit être 0 ou 1' };
+                }
+                if (!isValidIntRange(data.tlsa_matching, 0, 2)) {
+                    return { valid: false, error: 'Le type de correspondance TLSA doit être entre 0 et 2' };
+                }
+                if (!isValidHex(data.tlsa_data)) {
+                    return { valid: false, error: 'Les données TLSA doivent être une chaîne hexadécimale valide' };
+                }
+                break;
+                
+            case 'SSHFP':
+                if (!isValidIntRange(data.sshfp_algo, 1, 4)) {
+                    return { valid: false, error: 'L\'algorithme SSHFP doit être entre 1 et 4' };
+                }
+                if (!isValidIntRange(data.sshfp_type, 1, 2)) {
+                    return { valid: false, error: 'Le type d\'empreinte SSHFP doit être 1 ou 2' };
+                }
+                if (!isValidHex(data.sshfp_fingerprint)) {
+                    return { valid: false, error: 'L\'empreinte SSHFP doit être une chaîne hexadécimale valide' };
+                }
+                break;
+                
+            case 'NAPTR':
+                if (!isValidIntRange(data.naptr_order, 0, 65535)) {
+                    return { valid: false, error: 'L\'ordre NAPTR doit être un entier entre 0 et 65535' };
+                }
+                if (!isValidIntRange(data.naptr_pref, 0, 65535)) {
+                    return { valid: false, error: 'La préférence NAPTR doit être un entier entre 0 et 65535' };
+                }
+                break;
+                
+            case 'SVCB':
+            case 'HTTPS':
+                if (!isValidIntRange(data.svc_priority, 0, 65535)) {
+                    return { valid: false, error: 'La priorité SVCB/HTTPS doit être un entier entre 0 et 65535' };
+                }
+                if (data.svc_target !== '.' && !isValidHostname(data.svc_target)) {
+                    return { valid: false, error: 'La cible SVCB/HTTPS doit être un nom d\'hôte valide ou "."' };
+                }
+                break;
+                
+            case 'LOC':
+                if (!data.loc_latitude || data.loc_latitude.trim().length === 0) {
+                    return { valid: false, error: 'La latitude LOC est requise' };
+                }
+                if (!data.loc_longitude || data.loc_longitude.trim().length === 0) {
+                    return { valid: false, error: 'La longitude LOC est requise' };
+                }
+                break;
+                
+            case 'RP':
+                if (!data.rp_mbox || data.rp_mbox.trim().length === 0) {
+                    return { valid: false, error: 'Le mailbox RP est requis' };
+                }
+                if (!data.rp_txt || data.rp_txt.trim().length === 0) {
+                    return { valid: false, error: 'Le domaine TXT RP est requis' };
                 }
                 break;
         }
@@ -1917,6 +2097,133 @@
     }
 
     /**
+     * Clear all dedicated type-specific fields
+     */
+    function clearAllDedicatedFields() {
+        // Basic fields
+        const basicFields = [
+            'record-address-ipv4', 'record-address-ipv6', 'record-cname-target',
+            'record-ptrdname', 'record-txt'
+        ];
+        
+        // Extended fields
+        const extendedFields = [
+            'record-ns-target', 'record-dname-target', 'record-mx-target', 'record-priority',
+            'record-srv-priority', 'record-srv-weight', 'record-srv-port', 'record-srv-target',
+            'record-caa-flag', 'record-caa-tag', 'record-caa-value',
+            'record-tlsa-usage', 'record-tlsa-selector', 'record-tlsa-matching', 'record-tlsa-data',
+            'record-sshfp-algo', 'record-sshfp-type', 'record-sshfp-fingerprint',
+            'record-naptr-order', 'record-naptr-pref', 'record-naptr-flags', 'record-naptr-service',
+            'record-naptr-regexp', 'record-naptr-replacement',
+            'record-svc-priority', 'record-svc-target', 'record-svc-params',
+            'record-loc-latitude', 'record-loc-longitude', 'record-loc-altitude',
+            'record-rp-mbox', 'record-rp-txt'
+        ];
+        
+        [...basicFields, ...extendedFields].forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                if (field.tagName === 'SELECT') {
+                    field.selectedIndex = 0;
+                } else {
+                    field.value = '';
+                }
+            }
+        });
+    }
+
+    /**
+     * Populate dedicated fields based on record data
+     * @param {Object} record - Record object from API
+     */
+    function populateDedicatedFields(record) {
+        if (!record || !record.record_type) return;
+        
+        const setFieldValue = (fieldId, value) => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.value = value !== null && value !== undefined ? value : '';
+            }
+        };
+        
+        switch(record.record_type) {
+            case 'A':
+                setFieldValue('record-address-ipv4', record.address_ipv4 || record.value);
+                break;
+            case 'AAAA':
+                setFieldValue('record-address-ipv6', record.address_ipv6 || record.value);
+                break;
+            case 'CNAME':
+                setFieldValue('record-cname-target', record.cname_target || record.value);
+                break;
+            case 'PTR':
+                setFieldValue('record-ptrdname', record.ptrdname || record.value);
+                break;
+            case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
+                setFieldValue('record-txt', record.txt || record.value);
+                break;
+            case 'NS':
+                setFieldValue('record-ns-target', record.ns_target || record.value);
+                break;
+            case 'DNAME':
+                setFieldValue('record-dname-target', record.dname_target || record.value);
+                break;
+            case 'MX':
+                setFieldValue('record-mx-target', record.mx_target || record.value);
+                setFieldValue('record-priority', record.priority);
+                break;
+            case 'SRV':
+                setFieldValue('record-srv-priority', record.priority);
+                setFieldValue('record-srv-weight', record.weight);
+                setFieldValue('record-srv-port', record.port);
+                setFieldValue('record-srv-target', record.srv_target || record.value);
+                break;
+            case 'CAA':
+                setFieldValue('record-caa-flag', record.caa_flag);
+                setFieldValue('record-caa-tag', record.caa_tag);
+                setFieldValue('record-caa-value', record.caa_value);
+                break;
+            case 'TLSA':
+                setFieldValue('record-tlsa-usage', record.tlsa_usage);
+                setFieldValue('record-tlsa-selector', record.tlsa_selector);
+                setFieldValue('record-tlsa-matching', record.tlsa_matching);
+                setFieldValue('record-tlsa-data', record.tlsa_data);
+                break;
+            case 'SSHFP':
+                setFieldValue('record-sshfp-algo', record.sshfp_algo);
+                setFieldValue('record-sshfp-type', record.sshfp_type);
+                setFieldValue('record-sshfp-fingerprint', record.sshfp_fingerprint);
+                break;
+            case 'NAPTR':
+                setFieldValue('record-naptr-order', record.naptr_order);
+                setFieldValue('record-naptr-pref', record.naptr_pref);
+                setFieldValue('record-naptr-flags', record.naptr_flags);
+                setFieldValue('record-naptr-service', record.naptr_service);
+                setFieldValue('record-naptr-regexp', record.naptr_regexp);
+                setFieldValue('record-naptr-replacement', record.naptr_replacement || '.');
+                break;
+            case 'SVCB':
+            case 'HTTPS':
+                setFieldValue('record-svc-priority', record.svc_priority);
+                setFieldValue('record-svc-target', record.svc_target || '.');
+                setFieldValue('record-svc-params', record.svc_params);
+                break;
+            case 'LOC':
+                setFieldValue('record-loc-latitude', record.loc_latitude);
+                setFieldValue('record-loc-longitude', record.loc_longitude);
+                setFieldValue('record-loc-altitude', record.loc_altitude);
+                break;
+            case 'RP':
+                setFieldValue('record-rp-mbox', record.rp_mbox);
+                setFieldValue('record-rp-txt', record.rp_txt || '.');
+                break;
+        }
+    }
+
+    /**
      * Show the type selection view (Step 1)
      */
     function showTypeSelectionView() {
@@ -2100,18 +2407,94 @@
                 value = document.getElementById('record-address-ipv6').value || '';
                 break;
             case 'CNAME':
-                value = document.getElementById('record-cname-target').value || '';
+                value = normalizeHostname(document.getElementById('record-cname-target').value || '');
                 break;
             case 'PTR':
-                value = document.getElementById('record-ptrdname').value || '';
+                value = normalizeHostname(document.getElementById('record-ptrdname').value || '');
                 break;
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 value = document.getElementById('record-txt').value || '';
                 // Wrap TXT in quotes if not already
                 if (value && !value.startsWith('"')) {
                     value = '"' + value + '"';
                 }
                 break;
+            case 'NS':
+                value = normalizeHostname(document.getElementById('record-ns-target').value || '');
+                break;
+            case 'DNAME':
+                value = normalizeHostname(document.getElementById('record-dname-target').value || '');
+                break;
+            case 'MX': {
+                const priority = document.getElementById('record-priority').value || '10';
+                const target = normalizeHostname(document.getElementById('record-mx-target').value || '');
+                value = `${priority} ${target}`;
+                break;
+            }
+            case 'SRV': {
+                const priority = document.getElementById('record-srv-priority').value || '0';
+                const weight = document.getElementById('record-srv-weight').value || '0';
+                const port = document.getElementById('record-srv-port').value || '0';
+                const target = normalizeHostname(document.getElementById('record-srv-target').value || '');
+                value = `${priority} ${weight} ${port} ${target}`;
+                break;
+            }
+            case 'CAA': {
+                const flag = document.getElementById('record-caa-flag').value || '0';
+                const tag = document.getElementById('record-caa-tag').value || 'issue';
+                const caaValue = document.getElementById('record-caa-value').value || '';
+                value = `${flag} ${tag} "${caaValue}"`;
+                break;
+            }
+            case 'TLSA': {
+                const usage = document.getElementById('record-tlsa-usage').value || '3';
+                const selector = document.getElementById('record-tlsa-selector').value || '1';
+                const matching = document.getElementById('record-tlsa-matching').value || '1';
+                const data = document.getElementById('record-tlsa-data').value || '';
+                value = `${usage} ${selector} ${matching} ${data}`;
+                break;
+            }
+            case 'SSHFP': {
+                const algo = document.getElementById('record-sshfp-algo').value || '1';
+                const fpType = document.getElementById('record-sshfp-type').value || '2';
+                const fingerprint = document.getElementById('record-sshfp-fingerprint').value || '';
+                value = `${algo} ${fpType} ${fingerprint}`;
+                break;
+            }
+            case 'NAPTR': {
+                const order = document.getElementById('record-naptr-order').value || '100';
+                const pref = document.getElementById('record-naptr-pref').value || '10';
+                const flags = document.getElementById('record-naptr-flags').value || '';
+                const service = document.getElementById('record-naptr-service').value || '';
+                const regexp = document.getElementById('record-naptr-regexp').value || '';
+                const replacement = document.getElementById('record-naptr-replacement').value || '.';
+                value = `${order} ${pref} "${flags}" "${service}" "${regexp}" ${replacement}`;
+                break;
+            }
+            case 'SVCB':
+            case 'HTTPS': {
+                const priority = document.getElementById('record-svc-priority').value || '1';
+                const target = document.getElementById('record-svc-target').value || '.';
+                const params = document.getElementById('record-svc-params').value || '';
+                value = `${priority} ${target}${params ? ' ' + params : ''}`;
+                break;
+            }
+            case 'LOC': {
+                const lat = document.getElementById('record-loc-latitude').value || '';
+                const lon = document.getElementById('record-loc-longitude').value || '';
+                const alt = document.getElementById('record-loc-altitude').value || '';
+                value = `${lat} ${lon}${alt ? ' ' + alt : ''}`;
+                break;
+            }
+            case 'RP': {
+                const mbox = normalizeHostname(document.getElementById('record-rp-mbox').value || '');
+                const txt = document.getElementById('record-rp-txt').value || '.';
+                value = `${mbox} ${txt}`;
+                break;
+            }
         }
         
         // Build preview showing at minimum "name [TTL] IN type [value]"
@@ -2170,13 +2553,47 @@
      */
     function initPreviewListeners() {
         const fields = [
+            // Basic fields
             'record-name',
             'record-ttl',
             'record-address-ipv4',
             'record-address-ipv6',
             'record-cname-target',
             'record-ptrdname',
-            'record-txt'
+            'record-txt',
+            // Extended fields
+            'record-ns-target',
+            'record-dname-target',
+            'record-mx-target',
+            'record-priority',
+            'record-srv-priority',
+            'record-srv-weight',
+            'record-srv-port',
+            'record-srv-target',
+            'record-caa-flag',
+            'record-caa-tag',
+            'record-caa-value',
+            'record-tlsa-usage',
+            'record-tlsa-selector',
+            'record-tlsa-matching',
+            'record-tlsa-data',
+            'record-sshfp-algo',
+            'record-sshfp-type',
+            'record-sshfp-fingerprint',
+            'record-naptr-order',
+            'record-naptr-pref',
+            'record-naptr-flags',
+            'record-naptr-service',
+            'record-naptr-regexp',
+            'record-naptr-replacement',
+            'record-svc-priority',
+            'record-svc-target',
+            'record-svc-params',
+            'record-loc-latitude',
+            'record-loc-longitude',
+            'record-loc-altitude',
+            'record-rp-mbox',
+            'record-rp-txt'
         ];
         
         fields.forEach(fieldId => {
@@ -2527,38 +2944,11 @@
             document.getElementById('record-ticket-ref').value = record.ticket_ref || '';
             document.getElementById('record-comment').value = record.comment || '';
             
-            // Set dedicated field values based on record type
-            const ipv4Input = document.getElementById('record-address-ipv4');
-            const ipv6Input = document.getElementById('record-address-ipv6');
-            const cnameInput = document.getElementById('record-cname-target');
-            const ptrInput = document.getElementById('record-ptrdname');
-            const txtInput = document.getElementById('record-txt');
-            
             // Clear all dedicated fields first
-            if (ipv4Input) ipv4Input.value = '';
-            if (ipv6Input) ipv6Input.value = '';
-            if (cnameInput) cnameInput.value = '';
-            if (ptrInput) ptrInput.value = '';
-            if (txtInput) txtInput.value = '';
+            clearAllDedicatedFields();
             
-            // Set the appropriate dedicated field
-            switch(record.record_type) {
-                case 'A':
-                    if (ipv4Input) ipv4Input.value = record.address_ipv4 || record.value || '';
-                    break;
-                case 'AAAA':
-                    if (ipv6Input) ipv6Input.value = record.address_ipv6 || record.value || '';
-                    break;
-                case 'CNAME':
-                    if (cnameInput) cnameInput.value = record.cname_target || record.value || '';
-                    break;
-                case 'PTR':
-                    if (ptrInput) ptrInput.value = record.ptrdname || record.value || '';
-                    break;
-                case 'TXT':
-                    if (txtInput) txtInput.value = record.txt || record.value || '';
-                    break;
-            }
+            // Set the appropriate dedicated field based on record type
+            populateDedicatedFields(record);
             
             // Edit mode: show form directly (skip type selection)
             const typeView = document.getElementById('type-selection-view');
@@ -2723,15 +3113,84 @@
                 break;
             case 'CNAME':
                 dedicatedValue = document.getElementById('record-cname-target').value;
-                data.cname_target = dedicatedValue;
+                data.cname_target = normalizeHostname(dedicatedValue);
                 break;
             case 'PTR':
                 dedicatedValue = document.getElementById('record-ptrdname').value;
-                data.ptrdname = dedicatedValue;
+                data.ptrdname = normalizeHostname(dedicatedValue);
                 break;
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 dedicatedValue = document.getElementById('record-txt').value;
                 data.txt = dedicatedValue;
+                break;
+            case 'NS':
+                dedicatedValue = document.getElementById('record-ns-target').value;
+                data.ns_target = normalizeHostname(dedicatedValue);
+                break;
+            case 'DNAME':
+                dedicatedValue = document.getElementById('record-dname-target').value;
+                data.dname_target = normalizeHostname(dedicatedValue);
+                break;
+            case 'MX':
+                dedicatedValue = document.getElementById('record-mx-target').value;
+                data.mx_target = normalizeHostname(dedicatedValue);
+                data.priority = parseInt(document.getElementById('record-priority').value, 10) || 10;
+                break;
+            case 'SRV':
+                data.priority = parseInt(document.getElementById('record-srv-priority').value, 10) || 0;
+                data.weight = parseInt(document.getElementById('record-srv-weight').value, 10) || 0;
+                data.port = parseInt(document.getElementById('record-srv-port').value, 10) || 0;
+                dedicatedValue = document.getElementById('record-srv-target').value;
+                data.srv_target = normalizeHostname(dedicatedValue);
+                break;
+            case 'CAA':
+                data.caa_flag = parseInt(document.getElementById('record-caa-flag').value, 10) || 0;
+                data.caa_tag = document.getElementById('record-caa-tag').value || 'issue';
+                dedicatedValue = document.getElementById('record-caa-value').value;
+                data.caa_value = dedicatedValue;
+                break;
+            case 'TLSA':
+                data.tlsa_usage = parseInt(document.getElementById('record-tlsa-usage').value, 10);
+                data.tlsa_selector = parseInt(document.getElementById('record-tlsa-selector').value, 10);
+                data.tlsa_matching = parseInt(document.getElementById('record-tlsa-matching').value, 10);
+                dedicatedValue = document.getElementById('record-tlsa-data').value;
+                data.tlsa_data = dedicatedValue;
+                break;
+            case 'SSHFP':
+                data.sshfp_algo = parseInt(document.getElementById('record-sshfp-algo').value, 10);
+                data.sshfp_type = parseInt(document.getElementById('record-sshfp-type').value, 10);
+                dedicatedValue = document.getElementById('record-sshfp-fingerprint').value;
+                data.sshfp_fingerprint = dedicatedValue;
+                break;
+            case 'NAPTR':
+                data.naptr_order = parseInt(document.getElementById('record-naptr-order').value, 10) || 0;
+                data.naptr_pref = parseInt(document.getElementById('record-naptr-pref').value, 10) || 0;
+                data.naptr_flags = document.getElementById('record-naptr-flags').value || '';
+                data.naptr_service = document.getElementById('record-naptr-service').value || '';
+                data.naptr_regexp = document.getElementById('record-naptr-regexp').value || '';
+                dedicatedValue = document.getElementById('record-naptr-replacement').value || '.';
+                data.naptr_replacement = dedicatedValue;
+                break;
+            case 'SVCB':
+            case 'HTTPS':
+                data.svc_priority = parseInt(document.getElementById('record-svc-priority').value, 10) || 1;
+                dedicatedValue = document.getElementById('record-svc-target').value || '.';
+                data.svc_target = dedicatedValue === '.' ? '.' : normalizeHostname(dedicatedValue);
+                data.svc_params = document.getElementById('record-svc-params').value || '';
+                break;
+            case 'LOC':
+                data.loc_latitude = document.getElementById('record-loc-latitude').value || '';
+                data.loc_longitude = document.getElementById('record-loc-longitude').value || '';
+                data.loc_altitude = document.getElementById('record-loc-altitude').value || '';
+                dedicatedValue = data.loc_latitude;
+                break;
+            case 'RP':
+                dedicatedValue = document.getElementById('record-rp-mbox').value || '';
+                data.rp_mbox = normalizeHostname(dedicatedValue);
+                data.rp_txt = document.getElementById('record-rp-txt').value || '.';
                 break;
         }
         
@@ -2754,14 +3213,61 @@
         if (!validation.valid) {
             // Determine which field has the error for focus
             let errorFieldId = 'record-name';
-            if (validation.error.includes('adresse')) {
-                errorFieldId = recordType === 'A' ? 'record-address-ipv4' : 'record-address-ipv6';
-            } else if (validation.error.includes('cible') || validation.error.includes('CNAME')) {
+            const error = validation.error.toLowerCase();
+            
+            // Map error messages to form field IDs
+            if (error.includes('ipv4') || (error.includes('adresse') && recordType === 'A')) {
+                errorFieldId = 'record-address-ipv4';
+            } else if (error.includes('ipv6') || (error.includes('adresse') && recordType === 'AAAA')) {
+                errorFieldId = 'record-address-ipv6';
+            } else if (error.includes('cname')) {
                 errorFieldId = 'record-cname-target';
-            } else if (validation.error.includes('PTR')) {
+            } else if (error.includes('ptr')) {
                 errorFieldId = 'record-ptrdname';
-            } else if (validation.error.includes('TXT')) {
+            } else if (error.includes('txt')) {
                 errorFieldId = 'record-txt';
+            } else if (error.includes('ns_target') || (error.includes('ns') && recordType === 'NS')) {
+                errorFieldId = 'record-ns-target';
+            } else if (error.includes('dname')) {
+                errorFieldId = 'record-dname-target';
+            } else if (error.includes('mx_target') || (error.includes('mx') && recordType === 'MX' && error.includes('cible'))) {
+                errorFieldId = 'record-mx-target';
+            } else if (error.includes('priorité') && recordType === 'MX') {
+                errorFieldId = 'record-priority';
+            } else if (error.includes('srv') && error.includes('cible')) {
+                errorFieldId = 'record-srv-target';
+            } else if (error.includes('srv') && error.includes('port')) {
+                errorFieldId = 'record-srv-port';
+            } else if (error.includes('srv') && error.includes('poids')) {
+                errorFieldId = 'record-srv-weight';
+            } else if (error.includes('srv') && error.includes('priorité')) {
+                errorFieldId = 'record-srv-priority';
+            } else if (error.includes('caa') && error.includes('valeur')) {
+                errorFieldId = 'record-caa-value';
+            } else if (error.includes('caa') && error.includes('tag')) {
+                errorFieldId = 'record-caa-tag';
+            } else if (error.includes('tlsa') && error.includes('données')) {
+                errorFieldId = 'record-tlsa-data';
+            } else if (error.includes('sshfp') && error.includes('empreinte')) {
+                errorFieldId = 'record-sshfp-fingerprint';
+            } else if (error.includes('naptr') && error.includes('ordre')) {
+                errorFieldId = 'record-naptr-order';
+            } else if (error.includes('naptr') && error.includes('préférence')) {
+                errorFieldId = 'record-naptr-pref';
+            } else if (error.includes('svcb') || error.includes('https')) {
+                if (error.includes('priorité')) {
+                    errorFieldId = 'record-svc-priority';
+                } else if (error.includes('cible')) {
+                    errorFieldId = 'record-svc-target';
+                }
+            } else if (error.includes('loc') && error.includes('latitude')) {
+                errorFieldId = 'record-loc-latitude';
+            } else if (error.includes('loc') && error.includes('longitude')) {
+                errorFieldId = 'record-loc-longitude';
+            } else if (error.includes('rp') && error.includes('mailbox')) {
+                errorFieldId = 'record-rp-mbox';
+            } else if (error.includes('rp') && error.includes('txt domain')) {
+                errorFieldId = 'record-rp-txt';
             }
             
             showModalError('dns', validation.error, errorFieldId);
