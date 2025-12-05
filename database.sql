@@ -111,7 +111,57 @@ CREATE TABLE `auth_mappings` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `record_types`
+-- Reference table for extensible DNS record types with UI categorization
+--
+
+DROP TABLE IF EXISTS `record_types`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `record_types` (
+  `name` varchar(50) NOT NULL COMMENT 'Record type name (e.g., A, AAAA, CNAME)',
+  `category` varchar(50) DEFAULT 'other' COMMENT 'Category for UI grouping (pointing, extended, mail, other)',
+  `description` varchar(255) DEFAULT NULL COMMENT 'Human-readable description',
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`name`),
+  KEY `idx_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Data for table `record_types`
+--
+
+LOCK TABLES `record_types` WRITE;
+/*!40000 ALTER TABLE `record_types` DISABLE KEYS */;
+INSERT INTO `record_types` (`name`, `category`, `description`) VALUES
+('A', 'pointing', 'IPv4 address record'),
+('AAAA', 'pointing', 'IPv6 address record'),
+('NS', 'pointing', 'Name server record'),
+('CNAME', 'pointing', 'Canonical name (alias) record'),
+('DNAME', 'pointing', 'Delegation name record'),
+('CAA', 'extended', 'Certification Authority Authorization'),
+('TXT', 'extended', 'Text record'),
+('NAPTR', 'extended', 'Naming Authority Pointer'),
+('SRV', 'extended', 'Service location record'),
+('LOC', 'extended', 'Location record'),
+('SSHFP', 'extended', 'SSH Fingerprint record'),
+('TLSA', 'extended', 'DANE TLS Association record'),
+('RP', 'extended', 'Responsible Person record'),
+('SVCB', 'extended', 'Service Binding record'),
+('HTTPS', 'extended', 'HTTPS Service Binding record'),
+('MX', 'mail', 'Mail exchange record'),
+('SPF', 'mail', 'Sender Policy Framework (stored as TXT)'),
+('DKIM', 'mail', 'DomainKeys Identified Mail (stored as TXT)'),
+('DMARC', 'mail', 'Domain-based Message Authentication (stored as TXT)'),
+('PTR', 'other', 'Pointer record (reverse DNS)'),
+('SOA', 'other', 'Start of Authority record');
+/*!40000 ALTER TABLE `record_types` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `dns_record_history`
+-- Note: record_type is VARCHAR(50) to support extensible record types
 --
 
 DROP TABLE IF EXISTS `dns_record_history`;
@@ -122,7 +172,7 @@ CREATE TABLE `dns_record_history` (
   `record_id` int(11) NOT NULL,
   `zone_file_id` int(11) DEFAULT NULL,
   `action` enum('created','updated','status_changed') NOT NULL,
-  `record_type` enum('A','AAAA','CNAME','MX','TXT','NS','SOA','PTR','SRV') NOT NULL,
+  `record_type` varchar(50) NOT NULL COMMENT 'DNS record type (extensible)',
   `name` varchar(255) NOT NULL,
   `value` text NOT NULL,
   `address_ipv4` varchar(15) DEFAULT NULL,
@@ -149,6 +199,7 @@ CREATE TABLE `dns_record_history` (
 
 --
 -- Table structure for table `dns_records`
+-- Note: record_type is VARCHAR(50) to support extensible record types
 --
 
 DROP TABLE IF EXISTS `dns_records`;
@@ -157,7 +208,7 @@ DROP TABLE IF EXISTS `dns_records`;
 CREATE TABLE `dns_records` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `zone_file_id` int(11) DEFAULT NULL COMMENT 'Associated zone file',
-  `record_type` enum('A','AAAA','CNAME','MX','TXT','NS','SOA','PTR','SRV') NOT NULL,
+  `record_type` varchar(50) NOT NULL COMMENT 'DNS record type (A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, SRV, CAA, TLSA, SSHFP, NAPTR, SVCB, HTTPS, DNAME, LOC, RP)',
   `name` varchar(255) NOT NULL,
   `value` text NOT NULL,
   `address_ipv4` varchar(15) DEFAULT NULL COMMENT 'IPv4 address for A records',
@@ -166,7 +217,38 @@ CREATE TABLE `dns_records` (
   `ptrdname` varchar(255) DEFAULT NULL COMMENT 'Reverse DNS name for PTR records',
   `txt` text DEFAULT NULL COMMENT 'Text content for TXT records',
   `ttl` int(11) DEFAULT 3600,
-  `priority` int(11) DEFAULT NULL,
+  `priority` int(11) DEFAULT NULL COMMENT 'Priority for MX and SRV records',
+  `port` int(11) DEFAULT NULL COMMENT 'Port number for SRV records',
+  `weight` int(11) DEFAULT NULL COMMENT 'Weight for SRV records',
+  `srv_target` varchar(255) DEFAULT NULL COMMENT 'Target hostname for SRV records',
+  `mx_target` varchar(255) DEFAULT NULL COMMENT 'Target mail server for MX records',
+  `ns_target` varchar(255) DEFAULT NULL COMMENT 'Target nameserver for NS records',
+  `dname_target` varchar(255) DEFAULT NULL COMMENT 'Target for DNAME records',
+  `tlsa_usage` tinyint(4) DEFAULT NULL COMMENT 'TLSA certificate usage (0-3)',
+  `tlsa_selector` tinyint(4) DEFAULT NULL COMMENT 'TLSA selector (0=full cert, 1=SubjectPublicKeyInfo)',
+  `tlsa_matching` tinyint(4) DEFAULT NULL COMMENT 'TLSA matching type (0=exact, 1=SHA256, 2=SHA512)',
+  `tlsa_data` text DEFAULT NULL COMMENT 'TLSA certificate association data (hex)',
+  `sshfp_algo` tinyint(4) DEFAULT NULL COMMENT 'SSHFP algorithm (1=RSA, 2=DSA, 3=ECDSA, 4=Ed25519)',
+  `sshfp_type` tinyint(4) DEFAULT NULL COMMENT 'SSHFP fingerprint type (1=SHA1, 2=SHA256)',
+  `sshfp_fingerprint` text DEFAULT NULL COMMENT 'SSHFP fingerprint (hex)',
+  `caa_flag` tinyint(4) DEFAULT NULL COMMENT 'CAA critical flag (0 or 128)',
+  `caa_tag` varchar(32) DEFAULT NULL COMMENT 'CAA tag (issue, issuewild, iodef)',
+  `caa_value` text DEFAULT NULL COMMENT 'CAA value (e.g., letsencrypt.org)',
+  `naptr_order` int(11) DEFAULT NULL COMMENT 'NAPTR order (lower = higher priority)',
+  `naptr_pref` int(11) DEFAULT NULL COMMENT 'NAPTR preference (lower = higher priority)',
+  `naptr_flags` varchar(16) DEFAULT NULL COMMENT 'NAPTR flags (e.g., U, S, A)',
+  `naptr_service` varchar(64) DEFAULT NULL COMMENT 'NAPTR service (e.g., E2U+sip)',
+  `naptr_regexp` text DEFAULT NULL COMMENT 'NAPTR regexp substitution expression',
+  `naptr_replacement` varchar(255) DEFAULT NULL COMMENT 'NAPTR replacement domain',
+  `svc_priority` int(11) DEFAULT NULL COMMENT 'SVCB/HTTPS priority (0=AliasMode)',
+  `svc_target` varchar(255) DEFAULT NULL COMMENT 'SVCB/HTTPS target name',
+  `svc_params` text DEFAULT NULL COMMENT 'SVCB/HTTPS params (JSON or key=value pairs)',
+  `rp_mbox` varchar(255) DEFAULT NULL COMMENT 'RP mailbox (email as domain)',
+  `rp_txt` varchar(255) DEFAULT NULL COMMENT 'RP TXT domain reference',
+  `loc_latitude` varchar(50) DEFAULT NULL COMMENT 'LOC latitude',
+  `loc_longitude` varchar(50) DEFAULT NULL COMMENT 'LOC longitude',
+  `loc_altitude` varchar(50) DEFAULT NULL COMMENT 'LOC altitude',
+  `rdata_json` text DEFAULT NULL COMMENT 'JSON storage for complex record data',
   `requester` varchar(255) DEFAULT NULL COMMENT 'Person or system requesting this DNS record',
   `status` enum('active','disabled','deleted') DEFAULT 'active',
   `created_by` int(11) NOT NULL,
@@ -189,6 +271,9 @@ CREATE TABLE `dns_records` (
   KEY `idx_address_ipv6` (`address_ipv6`),
   KEY `idx_cname_target` (`cname_target`),
   KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_srv_target` (`srv_target`),
+  KEY `idx_mx_target` (`mx_target`),
+  KEY `idx_ns_target` (`ns_target`),
   CONSTRAINT `dns_records_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
   CONSTRAINT `dns_records_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=218858 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

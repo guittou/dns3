@@ -309,7 +309,7 @@ class DnsRecord {
                 $extraData['priority'] = $data['priority'];
             }
             
-            $validation = DnsValidator::validateRecord($recordType, $owner, $value, $extraData);
+            $validation = DnsValidator::validateRecord($recordType, $owner, $value, array_merge($extraData, $data));
             if (!$validation['valid']) {
                 throw new Exception($validation['error']);
             }
@@ -320,8 +320,37 @@ class DnsRecord {
             // Also set 'value' for backward compatibility
             $valueField = $this->getValueFromDedicatedFieldData($data);
             
-            $sql = "INSERT INTO dns_records (zone_file_id, record_type, name, value, address_ipv4, address_ipv6, cname_target, ptrdname, txt, ttl, priority, requester, expires_at, ticket_ref, comment, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO dns_records (
+                zone_file_id, record_type, name, value, 
+                address_ipv4, address_ipv6, cname_target, ptrdname, txt,
+                mx_target, ns_target, dname_target,
+                port, weight, srv_target,
+                tlsa_usage, tlsa_selector, tlsa_matching, tlsa_data,
+                sshfp_algo, sshfp_type, sshfp_fingerprint,
+                caa_flag, caa_tag, caa_value,
+                naptr_order, naptr_pref, naptr_flags, naptr_service, naptr_regexp, naptr_replacement,
+                svc_priority, svc_target, svc_params,
+                rp_mbox, rp_txt,
+                loc_latitude, loc_longitude, loc_altitude,
+                rdata_json,
+                ttl, priority, requester, expires_at, ticket_ref, comment, 
+                status, created_by, created_at
+            ) VALUES (
+                ?, ?, ?, ?, 
+                ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?,
+                ?, ?, ?, ?, ?, ?,
+                ?, ?, ?,
+                ?, ?,
+                ?, ?, ?,
+                ?,
+                ?, ?, ?, ?, ?, ?,
+                'active', ?, NOW()
+            )";
             
             // Determine TTL value: if ttl key exists in data, use its value (can be null),
             // otherwise default to null
@@ -338,6 +367,37 @@ class DnsRecord {
                 $dedicatedFields['cname_target'],
                 $dedicatedFields['ptrdname'],
                 $dedicatedFields['txt'],
+                $dedicatedFields['mx_target'],
+                $dedicatedFields['ns_target'],
+                $dedicatedFields['dname_target'],
+                $dedicatedFields['port'],
+                $dedicatedFields['weight'],
+                $dedicatedFields['srv_target'],
+                $dedicatedFields['tlsa_usage'],
+                $dedicatedFields['tlsa_selector'],
+                $dedicatedFields['tlsa_matching'],
+                $dedicatedFields['tlsa_data'],
+                $dedicatedFields['sshfp_algo'],
+                $dedicatedFields['sshfp_type'],
+                $dedicatedFields['sshfp_fingerprint'],
+                $dedicatedFields['caa_flag'],
+                $dedicatedFields['caa_tag'],
+                $dedicatedFields['caa_value'],
+                $dedicatedFields['naptr_order'],
+                $dedicatedFields['naptr_pref'],
+                $dedicatedFields['naptr_flags'],
+                $dedicatedFields['naptr_service'],
+                $dedicatedFields['naptr_regexp'],
+                $dedicatedFields['naptr_replacement'],
+                $dedicatedFields['svc_priority'],
+                $dedicatedFields['svc_target'],
+                $dedicatedFields['svc_params'],
+                $dedicatedFields['rp_mbox'],
+                $dedicatedFields['rp_txt'],
+                $dedicatedFields['loc_latitude'],
+                $dedicatedFields['loc_longitude'],
+                $dedicatedFields['loc_altitude'],
+                $dedicatedFields['rdata_json'],
                 $ttlValue,
                 $data['priority'] ?? null,
                 $data['requester'] ?? null,
@@ -423,7 +483,13 @@ class DnsRecord {
                 $extraData['priority'] = $current['priority'];
             }
             
-            $validation = DnsValidator::validateRecord($recordType, $owner, $valueForValidation, $extraData);
+            // Merge extra data with input data for extended record type validation
+            $validationData = array_merge($data, $extraData);
+            if ($current) {
+                $validationData = array_merge($current, $validationData);
+            }
+            
+            $validation = DnsValidator::validateRecord($recordType, $owner, $valueForValidation, $validationData);
             if (!$validation['valid']) {
                 throw new Exception($validation['error']);
             }
@@ -437,6 +503,16 @@ class DnsRecord {
             $sql = "UPDATE dns_records 
                     SET zone_file_id = ?, record_type = ?, name = ?, value = ?, 
                         address_ipv4 = ?, address_ipv6 = ?, cname_target = ?, ptrdname = ?, txt = ?,
+                        mx_target = ?, ns_target = ?, dname_target = ?,
+                        port = ?, weight = ?, srv_target = ?,
+                        tlsa_usage = ?, tlsa_selector = ?, tlsa_matching = ?, tlsa_data = ?,
+                        sshfp_algo = ?, sshfp_type = ?, sshfp_fingerprint = ?,
+                        caa_flag = ?, caa_tag = ?, caa_value = ?,
+                        naptr_order = ?, naptr_pref = ?, naptr_flags = ?, naptr_service = ?, naptr_regexp = ?, naptr_replacement = ?,
+                        svc_priority = ?, svc_target = ?, svc_params = ?,
+                        rp_mbox = ?, rp_txt = ?,
+                        loc_latitude = ?, loc_longitude = ?, loc_altitude = ?,
+                        rdata_json = ?,
                         ttl = ?, priority = ?, 
                         requester = ?, expires_at = ?, ticket_ref = ?, comment = ?,
                         updated_by = ?, updated_at = NOW()
@@ -457,6 +533,37 @@ class DnsRecord {
                 $dedicatedFields['cname_target'],
                 $dedicatedFields['ptrdname'],
                 $dedicatedFields['txt'],
+                $dedicatedFields['mx_target'],
+                $dedicatedFields['ns_target'],
+                $dedicatedFields['dname_target'],
+                $dedicatedFields['port'],
+                $dedicatedFields['weight'],
+                $dedicatedFields['srv_target'],
+                $dedicatedFields['tlsa_usage'],
+                $dedicatedFields['tlsa_selector'],
+                $dedicatedFields['tlsa_matching'],
+                $dedicatedFields['tlsa_data'],
+                $dedicatedFields['sshfp_algo'],
+                $dedicatedFields['sshfp_type'],
+                $dedicatedFields['sshfp_fingerprint'],
+                $dedicatedFields['caa_flag'],
+                $dedicatedFields['caa_tag'],
+                $dedicatedFields['caa_value'],
+                $dedicatedFields['naptr_order'],
+                $dedicatedFields['naptr_pref'],
+                $dedicatedFields['naptr_flags'],
+                $dedicatedFields['naptr_service'],
+                $dedicatedFields['naptr_regexp'],
+                $dedicatedFields['naptr_replacement'],
+                $dedicatedFields['svc_priority'],
+                $dedicatedFields['svc_target'],
+                $dedicatedFields['svc_params'],
+                $dedicatedFields['rp_mbox'],
+                $dedicatedFields['rp_txt'],
+                $dedicatedFields['loc_latitude'],
+                $dedicatedFields['loc_longitude'],
+                $dedicatedFields['loc_altitude'],
+                $dedicatedFields['rdata_json'],
                 $ttlValue,
                 $data['priority'] ?? $current['priority'],
                 isset($data['requester']) ? $data['requester'] : $current['requester'],
@@ -641,7 +748,93 @@ class DnsRecord {
             case 'PTR':
                 return $record['ptrdname'] ?? $record['value'];
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 return $record['txt'] ?? $record['value'];
+            case 'MX':
+                return $record['mx_target'] ?? $record['value'];
+            case 'NS':
+                return $record['ns_target'] ?? $record['value'];
+            case 'DNAME':
+                return $record['dname_target'] ?? $record['value'];
+            case 'SRV':
+                return $record['srv_target'] ?? $record['value'];
+            case 'CAA':
+                // CAA format: flag tag value
+                $flag = $record['caa_flag'] ?? 0;
+                $tag = $record['caa_tag'] ?? '';
+                $val = $record['caa_value'] ?? '';
+                if ($tag && $val) {
+                    return "$flag $tag \"$val\"";
+                }
+                return $record['value'] ?? null;
+            case 'TLSA':
+                // TLSA format: usage selector matching data
+                $usage = $record['tlsa_usage'] ?? '';
+                $selector = $record['tlsa_selector'] ?? '';
+                $matching = $record['tlsa_matching'] ?? '';
+                $data = $record['tlsa_data'] ?? '';
+                if ($usage !== '' && $selector !== '' && $matching !== '' && $data) {
+                    return "$usage $selector $matching $data";
+                }
+                return $record['value'] ?? null;
+            case 'SSHFP':
+                // SSHFP format: algo type fingerprint
+                $algo = $record['sshfp_algo'] ?? '';
+                $type = $record['sshfp_type'] ?? '';
+                $fp = $record['sshfp_fingerprint'] ?? '';
+                if ($algo !== '' && $type !== '' && $fp) {
+                    return "$algo $type $fp";
+                }
+                return $record['value'] ?? null;
+            case 'NAPTR':
+                // NAPTR format: order pref flags service regexp replacement
+                $order = $record['naptr_order'] ?? '';
+                $pref = $record['naptr_pref'] ?? '';
+                $flags = $record['naptr_flags'] ?? '';
+                $service = $record['naptr_service'] ?? '';
+                $regexp = $record['naptr_regexp'] ?? '';
+                $replacement = $record['naptr_replacement'] ?? '.';
+                if ($order !== '' && $pref !== '') {
+                    return "$order $pref \"$flags\" \"$service\" \"$regexp\" $replacement";
+                }
+                return $record['value'] ?? null;
+            case 'SVCB':
+            case 'HTTPS':
+                // SVCB/HTTPS format: priority target [params]
+                $priority = $record['svc_priority'] ?? '';
+                $target = $record['svc_target'] ?? '.';
+                $params = $record['svc_params'] ?? '';
+                if ($priority !== '') {
+                    $result = "$priority $target";
+                    if ($params) {
+                        $result .= " $params";
+                    }
+                    return $result;
+                }
+                return $record['value'] ?? null;
+            case 'LOC':
+                // LOC format: lat lon alt
+                $lat = $record['loc_latitude'] ?? '';
+                $lon = $record['loc_longitude'] ?? '';
+                $alt = $record['loc_altitude'] ?? '';
+                if ($lat && $lon) {
+                    $result = "$lat $lon";
+                    if ($alt) {
+                        $result .= " $alt";
+                    }
+                    return $result;
+                }
+                return $record['value'] ?? null;
+            case 'RP':
+                // RP format: mbox txt
+                $mbox = $record['rp_mbox'] ?? '';
+                $txt = $record['rp_txt'] ?? '.';
+                if ($mbox) {
+                    return "$mbox $txt";
+                }
+                return $record['value'] ?? null;
             default:
                 // For unsupported types, return the value field
                 return $record['value'] ?? null;
@@ -668,7 +861,86 @@ class DnsRecord {
             case 'PTR':
                 return $data['ptrdname'] ?? ($current['ptrdname'] ?? null);
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 return $data['txt'] ?? ($current['txt'] ?? null);
+            case 'MX':
+                return $data['mx_target'] ?? ($current['mx_target'] ?? null);
+            case 'NS':
+                return $data['ns_target'] ?? ($current['ns_target'] ?? null);
+            case 'DNAME':
+                return $data['dname_target'] ?? ($current['dname_target'] ?? null);
+            case 'SRV':
+                return $data['srv_target'] ?? ($current['srv_target'] ?? null);
+            case 'CAA':
+                $flag = $data['caa_flag'] ?? ($current['caa_flag'] ?? 0);
+                $tag = $data['caa_tag'] ?? ($current['caa_tag'] ?? '');
+                $val = $data['caa_value'] ?? ($current['caa_value'] ?? '');
+                if ($tag && $val) {
+                    return "$flag $tag \"$val\"";
+                }
+                return null;
+            case 'TLSA':
+                $usage = $data['tlsa_usage'] ?? ($current['tlsa_usage'] ?? '');
+                $selector = $data['tlsa_selector'] ?? ($current['tlsa_selector'] ?? '');
+                $matching = $data['tlsa_matching'] ?? ($current['tlsa_matching'] ?? '');
+                $tlsaData = $data['tlsa_data'] ?? ($current['tlsa_data'] ?? '');
+                if ($usage !== '' && $selector !== '' && $matching !== '' && $tlsaData) {
+                    return "$usage $selector $matching $tlsaData";
+                }
+                return null;
+            case 'SSHFP':
+                $algo = $data['sshfp_algo'] ?? ($current['sshfp_algo'] ?? '');
+                $type = $data['sshfp_type'] ?? ($current['sshfp_type'] ?? '');
+                $fp = $data['sshfp_fingerprint'] ?? ($current['sshfp_fingerprint'] ?? '');
+                if ($algo !== '' && $type !== '' && $fp) {
+                    return "$algo $type $fp";
+                }
+                return null;
+            case 'NAPTR':
+                $order = $data['naptr_order'] ?? ($current['naptr_order'] ?? '');
+                $pref = $data['naptr_pref'] ?? ($current['naptr_pref'] ?? '');
+                $flags = $data['naptr_flags'] ?? ($current['naptr_flags'] ?? '');
+                $service = $data['naptr_service'] ?? ($current['naptr_service'] ?? '');
+                $regexp = $data['naptr_regexp'] ?? ($current['naptr_regexp'] ?? '');
+                $replacement = $data['naptr_replacement'] ?? ($current['naptr_replacement'] ?? '.');
+                if ($order !== '' && $pref !== '') {
+                    return "$order $pref \"$flags\" \"$service\" \"$regexp\" $replacement";
+                }
+                return null;
+            case 'SVCB':
+            case 'HTTPS':
+                $priority = $data['svc_priority'] ?? ($current['svc_priority'] ?? '');
+                $target = $data['svc_target'] ?? ($current['svc_target'] ?? '.');
+                $params = $data['svc_params'] ?? ($current['svc_params'] ?? '');
+                if ($priority !== '') {
+                    $result = "$priority $target";
+                    if ($params) {
+                        $result .= " $params";
+                    }
+                    return $result;
+                }
+                return null;
+            case 'LOC':
+                $lat = $data['loc_latitude'] ?? ($current['loc_latitude'] ?? '');
+                $lon = $data['loc_longitude'] ?? ($current['loc_longitude'] ?? '');
+                $alt = $data['loc_altitude'] ?? ($current['loc_altitude'] ?? '');
+                if ($lat && $lon) {
+                    $result = "$lat $lon";
+                    if ($alt) {
+                        $result .= " $alt";
+                    }
+                    return $result;
+                }
+                return null;
+            case 'RP':
+                $mbox = $data['rp_mbox'] ?? ($current['rp_mbox'] ?? '');
+                $txt = $data['rp_txt'] ?? ($current['rp_txt'] ?? '.');
+                if ($mbox) {
+                    return "$mbox $txt";
+                }
+                return null;
             default:
                 return null;
         }
@@ -707,8 +979,31 @@ class DnsRecord {
                 }
                 break;
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 if (!isset($data['txt'])) {
                     $data['txt'] = $data['value'];
+                }
+                break;
+            case 'MX':
+                if (!isset($data['mx_target'])) {
+                    $data['mx_target'] = $data['value'];
+                }
+                break;
+            case 'NS':
+                if (!isset($data['ns_target'])) {
+                    $data['ns_target'] = $data['value'];
+                }
+                break;
+            case 'DNAME':
+                if (!isset($data['dname_target'])) {
+                    $data['dname_target'] = $data['value'];
+                }
+                break;
+            case 'SRV':
+                if (!isset($data['srv_target'])) {
+                    $data['srv_target'] = $data['value'];
                 }
                 break;
         }
@@ -724,12 +1019,45 @@ class DnsRecord {
     private function extractDedicatedFields($data, $current = null) {
         $recordType = $data['record_type'] ?? ($current['record_type'] ?? null);
         
+        // Base fields from original schema
         $fields = [
             'address_ipv4' => null,
             'address_ipv6' => null,
             'cname_target' => null,
             'ptrdname' => null,
-            'txt' => null
+            'txt' => null,
+            // Extended fields
+            'mx_target' => null,
+            'ns_target' => null,
+            'dname_target' => null,
+            'port' => null,
+            'weight' => null,
+            'srv_target' => null,
+            'tlsa_usage' => null,
+            'tlsa_selector' => null,
+            'tlsa_matching' => null,
+            'tlsa_data' => null,
+            'sshfp_algo' => null,
+            'sshfp_type' => null,
+            'sshfp_fingerprint' => null,
+            'caa_flag' => null,
+            'caa_tag' => null,
+            'caa_value' => null,
+            'naptr_order' => null,
+            'naptr_pref' => null,
+            'naptr_flags' => null,
+            'naptr_service' => null,
+            'naptr_regexp' => null,
+            'naptr_replacement' => null,
+            'svc_priority' => null,
+            'svc_target' => null,
+            'svc_params' => null,
+            'rp_mbox' => null,
+            'rp_txt' => null,
+            'loc_latitude' => null,
+            'loc_longitude' => null,
+            'loc_altitude' => null,
+            'rdata_json' => null
         ];
         
         // Set the appropriate field based on record type
@@ -747,8 +1075,69 @@ class DnsRecord {
                 $fields['ptrdname'] = $data['ptrdname'] ?? ($current['ptrdname'] ?? null);
                 break;
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 $fields['txt'] = $data['txt'] ?? ($current['txt'] ?? null);
                 break;
+            case 'MX':
+                $fields['mx_target'] = $data['mx_target'] ?? ($current['mx_target'] ?? null);
+                break;
+            case 'NS':
+                $fields['ns_target'] = $data['ns_target'] ?? ($current['ns_target'] ?? null);
+                break;
+            case 'DNAME':
+                $fields['dname_target'] = $data['dname_target'] ?? ($current['dname_target'] ?? null);
+                break;
+            case 'SRV':
+                $fields['srv_target'] = $data['srv_target'] ?? ($current['srv_target'] ?? null);
+                $fields['port'] = $data['port'] ?? ($current['port'] ?? null);
+                $fields['weight'] = $data['weight'] ?? ($current['weight'] ?? null);
+                break;
+            case 'CAA':
+                $fields['caa_flag'] = $data['caa_flag'] ?? ($current['caa_flag'] ?? null);
+                $fields['caa_tag'] = $data['caa_tag'] ?? ($current['caa_tag'] ?? null);
+                $fields['caa_value'] = $data['caa_value'] ?? ($current['caa_value'] ?? null);
+                break;
+            case 'TLSA':
+                $fields['tlsa_usage'] = $data['tlsa_usage'] ?? ($current['tlsa_usage'] ?? null);
+                $fields['tlsa_selector'] = $data['tlsa_selector'] ?? ($current['tlsa_selector'] ?? null);
+                $fields['tlsa_matching'] = $data['tlsa_matching'] ?? ($current['tlsa_matching'] ?? null);
+                $fields['tlsa_data'] = $data['tlsa_data'] ?? ($current['tlsa_data'] ?? null);
+                break;
+            case 'SSHFP':
+                $fields['sshfp_algo'] = $data['sshfp_algo'] ?? ($current['sshfp_algo'] ?? null);
+                $fields['sshfp_type'] = $data['sshfp_type'] ?? ($current['sshfp_type'] ?? null);
+                $fields['sshfp_fingerprint'] = $data['sshfp_fingerprint'] ?? ($current['sshfp_fingerprint'] ?? null);
+                break;
+            case 'NAPTR':
+                $fields['naptr_order'] = $data['naptr_order'] ?? ($current['naptr_order'] ?? null);
+                $fields['naptr_pref'] = $data['naptr_pref'] ?? ($current['naptr_pref'] ?? null);
+                $fields['naptr_flags'] = $data['naptr_flags'] ?? ($current['naptr_flags'] ?? null);
+                $fields['naptr_service'] = $data['naptr_service'] ?? ($current['naptr_service'] ?? null);
+                $fields['naptr_regexp'] = $data['naptr_regexp'] ?? ($current['naptr_regexp'] ?? null);
+                $fields['naptr_replacement'] = $data['naptr_replacement'] ?? ($current['naptr_replacement'] ?? null);
+                break;
+            case 'SVCB':
+            case 'HTTPS':
+                $fields['svc_priority'] = $data['svc_priority'] ?? ($current['svc_priority'] ?? null);
+                $fields['svc_target'] = $data['svc_target'] ?? ($current['svc_target'] ?? null);
+                $fields['svc_params'] = $data['svc_params'] ?? ($current['svc_params'] ?? null);
+                break;
+            case 'LOC':
+                $fields['loc_latitude'] = $data['loc_latitude'] ?? ($current['loc_latitude'] ?? null);
+                $fields['loc_longitude'] = $data['loc_longitude'] ?? ($current['loc_longitude'] ?? null);
+                $fields['loc_altitude'] = $data['loc_altitude'] ?? ($current['loc_altitude'] ?? null);
+                break;
+            case 'RP':
+                $fields['rp_mbox'] = $data['rp_mbox'] ?? ($current['rp_mbox'] ?? null);
+                $fields['rp_txt'] = $data['rp_txt'] ?? ($current['rp_txt'] ?? null);
+                break;
+        }
+        
+        // Store any additional fields in rdata_json if provided
+        if (isset($data['rdata_json'])) {
+            $fields['rdata_json'] = $data['rdata_json'];
         }
         
         return $fields;

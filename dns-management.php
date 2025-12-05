@@ -82,11 +82,35 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
             <input type="text" id="dns-search" placeholder="Rechercher par nom ou valeur..." aria-label="Rechercher par nom ou valeur" />
             <select id="dns-type-filter">
                 <option value="">Tous les types</option>
-                <option value="A">A</option>
-                <option value="AAAA">AAAA</option>
-                <option value="CNAME">CNAME</option>
-                <option value="PTR">PTR</option>
-                <option value="TXT">TXT</option>
+                <optgroup label="Champs de pointage">
+                    <option value="A">A</option>
+                    <option value="AAAA">AAAA</option>
+                    <option value="NS">NS</option>
+                    <option value="CNAME">CNAME</option>
+                    <option value="DNAME">DNAME</option>
+                </optgroup>
+                <optgroup label="Champs étendus">
+                    <option value="CAA">CAA</option>
+                    <option value="TXT">TXT</option>
+                    <option value="NAPTR">NAPTR</option>
+                    <option value="SRV">SRV</option>
+                    <option value="LOC">LOC</option>
+                    <option value="SSHFP">SSHFP</option>
+                    <option value="TLSA">TLSA</option>
+                    <option value="RP">RP</option>
+                    <option value="SVCB">SVCB</option>
+                    <option value="HTTPS">HTTPS</option>
+                </optgroup>
+                <optgroup label="Champs mails">
+                    <option value="MX">MX</option>
+                    <option value="SPF">SPF</option>
+                    <option value="DKIM">DKIM</option>
+                    <option value="DMARC">DMARC</option>
+                </optgroup>
+                <optgroup label="Autres">
+                    <option value="PTR">PTR</option>
+                    <option value="SOA">SOA</option>
+                </optgroup>
             </select>
             <select id="dns-status-filter">                
                 <option value="active">Actif seulement</option>
@@ -154,15 +178,56 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
                 <div id="dnsModalErrorMessage" class="modal-error-message"></div>
             </div>
             
-            <!-- Type Selection View (Step 1) -->
+            <!-- Type Selection View (Step 1) - OVH-style categories -->
             <div id="type-selection-view" class="type-selection-view" style="display: none;">
                 <p style="margin-bottom: 1rem; text-align: center; color: #555;">Sélectionnez le type d'enregistrement DNS à créer :</p>
-                <div class="type-buttons-container">
-                    <button type="button" class="type-button" data-type="A" aria-label="Créer un enregistrement de type A">A</button>
-                    <button type="button" class="type-button" data-type="AAAA" aria-label="Créer un enregistrement de type AAAA">AAAA</button>
-                    <button type="button" class="type-button" data-type="CNAME" aria-label="Créer un enregistrement de type CNAME">CNAME</button>
-                    <button type="button" class="type-button" data-type="PTR" aria-label="Créer un enregistrement de type PTR">PTR</button>
-                    <button type="button" class="type-button" data-type="TXT" aria-label="Créer un enregistrement de type TXT">TXT</button>
+                
+                <!-- Pointing Records Category -->
+                <div class="type-category">
+                    <h4 class="type-category-title">Champs de pointage</h4>
+                    <div class="type-buttons-container">
+                        <button type="button" class="type-button" data-type="A" aria-label="Créer un enregistrement de type A">A</button>
+                        <button type="button" class="type-button" data-type="AAAA" aria-label="Créer un enregistrement de type AAAA">AAAA</button>
+                        <button type="button" class="type-button" data-type="NS" aria-label="Créer un enregistrement de type NS">NS</button>
+                        <button type="button" class="type-button" data-type="CNAME" aria-label="Créer un enregistrement de type CNAME">CNAME</button>
+                        <button type="button" class="type-button" data-type="DNAME" aria-label="Créer un enregistrement de type DNAME">DNAME</button>
+                    </div>
+                </div>
+                
+                <!-- Extended Records Category -->
+                <div class="type-category">
+                    <h4 class="type-category-title">Champs étendus</h4>
+                    <div class="type-buttons-container">
+                        <button type="button" class="type-button" data-type="CAA" aria-label="Créer un enregistrement de type CAA">CAA</button>
+                        <button type="button" class="type-button" data-type="TXT" aria-label="Créer un enregistrement de type TXT">TXT</button>
+                        <button type="button" class="type-button" data-type="NAPTR" aria-label="Créer un enregistrement de type NAPTR">NAPTR</button>
+                        <button type="button" class="type-button" data-type="SRV" aria-label="Créer un enregistrement de type SRV">SRV</button>
+                        <button type="button" class="type-button" data-type="LOC" aria-label="Créer un enregistrement de type LOC">LOC</button>
+                        <button type="button" class="type-button" data-type="SSHFP" aria-label="Créer un enregistrement de type SSHFP">SSHFP</button>
+                        <button type="button" class="type-button" data-type="TLSA" aria-label="Créer un enregistrement de type TLSA">TLSA</button>
+                        <button type="button" class="type-button" data-type="RP" aria-label="Créer un enregistrement de type RP">RP</button>
+                        <button type="button" class="type-button" data-type="SVCB" aria-label="Créer un enregistrement de type SVCB">SVCB</button>
+                        <button type="button" class="type-button" data-type="HTTPS" aria-label="Créer un enregistrement de type HTTPS">HTTPS</button>
+                    </div>
+                </div>
+                
+                <!-- Mail Records Category -->
+                <div class="type-category">
+                    <h4 class="type-category-title">Champs mails</h4>
+                    <div class="type-buttons-container">
+                        <button type="button" class="type-button" data-type="MX" aria-label="Créer un enregistrement de type MX">MX</button>
+                        <button type="button" class="type-button type-button-helper" data-type="SPF" aria-label="Créer un enregistrement SPF (stocké en TXT)">SPF</button>
+                        <button type="button" class="type-button type-button-helper" data-type="DKIM" aria-label="Créer un enregistrement DKIM (stocké en TXT)">DKIM</button>
+                        <button type="button" class="type-button type-button-helper" data-type="DMARC" aria-label="Créer un enregistrement DMARC (stocké en TXT)">DMARC</button>
+                    </div>
+                </div>
+                
+                <!-- Other Records Category -->
+                <div class="type-category">
+                    <h4 class="type-category-title">Autres</h4>
+                    <div class="type-buttons-container">
+                        <button type="button" class="type-button" data-type="PTR" aria-label="Créer un enregistrement de type PTR">PTR</button>
+                    </div>
                 </div>
             </div>
             
@@ -207,6 +272,209 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
                     <div class="form-group form-group-inline" id="record-txt-group" style="display: none;">
                         <label for="record-txt" id="record-txt-label">Texte *</label>
                         <input type="text" id="record-txt" name="txt" placeholder="Texte TXT">
+                    </div>
+                    
+                    <!-- NS record fields -->
+                    <div class="form-group form-group-inline" id="record-ns-target-group" style="display: none;">
+                        <label for="record-ns-target">Serveur de noms *</label>
+                        <input type="text" id="record-ns-target" name="ns_target" placeholder="ns1.example.com">
+                    </div>
+                    
+                    <!-- DNAME record fields -->
+                    <div class="form-group form-group-inline" id="record-dname-target-group" style="display: none;">
+                        <label for="record-dname-target">Cible DNAME *</label>
+                        <input type="text" id="record-dname-target" name="dname_target" placeholder="target.example.com">
+                    </div>
+                    
+                    <!-- MX record fields -->
+                    <div class="form-group form-group-inline" id="record-mx-target-group" style="display: none;">
+                        <label for="record-mx-target">Serveur mail *</label>
+                        <input type="text" id="record-mx-target" name="mx_target" placeholder="mail.example.com">
+                    </div>
+                    <div class="form-group form-group-inline" id="record-priority-group" style="display: none;">
+                        <label for="record-priority">Priorité *</label>
+                        <input type="number" id="record-priority" name="priority" min="0" max="65535" placeholder="10">
+                    </div>
+                </div>
+                
+                <!-- Extended record type fields (shown on separate rows) -->
+                
+                <!-- SRV record fields -->
+                <div class="form-row" id="record-srv-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-srv-priority">Priorité *</label>
+                        <input type="number" id="record-srv-priority" name="priority" min="0" max="65535" placeholder="10">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-srv-weight">Poids *</label>
+                        <input type="number" id="record-srv-weight" name="weight" min="0" max="65535" placeholder="5">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-srv-port">Port *</label>
+                        <input type="number" id="record-srv-port" name="port" min="0" max="65535" placeholder="443">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-srv-target">Cible *</label>
+                        <input type="text" id="record-srv-target" name="srv_target" placeholder="server.example.com">
+                    </div>
+                </div>
+                
+                <!-- CAA record fields -->
+                <div class="form-row" id="record-caa-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-caa-flag">Flag</label>
+                        <select id="record-caa-flag" name="caa_flag">
+                            <option value="0">0 (Non-critique)</option>
+                            <option value="128">128 (Critique)</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-caa-tag">Tag *</label>
+                        <select id="record-caa-tag" name="caa_tag">
+                            <option value="issue">issue</option>
+                            <option value="issuewild">issuewild</option>
+                            <option value="iodef">iodef</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-caa-value">Valeur *</label>
+                        <input type="text" id="record-caa-value" name="caa_value" placeholder="letsencrypt.org">
+                    </div>
+                </div>
+                
+                <!-- TLSA record fields -->
+                <div class="form-row" id="record-tlsa-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-tlsa-usage">Usage *</label>
+                        <select id="record-tlsa-usage" name="tlsa_usage">
+                            <option value="0">0 - PKIX-TA</option>
+                            <option value="1">1 - PKIX-EE</option>
+                            <option value="2">2 - DANE-TA</option>
+                            <option value="3" selected>3 - DANE-EE</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-tlsa-selector">Sélecteur *</label>
+                        <select id="record-tlsa-selector" name="tlsa_selector">
+                            <option value="0">0 - Cert</option>
+                            <option value="1" selected>1 - SPKI</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-tlsa-matching">Matching *</label>
+                        <select id="record-tlsa-matching" name="tlsa_matching">
+                            <option value="0">0 - Exact</option>
+                            <option value="1" selected>1 - SHA-256</option>
+                            <option value="2">2 - SHA-512</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row" id="record-tlsa-data-row" style="display: none;">
+                    <div class="form-group">
+                        <label for="record-tlsa-data">Données certificat (hex) *</label>
+                        <input type="text" id="record-tlsa-data" name="tlsa_data" placeholder="a1b2c3d4e5f6..." style="font-family: monospace;">
+                    </div>
+                </div>
+                
+                <!-- SSHFP record fields -->
+                <div class="form-row" id="record-sshfp-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-sshfp-algo">Algorithme *</label>
+                        <select id="record-sshfp-algo" name="sshfp_algo">
+                            <option value="1">1 - RSA</option>
+                            <option value="2">2 - DSA</option>
+                            <option value="3">3 - ECDSA</option>
+                            <option value="4">4 - Ed25519</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-sshfp-type">Type empreinte *</label>
+                        <select id="record-sshfp-type" name="sshfp_type">
+                            <option value="1">1 - SHA-1</option>
+                            <option value="2" selected>2 - SHA-256</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row" id="record-sshfp-fp-row" style="display: none;">
+                    <div class="form-group">
+                        <label for="record-sshfp-fingerprint">Empreinte (hex) *</label>
+                        <input type="text" id="record-sshfp-fingerprint" name="sshfp_fingerprint" placeholder="a1b2c3d4e5f6..." style="font-family: monospace;">
+                    </div>
+                </div>
+                
+                <!-- NAPTR record fields -->
+                <div class="form-row" id="record-naptr-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-naptr-order">Ordre *</label>
+                        <input type="number" id="record-naptr-order" name="naptr_order" min="0" max="65535" placeholder="100">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-naptr-pref">Préférence *</label>
+                        <input type="number" id="record-naptr-pref" name="naptr_pref" min="0" max="65535" placeholder="10">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-naptr-flags">Flags</label>
+                        <input type="text" id="record-naptr-flags" name="naptr_flags" placeholder="U, S, A" maxlength="16">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-naptr-service">Service</label>
+                        <input type="text" id="record-naptr-service" name="naptr_service" placeholder="E2U+sip">
+                    </div>
+                </div>
+                <div class="form-row" id="record-naptr-extra-row" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-naptr-regexp">Regexp</label>
+                        <input type="text" id="record-naptr-regexp" name="naptr_regexp" placeholder="!^.*$!sip:info@example.com!">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-naptr-replacement">Replacement</label>
+                        <input type="text" id="record-naptr-replacement" name="naptr_replacement" placeholder="." value=".">
+                    </div>
+                </div>
+                
+                <!-- SVCB/HTTPS record fields -->
+                <div class="form-row" id="record-svc-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-svc-priority">Priorité *</label>
+                        <input type="number" id="record-svc-priority" name="svc_priority" min="0" max="65535" placeholder="1">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-svc-target">Cible *</label>
+                        <input type="text" id="record-svc-target" name="svc_target" placeholder="." value=".">
+                    </div>
+                </div>
+                <div class="form-row" id="record-svc-params-row" style="display: none;">
+                    <div class="form-group">
+                        <label for="record-svc-params">Paramètres (optionnel)</label>
+                        <input type="text" id="record-svc-params" name="svc_params" placeholder="alpn=h2 port=443">
+                    </div>
+                </div>
+                
+                <!-- LOC record fields -->
+                <div class="form-row" id="record-loc-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-loc-latitude">Latitude *</label>
+                        <input type="text" id="record-loc-latitude" name="loc_latitude" placeholder="52 22 23.000 N">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-loc-longitude">Longitude *</label>
+                        <input type="text" id="record-loc-longitude" name="loc_longitude" placeholder="4 53 32.000 E">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-loc-altitude">Altitude</label>
+                        <input type="text" id="record-loc-altitude" name="loc_altitude" placeholder="-2.00m">
+                    </div>
+                </div>
+                
+                <!-- RP record fields -->
+                <div class="form-row" id="record-rp-fields" style="display: none;">
+                    <div class="form-group form-group-inline">
+                        <label for="record-rp-mbox">Mailbox *</label>
+                        <input type="text" id="record-rp-mbox" name="rp_mbox" placeholder="admin.example.com">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="record-rp-txt">TXT domain *</label>
+                        <input type="text" id="record-rp-txt" name="rp_txt" placeholder="." value=".">
                     </div>
                 </div>
                 

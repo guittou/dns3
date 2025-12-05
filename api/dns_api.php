@@ -72,13 +72,30 @@ function isValidIPv6($ip) {
  * @return array ['valid' => bool, 'error' => string|null]
  */
 function validateRecordByType($recordType, $data) {
+    require_once __DIR__ . '/../includes/lib/DnsValidator.php';
+    
     // Define required fields per type (using dedicated fields)
     $requiredFields = [
         'A' => ['name', 'address_ipv4'],
         'AAAA' => ['name', 'address_ipv6'],
         'CNAME' => ['name', 'cname_target'],
         'PTR' => ['name', 'ptrdname'],
-        'TXT' => ['name', 'txt']
+        'TXT' => ['name', 'txt'],
+        'MX' => ['name', 'mx_target'],
+        'NS' => ['name', 'ns_target'],
+        'SRV' => ['name', 'srv_target', 'port'],
+        'CAA' => ['name', 'caa_tag', 'caa_value'],
+        'TLSA' => ['name', 'tlsa_usage', 'tlsa_selector', 'tlsa_matching', 'tlsa_data'],
+        'SSHFP' => ['name', 'sshfp_algo', 'sshfp_type', 'sshfp_fingerprint'],
+        'NAPTR' => ['name', 'naptr_order', 'naptr_pref'],
+        'SVCB' => ['name', 'svc_priority', 'svc_target'],
+        'HTTPS' => ['name', 'svc_priority', 'svc_target'],
+        'DNAME' => ['name', 'dname_target'],
+        'LOC' => ['name', 'loc_latitude', 'loc_longitude'],
+        'RP' => ['name', 'rp_mbox', 'rp_txt'],
+        'SPF' => ['name', 'txt'],
+        'DKIM' => ['name', 'txt'],
+        'DMARC' => ['name', 'txt']
     ];
     
     // Check if we have the dedicated field or the value alias
@@ -86,12 +103,17 @@ function validateRecordByType($recordType, $data) {
     
     // Check required fields
     foreach ($required as $field) {
-        // For dedicated fields, also accept 'value' as an alias
+        // For dedicated fields, also accept 'value' as an alias for backward compatibility
         if ($field !== 'name') {
-            $hasDedicatedField = isset($data[$field]) && trim($data[$field]) !== '';
+            $hasDedicatedField = isset($data[$field]) && (is_numeric($data[$field]) || trim($data[$field]) !== '');
             $hasValueAlias = isset($data['value']) && trim($data['value']) !== '';
-            if (!$hasDedicatedField && !$hasValueAlias) {
-                return ['valid' => false, 'error' => "Missing required field: $field (or value) for type $recordType"];
+            // For simple types, value can substitute the dedicated field
+            $simpleTypes = ['A', 'AAAA', 'CNAME', 'PTR', 'TXT', 'NS', 'MX', 'DNAME', 'SPF', 'DKIM', 'DMARC'];
+            if (in_array($recordType, $simpleTypes) && !$hasDedicatedField && $hasValueAlias) {
+                continue; // Accept value as substitute
+            }
+            if (!$hasDedicatedField) {
+                return ['valid' => false, 'error' => "Missing required field: $field for type $recordType"];
             }
         } else {
             if (!isset($data[$field]) || trim($data[$field]) === '') {
@@ -100,54 +122,11 @@ function validateRecordByType($recordType, $data) {
         }
     }
     
-    // Type-specific semantic validation
-    // Use dedicated field if available, otherwise use value
-    switch($recordType) {
-        case 'A':
-            $ipv4 = $data['address_ipv4'] ?? $data['value'] ?? '';
-            if (!isValidIPv4($ipv4)) {
-                return ['valid' => false, 'error' => 'Address must be a valid IPv4 address for type A'];
-            }
-            break;
-            
-        case 'AAAA':
-            $ipv6 = $data['address_ipv6'] ?? $data['value'] ?? '';
-            if (!isValidIPv6($ipv6)) {
-                return ['valid' => false, 'error' => 'Address must be a valid IPv6 address for type AAAA'];
-            }
-            break;
-            
-        case 'CNAME':
-            $target = $data['cname_target'] ?? $data['value'] ?? '';
-            // CNAME should not be an IP address
-            if (isValidIPv4($target) || isValidIPv6($target)) {
-                return ['valid' => false, 'error' => 'CNAME target cannot be an IP address (must be a hostname)'];
-            }
-            // Basic FQDN validation
-            if (strlen($target) > 0 && !preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/', $target)) {
-                return ['valid' => false, 'error' => 'CNAME target must be a valid hostname'];
-            }
-            break;
-            
-        case 'PTR':
-            $ptrdname = $data['ptrdname'] ?? $data['value'] ?? '';
-            // PTR requires a reverse DNS name (user must provide it in reverse format)
-            // Basic validation that it looks like a hostname
-            if (strlen($ptrdname) > 0 && !preg_match('/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(\.[a-zA-Z]{2,})?$/', $ptrdname)) {
-                return ['valid' => false, 'error' => 'PTR target must be a valid hostname (reverse DNS name required)'];
-            }
-            break;
-            
-        case 'TXT':
-            $txt = $data['txt'] ?? $data['value'] ?? '';
-            // TXT records can contain any text, just ensure it's not empty
-            if (strlen($txt) === 0) {
-                return ['valid' => false, 'error' => 'TXT record content cannot be empty'];
-            }
-            break;
-    }
+    // Use DnsValidator for type-specific semantic validation
+    $name = $data['name'] ?? '';
+    $value = $data['value'] ?? '';
     
-    return ['valid' => true, 'error' => null];
+    return DnsValidator::validateRecord($recordType, $name, $value, $data);
 }
 
 // Get action from request
@@ -388,13 +367,16 @@ try {
                 exit;
             }
 
-            // Validate record type - only A, AAAA, CNAME, PTR, TXT are supported
-            $valid_types = ['A', 'AAAA', 'CNAME', 'PTR', 'TXT'];
-            if (!in_array($input['record_type'], $valid_types)) {
+            // Validate record type - now supports extended types
+            require_once __DIR__ . '/../includes/lib/DnsValidator.php';
+            $valid_types = DnsValidator::getSupportedTypes();
+            if (!in_array(strtoupper($input['record_type']), $valid_types)) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Invalid record type. Only A, AAAA, CNAME, PTR, and TXT are supported']);
+                echo json_encode(['error' => 'Invalid record type: ' . $input['record_type']]);
                 exit;
             }
+            // Normalize record type to uppercase
+            $input['record_type'] = strtoupper($input['record_type']);
 
             // Type-dependent validation
             $validation = validateRecordByType($input['record_type'], $input);
@@ -506,14 +488,17 @@ try {
             // Explicitly remove last_seen if provided by client (security)
             unset($input['last_seen']);
 
-            // Validate record type if provided - only A, AAAA, CNAME, PTR, TXT are supported
+            // Validate record type if provided - now supports extended types
             if (isset($input['record_type'])) {
-                $valid_types = ['A', 'AAAA', 'CNAME', 'PTR', 'TXT'];
-                if (!in_array($input['record_type'], $valid_types)) {
+                require_once __DIR__ . '/../includes/lib/DnsValidator.php';
+                $valid_types = DnsValidator::getSupportedTypes();
+                if (!in_array(strtoupper($input['record_type']), $valid_types)) {
                     http_response_code(400);
-                    echo json_encode(['error' => 'Invalid record type. Only A, AAAA, CNAME, PTR, and TXT are supported']);
+                    echo json_encode(['error' => 'Invalid record type: ' . $input['record_type']]);
                     exit;
                 }
+                // Normalize record type to uppercase
+                $input['record_type'] = strtoupper($input['record_type']);
                 
                 // Type-dependent validation if record_type is being updated
                 $validation = validateRecordByType($input['record_type'], $input);

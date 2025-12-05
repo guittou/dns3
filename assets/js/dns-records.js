@@ -30,7 +30,22 @@
         'AAAA': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
         'CNAME': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
         'PTR': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
-        'TXT': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' }
+        'TXT': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'MX': { name: '', ttl: '', value: '', priority: '', ticket_ref: '', requester: '', comment: '' },
+        'NS': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'DNAME': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'SRV': { name: '', ttl: '', priority: '', weight: '', port: '', srv_target: '', ticket_ref: '', requester: '', comment: '' },
+        'CAA': { name: '', ttl: '', caa_flag: '0', caa_tag: 'issue', caa_value: '', ticket_ref: '', requester: '', comment: '' },
+        'TLSA': { name: '', ttl: '', tlsa_usage: '3', tlsa_selector: '1', tlsa_matching: '1', tlsa_data: '', ticket_ref: '', requester: '', comment: '' },
+        'SSHFP': { name: '', ttl: '', sshfp_algo: '1', sshfp_type: '2', sshfp_fingerprint: '', ticket_ref: '', requester: '', comment: '' },
+        'NAPTR': { name: '', ttl: '', naptr_order: '', naptr_pref: '', naptr_flags: '', naptr_service: '', naptr_regexp: '', naptr_replacement: '.', ticket_ref: '', requester: '', comment: '' },
+        'SVCB': { name: '', ttl: '', svc_priority: '1', svc_target: '.', svc_params: '', ticket_ref: '', requester: '', comment: '' },
+        'HTTPS': { name: '', ttl: '', svc_priority: '1', svc_target: '.', svc_params: '', ticket_ref: '', requester: '', comment: '' },
+        'LOC': { name: '', ttl: '', loc_latitude: '', loc_longitude: '', loc_altitude: '', ticket_ref: '', requester: '', comment: '' },
+        'RP': { name: '', ttl: '', rp_mbox: '', rp_txt: '.', ticket_ref: '', requester: '', comment: '' },
+        'SPF': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'DKIM': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' },
+        'DMARC': { name: '', ttl: '', value: '', ticket_ref: '', requester: '', comment: '' }
     };
     
     /**
@@ -46,7 +61,22 @@
         'AAAA': ['name', 'address_ipv6'],
         'CNAME': ['name', 'cname_target'],
         'PTR': ['name', 'ptrdname'],
-        'TXT': ['name', 'txt']
+        'TXT': ['name', 'txt'],
+        'MX': ['name', 'mx_target'],
+        'NS': ['name', 'ns_target'],
+        'DNAME': ['name', 'dname_target'],
+        'SRV': ['name', 'srv_target', 'port'],
+        'CAA': ['name', 'caa_tag', 'caa_value'],
+        'TLSA': ['name', 'tlsa_usage', 'tlsa_selector', 'tlsa_matching', 'tlsa_data'],
+        'SSHFP': ['name', 'sshfp_algo', 'sshfp_type', 'sshfp_fingerprint'],
+        'NAPTR': ['name', 'naptr_order', 'naptr_pref'],
+        'SVCB': ['name', 'svc_priority', 'svc_target'],
+        'HTTPS': ['name', 'svc_priority', 'svc_target'],
+        'LOC': ['name', 'loc_latitude', 'loc_longitude'],
+        'RP': ['name', 'rp_mbox', 'rp_txt'],
+        'SPF': ['name', 'txt'],
+        'DKIM': ['name', 'txt'],
+        'DMARC': ['name', 'txt']
     };
 
     /**
@@ -2164,12 +2194,30 @@
     function updateFieldVisibility() {
         const recordType = document.getElementById('record-type').value;
         
-        // Get all dedicated field groups
+        // Get all dedicated field groups - basic types
         const ipv4Group = document.getElementById('record-address-ipv4-group');
         const ipv6Group = document.getElementById('record-address-ipv6-group');
         const cnameGroup = document.getElementById('record-cname-target-group');
         const ptrGroup = document.getElementById('record-ptrdname-group');
         const txtGroup = document.getElementById('record-txt-group');
+        
+        // Extended type field groups
+        const nsGroup = document.getElementById('record-ns-target-group');
+        const dnameGroup = document.getElementById('record-dname-target-group');
+        const mxGroup = document.getElementById('record-mx-target-group');
+        const priorityGroup = document.getElementById('record-priority-group');
+        const srvFields = document.getElementById('record-srv-fields');
+        const caaFields = document.getElementById('record-caa-fields');
+        const tlsaFields = document.getElementById('record-tlsa-fields');
+        const tlsaDataRow = document.getElementById('record-tlsa-data-row');
+        const sshfpFields = document.getElementById('record-sshfp-fields');
+        const sshfpFpRow = document.getElementById('record-sshfp-fp-row');
+        const naptrFields = document.getElementById('record-naptr-fields');
+        const naptrExtraRow = document.getElementById('record-naptr-extra-row');
+        const svcFields = document.getElementById('record-svc-fields');
+        const svcParamsRow = document.getElementById('record-svc-params-row');
+        const locFields = document.getElementById('record-loc-fields');
+        const rpFields = document.getElementById('record-rp-fields');
         
         // Get all dedicated field inputs
         const ipv4Input = document.getElementById('record-address-ipv4');
@@ -2179,13 +2227,16 @@
         const txtInput = document.getElementById('record-txt');
         
         // Hide all dedicated fields first
-        if (ipv4Group) ipv4Group.style.display = 'none';
-        if (ipv6Group) ipv6Group.style.display = 'none';
-        if (cnameGroup) cnameGroup.style.display = 'none';
-        if (ptrGroup) ptrGroup.style.display = 'none';
-        if (txtGroup) txtGroup.style.display = 'none';
+        const allGroups = [
+            ipv4Group, ipv6Group, cnameGroup, ptrGroup, txtGroup,
+            nsGroup, dnameGroup, mxGroup, priorityGroup,
+            srvFields, caaFields, tlsaFields, tlsaDataRow,
+            sshfpFields, sshfpFpRow, naptrFields, naptrExtraRow,
+            svcFields, svcParamsRow, locFields, rpFields
+        ];
+        allGroups.forEach(g => { if (g) g.style.display = 'none'; });
         
-        // Remove required attribute from all
+        // Remove required attribute from all basic inputs
         if (ipv4Input) ipv4Input.removeAttribute('required');
         if (ipv6Input) ipv6Input.removeAttribute('required');
         if (cnameInput) cnameInput.removeAttribute('required');
@@ -2211,8 +2262,50 @@
                 if (ptrInput) ptrInput.setAttribute('required', 'required');
                 break;
             case 'TXT':
+            case 'SPF':
+            case 'DKIM':
+            case 'DMARC':
                 if (txtGroup) txtGroup.style.display = 'block';
                 if (txtInput) txtInput.setAttribute('required', 'required');
+                break;
+            case 'NS':
+                if (nsGroup) nsGroup.style.display = 'block';
+                break;
+            case 'DNAME':
+                if (dnameGroup) dnameGroup.style.display = 'block';
+                break;
+            case 'MX':
+                if (mxGroup) mxGroup.style.display = 'block';
+                if (priorityGroup) priorityGroup.style.display = 'block';
+                break;
+            case 'SRV':
+                if (srvFields) srvFields.style.display = 'flex';
+                break;
+            case 'CAA':
+                if (caaFields) caaFields.style.display = 'flex';
+                break;
+            case 'TLSA':
+                if (tlsaFields) tlsaFields.style.display = 'flex';
+                if (tlsaDataRow) tlsaDataRow.style.display = 'flex';
+                break;
+            case 'SSHFP':
+                if (sshfpFields) sshfpFields.style.display = 'flex';
+                if (sshfpFpRow) sshfpFpRow.style.display = 'flex';
+                break;
+            case 'NAPTR':
+                if (naptrFields) naptrFields.style.display = 'flex';
+                if (naptrExtraRow) naptrExtraRow.style.display = 'flex';
+                break;
+            case 'SVCB':
+            case 'HTTPS':
+                if (svcFields) svcFields.style.display = 'flex';
+                if (svcParamsRow) svcParamsRow.style.display = 'flex';
+                break;
+            case 'LOC':
+                if (locFields) locFields.style.display = 'flex';
+                break;
+            case 'RP':
+                if (rpFields) rpFields.style.display = 'flex';
                 break;
         }
     }
