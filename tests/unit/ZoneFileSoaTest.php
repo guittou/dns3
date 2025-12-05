@@ -263,5 +263,27 @@ class ZoneFileSoaTest extends TestCase {
         // Verify trailing dot is added
         $this->assertStringContainsString('ns1.example.com.', $result);
     }
+    
+    public function testGenerateSoaRecordWithEmptyZoneDomain() {
+        $zoneFile = new ReflectionClass(ZoneFile::class);
+        $method = $zoneFile->getMethod('generateSoaRecord');
+        $method->setAccessible(true);
+        
+        $instance = $zoneFile->newInstanceWithoutConstructor();
+        
+        // Edge case: zone with no domain and no name
+        $zone = [
+            'name' => '',
+            'domain' => ''
+        ];
+        
+        // Pass empty mname - should use localhost fallback
+        $result = $method->invoke($instance, $zone, '', '2025120501');
+        
+        // Verify fallback MNAME is used (ns1.localhost.)
+        $this->assertStringContainsString('ns1.localhost.', $result);
+        // Verify fallback RNAME is used (hostmaster.)
+        $this->assertStringContainsString('hostmaster.', $result);
+    }
 }
 ?>

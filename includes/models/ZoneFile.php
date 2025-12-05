@@ -1353,7 +1353,12 @@ class ZoneFile {
         // Normalize MNAME with trailing dot, or use default if empty
         $mname = $this->normalizeFqdn($mname);
         if (empty($mname)) {
-            $mname = 'ns1.' . $zoneDomain . '.';
+            // Use zone domain if available, otherwise use a placeholder
+            if (!empty($zoneDomain)) {
+                $mname = 'ns1.' . $zoneDomain . '.';
+            } else {
+                $mname = 'ns1.localhost.';
+            }
         }
         
         // Generate serial if not provided (YYYYMMDDnn format)
