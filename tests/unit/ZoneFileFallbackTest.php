@@ -77,7 +77,7 @@ class ZoneFileFallbackTest extends TestCase {
         $this->assertTrue($isEmpty, 'Empty string should be detected as empty');
         
         $nullContent = null;
-        $isNull = ($nullContent === null || ($nullContent !== null && trim($nullContent) === ''));
+        $isNull = ($nullContent === null || trim($nullContent ?? '') === '');
         $this->assertTrue($isNull, 'Null content should be detected as empty');
         
         $whitespaceContent = "   \n  \t  ";
