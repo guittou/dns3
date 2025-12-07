@@ -111,7 +111,9 @@ class ZoneValidationOutputTest extends TestCase {
         $this->assertStringContainsString('loaded serial', $successOutput);
         
         // Test failure output format
-        $failureOutput = "dns_master_load: example.com:5: bad owner name (check-names)\nzone example.com/IN: loading from master file example.com failed: bad owner name (check-names)\nzone example.com/IN: not loaded due to errors.";
+        $failureOutput = "dns_master_load: example.com:5: bad owner name (check-names)\n" .
+                        "zone example.com/IN: loading from master file example.com failed: bad owner name (check-names)\n" .
+                        "zone example.com/IN: not loaded due to errors.";
         $this->assertStringContainsString('not loaded due to errors', $failureOutput);
         $this->assertStringContainsString('bad owner name', $failureOutput);
     }

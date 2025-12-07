@@ -1810,7 +1810,11 @@ class ZoneFile {
             // Save validation output to a file in the temp directory
             $validationOutFile = $tmpDir . '/zone_' . $zoneId . '_validation_output.txt';
             file_put_contents($validationOutFile, $outputText);
-            @chmod($validationOutFile, 0640);
+            
+            // Set restrictive permissions on the validation output file
+            if (!chmod($validationOutFile, 0640)) {
+                $this->logValidation("WARNING: Failed to set permissions on validation output file: $validationOutFile");
+            }
             
             $this->logValidation("Command exit code for zone ID $zoneId: $returnCode");
             $this->logValidation("Full validation output saved to: $validationOutFile");
