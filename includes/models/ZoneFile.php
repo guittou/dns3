@@ -1795,23 +1795,38 @@ class ZoneFile {
             
             $this->logValidation("Flattened zone file written to: $tempFilePath");
             
-            // Build named-checkzone command with -q for quiet mode (less verbose)
+            // Build named-checkzone command (no -q flag to capture full output)
             $zoneName = $zone['name'];
-            $command = escapeshellcmd($namedCheckzone) . ' -q ' . 
+            $command = escapeshellcmd($namedCheckzone) . ' ' . 
                        escapeshellarg($zoneName) . ' ' . 
                        escapeshellarg($tempFilePath) . ' 2>&1';
             
             $this->logValidation("Executing command for zone ID $zoneId: $command");
             
-            // Execute command
+            // Execute command and capture full output
             exec($command, $output, $returnCode);
             $outputText = implode("\n", $output);
             
-            $this->logValidation("Command exit code for zone ID $zoneId: $returnCode");
+            // Save validation output to a file in the temp directory
+            $validationOutFile = $tmpDir . '/zone_' . $zoneId . '_validation_output.txt';
+            file_put_contents($validationOutFile, $outputText);
+            @chmod($validationOutFile, 0640);
             
-            // Log errors if validation failed
+            $this->logValidation("Command exit code for zone ID $zoneId: $returnCode");
+            $this->logValidation("Full validation output saved to: $validationOutFile");
+            
+            // Log errors if validation failed with helpful excerpts
             if ($returnCode !== 0) {
-                $this->logValidation("Validation FAILED for zone ID $zoneId. Output: " . substr($outputText, 0, 500));
+                $this->logValidation("Validation FAILED for zone ID $zoneId. Full output saved to: $validationOutFile");
+                
+                // Print first 40 lines to the worker log for quick visibility
+                $lines = explode("\n", $outputText);
+                $excerpt = array_slice($lines, 0, 40);
+                $this->logValidation("Validation output excerpt:\n" . implode("\n", $excerpt));
+                
+                if (count($lines) > 40) {
+                    $this->logValidation("... (output truncated, see full output at: $validationOutFile)");
+                }
             } else {
                 $this->logValidation("Validation PASSED for zone ID $zoneId");
             }
@@ -1819,8 +1834,11 @@ class ZoneFile {
             // Determine status
             $status = ($returnCode === 0) ? 'passed' : 'failed';
             
+            // Prepend validation log file location to output for UI display
+            $outputWithLogRef = "Validation log file: $validationOutFile\n\n" . $outputText;
+            
             // Store validation result with command and return code embedded in output
-            $this->storeValidationResult($zoneId, $status, $outputText, $userId, $command, $returnCode);
+            $this->storeValidationResult($zoneId, $status, $outputWithLogRef, $userId, $command, $returnCode);
             
             // If this is a master or parent zone, propagate validation result to all includes
             $this->propagateValidationToIncludes($zoneId, $zone['name'], $status, $outputText, $userId, $command, $returnCode);
