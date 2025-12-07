@@ -1765,18 +1765,49 @@ class ZoneFile {
             $visited = [];
             $flatContent = $this->generateFlatZone($zoneId, $visited);
             
-            if ($flatContent === null) {
-                $errorMsg = "Failed to generate flattened zone content for zone ID $zoneId";
-                $this->logValidation("ERROR: $errorMsg");
-                $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId, null, 1);
-                return [
-                    'status' => 'failed',
-                    'output' => $errorMsg,
-                    'return_code' => 1
-                ];
+            // Fallback: if flatContent is empty or null, use generateZoneFile instead
+            if ($flatContent === null || trim($flatContent) === '') {
+                $this->logValidation("WARNING: generateFlatZone returned empty content for zone ID $zoneId, falling back to generateZoneFile");
+                $flatContent = $this->generateZoneFile($zoneId);
+                
+                if ($flatContent === null || trim($flatContent) === '') {
+                    $errorMsg = "Failed to generate zone content (both flatten and standard methods) for zone ID $zoneId";
+                    $this->logValidation("ERROR: $errorMsg");
+                    $this->storeValidationResult($zoneId, 'failed', $errorMsg, $userId, null, 1);
+                    return [
+                        'status' => 'failed',
+                        'output' => $errorMsg,
+                        'return_code' => 1
+                    ];
+                }
+                $this->logValidation("Fallback successful: generateZoneFile returned content for zone ID $zoneId (" . strlen($flatContent) . " bytes)");
+            } else {
+                $this->logValidation("Generated flattened zone content for zone ID $zoneId (" . strlen($flatContent) . " bytes)");
             }
             
-            $this->logValidation("Generated flattened zone content for zone ID $zoneId (" . strlen($flatContent) . " bytes)");
+            // Clean content before writing: remove BOM, force UTF-8, ensure final newline
+            // Remove UTF-8 BOM if present
+            $flatContent = preg_replace('/^\xEF\xBB\xBF/', '', $flatContent);
+            
+            // Ensure UTF-8 encoding
+            if (!mb_check_encoding($flatContent, 'UTF-8')) {
+                $detectedEncoding = mb_detect_encoding($flatContent, mb_detect_order(), true);
+                if ($detectedEncoding && $detectedEncoding !== 'UTF-8') {
+                    $flatContent = mb_convert_encoding($flatContent, 'UTF-8', $detectedEncoding);
+                    $this->logValidation("Content was re-encoded from $detectedEncoding to UTF-8 for zone ID $zoneId");
+                } else {
+                    // If encoding cannot be detected, log the issue but proceed with the content as-is
+                    // Converting UTF-8 to UTF-8 won't fix corruption and may cause data loss
+                    $this->logValidation("WARNING: Content encoding validation failed for zone ID $zoneId, but encoding could not be detected. Proceeding with content as-is.");
+                }
+            }
+            
+            // Ensure file ends with a newline
+            if (!empty($flatContent) && substr($flatContent, -1) !== "\n") {
+                $flatContent .= "\n";
+            }
+            
+            $this->logValidation("Content cleaned and ready to write for zone ID $zoneId (final size: " . strlen($flatContent) . " bytes)");
             
             // Write flattened zone file to disk
             $tempFileName = 'zone_' . $zoneId . '_flat.db';
