@@ -1791,8 +1791,15 @@ class ZoneFile {
             
             // Ensure UTF-8 encoding
             if (!mb_check_encoding($flatContent, 'UTF-8')) {
-                $flatContent = mb_convert_encoding($flatContent, 'UTF-8', 'UTF-8');
-                $this->logValidation("Content was re-encoded to UTF-8 for zone ID $zoneId");
+                $detectedEncoding = mb_detect_encoding($flatContent, mb_detect_order(), true);
+                if ($detectedEncoding && $detectedEncoding !== 'UTF-8') {
+                    $flatContent = mb_convert_encoding($flatContent, 'UTF-8', $detectedEncoding);
+                    $this->logValidation("Content was re-encoded from $detectedEncoding to UTF-8 for zone ID $zoneId");
+                } else {
+                    // If we can't detect encoding, try to fix it by forcing UTF-8
+                    $flatContent = mb_convert_encoding($flatContent, 'UTF-8', 'UTF-8');
+                    $this->logValidation("Content encoding was invalid; forced UTF-8 encoding for zone ID $zoneId");
+                }
             }
             
             // Ensure file ends with a newline
