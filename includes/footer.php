@@ -13,7 +13,7 @@
         $version = htmlspecialchars(defined('APP_VERSION') ? APP_VERSION : '1.0.0', ENT_QUOTES, 'UTF-8');
         $label = htmlspecialchars(defined('CONTACT_LABEL') ? CONTACT_LABEL : 'Mon/Organisme/a/moi', ENT_QUOTES, 'UTF-8');
         $email = htmlspecialchars(defined('CONTACT_EMAIL') ? CONTACT_EMAIL : 'moi@mondomaine.fr', ENT_QUOTES, 'UTF-8');
-        echo "Version: {$version} - {$label} &nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp; Contacts: <a href=\"mailto:{$email}\">{$email}</a>";
+        echo "<strong>Version:</strong> {$version} - {$label} &nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp; <strong>Contacts:</strong> <a href=\"mailto:{$email}\">{$email}</a>";
       ?>
     </div>
   </footer>
