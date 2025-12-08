@@ -2169,15 +2169,40 @@ class ZoneFile {
                     return false;
                 }
             } else {
+                // Check if file exists and is accessible before attempting deletion
+                if (!file_exists($path)) {
+                    error_log("Cannot delete file (does not exist): $path");
+                    return false;
+                }
+                if (!is_writable($path)) {
+                    error_log("Cannot delete file (permission denied): $path");
+                    return false;
+                }
                 if (!@unlink($path)) {
-                    error_log("Failed to delete file: $path");
+                    $error = error_get_last();
+                    $errorMsg = $error ? $error['message'] : 'unknown error';
+                    error_log("Failed to delete file: $path - $errorMsg");
                     return false;
                 }
             }
         }
         
+        // Verify directory is now empty before attempting removal
+        $remainingFiles = array_diff(scandir($dir), ['.', '..']);
+        if (count($remainingFiles) > 0) {
+            error_log("Cannot remove directory (not empty): $dir");
+            return false;
+        }
+        
+        if (!is_writable($dir)) {
+            error_log("Cannot remove directory (permission denied): $dir");
+            return false;
+        }
+        
         if (!@rmdir($dir)) {
-            error_log("Failed to remove directory: $dir");
+            $error = error_get_last();
+            $errorMsg = $error ? $error['message'] : 'unknown error';
+            error_log("Failed to remove directory: $dir - $errorMsg");
             return false;
         }
         
