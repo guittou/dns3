@@ -1,59 +1,59 @@
-# API Token Authentication
+# Authentification par Tokens API
 
-This document describes how to use API tokens for authentication with the dns3 API endpoints.
+Ce document décrit comment utiliser les tokens API pour l'authentification avec les endpoints API de dns3.
 
-## Overview
+## Vue d'ensemble
 
-The dns3 application supports two authentication methods:
+L'application dns3 supporte deux méthodes d'authentification :
 
-1. **Session-based authentication** (default): Uses PHP session cookies, suitable for browser-based clients
-2. **Bearer token authentication** (new): Uses API tokens in the `Authorization` header, suitable for automated scripts and non-browser clients
+1. **Authentification par session** (par défaut) : Utilise des cookies de session PHP, adaptée aux clients basés sur navigateur
+2. **Authentification par token Bearer** (nouveau) : Utilise des tokens API dans l'en-tête `Authorization`, adaptée aux scripts automatisés et clients non-navigateur
 
-API token authentication is completely optional and works alongside the existing session-based authentication without breaking backward compatibility.
+L'authentification par tokens API est complètement optionnelle et fonctionne en parallèle de l'authentification par session existante sans casser la rétrocompatibilité.
 
-## Features
+## Fonctionnalités
 
-- **Secure**: Tokens are hashed with SHA-256 before storage
-- **Long-lived**: Tokens can be set to never expire or have a custom expiration
-- **Revocable**: Tokens can be revoked without affecting other tokens
-- **User-scoped**: Each token is associated with a user and inherits their permissions
-- **Trackable**: Last usage timestamp is recorded for each token
+- **Sécurisé** : Les tokens sont hachés avec SHA-256 avant stockage
+- **Longue durée** : Les tokens peuvent être configurés pour ne jamais expirer ou avoir une expiration personnalisée
+- **Révocable** : Les tokens peuvent être révoqués sans affecter les autres tokens
+- **Associé à l'utilisateur** : Chaque token est associé à un utilisateur et hérite de ses permissions
+- **Traçable** : L'horodatage de dernière utilisation est enregistré pour chaque token
 
-## Creating API Tokens
+## Création de Tokens API
 
-### Via Admin API (Recommended)
+### Via l'API Admin (Recommandé)
 
-1. First, authenticate with session cookies (login via web interface)
+1. D'abord, authentifiez-vous avec des cookies de session (connexion via l'interface web)
 
-2. Create a token:
+2. Créez un token :
 ```bash
-curl -X POST 'http://your-server/dns3/api/admin_api.php?action=create_token' \
+curl -X POST 'http://votre-serveur/dns3/api/admin_api.php?action=create_token' \
   -H 'Content-Type: application/json' \
-  -H 'Cookie: PHPSESSID=your-session-id' \
+  -H 'Cookie: PHPSESSID=votre-id-session' \
   -d '{
-    "token_name": "My Automation Token",
+    "token_name": "Mon Token d'Automatisation",
     "expires_in_days": 365
   }'
 ```
 
-Response:
+Réponse :
 ```json
 {
   "success": true,
   "message": "Token créé avec succès. Conservez-le en lieu sûr, il ne sera plus visible.",
   "data": {
     "id": 1,
-    "token": "a1b2c3d4e5f6...64-character-hex-string...",
+    "token": "a1b2c3d4e5f6...chaîne-hexadécimale-64-caractères...",
     "prefix": "a1b2c3d4"
   }
 }
 ```
 
-**IMPORTANT**: Save the token immediately! It will never be displayed again.
+**IMPORTANT** : Enregistrez le token immédiatement ! Il ne sera plus jamais affiché.
 
-### Via Direct Database Access
+### Via Accès Direct à la Base de Données
 
-Alternatively, for initial setup, you can create a token directly:
+Alternativement, pour la configuration initiale, vous pouvez créer un token directement :
 
 ```php
 <?php
@@ -61,10 +61,10 @@ require_once 'includes/models/ApiToken.php';
 $apiToken = new ApiToken();
 
 $result = $apiToken->generate(
-    $userId,           // User ID from users table
-    'My Token',        // Human-readable name
-    $createdBy,        // User ID who created it
-    365                // Expires in 365 days (or null for no expiration)
+    $userId,           // ID utilisateur de la table users
+    'Mon Token',       // Nom lisible
+    $createdBy,        // ID utilisateur qui l'a créé
+    365                // Expire dans 365 jours (ou null pour pas d'expiration)
 );
 
 echo "Token: " . $result['token'] . "\n";
@@ -72,33 +72,33 @@ echo "ID: " . $result['id'] . "\n";
 ?>
 ```
 
-## Using API Tokens
+## Utilisation des Tokens API
 
-Once you have a token, include it in the `Authorization` header with the `Bearer` scheme:
+Une fois que vous avez un token, incluez-le dans l'en-tête `Authorization` avec le schéma `Bearer` :
 
 ```bash
-curl -X GET 'http://your-server/dns3/api/zone_api.php?action=list_zones' \
-  -H 'Authorization: Bearer a1b2c3d4e5f6...your-token...'
+curl -X GET 'http://votre-serveur/dns3/api/zone_api.php?action=list_zones' \
+  -H 'Authorization: Bearer a1b2c3d4e5f6...votre-token...'
 ```
 
-### Examples
+### Exemples
 
-#### List zones
+#### Lister les zones
 ```bash
-curl -X GET 'http://your-server/dns3/api/zone_api.php?action=list_zones' \
-  -H 'Authorization: Bearer YOUR_TOKEN'
+curl -X GET 'http://votre-serveur/dns3/api/zone_api.php?action=list_zones' \
+  -H 'Authorization: Bearer VOTRE_TOKEN'
 ```
 
-#### Get a specific zone
+#### Obtenir une zone spécifique
 ```bash
-curl -X GET 'http://your-server/dns3/api/zone_api.php?action=get_zone&id=1' \
-  -H 'Authorization: Bearer YOUR_TOKEN'
+curl -X GET 'http://votre-serveur/dns3/api/zone_api.php?action=get_zone&id=1' \
+  -H 'Authorization: Bearer VOTRE_TOKEN'
 ```
 
-#### Create a zone (admin only)
+#### Créer une zone (admin uniquement)
 ```bash
-curl -X POST 'http://your-server/dns3/api/zone_api.php?action=create_zone' \
-  -H 'Authorization: Bearer YOUR_TOKEN' \
+curl -X POST 'http://votre-serveur/dns3/api/zone_api.php?action=create_zone' \
+  -H 'Authorization: Bearer VOTRE_TOKEN' \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "example.com",
@@ -107,16 +107,16 @@ curl -X POST 'http://your-server/dns3/api/zone_api.php?action=create_zone' \
   }'
 ```
 
-#### List DNS records
+#### Lister les enregistrements DNS
 ```bash
-curl -X GET 'http://your-server/dns3/api/dns_api.php?action=list' \
-  -H 'Authorization: Bearer YOUR_TOKEN'
+curl -X GET 'http://votre-serveur/dns3/api/dns_api.php?action=list' \
+  -H 'Authorization: Bearer VOTRE_TOKEN'
 ```
 
-#### Create a DNS record
+#### Créer un enregistrement DNS
 ```bash
-curl -X POST 'http://your-server/dns3/api/dns_api.php?action=create' \
-  -H 'Authorization: Bearer YOUR_TOKEN' \
+curl -X POST 'http://votre-serveur/dns3/api/dns_api.php?action=create' \
+  -H 'Authorization: Bearer VOTRE_TOKEN' \
   -H 'Content-Type: application/json' \
   -d '{
     "zone_file_id": 1,
@@ -127,86 +127,86 @@ curl -X POST 'http://your-server/dns3/api/dns_api.php?action=create' \
   }'
 ```
 
-## Managing Tokens
+## Gestion des Tokens
 
-### List your tokens
+### Lister vos tokens
 ```bash
-curl -X GET 'http://your-server/dns3/api/admin_api.php?action=list_tokens' \
-  -H 'Authorization: Bearer YOUR_TOKEN'
+curl -X GET 'http://votre-serveur/dns3/api/admin_api.php?action=list_tokens' \
+  -H 'Authorization: Bearer VOTRE_TOKEN'
 ```
 
-### List tokens for a specific user (admin only)
+### Lister les tokens d'un utilisateur spécifique (admin uniquement)
 ```bash
-curl -X GET 'http://your-server/dns3/api/admin_api.php?action=list_tokens&user_id=2' \
-  -H 'Authorization: Bearer YOUR_TOKEN'
+curl -X GET 'http://votre-serveur/dns3/api/admin_api.php?action=list_tokens&user_id=2' \
+  -H 'Authorization: Bearer VOTRE_TOKEN'
 ```
 
-### Revoke a token
+### Révoquer un token
 ```bash
-curl -X POST 'http://your-server/dns3/api/admin_api.php?action=revoke_token&id=1' \
-  -H 'Authorization: Bearer YOUR_TOKEN'
+curl -X POST 'http://votre-serveur/dns3/api/admin_api.php?action=revoke_token&id=1' \
+  -H 'Authorization: Bearer VOTRE_TOKEN'
 ```
 
-### Delete a token permanently
+### Supprimer un token définitivement
 ```bash
-curl -X POST 'http://your-server/dns3/api/admin_api.php?action=delete_token&id=1' \
-  -H 'Authorization: Bearer YOUR_TOKEN'
+curl -X POST 'http://votre-serveur/dns3/api/admin_api.php?action=delete_token&id=1' \
+  -H 'Authorization: Bearer VOTRE_TOKEN'
 ```
 
-## Security Best Practices
+## Bonnes Pratiques de Sécurité
 
-1. **Treat tokens like passwords**: Never commit them to version control or share them in plain text
-2. **Use environment variables**: Store tokens in environment variables, not in code
-3. **Set expiration dates**: Use `expires_in_days` parameter to limit token lifetime
-4. **Revoke unused tokens**: Regularly audit and revoke tokens that are no longer needed
-5. **Use HTTPS**: Always use HTTPS in production to protect tokens in transit
-6. **Limit token scope**: Create separate tokens for different applications/purposes
-7. **Rotate tokens**: Periodically generate new tokens and revoke old ones
+1. **Traitez les tokens comme des mots de passe** : Ne les committez jamais dans un contrôle de version et ne les partagez pas en clair
+2. **Utilisez des variables d'environnement** : Stockez les tokens dans des variables d'environnement, pas dans le code
+3. **Définissez une expiration** : Utilisez le paramètre `expires_in_days` pour des tokens à durée limitée
+4. **Révoquez les tokens inutilisés** : Auditez et révoquez régulièrement les tokens qui ne sont plus nécessaires
+5. **Utilisez HTTPS** : Utilisez toujours HTTPS en production pour protéger les tokens en transit
+6. **Limitez la portée des tokens** : Créez des tokens séparés pour différentes applications/objectifs
+7. **Rotation des tokens** : Générez périodiquement de nouveaux tokens et révoquez les anciens
 
-## Token Storage
+## Stockage des Tokens
 
-Tokens are stored in the `api_tokens` table with the following information:
+Les tokens sont stockés dans la table `api_tokens` avec les informations suivantes :
 
-- `token_hash`: SHA-256 hash of the token (never the plain token)
-- `token_prefix`: First 8 characters for identification
-- `user_id`: Associated user ID
-- `token_name`: Human-readable name
-- `last_used_at`: Last usage timestamp (updated on each successful authentication)
-- `expires_at`: Expiration date (NULL = no expiration)
-- `revoked_at`: Revocation timestamp (NULL = active)
+- `token_hash` : Hash SHA-256 du token (jamais le token en clair)
+- `token_prefix` : Les 8 premiers caractères pour l'identification
+- `user_id` : ID utilisateur associé
+- `token_name` : Nom lisible
+- `last_used_at` : Horodatage de dernière utilisation (mis à jour à chaque authentification réussie)
+- `expires_at` : Date d'expiration (NULL = pas d'expiration)
+- `revoked_at` : Horodatage de révocation (NULL = actif)
 
-## Troubleshooting
+## Dépannage
 
-### "Authentication required" error
-- Verify the token is correct and not expired
-- Check that the `Authorization` header is properly formatted: `Authorization: Bearer YOUR_TOKEN`
-- Ensure the user account associated with the token is active
+### Erreur "Authentication required"
+- Vérifiez que le token est correct et n'a pas expiré
+- Vérifiez que l'en-tête `Authorization` est correctement formaté : `Authorization: Bearer VOTRE_TOKEN`
+- Assurez-vous que le compte utilisateur associé au token est actif
 
-### "Admin privileges required" error
-- The endpoint requires admin privileges
-- Verify the user associated with the token has the `admin` role
+### Erreur "Admin privileges required"
+- L'endpoint nécessite des privilèges admin
+- Vérifiez que l'utilisateur associé au token a le rôle `admin`
 
-### Token not working after creation
-- Ensure you're using the full 64-character token from the creation response
-- Check that the token hasn't been revoked
-- Verify the token hasn't expired
+### Token ne fonctionne pas après création
+- Assurez-vous d'utiliser le token complet de 64 caractères de la réponse de création
+- Vérifiez que le token n'a pas été révoqué
+- Vérifiez que le token n'a pas expiré
 
 ## Migration
 
-To enable API token authentication in an existing installation:
+Pour activer l'authentification par tokens API dans une installation existante :
 
-1. Run the database migration:
+1. Exécutez la migration de base de données :
 ```bash
 mysql -u root -p dns3_db < migrations/20251208_add_api_tokens_table.sql
 ```
 
-2. No code changes required - the feature is automatically available
+2. Aucun changement de code requis - la fonctionnalité est automatiquement disponible
 
-3. Create your first token using the Admin API or direct database access
+3. Créez votre premier token en utilisant l'API Admin ou l'accès direct à la base de données
 
-## Compatibility
+## Compatibilité
 
-- API token authentication is fully compatible with existing session-based authentication
-- Existing scripts using session cookies will continue to work without modification
-- The API checks for Bearer tokens first, then falls back to session authentication
-- No breaking changes to existing API endpoints
+- L'authentification par tokens API est entièrement compatible avec l'authentification par session existante
+- Les scripts existants utilisant des cookies de session continueront à fonctionner sans modification
+- L'API vérifie d'abord les tokens Bearer, puis revient à l'authentification par session
+- Aucun changement cassant pour les endpoints API existants

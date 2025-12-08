@@ -45,7 +45,7 @@
 |----------|-------------|----------|
 | [README.md](../README.md) | Vue d'ensemble du projet | Tous |
 | [INSTALL.md](INSTALL.md) | Installation et configuration | Admins système |
-| [GETTING_STARTED_API_TOKENS.md](../GETTING_STARTED_API_TOKENS.md) | Tokens API (démarrage rapide) | Développeurs |
+| [GETTING_STARTED_API_TOKENS.md](GETTING_STARTED_API_TOKENS.md) | Tokens API (démarrage rapide) | Développeurs |
 
 ### Administration
 

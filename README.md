@@ -218,6 +218,7 @@ Pour la documentation complète, consultez [docs/SUMMARY.md](docs/SUMMARY.md).
 - **[Sommaire Global](docs/SUMMARY.md)** - Index de toute la documentation
 - **[Guide d'installation](docs/INSTALL.md)** - Installation et configuration initiale
 - **[Guide d'administration](docs/ADMIN_INTERFACE_GUIDE.md)** - Gestion des utilisateurs et de l'interface admin
+- **[Démarrage rapide avec les tokens API](docs/GETTING_STARTED_API_TOKENS.md)** - Guide de démarrage pour l'authentification par tokens API
 - **[Authentification API par tokens](docs/api_token_authentication.md)** - Documentation de l'API et des tokens
 - **[Import de zones BIND](docs/import_bind_zones.md)** - Import de zones BIND existantes
 - **[Schéma de base de données](docs/DB_SCHEMA.md)** - Documentation du schéma DB

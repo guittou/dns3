@@ -2,14 +2,9 @@
 
 ## Guide de Démarrage
 
-Ce guide vous aidera à démarrer avec la nouvelle fonctionnalité d'authentification par tokens API.
+Ce guide vous aidera à démarrer avec la fonctionnalité d'authentification par tokens API.
 
-## Prérequis
-
-1. Exécuter la migration de base de données :
-```sql
-mysql -u root -p dns3_db < migrations/20251208_add_api_tokens_table.sql
-```
+> **Note** : Ce guide suppose que vous partez d'une installation DNS3 à jour incluant le support des API tokens. La table `api_tokens` est déjà présente dans la base de données.
 
 ## Créer Votre Premier Token
 

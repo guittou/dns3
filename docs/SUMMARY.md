@@ -11,7 +11,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Vue d'ensemble du projet](../README.md) - Présentation générale, fonctionnalités et aperçu
 - [Guide de démarrage rapide](QUICK_START.md) - Installation en 5 minutes et commandes essentielles
 - [Guide d'installation](INSTALL.md) - Installation rapide et configuration initiale
-- [Démarrage rapide avec les tokens API](../GETTING_STARTED_API_TOKENS.md) - Guide de démarrage pour l'authentification par tokens API
+- [Démarrage rapide avec les tokens API](GETTING_STARTED_API_TOKENS.md) - Guide de démarrage pour l'authentification par tokens API
 
 ---
 
@@ -146,11 +146,11 @@ Pour suivre la progression de la traduction de la documentation en français, co
 ```
 dns3/
 ├── README.md                          # Présentation générale du projet
-├── GETTING_STARTED_API_TOKENS.md      # Guide de démarrage API tokens
 ├── docs/
 │   ├── SUMMARY.md                     # Ce fichier - index global
 │   ├── CONTRIBUTING_DOCS.md           # Guide de contribution documentation
 │   ├── INSTALL.md                     # Guide d'installation
+│   ├── GETTING_STARTED_API_TOKENS.md  # Guide de démarrage API tokens
 │   ├── DB_SCHEMA.md                   # Documentation du schéma
 │   ├── ADMIN_*.md                     # Documentation admin
 │   ├── DNS_*.md                       # Documentation DNS
@@ -160,6 +160,7 @@ dns3/
 │   ├── TESTING_*.md                   # Documentation tests
 │   ├── import_bind_zones.md           # Import BIND
 │   ├── api_token_authentication.md    # Auth API
+│   ├── backup/                        # Backups des versions originales anglaises
 │   └── archive/                       # Archives historiques
 ├── jobs/
 │   └── README.md                      # Workers de validation
