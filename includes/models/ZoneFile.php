@@ -969,6 +969,32 @@ class ZoneFile {
             
             $content = '';
             
+            // For top-level master zones, add required zone file header
+            // Only add header if this is the first call (visited array has only current zone)
+            if ($zone['file_type'] === 'master' && count($visited) === 1) {
+                // Add $TTL directive
+                $defaultTtl = !empty($zone['default_ttl']) ? $zone['default_ttl'] : 86400;
+                $content .= '$TTL ' . $defaultTtl . "\n";
+                
+                // Add $ORIGIN directive
+                $zoneName = $zone['name'] ?? $zone['domain'] ?? '';
+                if (!empty($zoneName)) {
+                    // Ensure zone name ends with a dot for FQDN
+                    if (substr($zoneName, -1) !== '.') {
+                        $zoneName .= '.';
+                    }
+                    $content .= '$ORIGIN ' . $zoneName . "\n";
+                }
+                $content .= "\n";
+                
+                // Generate and add SOA record
+                $mname = !empty($zone['mname']) ? $zone['mname'] : null;
+                $soaRecord = $this->generateSoaRecord($zone, $mname);
+                $content .= $soaRecord . "\n\n";
+                
+                $this->logValidation("Added zone header ($TTL, $ORIGIN, SOA) for master zone ID $masterId");
+            }
+            
             // Add zone's own content first (without $INCLUDE directives)
             if (!empty($zone['content'])) {
                 // Remove any $INCLUDE directives from the master content
@@ -1011,6 +1037,41 @@ class ZoneFile {
             
             // Add DNS records associated with this zone formatted in BIND syntax
             $records = $this->getDnsRecordsByZone($masterId);
+            
+            // For master zones, ensure at least one NS record exists
+            if ($zone['file_type'] === 'master' && count($visited) === 1) {
+                $hasNsRecord = false;
+                foreach ($records as $record) {
+                    if ($record['record_type'] === 'NS') {
+                        $hasNsRecord = true;
+                        break;
+                    }
+                }
+                
+                // If no NS record exists, add a default one
+                if (!$hasNsRecord) {
+                    $zoneDomain = $zone['domain'] ?? $zone['name'] ?? 'localhost';
+                    $zoneDomain = rtrim($zoneDomain, '.');
+                    
+                    $defaultNs = [
+                        'name' => '@',
+                        'record_type' => 'NS',
+                        'ttl' => null  // Will use zone default
+                    ];
+                    
+                    // Set the NS value based on zone domain
+                    if (!empty($zoneDomain) && $zoneDomain !== 'localhost') {
+                        $defaultNs['value'] = 'ns1.' . $zoneDomain . '.';
+                    } else {
+                        $defaultNs['value'] = 'ns1.localhost.';
+                    }
+                    
+                    // Prepend the default NS record
+                    array_unshift($records, $defaultNs);
+                    $this->logValidation("Added default NS record for zone ID $masterId (no NS records found)");
+                }
+            }
+            
             if (count($records) > 0) {
                 $content .= "; DNS Records\n";
                 foreach ($records as $record) {
