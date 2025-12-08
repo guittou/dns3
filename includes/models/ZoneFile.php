@@ -1886,8 +1886,11 @@ class ZoneFile {
         } finally {
             // Clean up temporary directory unless DEBUG_KEEP_TMPDIR is set
             if (!defined('DEBUG_KEEP_TMPDIR') || !DEBUG_KEEP_TMPDIR) {
-                $this->rrmdir($tmpDir);
-                $this->logValidation("Temporary directory cleaned up: $tmpDir");
+                if ($this->rrmdir($tmpDir)) {
+                    $this->logValidation("Temporary directory cleaned up successfully: $tmpDir");
+                } else {
+                    $this->logValidation("ERROR: Failed to clean up temporary directory: $tmpDir");
+                }
             } else {
                 $this->logValidation("DEBUG: Temporary directory kept at: $tmpDir (JOBS_KEEP_TMP=1)");
             }
@@ -2161,10 +2164,34 @@ class ZoneFile {
         $files = array_diff(scandir($dir), ['.', '..']);
         foreach ($files as $file) {
             $path = $dir . '/' . $file;
-            is_dir($path) ? $this->rrmdir($path) : unlink($path);
+            if (is_dir($path)) {
+                if (!$this->rrmdir($path)) {
+                    return false;
+                }
+            } else {
+                // Attempt to delete file
+                // Using @ to suppress PHP warnings since we explicitly check the return value
+                // and capture the error via error_get_last() for better error messages
+                if (!@unlink($path)) {
+                    $error = error_get_last();
+                    $errorMsg = $error ? $error['message'] : 'unknown error';
+                    error_log("Failed to delete file: $path - $errorMsg");
+                    return false;
+                }
+            }
         }
         
-        return rmdir($dir);
+        // Attempt to remove the now-empty directory
+        // Using @ to suppress PHP warnings since we explicitly check the return value
+        // and capture the error via error_get_last() for better error messages
+        if (!@rmdir($dir)) {
+            $error = error_get_last();
+            $errorMsg = $error ? $error['message'] : 'unknown error';
+            error_log("Failed to remove directory: $dir - $errorMsg");
+            return false;
+        }
+        
+        return true;
     }
     
     /**
