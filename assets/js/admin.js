@@ -777,7 +777,7 @@
                         <td><code>${escapeHtml(token.token_prefix)}...</code></td>
                         <td>${formatDate(token.created_at)}</td>
                         <td>${token.expires_at ? formatDate(token.expires_at) : 'Jamais'}</td>
-                        <td>${formatDate(token.last_used_at)}</td>
+                        <td>${token.last_used_at ? formatDate(token.last_used_at) : 'Jamais utilisé'}</td>
                         <td>${statusBadge}</td>
                         <td>
                             ${revokeButton}

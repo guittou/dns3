@@ -616,51 +616,6 @@ if (!$auth->isAdmin()) {
     width: auto;
     margin-right: 8px;
 }
-
-/* Token-specific styles */
-.warning-box {
-    background-color: #fff3cd;
-    border-left: 4px solid #ffc107;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 4px;
-}
-
-.warning-box p {
-    margin: 5px 0;
-    color: #856404;
-}
-
-.token-display-container {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.token-display-input {
-    flex: 1;
-    font-family: monospace;
-    font-size: 14px;
-    padding: 10px;
-    border: 2px solid #3498db;
-    border-radius: 4px;
-    background-color: #f8f9fa;
-}
-
-.badge-revoked {
-    background-color: #e74c3c;
-    color: white;
-}
-
-.badge-expired {
-    background-color: #e67e22;
-    color: white;
-}
-
-.badge-token-active {
-    background-color: #27ae60;
-    color: white;
-}
 </style>
 
 <script src="<?php echo BASE_URL; ?>assets/js/admin.js"></script>
