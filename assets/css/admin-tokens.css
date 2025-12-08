@@ -1,0 +1,134 @@
+/**
+ * Admin Tokens CSS
+ * Additional styles for the API tokens management interface
+ */
+
+/* Token display modal specific styles */
+#modal-token-display .warning-box {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+#modal-token-display .warning-box p {
+    margin: 5px 0;
+    color: #856404;
+    font-weight: bold;
+}
+
+/* Token display input and copy button container */
+.token-display-container {
+    display: flex;
+    gap: 10px;
+    align-items: stretch;
+    margin: 10px 0;
+}
+
+.token-display-input {
+    flex: 1;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    padding: 12px;
+    border: 2px solid #3498db;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+    color: #2c3e50;
+    font-weight: bold;
+}
+
+#btn-copy-token {
+    min-width: 100px;
+    white-space: nowrap;
+}
+
+/* Token status badges */
+.badge-token-active {
+    background-color: #27ae60;
+    color: white;
+    font-weight: bold;
+}
+
+.badge-revoked {
+    background-color: #e74c3c;
+    color: white;
+    font-weight: bold;
+}
+
+.badge-expired {
+    background-color: #e67e22;
+    color: white;
+    font-weight: bold;
+}
+
+/* Token table code styling */
+#tokens-table code {
+    background-color: #34495e;
+    color: #ecf0f1;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+/* Warning box for token display */
+.warning-box {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.warning-box p {
+    margin: 5px 0;
+    color: #856404;
+}
+
+/* Info box for token usage instructions */
+.info-box pre {
+    background-color: #34495e;
+    color: #ecf0f1;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+    overflow-x: auto;
+}
+
+.info-box pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+    font-family: 'Courier New', monospace;
+}
+
+/* Form hints for token creation */
+.form-hint {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+/* Token actions buttons spacing */
+#tokens-table td button {
+    margin-right: 5px;
+}
+
+#tokens-table td button:last-child {
+    margin-right: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .token-display-container {
+        flex-direction: column;
+    }
+    
+    #btn-copy-token {
+        width: 100%;
+    }
+}
