@@ -1,49 +1,45 @@
-# BIND Zone Import Tools
+# Importer des fichiers de zone BIND dans dns3
 
-This document describes how to import BIND-format zone files into the dns3 application.
+Ce document décrit les deux scripts fournis pour importer des fichiers de zones BIND dans l'application dns3 :
 
-## Overview
+- `scripts/import_bind_zones.py` — implémentation Python (recommandée pour les zones complexes)
+- `scripts/import_bind_zones.sh` — importeur heuristique en Bash (léger, pour zones simples)
 
-The dns3 application provides two import tools for ingesting BIND zone files:
+Important : toujours tester en mode `--dry-run` sur une base de test et faire une sauvegarde de la base de données avant toute exécution en écriture.
 
-1. **Python Importer** (`scripts/import_bind_zones.py`) - Robust implementation using dnspython library
-2. **Bash Importer** (`scripts/import_bind_zones.sh`) - Lightweight heuristic parser for simple zones
+## Table des matières
 
-Both tools support dry-run mode for safe testing and can optionally skip existing zones.
-
-## Table of Contents
-
-- [Safety Recommendations](#safety-recommendations)
-- [Python Importer](#python-importer)
-  - [Features](#features)
-  - [Dependencies](#dependencies)
+- [Recommandations de sécurité](#recommandations-de-sécurité)
+- [Importeur Python](#importeur-python)
+  - [Fonctionnalités](#fonctionnalités)
+  - [Dépendances](#dépendances)
   - [Installation](#installation)
-  - [Usage - API Mode](#usage---api-mode)
-  - [Usage - Database Mode](#usage---database-mode)
+  - [Utilisation - Mode API](#utilisation---mode-api)
+  - [Utilisation - Mode Base de données](#utilisation---mode-base-de-données)
   - [Options](#options)
-- [Bash Importer](#bash-importer)
-  - [Features](#features-1)
+- [Importeur Bash](#importeur-bash)
+  - [Fonctionnalités](#fonctionnalités-1)
   - [Limitations](#limitations)
-  - [Usage](#usage)
+  - [Utilisation](#utilisation)
   - [Options](#options-1)
-- [Comparison](#comparison)
-- [Examples](#examples)
-- [Troubleshooting](#troubleshooting)
+- [Comparaison](#comparaison)
+- [Exemples](#exemples)
+- [Dépannage](#dépannage)
 
 ---
 
-## Safety Recommendations
+## Recommandations de sécurité
 
-⚠️ **IMPORTANT**: Always follow these safety practices when importing zone files:
+⚠️ **IMPORTANT** : Suivez toujours ces pratiques de sécurité lors de l'importation de fichiers de zone :
 
-1. **Use dry-run mode first**: Test with `--dry-run` to see what will be imported without making changes
-2. **Backup your database**: Create a backup before importing in production
-3. **Test in staging**: Test imports in a non-production environment first
-4. **Review zone files**: Inspect zone files for errors before importing
-5. **Use skip-existing**: Use `--skip-existing` to avoid overwriting existing zones
-6. **Start small**: Test with a small subset of zones before doing bulk imports
+1. **Utilisez d'abord le mode dry-run** : Testez avec `--dry-run` pour voir ce qui sera importé sans effectuer de modifications
+2. **Sauvegardez votre base de données** : Créez une sauvegarde avant d'importer en production
+3. **Testez en environnement de test** : Testez d'abord les importations dans un environnement hors production
+4. **Vérifiez les fichiers de zone** : Inspectez les fichiers de zone pour détecter les erreurs avant l'importation
+5. **Utilisez skip-existing** : Utilisez `--skip-existing` pour éviter d'écraser les zones existantes
+6. **Commencez petit** : Testez avec un petit sous-ensemble de zones avant de faire des importations en masse
 
-### Quick Safety Check
+### Vérification rapide de sécurité
 
 ```bash
 # 1. Create database backup
@@ -58,36 +54,36 @@ python3 scripts/import_bind_zones.py --dir /path/to/zones --skip-existing --api-
 
 ---
 
-## Python Importer
+## Importeur Python
 
-The Python importer (`scripts/import_bind_zones.py`) is the recommended tool for importing BIND zone files. It uses the dnspython library to parse zone files correctly and can operate in two modes.
+L'importeur Python (`scripts/import_bind_zones.py`) est l'outil recommandé pour importer des fichiers de zone BIND. Il utilise la bibliothèque dnspython pour analyser correctement les fichiers de zone et peut fonctionner en deux modes.
 
-### Features
+### Fonctionnalités
 
-- **Accurate parsing**: Uses dnspython library for RFC-compliant zone file parsing
-- **$ORIGIN support**: Correctly handles $ORIGIN directives
-- **SOA extraction**: Extracts SOA record fields (MNAME, RNAME, timers) and stores them in zone metadata
-- **$INCLUDE processing**: Detects $INCLUDE directives (requires `--create-includes` flag)
-- **Two operation modes**:
-  - **API mode** (default): Uses HTTP endpoints (zone_api.php, dns_api.php) - preferred method
-  - **DB mode**: Direct MySQL insertion with schema introspection
-- **Dry-run support**: Preview what will be imported without making changes
-- **Schema detection**: Automatically detects available database columns
-- **Error handling**: Comprehensive error reporting and logging
-- **Testing mode**: `--example` flag for quick smoke tests
+- **Analyse précise** : Utilise la bibliothèque dnspython pour une analyse conforme aux RFC
+- **Support de $ORIGIN** : Gère correctement les directives $ORIGIN
+- **Extraction SOA** : Extrait les champs d'enregistrement SOA (MNAME, RNAME, timers) et les stocke dans les métadonnées de zone
+- **Traitement de $INCLUDE** : Détecte les directives $INCLUDE (nécessite le flag `--create-includes`)
+- **Deux modes de fonctionnement** :
+  - **Mode API** (par défaut) : Utilise les endpoints HTTP (zone_api.php, dns_api.php) - méthode préférée
+  - **Mode DB** : Insertion MySQL directe avec introspection du schéma
+- **Support dry-run** : Prévisualise ce qui sera importé sans effectuer de modifications
+- **Détection du schéma** : Détecte automatiquement les colonnes de base de données disponibles
+- **Gestion des erreurs** : Rapport d'erreurs et journalisation complets
+- **Mode test** : Flag `--example` pour des tests rapides
 
-### Dependencies
+### Dépendances
 
-The Python importer requires:
+L'importeur Python nécessite :
 
-- Python 3.6 or higher
-- dnspython library (for zone parsing)
-- requests library (for API mode)
-- pymysql library (for DB mode)
+- Python 3.6 ou supérieur
+- bibliothèque dnspython (pour l'analyse de zone)
+- bibliothèque requests (pour le mode API)
+- bibliothèque pymysql (pour le mode DB)
 
 ### Installation
 
-Install required Python packages:
+Installez les paquets Python requis :
 
 ```bash
 # Install all dependencies
@@ -99,22 +95,22 @@ pip3 install requests   # Required for API mode
 pip3 install pymysql    # Required for DB mode
 ```
 
-Alternatively, if a `requirements.txt` exists:
+Alternativement, si un fichier `requirements.txt` existe :
 
 ```bash
 pip3 install -r requirements.txt
 ```
 
-### Usage - API Mode
+### Utilisation - Mode API
 
-API mode is the **recommended** approach as it uses the application's existing authentication and validation logic.
+Le mode API est l'approche **recommandée** car il utilise la logique d'authentification et de validation existante de l'application.
 
-**Prerequisites**:
-- DNS3 application must be running and accessible
-- You need an API authentication token (Bearer token)
-- The API endpoints must be available: `/api/zone_api.php` and `/api/dns_api.php`
+**Prérequis** :
+- L'application DNS3 doit être en cours d'exécution et accessible
+- Vous avez besoin d'un jeton d'authentification API (Bearer token)
+- Les endpoints API doivent être disponibles : `/api/zone_api.php` et `/api/dns_api.php`
 
-**Basic usage**:
+**Utilisation de base** :
 
 ```bash
 python3 scripts/import_bind_zones.py \
@@ -123,7 +119,7 @@ python3 scripts/import_bind_zones.py \
   --api-token YOUR_API_TOKEN
 ```
 
-**With options**:
+**Avec options** :
 
 ```bash
 python3 scripts/import_bind_zones.py \
@@ -135,14 +131,14 @@ python3 scripts/import_bind_zones.py \
   --verbose
 ```
 
-### Usage - Database Mode
+### Utilisation - Mode Base de données
 
-Database mode performs direct MySQL insertion. Use this mode when:
-- The API is not available or not working
-- You need faster bulk imports
-- You're importing into a test/staging database
+Le mode base de données effectue une insertion MySQL directe. Utilisez ce mode lorsque :
+- L'API n'est pas disponible ou ne fonctionne pas
+- Vous avez besoin d'importations en masse plus rapides
+- Vous importez dans une base de données de test/staging
 
-**Basic usage**:
+**Utilisation de base** :
 
 ```bash
 python3 scripts/import_bind_zones.py \
@@ -153,7 +149,7 @@ python3 scripts/import_bind_zones.py \
   --db-name dns3_db
 ```
 
-**With options**:
+**Avec options** :
 
 ```bash
 python3 scripts/import_bind_zones.py \
@@ -170,64 +166,64 @@ python3 scripts/import_bind_zones.py \
 
 ### Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--dir PATH` | Directory containing zone files | Required |
-| `--dry-run` | Preview mode - no changes made | Off |
-| `--skip-existing` | Skip zones that already exist | Off |
-| `--verbose, -v` | Enable detailed logging | Off |
-| `--example` | Run with sample zone for testing | Off |
-| **API Mode** | | |
-| `--api-url URL` | Base URL of dns3 application | Required for API mode |
-| `--api-token TOKEN` | API authentication token (Bearer) | Required for API mode |
-| **Database Mode** | | |
-| `--db-mode` | Use direct database insertion | Off (API mode default) |
-| `--db-host HOST` | Database server hostname | localhost |
-| `--db-port PORT` | Database server port | 3306 |
-| `--db-user USER` | Database username | root |
-| `--db-pass PASS` | Database password | Empty string |
-| `--db-name NAME` | Database name | dns3_db |
-| **Other** | | |
-| `--user-id ID` | User ID for created_by field | 1 |
-| `--create-includes` | Create entries for $INCLUDE directives | Off |
+| Option | Description | Défaut |
+|--------|-------------|--------|
+| `--dir PATH` | Répertoire contenant les fichiers de zone | Requis |
+| `--dry-run` | Mode prévisualisation - aucune modification effectuée | Désactivé |
+| `--skip-existing` | Ignorer les zones qui existent déjà | Désactivé |
+| `--verbose, -v` | Activer la journalisation détaillée | Désactivé |
+| `--example` | Exécuter avec une zone d'exemple pour les tests | Désactivé |
+| **Mode API** | | |
+| `--api-url URL` | URL de base de l'application dns3 | Requis pour le mode API |
+| `--api-token TOKEN` | Jeton d'authentification API (Bearer) | Requis pour le mode API |
+| **Mode Base de données** | | |
+| `--db-mode` | Utiliser l'insertion directe dans la base de données | Désactivé (mode API par défaut) |
+| `--db-host HOST` | Nom d'hôte du serveur de base de données | localhost |
+| `--db-port PORT` | Port du serveur de base de données | 3306 |
+| `--db-user USER` | Nom d'utilisateur de la base de données | root |
+| `--db-pass PASS` | Mot de passe de la base de données | Chaîne vide |
+| `--db-name NAME` | Nom de la base de données | dns3_db |
+| **Autre** | | |
+| `--user-id ID` | ID utilisateur pour le champ created_by | 1 |
+| `--create-includes` | Créer des entrées pour les directives $INCLUDE | Désactivé |
 
 ---
 
-## Bash Importer
+## Importeur Bash
 
-The Bash importer (`scripts/import_bind_zones.sh`) is a lightweight alternative for simple zone files. It uses heuristic parsing and is suitable for straightforward zones without complex features.
+L'importeur Bash (`scripts/import_bind_zones.sh`) est une alternative légère pour les fichiers de zone simples. Il utilise une analyse heuristique et convient aux zones simples sans fonctionnalités complexes.
 
-### Features
+### Fonctionnalités
 
-- **No dependencies**: Pure Bash script, only requires MySQL client
-- **Heuristic parsing**: Simple regex-based parsing for common record types
-- **Schema detection**: Introspects database schema via information_schema
-- **Dry-run support**: Preview mode for testing
-- **SQL injection protection**: Validates identifiers and escapes values
+- **Aucune dépendance** : Script Bash pur, nécessite uniquement le client MySQL
+- **Analyse heuristique** : Analyse simple basée sur des regex pour les types d'enregistrement courants
+- **Détection du schéma** : Introspection du schéma de base de données via information_schema
+- **Support dry-run** : Mode prévisualisation pour les tests
+- **Protection contre l'injection SQL** : Valide les identifiants et échappe les valeurs
 
 ### Limitations
 
-⚠️ **WARNING**: The Bash importer has limitations:
+⚠️ **ATTENTION** : L'importeur Bash a des limitations :
 
-- **Heuristic parser**: May not handle complex or multi-line records correctly
-- **Limited record types**: Supports A, AAAA, CNAME, MX, NS, PTR, TXT, SRV, CAA only
-- **No $INCLUDE support**: Cannot process $INCLUDE directives
-- **No DNSSEC**: Does not support DNSSEC records (DNSKEY, RRSIG, etc.)
-- **Simple SOA**: Basic SOA parsing may fail on non-standard formatting
-- **No validation**: Does not validate zone syntax before importing
+- **Analyseur heuristique** : Peut ne pas gérer correctement les enregistrements complexes ou multi-lignes
+- **Types d'enregistrement limités** : Prend en charge uniquement A, AAAA, CNAME, MX, NS, PTR, TXT, SRV, CAA
+- **Pas de support $INCLUDE** : Ne peut pas traiter les directives $INCLUDE
+- **Pas de DNSSEC** : Ne prend pas en charge les enregistrements DNSSEC (DNSKEY, RRSIG, etc.)
+- **SOA simple** : L'analyse SOA de base peut échouer avec un formatage non standard
+- **Pas de validation** : Ne valide pas la syntaxe de zone avant l'importation
 
-**Recommendation**: Use the Python importer for:
-- Complex zones with $INCLUDE directives
-- Zones with DNSSEC records
-- Multi-line records or non-standard formatting
-- Production environments requiring accuracy
+**Recommandation** : Utilisez l'importeur Python pour :
+- Les zones complexes avec des directives $INCLUDE
+- Les zones avec des enregistrements DNSSEC
+- Les enregistrements multi-lignes ou formatage non standard
+- Les environnements de production nécessitant de la précision
 
-Use the Bash importer only for:
-- Simple test zones
-- Quick imports of straightforward zone files
-- Environments where Python is not available
+Utilisez l'importeur Bash uniquement pour :
+- Les zones de test simples
+- Les importations rapides de fichiers de zone simples
+- Les environnements où Python n'est pas disponible
 
-### Usage
+### Utilisation
 
 ```bash
 ./scripts/import_bind_zones.sh \
@@ -236,7 +232,7 @@ Use the Bash importer only for:
   --db-pass YOUR_PASSWORD
 ```
 
-**With options**:
+**Avec options** :
 
 ```bash
 ./scripts/import_bind_zones.sh \
@@ -250,45 +246,45 @@ Use the Bash importer only for:
 
 ### Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--dir PATH` | Directory containing zone files | Required |
-| `--dry-run` | Preview mode - no changes made | Off |
-| `--db-host HOST` | Database server hostname | localhost |
-| `--db-port PORT` | Database server port | 3306 |
-| `--db-user USER` | Database username | root |
-| `--db-pass PASS` | Database password | Prompts if not provided |
-| `--db-name NAME` | Database name | dns3_db |
-| `--skip-existing` | Skip zones that already exist | Off |
-| `--user-id ID` | User ID for created_by field | 1 |
+| Option | Description | Défaut |
+|--------|-------------|--------|
+| `--dir PATH` | Répertoire contenant les fichiers de zone | Requis |
+| `--dry-run` | Mode prévisualisation - aucune modification effectuée | Désactivé |
+| `--db-host HOST` | Nom d'hôte du serveur de base de données | localhost |
+| `--db-port PORT` | Port du serveur de base de données | 3306 |
+| `--db-user USER` | Nom d'utilisateur de la base de données | root |
+| `--db-pass PASS` | Mot de passe de la base de données | Demande si non fourni |
+| `--db-name NAME` | Nom de la base de données | dns3_db |
+| `--skip-existing` | Ignorer les zones qui existent déjà | Désactivé |
+| `--user-id ID` | ID utilisateur pour le champ created_by | 1 |
 
 ---
 
-## Comparison
+## Comparaison
 
-| Feature | Python Importer | Bash Importer |
-|---------|----------------|---------------|
-| **Parsing Accuracy** | High (RFC-compliant) | Low (heuristic) |
-| **Dependencies** | Python, dnspython, requests/pymysql | Bash, mysql client |
-| **API Mode** | ✅ Yes | ❌ No |
-| **DB Mode** | ✅ Yes | ✅ Yes |
-| **$ORIGIN Support** | ✅ Yes | ⚠️ Basic |
-| **$INCLUDE Support** | ✅ Yes (with flag) | ❌ No |
-| **SOA Parsing** | ✅ Complete | ⚠️ Basic |
-| **Record Types** | ✅ All types | ⚠️ Common types only |
-| **DNSSEC Support** | ✅ Yes | ❌ No |
-| **Multi-line Records** | ✅ Yes | ❌ No |
-| **Error Handling** | ✅ Comprehensive | ⚠️ Basic |
-| **Performance** | Medium | Fast |
-| **Recommended For** | Production, complex zones | Testing, simple zones |
+| Fonctionnalité | Importeur Python | Importeur Bash |
+|----------------|------------------|----------------|
+| **Précision d'analyse** | Élevée (conforme RFC) | Faible (heuristique) |
+| **Dépendances** | Python, dnspython, requests/pymysql | Bash, client mysql |
+| **Mode API** | ✅ Oui | ❌ Non |
+| **Mode DB** | ✅ Oui | ✅ Oui |
+| **Support $ORIGIN** | ✅ Oui | ⚠️ Basique |
+| **Support $INCLUDE** | ✅ Oui (avec flag) | ❌ Non |
+| **Analyse SOA** | ✅ Complète | ⚠️ Basique |
+| **Types d'enregistrement** | ✅ Tous types | ⚠️ Types courants uniquement |
+| **Support DNSSEC** | ✅ Oui | ❌ Non |
+| **Enregistrements multi-lignes** | ✅ Oui | ❌ Non |
+| **Gestion des erreurs** | ✅ Complète | ⚠️ Basique |
+| **Performance** | Moyenne | Rapide |
+| **Recommandé pour** | Production, zones complexes | Tests, zones simples |
 
 ---
 
-## Examples
+## Exemples
 
-### Example 1: Dry-run with Python (API mode)
+### Exemple 1 : Dry-run avec Python (mode API)
 
-Test what would be imported without making changes:
+Tester ce qui serait importé sans effectuer de modifications :
 
 ```bash
 python3 scripts/import_bind_zones.py \
@@ -299,7 +295,7 @@ python3 scripts/import_bind_zones.py \
   --verbose
 ```
 
-Output:
+Sortie :
 ```
 2024-12-08 15:00:00 [INFO] Using API mode (HTTP requests)
 2024-12-08 15:00:00 [INFO] DRY-RUN mode enabled - no changes will be made
@@ -314,9 +310,9 @@ Output:
 2024-12-08 15:00:05 [INFO]   Errors: 0
 ```
 
-### Example 2: Import with Python (DB mode)
+### Exemple 2 : Import avec Python (mode DB)
 
-Direct database import with existing zone skip:
+Import direct dans la base de données avec saut des zones existantes :
 
 ```bash
 python3 scripts/import_bind_zones.py \
@@ -328,9 +324,9 @@ python3 scripts/import_bind_zones.py \
   --skip-existing
 ```
 
-### Example 3: Import with Bash (simple zones)
+### Exemple 3 : Import avec Bash (zones simples)
 
-Import simple zones using Bash script:
+Import de zones simples avec le script Bash :
 
 ```bash
 ./scripts/import_bind_zones.sh \
@@ -340,15 +336,15 @@ Import simple zones using Bash script:
   --dry-run
 ```
 
-### Example 4: Test with example zone
+### Exemple 4 : Test avec zone d'exemple
 
-Quick test using built-in example:
+Test rapide avec l'exemple intégré :
 
 ```bash
 python3 scripts/import_bind_zones.py --example
 ```
 
-Output:
+Sortie :
 ```
 2024-12-08 15:00:00 [INFO] Running in EXAMPLE mode with sample zone data
 Sample zone content:
@@ -371,9 +367,9 @@ Extracted 7 records:
   ...
 ```
 
-### Example 5: Import with authentication token
+### Exemple 5 : Import avec jeton d'authentification
 
-Using API mode with proper authentication:
+Utilisation du mode API avec authentification appropriée :
 
 ```bash
 # Set API token as environment variable (recommended)
@@ -388,72 +384,72 @@ python3 scripts/import_bind_zones.py \
 
 ---
 
-## Troubleshooting
+## Dépannage
 
-### Common Issues
+### Problèmes courants
 
-#### 1. Python dependencies not found
+#### 1. Dépendances Python non trouvées
 
-**Error**: `ImportError: No module named 'dns'`
+**Erreur** : `ImportError: No module named 'dns'`
 
-**Solution**: Install dnspython:
+**Solution** : Installez dnspython :
 ```bash
 pip3 install dnspython
 ```
 
-#### 2. API authentication fails
+#### 2. Échec de l'authentification API
 
-**Error**: `API error creating zone: 401 - Authentication required`
+**Erreur** : `API error creating zone: 401 - Authentication required`
 
-**Solution**: 
-- Verify your API token is correct
-- Check that the token is not expired
-- Ensure you're using `Bearer` token format
-- Test API endpoint manually: `curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost/dns3/api/zone_api.php?action=list_zones`
+**Solution** : 
+- Vérifiez que votre jeton API est correct
+- Vérifiez que le jeton n'est pas expiré
+- Assurez-vous d'utiliser le format de jeton `Bearer`
+- Testez l'endpoint API manuellement : `curl -H "Authorization: Bearer YOUR_TOKEN" http://localhost/dns3/api/zone_api.php?action=list_zones`
 
-#### 3. Database connection fails
+#### 3. Échec de la connexion à la base de données
 
-**Error**: `Database connection failed: Access denied for user`
+**Erreur** : `Database connection failed: Access denied for user`
 
-**Solution**:
-- Verify database credentials
-- Check MySQL user has necessary privileges: `GRANT ALL ON dns3_db.* TO 'user'@'localhost';`
-- Test connection manually: `mysql -u user -p dns3_db`
+**Solution** :
+- Vérifiez les identifiants de la base de données
+- Vérifiez que l'utilisateur MySQL a les privilèges nécessaires : `GRANT ALL ON dns3_db.* TO 'user'@'localhost';`
+- Testez la connexion manuellement : `mysql -u user -p dns3_db`
 
-#### 4. Zone parsing fails
+#### 4. Échec de l'analyse de zone
 
-**Error**: `Failed to parse zone file: unexpected end of file`
+**Erreur** : `Failed to parse zone file: unexpected end of file`
 
-**Solution**:
-- Check zone file syntax: `named-checkzone example.com /path/to/zone/file`
-- Ensure $ORIGIN is set correctly
-- Verify zone file is not corrupted
-- Use Python importer instead of Bash for complex zones
+**Solution** :
+- Vérifiez la syntaxe du fichier de zone : `named-checkzone example.com /path/to/zone/file`
+- Assurez-vous que $ORIGIN est correctement défini
+- Vérifiez que le fichier de zone n'est pas corrompu
+- Utilisez l'importeur Python au lieu de Bash pour les zones complexes
 
-#### 5. Records not created
+#### 5. Enregistrements non créés
 
-**Problem**: Zones created but no records appear
+**Problème** : Zones créées mais aucun enregistrement n'apparaît
 
-**Solution**:
-- Check logs with `--verbose` flag
-- Verify SOA record is not the only record in the zone
-- Check that record types are supported by the database schema
-- Ensure zone_file_id foreign key is set correctly
+**Solution** :
+- Vérifiez les journaux avec le flag `--verbose`
+- Vérifiez que l'enregistrement SOA n'est pas le seul enregistrement dans la zone
+- Vérifiez que les types d'enregistrement sont pris en charge par le schéma de base de données
+- Assurez-vous que la clé étrangère zone_file_id est correctement définie
 
-#### 6. Bash parser fails on valid zones
+#### 6. L'analyseur Bash échoue sur des zones valides
 
-**Problem**: Bash importer skips valid records
+**Problème** : L'importeur Bash ignore des enregistrements valides
 
-**Solution**:
-- Use Python importer for accurate parsing
-- Bash parser is heuristic and may not handle all formats
-- Check zone file has standard formatting (one record per line for simple records)
+**Solution** :
+- Utilisez l'importeur Python pour une analyse précise
+- L'analyseur Bash est heuristique et peut ne pas gérer tous les formats
+- Vérifiez que le fichier de zone a un formatage standard (un enregistrement par ligne pour les enregistrements simples)
 
-#### 7. Permission denied errors
+#### 7. Erreurs de permission refusée
 
-**Error**: `Permission denied` when accessing zone files
+**Erreur** : `Permission denied` lors de l'accès aux fichiers de zone
 
-**Solution**:
+**Solution** :
 ```bash
 # Check file permissions
 ls -l /var/named/zones/
@@ -465,14 +461,14 @@ sudo chmod +r /var/named/zones/*.zone
 sudo -u named python3 scripts/import_bind_zones.py ...
 ```
 
-### Debugging Tips
+### Conseils de débogage
 
-1. **Enable verbose logging**:
+1. **Activer la journalisation détaillée** :
    ```bash
    python3 scripts/import_bind_zones.py --dir /path/to/zones --verbose ...
    ```
 
-2. **Test with one zone file**:
+2. **Tester avec un seul fichier de zone** :
    ```bash
    # Create test directory with single zone
    mkdir /tmp/test_import
@@ -480,18 +476,18 @@ sudo -u named python3 scripts/import_bind_zones.py ...
    python3 scripts/import_bind_zones.py --dir /tmp/test_import --dry-run ...
    ```
 
-3. **Check database schema**:
+3. **Vérifier le schéma de base de données** :
    ```bash
    mysql -u root -p dns3_db -e "DESCRIBE zone_files;"
    mysql -u root -p dns3_db -e "DESCRIBE dns_records;"
    ```
 
-4. **Validate zone file syntax**:
+4. **Valider la syntaxe du fichier de zone** :
    ```bash
    named-checkzone example.com /var/named/zones/example.com.zone
    ```
 
-5. **Test API endpoints manually**:
+5. **Tester les endpoints API manuellement** :
    ```bash
    # Test zone API
    curl -X POST -H "Authorization: Bearer TOKEN" \
@@ -500,27 +496,27 @@ sudo -u named python3 scripts/import_bind_zones.py ...
      http://localhost/dns3/api/zone_api.php?action=create_zone
    ```
 
-### Getting Help
+### Obtenir de l'aide
 
-If you encounter issues not covered here:
+Si vous rencontrez des problèmes non couverts ici :
 
-1. Check application logs: `/var/log/dns3/` or web server error logs
-2. Review database logs for SQL errors
-3. Test with `--example` flag to verify basic functionality
-4. Check zone file format with `named-checkzone`
-5. Verify database schema matches expectations in `structure_ok_dns3_db.sql`
+1. Vérifiez les journaux de l'application : `/var/log/dns3/` ou les journaux d'erreur du serveur web
+2. Consultez les journaux de base de données pour les erreurs SQL
+3. Testez avec le flag `--example` pour vérifier la fonctionnalité de base
+4. Vérifiez le format du fichier de zone avec `named-checkzone`
+5. Vérifiez que le schéma de base de données correspond aux attentes dans `structure_ok_dns3_db.sql`
 
-### Performance Considerations
+### Considérations de performance
 
-For large imports (hundreds/thousands of zones):
+Pour les importations volumineuses (centaines/milliers de zones) :
 
-- **Use DB mode** for better performance (bypasses HTTP overhead)
-- **Disable foreign key checks** temporarily (only in DB mode, testing environment)
-- **Import in batches** rather than all at once
-- **Monitor database performance** during import
-- **Use `--skip-existing`** to avoid redundant imports
+- **Utilisez le mode DB** pour de meilleures performances (évite la surcharge HTTP)
+- **Désactivez temporairement les vérifications de clé étrangère** (uniquement en mode DB, environnement de test)
+- **Importez par lots** plutôt que tout d'un coup
+- **Surveillez les performances de la base de données** pendant l'importation
+- **Utilisez `--skip-existing`** pour éviter les importations redondantes
 
-Example for large imports:
+Exemple pour les importations volumineuses :
 ```bash
 # Import in batches
 for batch in batch1 batch2 batch3; do
@@ -538,15 +534,15 @@ done
 
 ---
 
-## Summary
+## Résumé
 
-- **Use Python importer for production**: More accurate, supports complex zones
-- **Use API mode when possible**: Leverages application authentication and validation
-- **Always test with --dry-run first**: Preview changes before applying
-- **Backup database before importing**: Safety first!
-- **Use Bash importer for simple test cases only**: Limited accuracy
+- **Utilisez l'importeur Python pour la production** : Plus précis, prend en charge les zones complexes
+- **Utilisez le mode API quand c'est possible** : Exploite l'authentification et la validation de l'application
+- **Testez toujours avec --dry-run d'abord** : Prévisualisez les modifications avant de les appliquer
+- **Sauvegardez la base de données avant l'importation** : La sécurité d'abord !
+- **Utilisez l'importeur Bash uniquement pour les cas de test simples** : Précision limitée
 
-For most use cases, the recommended command is:
+Pour la plupart des cas d'utilisation, la commande recommandée est :
 
 ```bash
 python3 scripts/import_bind_zones.py \
@@ -557,4 +553,4 @@ python3 scripts/import_bind_zones.py \
   --skip-existing
 ```
 
-Then remove `--dry-run` after verifying the output.
+Ensuite, retirez `--dry-run` après avoir vérifié la sortie.
