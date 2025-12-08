@@ -226,7 +226,7 @@ curl -X POST "${API_URL}/api/zone_api.php?action=create_zone" \
 
 ## Plus d'Informations
 
-Consultez la documentation complète dans `docs/api_token_authentication.md` pour :
+Consultez la documentation complète dans [api_token_authentication.md](api_token_authentication.md) pour :
 - Documentation détaillée des endpoints API
 - Exemples complets pour toutes les opérations
 - Bonnes pratiques de sécurité
