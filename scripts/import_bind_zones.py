@@ -85,10 +85,10 @@ class ZoneImporter:
             'skipped': 0
         }
         # Track processed includes to avoid duplicates
-        self.processed_includes = {}  # path -> zone_id mapping
-        self.include_depth = 0  # Track recursion depth
-        self.max_include_depth = 50  # Maximum include depth
-        self.visited_includes = set()  # Detect cycles
+        self.processed_includes: Dict[str, int] = {}  # path -> zone_id mapping
+        self.include_depth: int = 0  # Track recursion depth
+        self.max_include_depth: int = 50  # Maximum include depth
+        self.visited_includes: Set[str] = set()  # Detect cycles
         
     def _setup_logging(self) -> logging.Logger:
         """Configure logging"""
@@ -814,7 +814,9 @@ class ZoneImporter:
                 'created_by': self.args.user_id,
                 'domain': zone_name,
                 'default_ttl': default_ttl,
-                'content': file_content,  # Store original content with $INCLUDE
+                # Store original content preserving $INCLUDE directives (not expanded inline)
+                # This allows the system to regenerate flat zones dynamically while maintaining the include structure
+                'content': file_content,
                 'directory': str(filepath.parent),
                 **soa_data
             }

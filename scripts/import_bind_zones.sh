@@ -200,6 +200,7 @@ mysql_escape() {
 }
 
 # Track processed includes (global associative array)
+# Note: Requires Bash 4.0+ for associative arrays
 declare -A PROCESSED_INCLUDES
 
 # Compute SHA256 hash of file
@@ -227,8 +228,19 @@ resolve_include_path() {
         fi
         resolved="$include_path"
     else
-        # Relative path
-        resolved="$(cd "$base_dir" && realpath "$include_path" 2>/dev/null || echo "")"
+        # Relative path - resolve to absolute
+        # Note: realpath may not be available on all systems; fallback to manual resolution
+        if command -v realpath >/dev/null 2>&1; then
+            resolved="$(cd "$base_dir" && realpath "$include_path" 2>/dev/null || echo "")"
+        else
+            # Fallback: manual path resolution
+            resolved="$(cd "$base_dir" && pwd)/$include_path"
+            # Normalize path (remove ./ and ../)
+            resolved="$(echo "$resolved" | sed 's|/\./|/|g')"
+            while [[ "$resolved" =~ /[^/]+/\.\. ]]; do
+                resolved="$(echo "$resolved" | sed 's|/[^/]*/\.\.|/|')"
+            done
+        fi
     fi
     
     if [[ -z "$resolved" ]] || [[ ! -f "$resolved" ]]; then
@@ -288,14 +300,14 @@ process_include_file() {
     # Compute hash for deduplication
     local file_hash=$(compute_file_hash "$include_path")
     
-    # Check if already processed
-    if [[ -n "${PROCESSED_INCLUDES[$include_path]:-}" ]]; then
+    # Check if already processed (use explicit key existence check)
+    if [[ -v "PROCESSED_INCLUDES[$include_path]" ]]; then
         echo "  ℹ Include already processed (dedup by path): $(basename "$include_path") (ID: ${PROCESSED_INCLUDES[$include_path]})"
         echo "${PROCESSED_INCLUDES[$include_path]}"
         return 0
     fi
     
-    if [[ -n "$file_hash" ]] && [[ -n "${PROCESSED_INCLUDES[$file_hash]:-}" ]]; then
+    if [[ -n "$file_hash" ]] && [[ -v "PROCESSED_INCLUDES[$file_hash]" ]]; then
         echo "  ℹ Include already processed (dedup by hash): $(basename "$include_path") (ID: ${PROCESSED_INCLUDES[$file_hash]})"
         echo "${PROCESSED_INCLUDES[$file_hash]}"
         return 0
