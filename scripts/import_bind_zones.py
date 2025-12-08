@@ -499,16 +499,16 @@ class ZoneImporter:
                 filtered_lines = []
                 
                 for line in lines:
-                    # Check if line contains $INCLUDE directive
-                    if re.match(r'^\$INCLUDE\s+', line):
+                    # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
+                    if re.match(r'^\$INCLUDE\s+\S+', line):
                         self.logger.debug(f"Filtering out $INCLUDE line: {line.strip()}")
                         continue
                     filtered_lines.append(line)
                 
                 parse_text = '\n'.join(filtered_lines)
                 
-                # Safety check: verify no $INCLUDE directives remain
-                if '$INCLUDE' in parse_text:
+                # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
+                if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
                     self.logger.error(f"$INCLUDE directive(s) still present after filtering in {include_path.name}")
             
             # Parse the include file using dnspython
@@ -662,8 +662,8 @@ class ZoneImporter:
                 include_count = 0
                 
                 for line in lines:
-                    # Check if line contains $INCLUDE directive
-                    if re.match(r'^\$INCLUDE\s+', line):
+                    # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
+                    if re.match(r'^\$INCLUDE\s+\S+', line):
                         include_count += 1
                         self.logger.debug(f"Filtering out $INCLUDE line: {line.strip()}")
                         continue
@@ -674,8 +674,8 @@ class ZoneImporter:
                 if include_count > 0:
                     self.logger.info(f"Filtered {include_count} $INCLUDE directive(s) before parsing {filepath.name}")
                 
-                # Safety check: verify no $INCLUDE directives remain
-                if '$INCLUDE' in parse_text:
+                # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
+                if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
                     self.logger.error(f"$INCLUDE directive(s) still present after filtering in {filepath.name}")
                     self.logger.error("This should not happen - parsing may fail")
             
