@@ -58,3 +58,7 @@ jobs/*.log
 # Test files
 test-validation-enrich.php
 test-zone-validation.html
+
+# Backup files
+*.bak
+*.bak.*
