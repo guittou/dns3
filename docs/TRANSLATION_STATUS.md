@@ -8,9 +8,9 @@
 ## Résumé
 
 - **Total de fichiers Markdown** : 113
-- **Fichiers traduits en français** : 8 (fichiers principaux)
+- **Fichiers traduits en français** : 9 (fichiers principaux - dont api_token_authentication.md)
 - **Fichiers partiellement en français** : 5
-- **Fichiers en anglais à traduire** : ~15 (prioritaires)
+- **Fichiers en anglais à traduire** : ~14 (prioritaires)
 - **Fichiers archive** : 57 (non prioritaires)
 
 ---
@@ -44,10 +44,11 @@
    - Conventions et styles
    - Processus de traduction
 
-6. **GETTING_STARTED_API_TOKENS.md** - ✅ 100% français (traduit)
-   - Guide de démarrage API tokens
+6. **docs/GETTING_STARTED_API_TOKENS.md** - ✅ 100% français (traduit)
+   - Guide de démarrage API tokens (déplacé de la racine vers docs/)
    - Exemples Python et Bash
    - Dépannage
+   - Backup anglais : `docs/backup/GETTING_STARTED_API_TOKENS.en.md`
 
 7. **docs/UPDATE_LAST_SEEN_FROM_BIND_LOGS.md** - ✅ Français
    - Documentation du script de mise à jour
@@ -61,10 +62,11 @@
 
 Ces fichiers sont critiques pour les utilisateurs et devraient être traduits :
 
-### 1. **docs/api_token_authentication.md** - 🔴 Anglais
+### 1. **docs/api_token_authentication.md** - ✅ 100% français (traduit)
    - Documentation complète de l'authentification API
    - 213 lignes
    - **Priorité** : Haute (documentation utilisateur)
+   - Backup anglais : `docs/backup/api_token_authentication.en.md`
 
 ### 2. **docs/import_bind_zones.md** - 🔴 Anglais
    - Guide complet d'import de zones BIND
@@ -206,7 +208,7 @@ Le dossier `docs/archive/` contient **57 fichiers** principalement en anglais :
 
 Documents critiques pour les utilisateurs finaux :
 
-1. ⏳ **docs/api_token_authentication.md** - Documentation API complète
+1. ✅ **docs/api_token_authentication.md** - Documentation API complète (traduit)
 2. ⏳ **docs/import_bind_zones.md** - Import de zones BIND
 3. ⏳ **docs/DNS_MANAGEMENT_GUIDE.md** - Gestion DNS
 4. ⏳ **docs/TESTING_GUIDE.md** - Guide de test
@@ -231,7 +233,7 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 ### Backups Créés
 
 1. ✅ `docs/backup/GETTING_STARTED_API_TOKENS.en.md`
-2. ⏳ `docs/backup/api_token_authentication.en.md` (à créer)
+2. ✅ `docs/backup/api_token_authentication.en.md`
 3. ⏳ `docs/backup/import_bind_zones.en.md` (à créer)
 4. ⏳ `docs/backup/DNS_MANAGEMENT_GUIDE.en.md` (à créer)
 5. ⏳ `docs/backup/TESTING_GUIDE.en.md` (à créer)

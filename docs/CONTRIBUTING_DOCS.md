@@ -45,11 +45,11 @@ Ce document explique comment ajouter, modifier ou organiser la documentation du 
 ```
 dns3/
 ├── README.md                          # Vue d'ensemble du projet
-├── GETTING_STARTED_API_TOKENS.md      # Guide de démarrage rapide
 ├── docs/
 │   ├── SUMMARY.md                     # INDEX GLOBAL (à mettre à jour)
 │   ├── CONTRIBUTING_DOCS.md           # Ce fichier
 │   │
+│   ├── GETTING_STARTED_API_TOKENS.md  # Guide de démarrage rapide
 │   ├── INSTALL.md                     # Installation
 │   ├── DB_SCHEMA.md                   # Schéma de base de données
 │   │
@@ -67,11 +67,11 @@ dns3/
 │   ├── api_token_authentication.md    # Authentification API
 │   ├── UPDATE_LAST_SEEN_FROM_BIND_LOGS.md
 │   │
-│   ├── archive/                       # Documents historiques
-│   │   └── (anciens PR, notes obsolètes)
+│   ├── backup/                        # Backups des versions anglaises
+│   │   └── (fichiers .en.md)
 │   │
-│   └── backup/                        # Backups des versions anglaises
-│       └── (fichiers .en.md)
+│   └── archive/                       # Documents historiques
+│       └── (anciens PR, notes obsolètes)
 │
 ├── jobs/README.md                     # Documentation workers
 └── migrations/README.md               # Documentation migrations
@@ -85,8 +85,9 @@ dns3/
 
 Déterminez où placer votre document :
 
-- **Racine** (`/`) : Guides de démarrage rapide uniquement (README.md, GETTING_STARTED_*.md)
-- **docs/** : Documentation principale (guides, références, implémentation)
+- **Racine** (`/`) : README.md uniquement
+- **docs/** : Documentation principale (guides, références, implémentation, guides de démarrage)
+- **docs/backup/** : Backups des versions originales anglaises
 - **docs/archive/** : Documents obsolètes ou historiques (ne pas éditer)
 - **Sous-dossiers** (`jobs/`, `migrations/`) : Documentation spécifique au composant
 
