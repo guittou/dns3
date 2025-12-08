@@ -11,6 +11,12 @@ DB_USER="${DB_USER:-root}"
 DB_NAME="${DB_NAME:-dns3_db}"
 DB_PASSWORD="${DB_PASSWORD:-}"
 
+# Validate DB_NAME contains only safe characters
+if [[ ! "$DB_NAME" =~ ^[a-zA-Z0-9_]+$ ]]; then
+    echo "ERROR: DB_NAME contains invalid characters. Only alphanumeric and underscore allowed."
+    exit 1
+fi
+
 DRY_RUN=0
 SOFT_DELETE=0
 
