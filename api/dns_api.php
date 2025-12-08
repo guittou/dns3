@@ -26,6 +26,12 @@ header('Content-Type: application/json');
 // Initialize authentication
 $auth = new Auth();
 
+// Try Bearer token authentication first (for API clients)
+// If no token or invalid token, fall back to session authentication
+if (!$auth->isLoggedIn()) {
+    $auth->authenticateToken();
+}
+
 /**
  * Check if user is logged in
  */

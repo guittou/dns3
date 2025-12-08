@@ -3,10 +3,12 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/models/Acl.php';
+require_once __DIR__ . '/models/ApiToken.php';
 
 class Auth {
     private $db;
     private $acl = null;
+    private $apiToken = null;
 
     /**
      * Error message constants for access control
@@ -28,6 +30,68 @@ class Auth {
             $this->acl = new Acl();
         }
         return $this->acl;
+    }
+
+    /**
+     * Get the ApiToken instance (lazy-loaded and cached)
+     * 
+     * @return ApiToken The API token model instance
+     */
+    private function getApiToken() {
+        if ($this->apiToken === null) {
+            $this->apiToken = new ApiToken();
+        }
+        return $this->apiToken;
+    }
+
+    /**
+     * Authenticate using Bearer token from Authorization header
+     * Sets up session-like state in $_SESSION for compatibility
+     * 
+     * @return bool True if authenticated successfully
+     */
+    public function authenticateToken() {
+        // Check for Authorization header
+        $headers = getallheaders();
+        $authHeader = null;
+        
+        // Case-insensitive header lookup
+        foreach ($headers as $key => $value) {
+            if (strtolower($key) === 'authorization') {
+                $authHeader = $value;
+                break;
+            }
+        }
+        
+        if (!$authHeader) {
+            return false;
+        }
+        
+        // Parse Bearer token
+        if (!preg_match('/^Bearer\s+(\S+)$/i', $authHeader, $matches)) {
+            return false;
+        }
+        
+        $token = $matches[1];
+        
+        // Validate token
+        $userInfo = $this->getApiToken()->validate($token);
+        
+        if (!$userInfo) {
+            return false;
+        }
+        
+        // Create session-like state for compatibility with existing code
+        $_SESSION['user_id'] = $userInfo['id'];
+        $_SESSION['username'] = $userInfo['username'];
+        $_SESSION['email'] = $userInfo['email'];
+        $_SESSION['logged_in'] = true;
+        $_SESSION['auth_method'] = 'api_token';
+        $_SESSION['token_id'] = $userInfo['token_id'];
+        $_SESSION['token_name'] = $userInfo['token_name'];
+        $_SESSION['user_groups'] = []; // API tokens don't have AD/LDAP groups
+        
+        return true;
     }
 
     /**
