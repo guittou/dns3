@@ -211,11 +211,26 @@ WHERE u.username = 'admin' AND r.name = 'admin';
 
 ## Documentation
 
-For detailed documentation, see [docs/SUMMARY.md](docs/SUMMARY.md).
+Pour la documentation complète, consultez [docs/SUMMARY.md](docs/SUMMARY.md).
 
-### Utilities / Scripts
+### Documentation Principale
 
-- **Log-based last_seen updater**: `scripts/update_last_seen_from_bind_logs.sh` — parse les logs BIND (plain / .gz), extrait les FQDN uniques pour un type de requête (par défaut A), résout master/includes et met à jour en batch `dns_records.last_seen`. Voir la documentation complète : [docs/UPDATE_LAST_SEEN_FROM_BIND_LOGS.md](docs/UPDATE_LAST_SEEN_FROM_BIND_LOGS.md)
+- **[Sommaire Global](docs/SUMMARY.md)** - Index de toute la documentation
+- **[Guide d'installation](docs/INSTALL.md)** - Installation et configuration initiale
+- **[Guide d'administration](docs/ADMIN_INTERFACE_GUIDE.md)** - Gestion des utilisateurs et de l'interface admin
+- **[Authentification API par tokens](docs/api_token_authentication.md)** - Documentation de l'API et des tokens
+- **[Import de zones BIND](docs/import_bind_zones.md)** - Import de zones BIND existantes
+- **[Schéma de base de données](docs/DB_SCHEMA.md)** - Documentation du schéma DB
+- **[Guide de test](docs/TESTING_GUIDE.md)** - Procédures de test
+
+### Utilitaires / Scripts
+
+- **Mise à jour last_seen depuis logs BIND**: `scripts/update_last_seen_from_bind_logs.sh` — Parse les logs BIND (plain / .gz), extrait les FQDN uniques pour un type de requête (par défaut A), résout master/includes et met à jour en batch `dns_records.last_seen`. Documentation complète : [docs/UPDATE_LAST_SEEN_FROM_BIND_LOGS.md](docs/UPDATE_LAST_SEEN_FROM_BIND_LOGS.md)
+- **Workers de validation**: Voir [jobs/README.md](jobs/README.md) pour la configuration des jobs de validation en arrière-plan
+
+### Contribuer à la Documentation
+
+Pour ajouter ou modifier la documentation, consultez le [Guide de Contribution](docs/CONTRIBUTING_DOCS.md).
 
 ## License
 
