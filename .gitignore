@@ -11,6 +11,13 @@ vendor/
 composer.phar
 composer.lock
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
 # Configuration files with sensitive data
 config.local.php
 
