@@ -96,10 +96,14 @@ class ApiToken {
                 return false;
             }
             
-            // Check if token is expired
-            if ($tokenData['expires_at'] !== null && strtotime($tokenData['expires_at']) < time()) {
-                error_log("API token authentication failed: token expired");
-                return false;
+            // Check if token is expired (using DateTime for consistency)
+            if ($tokenData['expires_at'] !== null) {
+                $expiryDate = new DateTime($tokenData['expires_at']);
+                $now = new DateTime();
+                if ($expiryDate < $now) {
+                    error_log("API token authentication failed: token expired");
+                    return false;
+                }
             }
             
             // Check if user is active
