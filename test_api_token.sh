@@ -25,7 +25,7 @@ fi
 
 echo "Testing API token authentication..."
 echo "API URL: $API_URL"
-echo "Token prefix: ${TOKEN:0:8}..."
+echo "Token prefix: $(echo "$TOKEN" | cut -c1-8)..."
 echo ""
 
 # Test 1: List zones with Bearer token

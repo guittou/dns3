@@ -48,6 +48,8 @@ class Auth {
      * Authenticate using Bearer token from Authorization header
      * Sets up session-like state in $_SESSION for compatibility
      * 
+     * Note: session_start() is called in config.php before this code runs
+     * 
      * @return bool True if authenticated successfully
      */
     public function authenticateToken() {
@@ -82,6 +84,7 @@ class Auth {
         }
         
         // Create session-like state for compatibility with existing code
+        // Session was already started in config.php
         $_SESSION['user_id'] = $userInfo['id'];
         $_SESSION['username'] = $userInfo['username'];
         $_SESSION['email'] = $userInfo['email'];

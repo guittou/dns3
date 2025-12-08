@@ -37,7 +37,10 @@ class ApiToken {
             // Calculate expiration date if specified
             $expiresAt = null;
             if ($expiresInDays !== null && is_numeric($expiresInDays) && $expiresInDays > 0) {
-                $expiresAt = date('Y-m-d H:i:s', strtotime("+{$expiresInDays} days"));
+                // Use DateTime for safe date arithmetic
+                $expiryDate = new DateTime();
+                $expiryDate->modify('+' . intval($expiresInDays) . ' days');
+                $expiresAt = $expiryDate->format('Y-m-d H:i:s');
             }
             
             // Insert token into database
