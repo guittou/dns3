@@ -86,6 +86,37 @@ CREATE TABLE `acl_history` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `api_tokens`
+--
+
+DROP TABLE IF EXISTS `api_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `api_tokens` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `token_name` varchar(255) NOT NULL COMMENT 'Human-readable name for the token',
+  `token_hash` varchar(255) NOT NULL COMMENT 'SHA-256 hash of the token',
+  `token_prefix` varchar(20) NOT NULL COMMENT 'First few characters for identification',
+  `last_used_at` timestamp NULL DEFAULT NULL,
+  `expires_at` timestamp NULL DEFAULT NULL COMMENT 'NULL means no expiration',
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `revoked_at` timestamp NULL DEFAULT NULL COMMENT 'NULL means active, set to revoke',
+  `created_by` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `token_hash` (`token_hash`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_token_prefix` (`token_prefix`),
+  KEY `idx_revoked_at` (`revoked_at`),
+  KEY `idx_expires_at` (`expires_at`),
+  KEY `api_tokens_ibfk_2` (`created_by`),
+  KEY `idx_token_lookup` (`token_hash`,`revoked_at`,`expires_at`),
+  CONSTRAINT `api_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `api_tokens_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `auth_mappings`
 --
 
@@ -491,4 +522,4 @@ CREATE TABLE `zone_files` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-08 13:54:57
+-- Dump completed on 2025-12-08 19:38:42
