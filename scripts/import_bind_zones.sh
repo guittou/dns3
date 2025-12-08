@@ -16,13 +16,18 @@
 #   --db-name NAME         Database name (default: dns3_db)
 #   --skip-existing        Skip zones that already exist
 #   --user-id ID           User ID for created_by field (default: 1)
+#   --create-includes      Create separate zone_file entries for $INCLUDE directives
+#   --allow-abs-include    Allow absolute paths in $INCLUDE directives (security: use with caution)
 #
 # Examples:
 #   # Dry-run mode (safe testing)
 #   ./scripts/import_bind_zones.sh --dir /var/named/zones --dry-run
 #
-#   # Import zones into database
-#   ./scripts/import_bind_zones.sh --dir /var/named/zones --db-user root --db-pass secret
+#   # Import zones with $INCLUDE support
+#   ./scripts/import_bind_zones.sh --dir /var/named/zones --db-user root --db-pass secret --create-includes
+#
+#   # Import with absolute includes allowed
+#   ./scripts/import_bind_zones.sh --dir /var/named/zones --db-user root --db-pass secret --create-includes --allow-abs-include
 #
 
 set -euo pipefail
@@ -37,6 +42,8 @@ ZONE_DIR=""
 DRY_RUN=0
 SKIP_EXISTING=0
 USER_ID=1
+CREATE_INCLUDES=0
+ALLOW_ABS_INCLUDE=0
 
 # Validate database name (security: prevent SQL injection)
 validate_identifier() {
@@ -86,6 +93,14 @@ while [[ $# -gt 0 ]]; do
         --user-id)
             USER_ID="$2"
             shift 2
+            ;;
+        --create-includes)
+            CREATE_INCLUDES=1
+            shift
+            ;;
+        --allow-abs-include)
+            ALLOW_ABS_INCLUDE=1
+            shift
             ;;
         *)
             echo "Unknown option: $1" >&2
@@ -184,6 +199,281 @@ mysql_escape() {
     echo "$value"
 }
 
+# Track processed includes (global associative array)
+declare -A PROCESSED_INCLUDES
+
+# Compute SHA256 hash of file
+compute_file_hash() {
+    local file="$1"
+    if [[ -f "$file" ]]; then
+        sha256sum "$file" | awk '{print $1}'
+    else
+        echo ""
+    fi
+}
+
+# Resolve include path (relative to absolute)
+resolve_include_path() {
+    local include_path="$1"
+    local base_dir="$2"
+    local resolved=""
+    
+    # Check if absolute path
+    if [[ "$include_path" = /* ]]; then
+        if [[ $ALLOW_ABS_INCLUDE -eq 0 ]]; then
+            echo "ERROR: Absolute include path not allowed: $include_path" >&2
+            echo "Use --allow-abs-include to override" >&2
+            return 1
+        fi
+        resolved="$include_path"
+    else
+        # Relative path
+        resolved="$(cd "$base_dir" && realpath "$include_path" 2>/dev/null || echo "")"
+    fi
+    
+    if [[ -z "$resolved" ]] || [[ ! -f "$resolved" ]]; then
+        echo "ERROR: Include file not found: $include_path" >&2
+        return 1
+    fi
+    
+    # Security: check path is within base directory (unless --allow-abs-include)
+    if [[ $ALLOW_ABS_INCLUDE -eq 0 ]]; then
+        local base_real="$(cd "$base_dir" && pwd)"
+        if [[ "$resolved" != "$base_real"* ]]; then
+            echo "ERROR: Include path outside base directory: $include_path" >&2
+            return 1
+        fi
+    fi
+    
+    echo "$resolved"
+}
+
+# Create zone_file_includes relationship
+create_zone_file_include_relationship() {
+    local parent_id="$1"
+    local include_id="$2"
+    local position="$3"
+    
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo "  [DRY-RUN] Would create zone_file_includes: parent=$parent_id, include=$include_id, position=$position"
+        return 0
+    fi
+    
+    # Check if relationship already exists
+    local exists=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -N -s -e \
+        "SELECT COUNT(*) FROM zone_file_includes WHERE parent_id=$parent_id AND include_id=$include_id" "$DB_NAME" 2>/dev/null)
+    
+    if [[ "$exists" -gt 0 ]]; then
+        echo "  ℹ zone_file_includes relationship already exists"
+        return 0
+    fi
+    
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e \
+        "INSERT INTO zone_file_includes (parent_id, include_id, position) VALUES ($parent_id, $include_id, $position)" 2>&1 || {
+        echo "  ⚠ Failed to create zone_file_includes relationship" >&2
+        return 1
+    }
+    
+    echo "  ✓ Created zone_file_includes relationship"
+    return 0
+}
+
+# Process an include file
+process_include_file() {
+    local include_path="$1"
+    local include_origin="$2"
+    local base_dir="$3"
+    local parent_zone_name="$4"
+    
+    # Compute hash for deduplication
+    local file_hash=$(compute_file_hash "$include_path")
+    
+    # Check if already processed
+    if [[ -n "${PROCESSED_INCLUDES[$include_path]:-}" ]]; then
+        echo "  ℹ Include already processed (dedup by path): $(basename "$include_path") (ID: ${PROCESSED_INCLUDES[$include_path]})"
+        echo "${PROCESSED_INCLUDES[$include_path]}"
+        return 0
+    fi
+    
+    if [[ -n "$file_hash" ]] && [[ -n "${PROCESSED_INCLUDES[$file_hash]:-}" ]]; then
+        echo "  ℹ Include already processed (dedup by hash): $(basename "$include_path") (ID: ${PROCESSED_INCLUDES[$file_hash]})"
+        echo "${PROCESSED_INCLUDES[$file_hash]}"
+        return 0
+    fi
+    
+    echo "  Processing include file: $(basename "$include_path")"
+    
+    # Read include content
+    local include_content=$(cat "$include_path")
+    local filename=$(basename "$include_path")
+    local directory=$(dirname "$include_path")
+    
+    # Determine effective origin
+    local effective_origin="$include_origin"
+    if [[ -z "$effective_origin" ]]; then
+        # Check for $ORIGIN in include file
+        effective_origin=$(echo "$include_content" | grep -E '^\$ORIGIN' | head -1 | awk '{print $2}' | sed 's/\.$//' || echo "$parent_zone_name")
+    fi
+    
+    # Remove trailing dot if present
+    effective_origin="${effective_origin%.}"
+    
+    echo "    Origin: $effective_origin"
+    
+    # Check if include zone already exists (skip-existing logic)
+    local zone_id=""
+    if [[ $SKIP_EXISTING -eq 1 ]]; then
+        zone_id=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -N -s -e \
+            "SELECT id FROM zone_files WHERE filename='$(mysql_escape "$filename")' AND file_type='include' AND directory='$(mysql_escape "$directory")' LIMIT 1" \
+            "$DB_NAME" 2>/dev/null || echo "")
+        
+        if [[ -n "$zone_id" ]]; then
+            echo "    ℹ Include zone already exists, reusing (ID: $zone_id)"
+            PROCESSED_INCLUDES[$include_path]="$zone_id"
+            [[ -n "$file_hash" ]] && PROCESSED_INCLUDES[$file_hash]="$zone_id"
+            echo "$zone_id"
+            return 0
+        fi
+    fi
+    
+    # Build INSERT statement for include zone
+    local zone_insert="INSERT INTO zone_files (name, filename, file_type, status, created_by, domain"
+    local zone_values="VALUES ('$(mysql_escape "$effective_origin")', '$(mysql_escape "$filename")', 'include', 'active', $USER_ID, '$(mysql_escape "$effective_origin")'"
+    
+    # Add optional columns
+    if has_column "zone_files" "content"; then
+        zone_insert+=", content"
+        zone_values+=", '$(mysql_escape "$include_content")'"
+    fi
+    
+    if has_column "zone_files" "directory"; then
+        zone_insert+=", directory"
+        zone_values+=", '$(mysql_escape "$directory")'"
+    fi
+    
+    if has_column "zone_files" "default_ttl"; then
+        zone_insert+=", default_ttl"
+        zone_values+=", 3600"
+    fi
+    
+    if has_column "zone_files" "created_at"; then
+        zone_insert+=", created_at"
+        zone_values+=", NOW()"
+    fi
+    
+    zone_insert+=") $zone_values);"
+    
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo "    [DRY-RUN] Would create include zone: $effective_origin"
+        echo "0"
+        return 0
+    fi
+    
+    # Execute zone creation
+    mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "$zone_insert" 2>&1 || {
+        echo "    ✗ Failed to create include zone" >&2
+        echo ""
+        return 1
+    }
+    
+    # Get zone ID
+    zone_id=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -N -s -e \
+        "SELECT id FROM zone_files WHERE name='$(mysql_escape "$effective_origin")' AND file_type='include' ORDER BY id DESC LIMIT 1" "$DB_NAME")
+    
+    if [[ -z "$zone_id" ]]; then
+        echo "    ✗ Failed to get include zone ID" >&2
+        echo ""
+        return 1
+    fi
+    
+    echo "    ✓ Include zone created (ID: $zone_id)"
+    
+    # Store for deduplication
+    PROCESSED_INCLUDES[$include_path]="$zone_id"
+    [[ -n "$file_hash" ]] && PROCESSED_INCLUDES[$file_hash]="$zone_id"
+    
+    # Parse DNS records from include file (simplified heuristic)
+    # WARNING: This is a basic parser - for complex includes use the Python script
+    local record_count=0
+    while IFS= read -r line; do
+        # Skip empty lines, comments, directives
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*\; ]] && continue
+        [[ "$line" =~ ^\$[A-Z]+ ]] && continue
+        
+        # Basic record parsing (same logic as master zone)
+        local parts=($line)
+        if [[ ${#parts[@]} -lt 3 ]]; then
+            continue
+        fi
+        
+        local record_name="${parts[0]}"
+        local record_type=""
+        local record_value=""
+        
+        # Handle @ for zone apex
+        if [[ "$record_name" == "@" ]]; then
+            record_name="$effective_origin"
+        elif [[ ! "$record_name" =~ \. ]]; then
+            record_name="${record_name}.${effective_origin}"
+        fi
+        
+        # Detect record type
+        for part in "${parts[@]}"; do
+            case "$part" in
+                A|AAAA|CNAME|MX|NS|PTR|TXT|SRV|CAA)
+                    record_type="$part"
+                    break
+                    ;;
+            esac
+        done
+        
+        [[ -z "$record_type" ]] && continue
+        
+        # Extract value
+        local found_type=0
+        record_value=""
+        for part in "${parts[@]}"; do
+            if [[ $found_type -eq 1 ]]; then
+                record_value+="$part "
+            elif [[ "$part" == "$record_type" ]]; then
+                found_type=1
+            fi
+        done
+        record_value=$(echo "$record_value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        
+        [[ -z "$record_value" ]] && continue
+        
+        # Create record for include
+        local record_insert="INSERT INTO dns_records (zone_file_id, record_type, name, value, ttl, status, created_by"
+        local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")', 3600, 'active', $USER_ID"
+        
+        # Add type-specific columns (simplified)
+        if [[ "$record_type" == "A" ]] && has_column "dns_records" "address_ipv4"; then
+            record_insert+=", address_ipv4"
+            record_vals+=", '$(mysql_escape "$record_value")'"
+        elif [[ "$record_type" == "CNAME" ]] && has_column "dns_records" "cname_target"; then
+            record_insert+=", cname_target"
+            record_vals+=", '$(mysql_escape "$record_value")'"
+        fi
+        
+        if has_column "dns_records" "created_at"; then
+            record_insert+=", created_at"
+            record_vals+=", NOW()"
+        fi
+        
+        record_insert+=") $record_vals);"
+        
+        mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "$record_insert" 2>&1 && {
+            ((record_count++))
+        }
+        
+    done <<< "$include_content"
+    
+    echo "    ✓ Created $record_count record(s) for include"
+    echo "$zone_id"
+    return 0
+}
+
 # Parse a simple zone file (heuristic approach)
 parse_zone_file() {
     local file="$1"
@@ -233,6 +523,57 @@ parse_zone_file() {
     fi
     
     echo "  Default TTL: $default_ttl"
+    
+    # Find and process $INCLUDE directives if --create-includes is enabled
+    local include_zone_ids=()
+    if [[ $CREATE_INCLUDES -eq 1 ]]; then
+        echo "  Checking for \$INCLUDE directives..."
+        local include_count=0
+        local line_num=0
+        local current_origin="$origin"
+        
+        while IFS= read -r line; do
+            ((line_num++))
+            
+            # Track $ORIGIN changes
+            if [[ "$line" =~ ^\$ORIGIN[[:space:]]+([^[:space:]]+) ]]; then
+                current_origin="${BASH_REMATCH[1]}"
+                current_origin="${current_origin%.}"
+                continue
+            fi
+            
+            # Find $INCLUDE directives
+            if [[ "$line" =~ ^\$INCLUDE[[:space:]]+([^[:space:]]+)([[:space:]]+([^[:space:]]+))? ]]; then
+                local include_file="${BASH_REMATCH[1]}"
+                local include_origin="${BASH_REMATCH[3]:-$current_origin}"
+                
+                # Remove quotes
+                include_file="${include_file//\"/}"
+                include_file="${include_file//\'/}"
+                
+                echo "  Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
+                
+                # Resolve include path
+                local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
+                if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
+                    # Process include file
+                    local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name")
+                    if [[ -n "$include_id" ]] && [[ "$include_id" != "0" ]]; then
+                        include_zone_ids+=("$include_id:$include_count")
+                        ((include_count++))
+                    else
+                        echo "  ⚠ Failed to process include at line $line_num: $include_file" >&2
+                    fi
+                else
+                    echo "  ⚠ Could not resolve include at line $line_num: $include_file" >&2
+                fi
+            fi
+        done < "$file"
+        
+        if [[ ${#include_zone_ids[@]} -gt 0 ]]; then
+            echo "  ✓ Processed ${#include_zone_ids[@]} include(s)"
+        fi
+    fi
     
     # Parse SOA (heuristic - assumes standard multi-line format)
     # WARNING: This uses -A 6 to grab 6 lines after SOA keyword, which works for most
@@ -303,6 +644,19 @@ parse_zone_file() {
         zone_values+=", $soa_minimum"
     fi
     
+    # Store file content with $INCLUDE directives preserved
+    if has_column "zone_files" "content"; then
+        local file_content=$(cat "$file")
+        zone_insert+=", content"
+        zone_values+=", '$(mysql_escape "$file_content")'"
+    fi
+    
+    # Store directory path
+    if has_column "zone_files" "directory"; then
+        zone_insert+=", directory"
+        zone_values+=", '$(mysql_escape "$(dirname "$file")")'"
+    fi
+    
     if has_column "zone_files" "created_at"; then
         zone_insert+=", created_at"
         zone_values+=", NOW()"
@@ -312,6 +666,11 @@ parse_zone_file() {
     
     if [[ $DRY_RUN -eq 1 ]]; then
         echo "  [DRY-RUN] Would execute: $zone_insert"
+        
+        # Show includes that would be created
+        if [[ ${#include_zone_ids[@]} -gt 0 ]]; then
+            echo "  [DRY-RUN] Would create ${#include_zone_ids[@]} zone_file_includes relationship(s)"
+        fi
     else
         # Execute zone creation
         mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" "$DB_NAME" -e "$zone_insert" 2>&1 || {
@@ -324,6 +683,15 @@ parse_zone_file() {
             "SELECT id FROM zone_files WHERE name='$(mysql_escape "$zone_name")' ORDER BY id DESC LIMIT 1" "$DB_NAME")
         
         echo "  ✓ Zone created (ID: $zone_id)"
+        
+        # Create zone_file_includes relationships
+        if [[ ${#include_zone_ids[@]} -gt 0 ]]; then
+            for include_info in "${include_zone_ids[@]}"; do
+                local include_id="${include_info%%:*}"
+                local position="${include_info##*:}"
+                create_zone_file_include_relationship "$zone_id" "$include_id" "$position"
+            done
+        fi
     fi
     
     # Parse DNS records (heuristic - line-by-line only)
