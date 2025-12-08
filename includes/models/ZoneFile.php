@@ -974,14 +974,25 @@ class ZoneFile {
             if ($zone['file_type'] === 'master' && count($visited) === 1) {
                 // Add $TTL directive
                 $defaultTtl = !empty($zone['default_ttl']) ? $zone['default_ttl'] : 86400;
-                $content .= '$TTL ' . $defaultTtl . "\n\n";
+                $content .= '$TTL ' . $defaultTtl . "\n";
+                
+                // Add $ORIGIN directive
+                $zoneName = $zone['name'] ?? $zone['domain'] ?? '';
+                if (!empty($zoneName)) {
+                    // Ensure zone name ends with a dot for FQDN
+                    if (substr($zoneName, -1) !== '.') {
+                        $zoneName .= '.';
+                    }
+                    $content .= '$ORIGIN ' . $zoneName . "\n";
+                }
+                $content .= "\n";
                 
                 // Generate and add SOA record
                 $mname = !empty($zone['mname']) ? $zone['mname'] : null;
                 $soaRecord = $this->generateSoaRecord($zone, $mname);
                 $content .= $soaRecord . "\n\n";
                 
-                $this->logValidation("Added zone header ($TTL and SOA) for master zone ID $masterId");
+                $this->logValidation("Added zone header ($TTL, $ORIGIN, SOA) for master zone ID $masterId");
             }
             
             // Add zone's own content first (without $INCLUDE directives)

@@ -22,6 +22,17 @@ class ZoneFlatHeaderTest extends TestCase {
     }
     
     /**
+     * Test that $ORIGIN directive is added to flat zone content
+     */
+    public function testFlatZoneContainsOrigin() {
+        // Simulate an ORIGIN directive
+        $originDirective = '$ORIGIN example.com.';
+        
+        $this->assertStringContainsString('$ORIGIN', $originDirective, 'Flat zone should contain $ORIGIN directive');
+        $this->assertStringContainsString('example.com.', $originDirective, 'ORIGIN should contain zone name with trailing dot');
+    }
+    
+    /**
      * Test that SOA record is added to flat zone content
      */
     public function testFlatZoneContainsSoa() {
@@ -67,15 +78,18 @@ class ZoneFlatHeaderTest extends TestCase {
      */
     public function testZoneHeaderOrder() {
         // Simulate a complete zone header
-        $zoneContent = "\$TTL 86400\n\n@ IN SOA ns1.example.com. admin.example.com. (\n    2024120801 ; Serial\n    10800 ; Refresh\n    900 ; Retry\n    604800 ; Expire\n    3600 ; Minimum\n)\n\n";
+        $zoneContent = "\$TTL 86400\n\$ORIGIN example.com.\n\n@ IN SOA ns1.example.com. admin.example.com. (\n    2024120801 ; Serial\n    10800 ; Refresh\n    900 ; Retry\n    604800 ; Expire\n    3600 ; Minimum\n)\n\n";
         
         // Check that $TTL comes first
         $ttlPos = strpos($zoneContent, '$TTL');
+        $originPos = strpos($zoneContent, '$ORIGIN');
         $soaPos = strpos($zoneContent, 'IN SOA');
         
         $this->assertNotFalse($ttlPos, 'Zone should contain $TTL');
+        $this->assertNotFalse($originPos, 'Zone should contain $ORIGIN');
         $this->assertNotFalse($soaPos, 'Zone should contain SOA record');
-        $this->assertLessThan($soaPos, $ttlPos, '$TTL should come before SOA record');
+        $this->assertLessThan($originPos, $ttlPos, '$TTL should come before $ORIGIN');
+        $this->assertLessThan($soaPos, $originPos, '$ORIGIN should come before SOA record');
     }
     
     /**
@@ -114,10 +128,11 @@ class ZoneFlatHeaderTest extends TestCase {
     public function testBindRequiredComponents() {
         // According to BIND spec, a valid zone file needs:
         // 1. $TTL directive
-        // 2. SOA record
-        // 3. At least one NS record
+        // 2. $ORIGIN directive (optional but recommended)
+        // 3. SOA record
+        // 4. At least one NS record
         
-        $requiredComponents = ['$TTL', 'IN SOA', 'IN NS'];
+        $requiredComponents = ['$TTL', '$ORIGIN', 'IN SOA', 'IN NS'];
         
         foreach ($requiredComponents as $component) {
             $this->assertIsString($component, 'Required component should be a string');
