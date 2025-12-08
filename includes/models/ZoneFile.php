@@ -1886,8 +1886,11 @@ class ZoneFile {
         } finally {
             // Clean up temporary directory unless DEBUG_KEEP_TMPDIR is set
             if (!defined('DEBUG_KEEP_TMPDIR') || !DEBUG_KEEP_TMPDIR) {
-                $this->rrmdir($tmpDir);
-                $this->logValidation("Temporary directory cleaned up: $tmpDir");
+                if ($this->rrmdir($tmpDir)) {
+                    $this->logValidation("Temporary directory cleaned up successfully: $tmpDir");
+                } else {
+                    $this->logValidation("ERROR: Failed to clean up temporary directory: $tmpDir");
+                }
             } else {
                 $this->logValidation("DEBUG: Temporary directory kept at: $tmpDir (JOBS_KEEP_TMP=1)");
             }
@@ -2161,10 +2164,24 @@ class ZoneFile {
         $files = array_diff(scandir($dir), ['.', '..']);
         foreach ($files as $file) {
             $path = $dir . '/' . $file;
-            is_dir($path) ? $this->rrmdir($path) : unlink($path);
+            if (is_dir($path)) {
+                if (!$this->rrmdir($path)) {
+                    return false;
+                }
+            } else {
+                if (!@unlink($path)) {
+                    error_log("Failed to delete file: $path");
+                    return false;
+                }
+            }
         }
         
-        return rmdir($dir);
+        if (!@rmdir($dir)) {
+            error_log("Failed to remove directory: $dir");
+            return false;
+        }
+        
+        return true;
     }
     
     /**
