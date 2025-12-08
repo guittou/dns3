@@ -32,6 +32,12 @@ header('Content-Type: application/json; charset=utf-8');
 // Initialize authentication
 $auth = new Auth();
 
+// Try Bearer token authentication first (for API clients)
+// If no token or invalid token, fall back to session authentication
+if (!$auth->isLoggedIn()) {
+    $auth->authenticateToken();
+}
+
 /**
  * Check if user is admin (required for all endpoints)
  */
@@ -684,6 +690,164 @@ try {
                 echo json_encode(['error' => 'Échec de la création de l\'utilisateur externe']);
                 exit;
             }
+            break;
+            
+        case 'list_tokens':
+            // List API tokens for a user
+            $user_id = isset($_GET['user_id']) ? (int)$_GET['user_id'] : null;
+            
+            // If no user_id specified, list tokens for current user
+            if (!$user_id) {
+                $user_id = $currentUser['id'];
+            }
+            
+            // Non-admin users can only list their own tokens
+            if (!$auth->isAdmin() && $user_id != $currentUser['id']) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Vous ne pouvez lister que vos propres tokens']);
+                exit;
+            }
+            
+            require_once __DIR__ . '/../includes/models/ApiToken.php';
+            $apiTokenModel = new ApiToken();
+            
+            $includeRevoked = isset($_GET['include_revoked']) && $_GET['include_revoked'] === 'true';
+            $tokens = $apiTokenModel->listByUser($user_id, $includeRevoked);
+            
+            echo json_encode([
+                'success' => true,
+                'data' => $tokens
+            ]);
+            break;
+            
+        case 'create_token':
+            // Create a new API token
+            $input = json_decode(file_get_contents('php://input'), true);
+            
+            if (!$input || !isset($input['token_name']) || trim($input['token_name']) === '') {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le champ token_name est obligatoire']);
+                exit;
+            }
+            
+            // Admin can create tokens for any user, non-admin only for themselves
+            $user_id = isset($input['user_id']) ? (int)$input['user_id'] : $currentUser['id'];
+            
+            if (!$auth->isAdmin() && $user_id != $currentUser['id']) {
+                http_response_code(403);
+                echo json_encode(['error' => 'Vous ne pouvez créer que vos propres tokens']);
+                exit;
+            }
+            
+            $expiresInDays = isset($input['expires_in_days']) ? (int)$input['expires_in_days'] : null;
+            
+            require_once __DIR__ . '/../includes/models/ApiToken.php';
+            $apiTokenModel = new ApiToken();
+            
+            $result = $apiTokenModel->generate(
+                $user_id,
+                trim($input['token_name']),
+                $currentUser['id'],
+                $expiresInDays
+            );
+            
+            if (!$result) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Échec de la création du token']);
+                exit;
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Token créé avec succès. Conservez-le en lieu sûr, il ne sera plus visible.',
+                'data' => [
+                    'id' => $result['id'],
+                    'token' => $result['token'],
+                    'prefix' => $result['prefix']
+                ]
+            ]);
+            break;
+            
+        case 'revoke_token':
+            // Revoke an API token
+            $token_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            
+            if ($token_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'ID de token invalide']);
+                exit;
+            }
+            
+            require_once __DIR__ . '/../includes/models/ApiToken.php';
+            $apiTokenModel = new ApiToken();
+            
+            // Verify ownership if not admin
+            if (!$auth->isAdmin()) {
+                $db = Database::getInstance()->getConnection();
+                $stmt = $db->prepare("SELECT user_id FROM api_tokens WHERE id = ?");
+                $stmt->execute([$token_id]);
+                $token = $stmt->fetch();
+                
+                if (!$token || $token['user_id'] != $currentUser['id']) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Vous ne pouvez révoquer que vos propres tokens']);
+                    exit;
+                }
+            }
+            
+            $result = $apiTokenModel->revoke($token_id);
+            
+            if (!$result) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Échec de la révocation du token']);
+                exit;
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Token révoqué avec succès'
+            ]);
+            break;
+            
+        case 'delete_token':
+            // Permanently delete an API token
+            $token_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+            
+            if ($token_id <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'ID de token invalide']);
+                exit;
+            }
+            
+            require_once __DIR__ . '/../includes/models/ApiToken.php';
+            $apiTokenModel = new ApiToken();
+            
+            // Verify ownership if not admin
+            if (!$auth->isAdmin()) {
+                $db = Database::getInstance()->getConnection();
+                $stmt = $db->prepare("SELECT user_id FROM api_tokens WHERE id = ?");
+                $stmt->execute([$token_id]);
+                $token = $stmt->fetch();
+                
+                if (!$token || $token['user_id'] != $currentUser['id']) {
+                    http_response_code(403);
+                    echo json_encode(['error' => 'Vous ne pouvez supprimer que vos propres tokens']);
+                    exit;
+                }
+            }
+            
+            $result = $apiTokenModel->delete($token_id);
+            
+            if (!$result) {
+                http_response_code(500);
+                echo json_encode(['error' => 'Échec de la suppression du token']);
+                exit;
+            }
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Token supprimé avec succès'
+            ]);
             break;
             
         default:
