@@ -1,91 +1,179 @@
-# DNS3 Documentation
+# Documentation DNS3
 
-This directory contains the main documentation for the DNS3 project. Older draft files, PR descriptions, and intermediate implementation notes have been moved to the `archive/` subdirectory.
+Bienvenue dans la documentation du projet DNS3, une application web PHP pour la gestion de zones DNS et d'enregistrements DNS.
 
-## Table of Contents
+---
 
-### Admin & Configuration
-- [Admin Implementation](ADMIN_IMPLEMENTATION.md) - Implementation details for admin interface
-- [Admin UI Overview](ADMIN_UI_OVERVIEW.md) - Overview of admin user interface
-- [Admin Auth Changes](ADMIN_AUTH_CHANGES.md) - Authentication system changes
-- [Admin Interface Guide](ADMIN_INTERFACE_GUIDE.md) - Guide for using admin interface
-- [Admin Quick Reference](ADMIN_QUICK_REFERENCE.md) - Quick reference for admin tasks
-- [Admin Release Notes](ADMIN_RELEASE_NOTES.md) - Release notes for admin features
-- [Admin File Structure](ADMIN_FILE_STRUCTURE.txt) - File structure documentation
+## Table des matières
 
-### Architecture & Implementation
-- [Architecture Diagram](ARCHITECTURE_DIAGRAM.md) - System architecture overview
-- [Implementation Notes](IMPLEMENTATION_NOTES.md) - General implementation notes
-- [Implementation Status](IMPLEMENTATION_STATUS.md) - Current implementation status
-- [Implementation Visual Guide](IMPLEMENTATION_VISUAL_GUIDE.md) - Visual guide to implementation
-- [Final Status](FINAL_STATUS.md) - Final project status
+### 📚 Introduction et Démarrage
 
-### API & Validation
-- [API Validation Implementation](API_VALIDATION_IMPLEMENTATION.md) - API validation system
-- [Preview Validation Implementation](PREVIEW_VALIDATION_IMPLEMENTATION.md) - Preview validation
-- [Validation Flow Diagram](VALIDATION_FLOW_DIAGRAM.md) - Validation process flow
-- [Validation Flattening Implementation](VALIDATION_FLATTENING_IMPLEMENTATION.md) - Validation flattening
-- [Validation Include Master Implementation](VALIDATION_INCLUDE_MASTER_IMPLEMENTATION.md) - Include validation
-- [Validation Line Extraction](VALIDATION_LINE_EXTRACTION.md) - Line extraction for validation
+- [Vue d'ensemble du projet](../README.md) - Présentation générale, fonctionnalités et aperçu
+- [Guide d'installation](INSTALL.md) - Installation rapide et configuration initiale
+- [Démarrage rapide avec les tokens API](../GETTING_STARTED_API_TOKENS.md) - Guide de démarrage pour l'authentification par tokens API
 
-### DNS Management & Zone Files
-- [DNS Management Guide](DNS_MANAGEMENT_GUIDE.md) - Guide for DNS management
-- [DNS Metadata Implementation](DNS_METADATA_IMPLEMENTATION.md) - DNS metadata handling
-- [Zone File Generation Implementation](ZONE_FILE_GENERATION_IMPLEMENTATION.md) - Zone file generation
-- [Zone Files Implementation Summary](ZONE_FILES_IMPLEMENTATION_SUMMARY.md) - Zone files summary
-- [Zone Files Quick Start](ZONE_FILES_QUICK_START.md) - Quick start guide
-- [Zone Files Quick Reference](ZONE_FILES_QUICK_REFERENCE.md) - Quick reference
-- [Zone Files Recursive Implementation](ZONE_FILES_RECURSIVE_IMPLEMENTATION.md) - Recursive implementation
-- [Zone Files Testing Guide](ZONE_FILES_TESTING_GUIDE.md) - Testing guide for zone files
-- [Zone Generation Final Summary](ZONE_GENERATION_FINAL_SUMMARY.md) - Final summary
-- [Zone Validation Improvements](ZONE_VALIDATION_IMPROVEMENTS.md) - Validation improvements
-- [Zonefile Combobox Verification](ZONEFILE_COMBOBOX_VERIFICATION.md) - Combobox verification
+---
 
-### UI & Visual Changes
-- [UI Changes Documentation](UI_CHANGES_DOCUMENTATION.md) - UI changes overview
-- [UI Changes Visual Guide](UI_CHANGES_VISUAL_GUIDE.md) - Visual guide to UI changes
-- [UI Visual Guide](UI_VISUAL_GUIDE.md) - General UI visual guide
-- [Visual Changes Guide](VISUAL_CHANGES_GUIDE.md) - Guide to visual changes
-- [Created/Updated UI Implementation](CREATED_UPDATED_UI_IMPLEMENTATION.md) - Created/Updated fields UI
-- [Responsive Table Implementation](RESPONSIVE_TABLE_IMPLEMENTATION.md) - Responsive tables
-- [Type Specific Fields Summary](TYPE_SPECIFIC_FIELDS_SUMMARY.md) - Type-specific fields
+### 🔧 Administration et Configuration
 
-### Modal Components
-- [Modal Error Banner Implementation](MODAL_ERROR_BANNER_IMPLEMENTATION.md) - Error banner in modals
-- [Modal Centering Implementation](MODAL_CENTERING_IMPLEMENTATION.md) - Modal centering
-- [Modal Standardization Implementation](MODAL_STANDARDIZATION_IMPLEMENTATION.md) - Modal standardization
-- [Preview Modal Flow](PREVIEW_MODAL_FLOW.md) - Preview modal workflow
+- [Guide d'utilisation de l'interface d'administration](ADMIN_INTERFACE_GUIDE.md) - Guide complet de l'interface admin
+- [Implémentation de l'interface admin](ADMIN_IMPLEMENTATION.md) - Détails d'implémentation de l'admin
+- [Vue d'ensemble de l'interface admin](ADMIN_UI_OVERVIEW.md) - Aperçu de l'UI d'administration
+- [Référence rapide admin](ADMIN_QUICK_REFERENCE.md) - Référence rapide pour les tâches courantes
+- [Notes de version admin](ADMIN_RELEASE_NOTES.md) - Historique des versions et changements
+- [Modifications de l'authentification admin](ADMIN_AUTH_CHANGES.md) - Changements dans le système d'authentification
 
-### Pagination & Tables
-- [Implementation Summary Pagination](IMPLEMENTATION_SUMMARY_PAGINATION.md) - Pagination implementation
+---
 
-### Installation & Setup
-- [Install Guide](INSTALL.md) - Installation instructions
+### 🌐 Gestion DNS et Zones
 
-### Testing
-- [Testing Guide](TESTING_GUIDE.md) - Main testing guide
-- [Test Plan](TEST_PLAN.md) - Test plan documentation
-- [Type Specific Fields Test Plan](TYPE_SPECIFIC_FIELDS_TEST_PLAN.md) - Type-specific testing
+- [Guide de gestion DNS](DNS_MANAGEMENT_GUIDE.md) - Guide complet pour gérer les enregistrements DNS
+- [Implémentation des métadonnées DNS](DNS_METADATA_IMPLEMENTATION.md) - Détails sur la gestion des métadonnées
+- [Génération de fichiers de zone](ZONE_FILE_GENERATION_IMPLEMENTATION.md) - Implémentation de la génération de zones
+- [Résumé de l'implémentation des fichiers de zone](ZONE_FILES_IMPLEMENTATION_SUMMARY.md) - Vue d'ensemble de l'implémentation
+- [Démarrage rapide - Fichiers de zone](ZONE_FILES_QUICK_START.md) - Guide de démarrage rapide
+- [Référence rapide - Fichiers de zone](ZONE_FILES_QUICK_REFERENCE.md) - Référence rapide pour les zones
+- [Implémentation récursive des fichiers de zone](ZONE_FILES_RECURSIVE_IMPLEMENTATION.md) - Support des includes récursifs
+- [Guide de test des fichiers de zone](ZONE_FILES_TESTING_GUIDE.md) - Tests pour les fichiers de zone
+- [Résumé final de génération de zone](ZONE_GENERATION_FINAL_SUMMARY.md) - Résumé de la génération
+- [Améliorations de validation de zone](ZONE_VALIDATION_IMPROVEMENTS.md) - Améliorations de la validation
+- [Vérification du combobox de zone](ZONEFILE_COMBOBOX_VERIFICATION.md) - Vérification de l'UI
 
-### Delivery & Completion
-- [Completion Notice](COMPLETION_NOTICE.md) - Project completion notice
-- [Delivery Summary](DELIVERY_SUMMARY.md) - Delivery summary
-- [Verification Checklist](VERIFICATION_CHECKLIST.md) - Verification checklist
-- [Verification Complete](VERIFICATION_COMPLETE.md) - Verification completion
+---
 
-### Other Documentation
-- [Include Inlining Documentation](INCLUDE_INLINING_DOCUMENTATION.md) - Include file inlining
-- [Update last_seen from BIND Logs](UPDATE_LAST_SEEN_FROM_BIND_LOGS.md) - Script et documentation pour mettre à jour last_seen à partir des logs de requêtes BIND
+### 🔌 API et Intégration
 
-## Archive
+- [Authentification par tokens API](api_token_authentication.md) - Documentation complète de l'authentification API
+- [Implémentation de la validation API](API_VALIDATION_IMPLEMENTATION.md) - Détails de validation via API
+- [Implémentation de la validation par preview](PREVIEW_VALIDATION_IMPLEMENTATION.md) - Validation en temps réel
+- [Flux du modal de preview](PREVIEW_MODAL_FLOW.md) - Workflow du preview de zone
+- [Diagramme de flux de validation](VALIDATION_FLOW_DIAGRAM.md) - Schéma du processus de validation
+- [Implémentation de l'aplatissement de validation](VALIDATION_FLATTENING_IMPLEMENTATION.md) - Aplatissement pour validation
+- [Implémentation de la validation include/master](VALIDATION_INCLUDE_MASTER_IMPLEMENTATION.md) - Validation des includes
+- [Extraction de lignes pour validation](VALIDATION_LINE_EXTRACTION.md) - Extraction et traitement des lignes
 
-The [archive/](archive/) directory contains:
-- Old PR descriptions and summaries
-- Intermediate implementation notes
-- Testing guide variants
-- Obsolete modal documentation
-- Validation fix documentation
-- Task completion markers
-- Manual PR instructions
+---
 
-These files are preserved for historical reference but are no longer actively maintained.
+### 📜 Scripts et Utilitaires
+
+- [Import de zones BIND](import_bind_zones.md) - Guide complet d'import de zones BIND
+- [Mise à jour last_seen depuis les logs BIND](UPDATE_LAST_SEEN_FROM_BIND_LOGS.md) - Script pour synchroniser last_seen
+- [Tâches en arrière-plan](../jobs/README.md) - Configuration des workers de validation
+
+---
+
+### 🗄️ Base de Données et Migrations
+
+- [Schéma de base de données](DB_SCHEMA.md) - Documentation complète du schéma
+- [Guide des migrations](../migrations/README.md) - Guide de migration des types d'enregistrements DNS
+
+---
+
+### 🏗️ Architecture et Implémentation
+
+- [Diagramme d'architecture](ARCHITECTURE_DIAGRAM.md) - Vue d'ensemble de l'architecture système
+- [Notes d'implémentation](IMPLEMENTATION_NOTES.md) - Notes générales sur l'implémentation
+- [Statut d'implémentation](IMPLEMENTATION_STATUS.md) - État actuel de l'implémentation
+- [Guide visuel d'implémentation](IMPLEMENTATION_VISUAL_GUIDE.md) - Guide visuel des fonctionnalités
+- [Statut final](FINAL_STATUS.md) - Statut final du projet
+- [Documentation de l'inlining des includes](INCLUDE_INLINING_DOCUMENTATION.md) - Documentation du système d'include
+
+---
+
+### 🎨 Interface Utilisateur
+
+- [Documentation des changements UI](UI_CHANGES_DOCUMENTATION.md) - Aperçu des modifications d'interface
+- [Guide visuel des changements UI](UI_CHANGES_VISUAL_GUIDE.md) - Guide visuel des changements
+- [Guide visuel de l'interface](UI_VISUAL_GUIDE.md) - Guide général de l'interface
+- [Guide des changements visuels](VISUAL_CHANGES_GUIDE.md) - Documentation des modifications visuelles
+- [Implémentation des champs Created/Updated](CREATED_UPDATED_UI_IMPLEMENTATION.md) - Affichage des dates de création/modification
+- [Implémentation des tables responsives](RESPONSIVE_TABLE_IMPLEMENTATION.md) - Tables adaptatives
+- [Résumé des champs spécifiques aux types](TYPE_SPECIFIC_FIELDS_SUMMARY.md) - Champs par type d'enregistrement
+
+#### Modals
+
+- [Implémentation de la bannière d'erreur modale](MODAL_ERROR_BANNER_IMPLEMENTATION.md) - Gestion des erreurs dans les modals
+- [Implémentation du centrage de modal](MODAL_CENTERING_IMPLEMENTATION.md) - Centrage des fenêtres modales
+- [Standardisation des modals](MODAL_STANDARDIZATION_IMPLEMENTATION.md) - Uniformisation des modals
+
+---
+
+### 🧪 Tests et Validation
+
+- [Guide de test](TESTING_GUIDE.md) - Guide principal de test
+- [Plan de test](TEST_PLAN.md) - Plan de test complet
+- [Plan de test des champs spécifiques](TYPE_SPECIFIC_FIELDS_TEST_PLAN.md) - Tests par type d'enregistrement
+- [Checklist de vérification](VERIFICATION_CHECKLIST.md) - Checklist pour validation manuelle
+- [Vérification complétée](VERIFICATION_COMPLETE.md) - Rapport de vérification
+
+---
+
+### 📦 Résumés de Livraison
+
+- [Avis de complétion](COMPLETION_NOTICE.md) - Notification de fin de fonctionnalité
+- [Résumé de livraison](DELIVERY_SUMMARY.md) - Résumé global de livraison
+- [Résumé d'implémentation - Pagination](IMPLEMENTATION_SUMMARY_PAGINATION.md) - Pagination des listes
+
+---
+
+### 📂 Archives
+
+Les documents suivants sont archivés pour référence historique mais ne sont plus maintenus activement :
+
+- [Archive complète](archive/) - Ancien contenu (PR descriptions, guides de test obsolètes, notes intermédiaires)
+  - Instructions de PR manuelles
+  - Guides de test de fonctionnalités retirées
+  - Documentation de corrections de bugs spécifiques
+  - Résumés de PR historiques
+
+> **Note**: Les fichiers dans `docs/archive/` sont conservés pour l'historique mais peuvent être obsolètes. Référez-vous toujours aux documents principaux ci-dessus pour les informations à jour.
+
+---
+
+## Comment Contribuer à la Documentation
+
+Pour ajouter ou modifier de la documentation, consultez [CONTRIBUTING_DOCS.md](CONTRIBUTING_DOCS.md).
+
+---
+
+## Structure des Fichiers
+
+```
+dns3/
+├── README.md                          # Présentation générale du projet
+├── GETTING_STARTED_API_TOKENS.md      # Guide de démarrage API tokens
+├── docs/
+│   ├── SUMMARY.md                     # Ce fichier - index global
+│   ├── CONTRIBUTING_DOCS.md           # Guide de contribution documentation
+│   ├── INSTALL.md                     # Guide d'installation
+│   ├── DB_SCHEMA.md                   # Documentation du schéma
+│   ├── ADMIN_*.md                     # Documentation admin
+│   ├── DNS_*.md                       # Documentation DNS
+│   ├── ZONE_*.md                      # Documentation zones
+│   ├── API_*.md                       # Documentation API
+│   ├── UI_*.md                        # Documentation interface
+│   ├── TESTING_*.md                   # Documentation tests
+│   ├── import_bind_zones.md           # Import BIND
+│   ├── api_token_authentication.md    # Auth API
+│   └── archive/                       # Archives historiques
+├── jobs/
+│   └── README.md                      # Workers de validation
+└── migrations/
+    └── README.md                      # Guide des migrations
+```
+
+---
+
+## Liens Rapides
+
+- **Installation** : [INSTALL.md](INSTALL.md)
+- **Guide Admin** : [ADMIN_INTERFACE_GUIDE.md](ADMIN_INTERFACE_GUIDE.md)
+- **API Tokens** : [api_token_authentication.md](api_token_authentication.md)
+- **Import BIND** : [import_bind_zones.md](import_bind_zones.md)
+- **Schéma DB** : [DB_SCHEMA.md](DB_SCHEMA.md)
+- **Tests** : [TESTING_GUIDE.md](TESTING_GUIDE.md)
+
+---
+
+**Dernière mise à jour** : 2025-12-08  
+**Version de la documentation** : 2.0
