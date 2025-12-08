@@ -24,6 +24,11 @@ define('LDAP_BIND_PASS', 'your_ldap_password');
 define('SITE_NAME', 'DNS3');
 define('BASE_URL', '/dns3/');
 
+// Application version and contact information
+if (!defined('APP_VERSION')) define('APP_VERSION', '1.0.0');
+if (!defined('CONTACT_LABEL')) define('CONTACT_LABEL', 'Mon/Organisme/a/moi');
+if (!defined('CONTACT_EMAIL')) define('CONTACT_EMAIL', 'moi@mondomaine.fr');
+
 // Zone validation configuration
 define('ZONE_VALIDATE_SYNC', false); // Set to true to run named-checkzone synchronously
 define('NAMED_CHECKZONE_PATH', 'named-checkzone'); // Path to named-checkzone binary
