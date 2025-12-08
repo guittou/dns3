@@ -13,6 +13,10 @@ if (!$auth->isAdmin()) {
 }
 ?>
 
+<!-- Optional: Admin Tokens specific styles -->
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/admin-tokens.css">
+
+
 <div class="admin-container">
     <h1>Administration</h1>
     
@@ -21,6 +25,7 @@ if (!$auth->isAdmin()) {
         <button class="admin-tab-button active" data-tab="users">Utilisateurs</button>
         <button class="admin-tab-button" data-tab="roles">Rôles</button>
         <button class="admin-tab-button" data-tab="mappings">Mappings AD/LDAP</button>
+        <button class="admin-tab-button" data-tab="tokens">Tokens API</button>
     </div>
     
     <!-- Tab Content: Users -->
@@ -130,6 +135,44 @@ if (!$auth->isAdmin()) {
                 <tbody id="mappings-tbody">
                     <tr>
                         <td colspan="8" class="loading">Chargement des mappings...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Tab Content: API Tokens -->
+    <div class="admin-tab-content" id="tab-tokens">
+        <div class="tab-header">
+            <h2>Tokens API</h2>
+            <button class="btn btn-primary" id="btn-create-token" onclick="if(typeof openCreateTokenModal==='function')openCreateTokenModal();">
+                <span class="icon">+</span> Créer un token
+            </button>
+        </div>
+        
+        <div class="info-box">
+            <p><strong>Tokens API</strong> permettent l'authentification via Bearer token pour les appels API automatisés.</p>
+            <p>⚠️ <strong>Important:</strong> Le token en clair n'est visible qu'une seule fois après création. Copiez-le et conservez-le en lieu sûr.</p>
+            <p><strong>Utilisation:</strong> Ajoutez l'en-tête <code>Authorization: Bearer VOTRE_TOKEN</code> à vos requêtes API.</p>
+        </div>
+        
+        <div class="table-container">
+            <table class="admin-table" id="tokens-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nom</th>
+                        <th>Préfixe</th>
+                        <th>Créé le</th>
+                        <th>Expire le</th>
+                        <th>Dernier usage</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tokens-tbody">
+                    <tr>
+                        <td colspan="8" class="loading">Chargement des tokens...</td>
                     </tr>
                 </tbody>
             </table>
@@ -245,6 +288,75 @@ if (!$auth->isAdmin()) {
             <div class="modal-action-bar">
                 <button type="submit" class="btn-success modal-action-button" form="form-mapping">Créer</button>
                 <button type="button" class="btn-cancel modal-action-button" onclick="closeMappingModal()">Annuler</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Create Token -->
+<div id="modal-token" class="dns-modal">
+    <div class="dns-modal-content modal-medium">
+        <div class="dns-modal-header">
+            <h3>Créer un token API</h3>
+            <button class="dns-modal-close" onclick="closeTokenModal()">&times;</button>
+        </div>
+        <div class="dns-modal-body">
+            <form id="form-token">
+                <div class="form-group">
+                    <label for="token-name">Nom du token *</label>
+                    <input type="text" id="token-name" name="token_name" required 
+                           placeholder="Ex: Script de backup, CI/CD, Application mobile">
+                    <small class="form-hint">Donnez un nom descriptif pour identifier l'usage de ce token</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="token-expires-in-days">Expiration (jours)</label>
+                    <input type="number" id="token-expires-in-days" name="expires_in_days" min="1" max="3650" 
+                           placeholder="Optionnel - laissez vide pour pas d'expiration">
+                    <small class="form-hint">Nombre de jours avant expiration. Laissez vide pour un token sans expiration.</small>
+                </div>
+            </form>
+        </div>
+        <div class="dns-modal-footer">
+            <div class="modal-action-bar">
+                <button type="submit" class="btn-success modal-action-button" form="form-token">Créer</button>
+                <button type="button" class="btn-cancel modal-action-button" onclick="closeTokenModal()">Annuler</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Display Token Once -->
+<div id="modal-token-display" class="dns-modal">
+    <div class="dns-modal-content modal-medium">
+        <div class="dns-modal-header">
+            <h3>⚠️ Token créé - Copiez-le maintenant</h3>
+            <button class="dns-modal-close" onclick="closeTokenDisplayModal()">&times;</button>
+        </div>
+        <div class="dns-modal-body">
+            <div class="warning-box">
+                <p><strong>IMPORTANT:</strong> Ce token ne sera plus jamais affiché. Copiez-le maintenant et conservez-le en lieu sûr.</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="token-display-value">Votre token API:</label>
+                <div class="token-display-container">
+                    <input type="text" id="token-display-value" readonly class="token-display-input">
+                    <button type="button" class="btn btn-primary" id="btn-copy-token" onclick="copyTokenToClipboard()">
+                        📋 Copier
+                    </button>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <p><strong>Utilisation:</strong></p>
+                <p>Ajoutez cet en-tête à vos requêtes API:</p>
+                <pre><code>Authorization: Bearer VOTRE_TOKEN</code></pre>
+            </div>
+        </div>
+        <div class="dns-modal-footer">
+            <div class="modal-action-bar">
+                <button type="button" class="btn-success modal-action-button" onclick="closeTokenDisplayModal()">J'ai copié le token</button>
             </div>
         </div>
     </div>
@@ -503,6 +615,51 @@ if (!$auth->isAdmin()) {
 #user-roles-checkboxes input[type="checkbox"] {
     width: auto;
     margin-right: 8px;
+}
+
+/* Token-specific styles */
+.warning-box {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.warning-box p {
+    margin: 5px 0;
+    color: #856404;
+}
+
+.token-display-container {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.token-display-input {
+    flex: 1;
+    font-family: monospace;
+    font-size: 14px;
+    padding: 10px;
+    border: 2px solid #3498db;
+    border-radius: 4px;
+    background-color: #f8f9fa;
+}
+
+.badge-revoked {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.badge-expired {
+    background-color: #e67e22;
+    color: white;
+}
+
+.badge-token-active {
+    background-color: #27ae60;
+    color: white;
 }
 </style>
 

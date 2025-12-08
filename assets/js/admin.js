@@ -142,6 +142,9 @@
                         case 'mappings':
                             loadResult = await loadMappingsPrecheck();
                             break;
+                        case 'tokens':
+                            loadResult = await loadTokensPrecheck();
+                            break;
                         default:
                             loadResult = { success: true };
                     }
@@ -170,6 +173,9 @@
                             break;
                         case 'mappings':
                             loadMappings();
+                            break;
+                        case 'tokens':
+                            loadTokens();
                             break;
                     }
                 } catch (error) {
@@ -700,6 +706,219 @@
     };
 
     /**
+     * Precheck if tokens tab is accessible
+     */
+    async function loadTokensPrecheck() {
+        try {
+            const url = getApiUrl('list_tokens', {});
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+            
+            if (response.status === 403) {
+                return { accessDenied: true };
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Tokens precheck network error:', error);
+            return { success: true, networkError: true, message: error.message };
+        }
+    }
+
+    /**
+     * Load API tokens list
+     */
+    async function loadTokens() {
+        const tbody = document.getElementById('tokens-tbody');
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Chargement des tokens...</td></tr>';
+
+        try {
+            const data = await apiCall('list_tokens', {});
+            
+            if (!data.data || data.data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Aucun token trouvé</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = data.data.map(token => {
+                // Determine status badge
+                let statusBadge;
+                if (token.revoked_at !== null) {
+                    statusBadge = '<span class="badge badge-revoked">Révoqué</span>';
+                } else if (token.expires_at !== null) {
+                    const expiryDate = new Date(token.expires_at);
+                    const now = new Date();
+                    if (expiryDate < now) {
+                        statusBadge = '<span class="badge badge-expired">Expiré</span>';
+                    } else {
+                        statusBadge = '<span class="badge badge-token-active">Actif</span>';
+                    }
+                } else {
+                    statusBadge = '<span class="badge badge-token-active">Actif</span>';
+                }
+                
+                // Determine available actions
+                const isRevoked = token.revoked_at !== null;
+                const revokeButton = !isRevoked 
+                    ? `<button class="btn btn-danger" onclick="revokeToken(${token.id}, '${escapeHtml(token.token_name)}')">Révoquer</button>`
+                    : '';
+                
+                const deleteButton = `<button class="btn btn-danger" onclick="deleteToken(${token.id}, '${escapeHtml(token.token_name)}')">Supprimer</button>`;
+                
+                return `
+                    <tr>
+                        <td>${token.id}</td>
+                        <td>${escapeHtml(token.token_name)}</td>
+                        <td><code>${escapeHtml(token.token_prefix)}...</code></td>
+                        <td>${formatDate(token.created_at)}</td>
+                        <td>${token.expires_at ? formatDate(token.expires_at) : 'Jamais'}</td>
+                        <td>${formatDate(token.last_used_at)}</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            ${revokeButton}
+                            ${deleteButton}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (error) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
+            showAlert('Erreur lors du chargement des tokens: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Open create token modal
+     */
+    window.openCreateTokenModal = function() {
+        document.getElementById('form-token').reset();
+        window.openModalById('modal-token');
+    };
+
+    /**
+     * Close token modal
+     */
+    window.closeTokenModal = function() {
+        window.closeModalById('modal-token');
+        document.getElementById('form-token').reset();
+    };
+
+    /**
+     * Save token (create)
+     */
+    async function saveToken(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(event.target);
+        const tokenData = {
+            token_name: formData.get('token_name')
+        };
+        
+        const expiresInDays = formData.get('expires_in_days');
+        if (expiresInDays && expiresInDays !== '') {
+            tokenData.expires_in_days = parseInt(expiresInDays);
+        }
+        
+        try {
+            const result = await apiCall('create_token', {}, 'POST', tokenData);
+            closeTokenModal();
+            
+            // Show the token in a modal (once only)
+            showTokenOnce(result.data.token, result.data.prefix);
+            
+            // Reload tokens list
+            loadTokens();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Show token in modal once
+     */
+    function showTokenOnce(token, prefix) {
+        document.getElementById('token-display-value').value = token;
+        window.openModalById('modal-token-display');
+        
+        // Auto-select the token for easy copying
+        setTimeout(() => {
+            const input = document.getElementById('token-display-value');
+            input.select();
+        }, 100);
+    }
+
+    /**
+     * Close token display modal
+     */
+    window.closeTokenDisplayModal = function() {
+        window.closeModalById('modal-token-display');
+        document.getElementById('token-display-value').value = '';
+    };
+
+    /**
+     * Copy token to clipboard
+     */
+    window.copyTokenToClipboard = function() {
+        const input = document.getElementById('token-display-value');
+        input.select();
+        
+        try {
+            document.execCommand('copy');
+            showAlert('Token copié dans le presse-papier', 'success');
+        } catch (err) {
+            // Fallback for modern browsers
+            navigator.clipboard.writeText(input.value).then(() => {
+                showAlert('Token copié dans le presse-papier', 'success');
+            }).catch(() => {
+                showAlert('Erreur lors de la copie. Copiez manuellement le token.', 'error');
+            });
+        }
+    };
+
+    /**
+     * Revoke token
+     */
+    window.revokeToken = async function(tokenId, tokenName) {
+        if (!confirm('Êtes-vous sûr de vouloir révoquer le token "' + tokenName + '" ?\n\nCette action est irréversible.')) {
+            return;
+        }
+        
+        try {
+            await apiCall('revoke_token', { id: tokenId }, 'POST');
+            showAlert('Token "' + tokenName + '" révoqué avec succès', 'success');
+            loadTokens();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+
+    /**
+     * Delete token
+     */
+    window.deleteToken = async function(tokenId, tokenName) {
+        if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement le token "' + tokenName + '" ?\n\nCette action est irréversible.')) {
+            return;
+        }
+        
+        try {
+            await apiCall('delete_token', { id: tokenId }, 'POST');
+            showAlert('Token "' + tokenName + '" supprimé avec succès', 'success');
+            loadTokens();
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+        } catch (error) {
+            showAlert('Erreur: ' + error.message, 'error');
+        }
+    };
+
+    /**
      * Escape HTML to prevent XSS
      */
     function escapeHtml(text) {
@@ -1124,11 +1343,13 @@
         // Button event listeners with safe attachment
         safeAddEventListener('btn-create-user', 'click', openCreateUserModal, 'Create user button');
         safeAddEventListener('btn-create-mapping', 'click', openCreateMappingModal, 'Create mapping button');
+        safeAddEventListener('btn-create-token', 'click', openCreateTokenModal, 'Create token button');
         // Domain button removed - domains are now managed via zone files
         
         // Form submissions with safe attachment
         safeAddEventListener('form-user', 'submit', saveUser, 'User form submission');
         safeAddEventListener('form-mapping', 'submit', saveMapping, 'Mapping form submission');
+        safeAddEventListener('form-token', 'submit', saveToken, 'Token form submission');
         // Domain form removed - domains are now managed via zone files
         
         // Close modals on outside click
@@ -1146,6 +1367,7 @@
                 // Check if clicked element or its parent is the button
                 var createUserBtn = target.closest('#btn-create-user');
                 var createMappingBtn = target.closest('#btn-create-mapping');
+                var createTokenBtn = target.closest('#btn-create-token');
                 var deactivateUserBtn = target.closest('.btn-deactivate-user');
                 
                 if (createUserBtn) {
@@ -1155,6 +1377,10 @@
                 } else if (createMappingBtn) {
                     if (typeof openCreateMappingModal === 'function') {
                         openCreateMappingModal();
+                    }
+                } else if (createTokenBtn) {
+                    if (typeof openCreateTokenModal === 'function') {
+                        openCreateTokenModal();
                     }
                 } else if (deactivateUserBtn) {
                     // Handle deactivate user button click via delegation
