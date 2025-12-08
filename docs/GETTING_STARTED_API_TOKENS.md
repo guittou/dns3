@@ -36,7 +36,9 @@ La réponse contiendra votre token (conservez-le !) :
 }
 ```
 
-### Option 2 : Insertion Directe en Base de Données (Pour la Configuration Initiale)
+### Méthode Alternative (DB)
+
+> **⚠️ Avertissement** : Cette méthode est réservée aux situations d'urgence ou à la configuration initiale. En conditions normales, utilisez l'API Admin (Option 1 ci-dessus) pour créer des tokens.
 
 Créez un script PHP simple :
 

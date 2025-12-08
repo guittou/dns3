@@ -11,7 +11,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Vue d'ensemble du projet](../README.md) - Présentation générale, fonctionnalités et aperçu
 - [Guide de démarrage rapide](QUICK_START.md) - Installation en 5 minutes et commandes essentielles
 - [Guide d'installation](INSTALL.md) - Installation rapide et configuration initiale
-- [Démarrage rapide avec les tokens API](GETTING_STARTED_API_TOKENS.md) - Guide de démarrage pour l'authentification par tokens API
+- [Démarrage rapide — tokens API](GETTING_STARTED_API_TOKENS.md) - Guide de démarrage pour l'authentification par tokens API
 
 ---
 
