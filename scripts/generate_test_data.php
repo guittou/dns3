@@ -21,6 +21,10 @@
  * - Ce script crée systématiquement : pour chaque master 100 L1; pour chaque L1 10 L2; pour chaque L2 10 L3.
  */
 
+echo "============================================\n";
+echo "  Générateur de données de test DNS\n";
+echo "============================================\n";
+
 require_once __DIR__ . '/../includes/db.php';
 
 $options = getopt("", ["masters::", "records-per-include::", "user::", "batch-size::"]);
@@ -40,10 +44,26 @@ echo "Config: masters={$mastersCount}, L1_per_master={$L1_PER_MASTER}, L2_per_L1
 $pdo = Database::getInstance()->getConnection();
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+// Détection dynamique de la table zone_file_includes_new
+echo "\n==> Détection des tables de la base de données...\n";
+// Note: Using DATABASE() is safe here as we connect with specific credentials
+// and the database name is controlled by the application configuration
+$checkTableQuery = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'zone_file_includes_new'";
+$hasIncludesNewTable = (bool)$pdo->query($checkTableQuery)->fetchColumn();
+
+if ($hasIncludesNewTable) {
+    echo "  ✓ Table zone_file_includes_new trouvée (liens seront dupliqués)\n";
+} else {
+    echo "  ✗ Table zone_file_includes_new absente (skip duplication des liens)\n";
+}
+echo "\n";
+
+
 function now() { return date('Y-m-d H:i:s'); }
 function make_master_domain($i) { return "root{$i}.example.test"; }
 
 // Prepared statements
+echo "\n==> Préparation des statements SQL...\n";
 $insertZoneStmt = $pdo->prepare(
     "INSERT INTO zone_files (name, filename, content, file_type, domain, status, created_by, created_at, updated_at)
      VALUES (:name, :filename, :content, :file_type, :domain, 'active', :created_by, :created_at, :updated_at)"
@@ -53,9 +73,16 @@ $insertIncludeLinkStmt = $pdo->prepare(
     "INSERT INTO zone_file_includes (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)"
 );
 
-$insertIncludeLinkNewStmt = $pdo->prepare(
-    "INSERT INTO zone_file_includes_new (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)"
-);
+// Préparation conditionnelle pour zone_file_includes_new
+$insertIncludeLinkNewStmt = null;
+if ($hasIncludesNewTable) {
+    $insertIncludeLinkNewStmt = $pdo->prepare(
+        "INSERT INTO zone_file_includes_new (parent_id, include_id, position, created_at) VALUES (:parent_id, :include_id, :position, :created_at)"
+    );
+    echo "  ✓ Statement préparé pour zone_file_includes_new\n";
+} else {
+    echo "  ✗ Statement zone_file_includes_new skippé\n";
+}
 
 $updateContentStmt = $pdo->prepare("UPDATE zone_files SET content = CONCAT(COALESCE(content, ''), :append) WHERE id = :id");
 
@@ -65,6 +92,7 @@ $insertRecordStmt = $pdo->prepare(
      VALUES
      (:zone_file_id, :record_type, :name, :value, :address_ipv4, :address_ipv6, :cname_target, :ptrdname, :txt, :ttl, :priority, :requester, :status, :created_by, :created_at, :updated_at)"
 );
+echo "  ✓ Tous les statements de base préparés\n";
 
 // Counters
 $totalMasters = 0;
@@ -74,7 +102,9 @@ $totalL3 = 0;
 $totalIncludes = 0;
 $totalRecords = 0;
 
-echo "Starting generation...\n";
+echo "\n============================================\n";
+echo "  Début de la génération\n";
+echo "============================================\n";
 
 for ($m = 1; $m <= $mastersCount; $m++) {
     $pdo->beginTransaction();
@@ -138,15 +168,17 @@ for ($m = 1; $m <= $mastersCount; $m++) {
             } catch (Exception $e) {
                 error_log("Warning: link L1 failed parent={$masterId} include={$l1Id} : " . $e->getMessage());
             }
-            try {
-                $insertIncludeLinkNewStmt->execute([
-                    ':parent_id' => $masterId,
-                    ':include_id' => $l1Id,
-                    ':position' => $i1,
-                    ':created_at' => now()
-                ]);
-            } catch (Exception $e) {
-                // ignore
+            if ($insertIncludeLinkNewStmt !== null) {
+                try {
+                    $insertIncludeLinkNewStmt->execute([
+                        ':parent_id' => $masterId,
+                        ':include_id' => $l1Id,
+                        ':position' => $i1,
+                        ':created_at' => now()
+                    ]);
+                } catch (Exception $e) {
+                    // ignore
+                }
             }
 
             // append $INCLUDE to master content
@@ -187,14 +219,16 @@ for ($m = 1; $m <= $mastersCount; $m++) {
                 } catch (Exception $e) {
                     error_log("Warning: link L2 failed parent={$l1Id} include={$l2Id} : " . $e->getMessage());
                 }
-                try {
-                    $insertIncludeLinkNewStmt->execute([
-                        ':parent_id' => $l1Id,
-                        ':include_id' => $l2Id,
-                        ':position' => $i2,
-                        ':created_at' => now()
-                    ]);
-                } catch (Exception $e) { /* ignore */ }
+                if ($insertIncludeLinkNewStmt !== null) {
+                    try {
+                        $insertIncludeLinkNewStmt->execute([
+                            ':parent_id' => $l1Id,
+                            ':include_id' => $l2Id,
+                            ':position' => $i2,
+                            ':created_at' => now()
+                        ]);
+                    } catch (Exception $e) { /* ignore */ }
+                }
 
                 // append $INCLUDE to L1 content (so resolution L1 -> L2)
                 try {
@@ -234,14 +268,16 @@ for ($m = 1; $m <= $mastersCount; $m++) {
                     } catch (Exception $e) {
                         error_log("Warning: link L3 failed parent={$l2Id} include={$l3Id} : " . $e->getMessage());
                     }
-                    try {
-                        $insertIncludeLinkNewStmt->execute([
-                            ':parent_id' => $l2Id,
-                            ':include_id' => $l3Id,
-                            ':position' => $i3,
-                            ':created_at' => now()
-                        ]);
-                    } catch (Exception $e) { /* ignore */ }
+                    if ($insertIncludeLinkNewStmt !== null) {
+                        try {
+                            $insertIncludeLinkNewStmt->execute([
+                                ':parent_id' => $l2Id,
+                                ':include_id' => $l3Id,
+                                ':position' => $i3,
+                                ':created_at' => now()
+                            ]);
+                        } catch (Exception $e) { /* ignore */ }
+                    }
 
                     // append $INCLUDE to L2 content
                     try {
@@ -347,12 +383,16 @@ for ($m = 1; $m <= $mastersCount; $m++) {
 
 $totalIncludes = $totalL1 + $totalL2 + $totalL3;
 
-echo "GENERATED SUMMARY:\n";
-echo " Masters created: {$totalMasters}\n";
-echo " L1 includes: {$totalL1}\n";
-echo " L2 includes: {$totalL2}\n";
-echo " L3 includes: {$totalL3}\n";
+echo "\n============================================\n";
+echo "  Résumé de la génération\n";
+echo "============================================\n";
+echo " Masters créés: {$totalMasters}\n";
+echo " Includes L1: {$totalL1}\n";
+echo " Includes L2: {$totalL2}\n";
+echo " Includes L3: {$totalL3}\n";
 echo " Total includes: {$totalIncludes}\n";
-echo " Total DNS records inserted: {$totalRecords}\n";
-echo "Done.\n";
+echo " Enregistrements DNS insérés: {$totalRecords}\n";
+echo "============================================\n";
+echo "  Génération terminée avec succès\n";
+echo "============================================\n";
 ?>
