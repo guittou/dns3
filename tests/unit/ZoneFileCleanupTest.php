@@ -50,7 +50,7 @@ class ZoneFileCleanupTest extends TestCase {
      * Test that DEBUG_KEEP_TMPDIR prevents cleanup
      */
     public function testDebugKeepTmpdir() {
-        // When DEBUG_KEEP_TMPDIR is true, cleanup should be skipped
+        // When DEBUG_KEEP_TMPDIR is true (set via JOBS_KEEP_TMP=1 env var), cleanup should be skipped
         $debugMessage = "DEBUG: Temporary directory kept at: /tmp/dns3_validate_debug (JOBS_KEEP_TMP=1)";
         
         $this->assertStringStartsWith(
@@ -103,7 +103,8 @@ class ZoneFileCleanupTest extends TestCase {
      */
     public function testTemporaryDirectoryNamingPattern() {
         // sys_get_temp_dir() . '/dns3_validate_' . uniqid()
-        $pattern = '/^\/.*\/dns3_validate_[a-f0-9]+$/';
+        // uniqid() returns alphanumeric string (not just hex)
+        $pattern = '/^\/.*\/dns3_validate_[a-z0-9]+$/';
         
         $examplePath = '/tmp/dns3_validate_5f8a9b2c3d4e1';
         
