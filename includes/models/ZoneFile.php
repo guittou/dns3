@@ -2187,18 +2187,7 @@ class ZoneFile {
             }
         }
         
-        // Verify directory is now empty before attempting removal
-        $remainingFiles = array_diff(scandir($dir), ['.', '..']);
-        if (count($remainingFiles) > 0) {
-            error_log("Cannot remove directory (not empty): $dir");
-            return false;
-        }
-        
-        if (!is_writable($dir)) {
-            error_log("Cannot remove directory (permission denied): $dir");
-            return false;
-        }
-        
+        // Attempt to remove the now-empty directory
         if (!@rmdir($dir)) {
             $error = error_get_last();
             $errorMsg = $error ? $error['message'] : 'unknown error';
