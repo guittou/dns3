@@ -827,6 +827,9 @@
             populateZoneComboboxForDomain(zoneFileId);
         }
         
+        // Update create button state
+        updateCreateBtnState();
+        
         // Reload table with domain filter
         loadDnsTable();
     }
@@ -1008,16 +1011,32 @@
     }
 
     /**
-     * Update create button state based on zone selection
+     * Update create button state based on zone or domain selection
+     * Button is enabled if EITHER a zone file is selected OR a domain is selected
+     * 
+     * Domain selection is detected via:
+     * - selectedDomainId (module-level variable)
+     * - dns-domain-id (hidden field for backward compatibility)
+     * - dns-domain-input (visible input field value)
      */
     function updateCreateBtnState() {
         const createBtn = document.getElementById('dns-create-btn');
         const zoneId = document.getElementById('dns-zone-id');
+        const domainId = document.getElementById('dns-domain-id');
+        const domainInput = document.getElementById('dns-domain-input');
         
-        if (createBtn && zoneId) {
-            // Enable only if zone is selected (has non-empty value)
-            createBtn.disabled = !zoneId.value || zoneId.value === '';
-        }
+        if (!createBtn) return;
+        
+        // Check if zone is selected
+        const hasZone = zoneId && zoneId.value && zoneId.value !== '';
+        
+        // Check if domain is selected (via selectedDomainId module variable, hidden field, or visible input)
+        const hasDomain = (selectedDomainId && selectedDomainId !== '') ||
+                         (domainId && domainId.value && domainId.value !== '') ||
+                         (domainInput && domainInput.value && domainInput.value.trim() !== '');
+        
+        // Enable if either zone or domain is selected
+        createBtn.disabled = !(hasZone || hasDomain);
     }
 
     /**
