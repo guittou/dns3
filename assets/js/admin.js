@@ -913,10 +913,6 @@
             showAlert('Erreur: ' + error.message, 'error');
         }
     };
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
-    };
 
     /**
      * Escape HTML to prevent XSS
