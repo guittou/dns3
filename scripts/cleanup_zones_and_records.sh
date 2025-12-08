@@ -71,6 +71,13 @@ EXISTING_TABLES=()
 MISSING_TABLES=()
 
 for table in "${CANDIDATE_TABLES[@]}"; do
+    # Validate table name contains only alphanumeric, underscore
+    if [[ ! "$table" =~ ^[a-zA-Z0-9_]+$ ]]; then
+        echo "  ⚠ Table name invalide (skip): $table"
+        MISSING_TABLES+=("$table")
+        continue
+    fi
+    
     CHECK_QUERY="SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='$table'"
     COUNT=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -N -s -e "$CHECK_QUERY")
     

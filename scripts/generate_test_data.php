@@ -46,6 +46,8 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Détection dynamique de la table zone_file_includes_new
 echo "\n==> Détection des tables de la base de données...\n";
+// Note: Using DATABASE() is safe here as we connect with specific credentials
+// and the database name is controlled by the application configuration
 $checkTableQuery = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'zone_file_includes_new'";
 $hasIncludesNewTable = (bool)$pdo->query($checkTableQuery)->fetchColumn();
 
