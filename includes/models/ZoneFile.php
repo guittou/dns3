@@ -2169,7 +2169,9 @@ class ZoneFile {
                     return false;
                 }
             } else {
-                // Attempt to delete file and log error if it fails
+                // Attempt to delete file
+                // Using @ to suppress PHP warnings since we explicitly check the return value
+                // and capture the error via error_get_last() for better error messages
                 if (!@unlink($path)) {
                     $error = error_get_last();
                     $errorMsg = $error ? $error['message'] : 'unknown error';
@@ -2180,6 +2182,8 @@ class ZoneFile {
         }
         
         // Attempt to remove the now-empty directory
+        // Using @ to suppress PHP warnings since we explicitly check the return value
+        // and capture the error via error_get_last() for better error messages
         if (!@rmdir($dir)) {
             $error = error_get_last();
             $errorMsg = $error ? $error['message'] : 'unknown error';
