@@ -1,102 +1,102 @@
-# Getting Started with API Token Authentication
+# Démarrage Rapide avec l'Authentification par Tokens API
 
-## Quick Start Guide
+## Guide de Démarrage
 
-This guide will help you get started with the new API token authentication feature.
+Ce guide vous aidera à démarrer avec la nouvelle fonctionnalité d'authentification par tokens API.
 
-## Prerequisites
+## Prérequis
 
-1. Run the database migration:
+1. Exécuter la migration de base de données :
 ```sql
 mysql -u root -p dns3_db < migrations/20251208_add_api_tokens_table.sql
 ```
 
-## Creating Your First Token
+## Créer Votre Premier Token
 
-### Option 1: Via Admin API (After Login)
+### Option 1 : Via l'API Admin (Après Connexion)
 
-1. Login to the web interface to get a session
-2. Use the session to create a token:
+1. Connectez-vous à l'interface web pour obtenir une session
+2. Utilisez la session pour créer un token :
 
 ```bash
-curl -X POST 'http://your-server/dns3/api/admin_api.php?action=create_token' \
+curl -X POST 'http://votre-serveur/dns3/api/admin_api.php?action=create_token' \
   -H 'Content-Type: application/json' \
-  -H 'Cookie: PHPSESSID=your-session-id' \
+  -H 'Cookie: PHPSESSID=votre-id-session' \
   -d '{
-    "token_name": "My First Token",
+    "token_name": "Mon Premier Token",
     "expires_in_days": 365
   }'
 ```
 
-Response will contain your token (save it!):
+La réponse contiendra votre token (conservez-le !) :
 ```json
 {
   "success": true,
   "message": "Token créé avec succès...",
   "data": {
     "id": 1,
-    "token": "a1b2c3d4e5f6...64-character-token...",
+    "token": "a1b2c3d4e5f6...chaîne-64-caractères...",
     "prefix": "a1b2c3d4"
   }
 }
 ```
 
-### Option 2: Direct Database Insert (For Initial Setup)
+### Option 2 : Insertion Directe en Base de Données (Pour la Configuration Initiale)
 
-Create a simple PHP script:
+Créez un script PHP simple :
 
 ```php
 <?php
 require_once 'config.php';
 require_once 'includes/models/ApiToken.php';
 
-// Find your user ID
+// Trouvez votre ID utilisateur
 $db = Database::getInstance()->getConnection();
 $stmt = $db->prepare("SELECT id FROM users WHERE username = ?");
-$stmt->execute(['your-username']);
+$stmt->execute(['votre-nom-utilisateur']);
 $user = $stmt->fetch();
 
 if ($user) {
     $apiToken = new ApiToken();
     $result = $apiToken->generate(
-        $user['id'],        // user_id
-        'My First Token',   // token_name
-        $user['id'],        // created_by
-        null                // no expiration
+        $user['id'],           // user_id
+        'Mon Premier Token',   // token_name
+        $user['id'],           // created_by
+        null                   // pas d'expiration
     );
     
-    echo "Token created successfully!\n";
+    echo "Token créé avec succès !\n";
     echo "Token: " . $result['token'] . "\n";
-    echo "Save this token - you won't see it again!\n";
+    echo "Conservez ce token - vous ne le verrez plus !\n";
 } else {
-    echo "User not found\n";
+    echo "Utilisateur non trouvé\n";
 }
 ?>
 ```
 
-Run it once:
+Exécutez-le une fois :
 ```bash
 php create_token.php
 ```
 
-## Using Your Token
+## Utiliser Votre Token
 
-Now you can make API requests without session cookies:
+Maintenant vous pouvez faire des requêtes API sans cookies de session :
 
 ```bash
-# Set your token
-export API_TOKEN="your-64-character-token"
+# Définissez votre token
+export API_TOKEN="votre-token-64-caractères"
 
-# List zones
-curl -X GET 'http://your-server/dns3/api/zone_api.php?action=list_zones' \
+# Lister les zones
+curl -X GET 'http://votre-serveur/dns3/api/zone_api.php?action=list_zones' \
   -H "Authorization: Bearer $API_TOKEN"
 
-# Get zone details
-curl -X GET 'http://your-server/dns3/api/zone_api.php?action=get_zone&id=1' \
+# Obtenir les détails d'une zone
+curl -X GET 'http://votre-serveur/dns3/api/zone_api.php?action=get_zone&id=1' \
   -H "Authorization: Bearer $API_TOKEN"
 
-# Create a DNS record
-curl -X POST 'http://your-server/dns3/api/dns_api.php?action=create' \
+# Créer un enregistrement DNS
+curl -X POST 'http://votre-serveur/dns3/api/dns_api.php?action=create' \
   -H "Authorization: Bearer $API_TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
@@ -108,52 +108,52 @@ curl -X POST 'http://your-server/dns3/api/dns_api.php?action=create' \
   }'
 ```
 
-## Testing Your Setup
+## Tester Votre Configuration
 
-Use the provided test script:
+Utilisez le script de test fourni :
 
 ```bash
-export API_TOKEN="your-token"
-export API_URL="http://your-server/dns3"
+export API_TOKEN="votre-token"
+export API_URL="http://votre-serveur/dns3"
 ./test_api_token.sh
 ```
 
-## Token Management
+## Gestion des Tokens
 
-### List your tokens
+### Lister vos tokens
 ```bash
-curl -X GET 'http://your-server/dns3/api/admin_api.php?action=list_tokens' \
+curl -X GET 'http://votre-serveur/dns3/api/admin_api.php?action=list_tokens' \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
-### Revoke a token
+### Révoquer un token
 ```bash
-curl -X POST 'http://your-server/dns3/api/admin_api.php?action=revoke_token&id=1' \
+curl -X POST 'http://votre-serveur/dns3/api/admin_api.php?action=revoke_token&id=1' \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
-### Delete a token
+### Supprimer un token
 ```bash
-curl -X POST 'http://your-server/dns3/api/admin_api.php?action=delete_token&id=1' \
+curl -X POST 'http://votre-serveur/dns3/api/admin_api.php?action=delete_token&id=1' \
   -H "Authorization: Bearer $API_TOKEN"
 ```
 
-## Using with Scripts
+## Utilisation dans des Scripts
 
-### Python Example
+### Exemple Python
 
 ```python
 import requests
 
-API_URL = "http://your-server/dns3"
-API_TOKEN = "your-token-here"
+API_URL = "http://votre-serveur/dns3"
+API_TOKEN = "votre-token-ici"
 
 headers = {
     "Authorization": f"Bearer {API_TOKEN}",
     "Content-Type": "application/json"
 }
 
-# List zones
+# Lister les zones
 response = requests.get(
     f"{API_URL}/api/zone_api.php?action=list_zones",
     headers=headers
@@ -161,7 +161,7 @@ response = requests.get(
 zones = response.json()
 print(zones)
 
-# Create a DNS record
+# Créer un enregistrement DNS
 record_data = {
     "zone_file_id": 1,
     "name": "api-test",
@@ -179,20 +179,20 @@ result = response.json()
 print(result)
 ```
 
-### Bash Script Example
+### Exemple de Script Bash
 
 ```bash
 #!/bin/bash
 
-API_URL="http://your-server/dns3"
-API_TOKEN="your-token-here"
+API_URL="http://votre-serveur/dns3"
+API_TOKEN="votre-token-ici"
 
-# List zones
+# Lister les zones
 curl -X GET "${API_URL}/api/zone_api.php?action=list_zones" \
   -H "Authorization: Bearer ${API_TOKEN}" \
   -s | jq '.data[] | {id, name, file_type}'
 
-# Create a zone
+# Créer une zone
 curl -X POST "${API_URL}/api/zone_api.php?action=create_zone" \
   -H "Authorization: Bearer ${API_TOKEN}" \
   -H "Content-Type: application/json" \
@@ -203,36 +203,36 @@ curl -X POST "${API_URL}/api/zone_api.php?action=create_zone" \
   }'
 ```
 
-## Security Tips
+## Conseils de Sécurité
 
-1. **Store tokens securely**: Use environment variables or secure vaults
-2. **Never commit tokens**: Add to `.gitignore` if stored in files
-3. **Use HTTPS**: Always use HTTPS in production
-4. **Set expiration**: Use `expires_in_days` for limited lifetime tokens
-5. **Regular rotation**: Create new tokens and revoke old ones periodically
-6. **Monitor usage**: Check `last_used_at` timestamps regularly
+1. **Stockez les tokens de manière sécurisée** : Utilisez des variables d'environnement ou des coffres-forts sécurisés
+2. **Ne committez jamais les tokens** : Ajoutez-les au `.gitignore` s'ils sont stockés dans des fichiers
+3. **Utilisez HTTPS** : Utilisez toujours HTTPS en production
+4. **Définissez une expiration** : Utilisez `expires_in_days` pour des tokens à durée limitée
+5. **Rotation régulière** : Créez de nouveaux tokens et révoquez les anciens périodiquement
+6. **Surveillez l'utilisation** : Vérifiez régulièrement les timestamps `last_used_at`
 
-## Troubleshooting
+## Dépannage
 
-### Token not working?
-- Check that migration was run successfully
-- Verify token is correct (64 hex characters)
-- Ensure user account is active
-- Check token hasn't expired or been revoked
+### Le token ne fonctionne pas ?
+- Vérifiez que la migration a été exécutée avec succès
+- Vérifiez que le token est correct (64 caractères hexadécimaux)
+- Assurez-vous que le compte utilisateur est actif
+- Vérifiez que le token n'a pas expiré ou été révoqué
 
-### Permission denied?
-- Verify user has appropriate roles (admin for write operations)
-- Check zone ACL permissions for non-admin users
+### Permission refusée ?
+- Vérifiez que l'utilisateur a les rôles appropriés (admin pour les opérations d'écriture)
+- Vérifiez les permissions ACL de la zone pour les utilisateurs non-admin
 
-### Getting 401 errors?
-- Ensure `Authorization` header is properly formatted
-- Check for typos in token
-- Verify token exists in database
+### Erreurs 401 ?
+- Assurez-vous que l'en-tête `Authorization` est correctement formaté
+- Vérifiez les fautes de frappe dans le token
+- Vérifiez que le token existe dans la base de données
 
-## More Information
+## Plus d'Informations
 
-See the full documentation in `docs/api_token_authentication.md` for:
-- Detailed API endpoint documentation
-- Complete examples for all operations
-- Security best practices
-- Advanced usage patterns
+Consultez la documentation complète dans `docs/api_token_authentication.md` pour :
+- Documentation détaillée des endpoints API
+- Exemples complets pour toutes les opérations
+- Bonnes pratiques de sécurité
+- Modèles d'utilisation avancés
