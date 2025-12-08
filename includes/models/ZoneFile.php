@@ -2169,15 +2169,7 @@ class ZoneFile {
                     return false;
                 }
             } else {
-                // Check if file exists and is accessible before attempting deletion
-                if (!file_exists($path)) {
-                    error_log("Cannot delete file (does not exist): $path");
-                    return false;
-                }
-                if (!is_writable($path)) {
-                    error_log("Cannot delete file (permission denied): $path");
-                    return false;
-                }
+                // Attempt to delete file and log error if it fails
                 if (!@unlink($path)) {
                     $error = error_get_last();
                     $errorMsg = $error ? $error['message'] : 'unknown error';
