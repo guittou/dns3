@@ -765,10 +765,10 @@
                 // Determine available actions
                 const isRevoked = token.revoked_at !== null;
                 const revokeButton = !isRevoked 
-                    ? `<button class="btn btn-danger" onclick="revokeToken(${token.id}, '${escapeHtml(token.token_name)}')">Révoquer</button>`
+                    ? `<button class="btn btn-danger btn-revoke-token" data-token-id="${token.id}" data-token-name="${escapeHtml(token.token_name)}">Révoquer</button>`
                     : '';
                 
-                const deleteButton = `<button class="btn btn-danger" onclick="deleteToken(${token.id}, '${escapeHtml(token.token_name)}')">Supprimer</button>`;
+                const deleteButton = `<button class="btn btn-danger btn-delete-token" data-token-id="${token.id}" data-token-name="${escapeHtml(token.token_name)}">Supprimer</button>`;
                 
                 return `
                     <tr>
@@ -867,16 +867,16 @@
         const input = document.getElementById('token-display-value');
         input.select();
         
-        try {
-            document.execCommand('copy');
-            showAlert('Token copié dans le presse-papier', 'success');
-        } catch (err) {
-            // Fallback for modern browsers
+        // Use modern Clipboard API
+        if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(input.value).then(() => {
                 showAlert('Token copié dans le presse-papier', 'success');
             }).catch(() => {
                 showAlert('Erreur lors de la copie. Copiez manuellement le token.', 'error');
             });
+        } else {
+            // Fallback: input is already selected, user can copy manually
+            showAlert('Sélectionnez et copiez le token manuellement (Ctrl+C ou Cmd+C)', 'info');
         }
     };
 
@@ -1365,6 +1365,8 @@
                 var createMappingBtn = target.closest('#btn-create-mapping');
                 var createTokenBtn = target.closest('#btn-create-token');
                 var deactivateUserBtn = target.closest('.btn-deactivate-user');
+                var revokeTokenBtn = target.closest('.btn-revoke-token');
+                var deleteTokenBtn = target.closest('.btn-delete-token');
                 
                 if (createUserBtn) {
                     if (typeof openCreateUserModal === 'function') {
@@ -1384,6 +1386,20 @@
                     var username = deactivateUserBtn.getAttribute('data-username') || '';
                     if (userId && typeof deactivateUser === 'function') {
                         deactivateUser(userId, username);
+                    }
+                } else if (revokeTokenBtn) {
+                    // Handle revoke token button click via delegation
+                    var tokenId = parseInt(revokeTokenBtn.getAttribute('data-token-id'), 10);
+                    var tokenName = revokeTokenBtn.getAttribute('data-token-name') || '';
+                    if (tokenId && typeof revokeToken === 'function') {
+                        revokeToken(tokenId, tokenName);
+                    }
+                } else if (deleteTokenBtn) {
+                    // Handle delete token button click via delegation
+                    var tokenId = parseInt(deleteTokenBtn.getAttribute('data-token-id'), 10);
+                    var tokenName = deleteTokenBtn.getAttribute('data-token-name') || '';
+                    if (tokenId && typeof deleteToken === 'function') {
+                        deleteToken(tokenId, tokenName);
                     }
                 }
             } catch (error) {

@@ -145,7 +145,7 @@ if (!$auth->isAdmin()) {
     <div class="admin-tab-content" id="tab-tokens">
         <div class="tab-header">
             <h2>Tokens API</h2>
-            <button class="btn btn-primary" id="btn-create-token" onclick="if(typeof openCreateTokenModal==='function')openCreateTokenModal();">
+            <button class="btn btn-primary" id="btn-create-token">
                 <span class="icon">+</span> Créer un token
             </button>
         </div>
