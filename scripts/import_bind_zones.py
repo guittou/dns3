@@ -403,7 +403,7 @@ class ZoneImporter:
                 base_record['ptrdname'] = str(rdata.target)
             elif record_type == 'TXT':
                 # TXT records can have multiple strings
-                txt_value = ' '.join([s.decode('utf-8') if isinstance(s, bytes) else str(s) 
+                txt_value = ' '.join([s.decode('utf-8', errors='replace') if isinstance(s, bytes) else str(s) 
                                      for s in rdata.strings])
                 base_record['txt'] = txt_value
             elif record_type == 'SRV':
@@ -413,8 +413,8 @@ class ZoneImporter:
                 base_record['port'] = rdata.port
             elif record_type == 'CAA':
                 base_record['caa_flag'] = rdata.flags
-                base_record['caa_tag'] = rdata.tag.decode('utf-8') if isinstance(rdata.tag, bytes) else str(rdata.tag)
-                base_record['caa_value'] = rdata.value.decode('utf-8') if isinstance(rdata.value, bytes) else str(rdata.value)
+                base_record['caa_tag'] = rdata.tag.decode('utf-8', errors='replace') if isinstance(rdata.tag, bytes) else str(rdata.tag)
+                base_record['caa_value'] = rdata.value.decode('utf-8', errors='replace') if isinstance(rdata.value, bytes) else str(rdata.value)
             
             return base_record
             
@@ -444,8 +444,12 @@ class ZoneImporter:
         # Extract SOA data
         soa_data = self._extract_soa_data(zone, origin)
         
-        # Get default TTL from zone
-        default_ttl = zone.get_ttl() if hasattr(zone, 'get_ttl') else 86400
+        # Get default TTL from zone (check various attributes)
+        default_ttl = 86400  # Default fallback
+        if hasattr(zone, 'default_ttl') and zone.default_ttl:
+            default_ttl = zone.default_ttl
+        elif hasattr(zone, 'ttl') and zone.ttl:
+            default_ttl = zone.ttl
         
         # Prepare zone data
         zone_data = {

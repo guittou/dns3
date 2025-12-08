@@ -170,11 +170,18 @@ has_column() {
     fi
 }
 
-# MySQL escape function (basic)
+# MySQL escape function (basic SQL escaping for values used in queries)
+# NOTE: This provides basic escaping for single quotes. The mysql CLI will handle
+# the actual parameter passing safely. For production use, consider using mysql's
+# --execute with proper quoting or the Python script with parameterized queries.
+# Additional protections: identifier validation prevents injection via table/column names.
 mysql_escape() {
     local value="$1"
-    # Escape single quotes by doubling them
-    echo "${value//\'/\'\'}"
+    # Escape single quotes by doubling them (SQL standard)
+    # Escape backslashes to prevent escape sequence issues
+    value="${value//\\/\\\\}"  # Backslash -> double backslash
+    value="${value//\'/\'\'}"   # Single quote -> double single quote
+    echo "$value"
 }
 
 # Parse a simple zone file (heuristic approach)
@@ -227,7 +234,10 @@ parse_zone_file() {
     
     echo "  Default TTL: $default_ttl"
     
-    # Parse SOA (very basic)
+    # Parse SOA (heuristic - assumes standard multi-line format)
+    # WARNING: This uses -A 6 to grab 6 lines after SOA keyword, which works for most
+    # standard BIND zone files but may fail on non-standard formatting or inline SOA records.
+    # For complex zones, use the Python importer which properly parses SOA records.
     local soa_mname=""
     local soa_rname=""
     local soa_refresh=10800
@@ -237,7 +247,7 @@ parse_zone_file() {
     
     # Find SOA record (multi-line aware, basic approach)
     if grep -q "SOA" "$file"; then
-        # Extract SOA fields (simplified - may not work for all formats)
+        # Extract SOA fields (simplified - assumes typical 6-line SOA format)
         local soa_data=$(grep -A 6 "SOA" "$file" | tr '\n' ' ' | sed 's/;.*$//')
         
         soa_mname=$(echo "$soa_data" | awk '{for(i=1;i<=NF;i++) if($i=="SOA") {print $(i+1); break}}')
@@ -316,8 +326,12 @@ parse_zone_file() {
         echo "  ✓ Zone created (ID: $zone_id)"
     fi
     
-    # Parse DNS records (heuristic - very basic)
-    # This is a simplified parser that handles common record types
+    # Parse DNS records (heuristic - line-by-line only)
+    # WARNING: This parser processes one line at a time and does NOT handle:
+    # - Multi-line records (SOA, TXT with line continuations, etc.)
+    # - Parenthesized expressions spanning multiple lines
+    # - Complex record formats
+    # For accurate parsing of such records, use the Python importer.
     local record_count=0
     
     # Skip comments, $ORIGIN, $TTL, $INCLUDE, and SOA (already processed)
