@@ -9,21 +9,28 @@ Imports BIND-format zone files into the dns3 application using either:
 Features:
 - Parses zone files using dnspython library
 - Extracts $ORIGIN, SOA, default TTL, and all resource records
-- Handles $INCLUDE directives and creates zone_file_includes entries
+- Handles $INCLUDE directives with --create-includes flag:
+  * Creates separate zone_file entries for master and include files
+  * Establishes zone_file_includes relationships
+  * Preserves $INCLUDE directives in master zone content
+  * Supports deduplication by file path or content hash
+  * Detects circular includes and limits recursion depth
+  * Security: prevents includes outside base directory (unless --allow-abs-include)
 - Supports dry-run mode for safe testing
 - Validates input and provides detailed error reporting
+- Transaction support with rollback on errors (DB mode)
 
 Dependencies: python3, dnspython, requests, pymysql
 
 Usage examples:
-  # API mode (default, requires --api-url and --api-token)
-  python3 scripts/import_bind_zones.py --dir /path/to/zones --api-url http://localhost/dns3 --api-token abc123
+  # API mode with $INCLUDE support
+  python3 scripts/import_bind_zones.py --dir /path/to/zones --api-url http://localhost/dns3 --api-token abc123 --create-includes
 
-  # DB mode (direct database insertion)
-  python3 scripts/import_bind_zones.py --dir /path/to/zones --db-mode --db-user root --db-pass secret
+  # DB mode with $INCLUDE support
+  python3 scripts/import_bind_zones.py --dir /path/to/zones --db-mode --db-user root --db-pass secret --create-includes
 
-  # Dry-run mode (shows what would be done without making changes)
-  python3 scripts/import_bind_zones.py --dir /path/to/zones --dry-run --api-url http://localhost/dns3 --api-token abc123
+  # Dry-run mode to preview changes
+  python3 scripts/import_bind_zones.py --dir /path/to/zones --dry-run --api-url http://localhost/dns3 --api-token abc123 --create-includes
 
   # Example mode (quick test with sample zone)
   python3 scripts/import_bind_zones.py --example
@@ -34,7 +41,8 @@ import sys
 import os
 import re
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+import hashlib
+from typing import Dict, List, Optional, Tuple, Any, Set
 from pathlib import Path
 
 # Check for required dependencies
@@ -76,6 +84,11 @@ class ZoneImporter:
             'errors': 0,
             'skipped': 0
         }
+        # Track processed includes to avoid duplicates
+        self.processed_includes: Dict[str, int] = {}  # path -> zone_id mapping
+        self.include_depth: int = 0  # Track recursion depth
+        self.max_include_depth: int = 50  # Maximum include depth
+        self.visited_includes: Set[str] = set()  # Detect cycles
         
     def _setup_logging(self) -> logging.Logger:
         """Configure logging"""
@@ -292,6 +305,300 @@ class ZoneImporter:
             self.logger.error(f"Failed to create record in DB: {e}")
             return False
     
+    def _compute_file_hash(self, filepath: Path) -> str:
+        """Compute SHA256 hash of file content for deduplication"""
+        try:
+            with open(filepath, 'rb') as f:
+                return hashlib.sha256(f.read()).hexdigest()
+        except Exception as e:
+            self.logger.warning(f"Failed to compute hash for {filepath}: {e}")
+            return ""
+    
+    def _find_include_directives(self, content: str, base_dir: Path) -> List[Tuple[str, str, int]]:
+        """
+        Find all $INCLUDE directives in zone file content
+        Returns list of tuples: (include_path, origin, line_number)
+        """
+        includes = []
+        lines = content.split('\n')
+        current_origin = None
+        
+        for line_num, line in enumerate(lines, 1):
+            # Track $ORIGIN changes
+            origin_match = re.match(r'^\$ORIGIN\s+(\S+)', line)
+            if origin_match:
+                current_origin = origin_match.group(1)
+                if not current_origin.endswith('.'):
+                    current_origin += '.'
+                continue
+            
+            # Find $INCLUDE directives
+            include_match = re.match(r'^\$INCLUDE\s+(\S+)(?:\s+(\S+))?', line)
+            if include_match:
+                include_file = include_match.group(1)
+                include_origin = include_match.group(2) if include_match.group(2) else current_origin
+                
+                # Remove quotes if present
+                include_file = include_file.strip('"\'')
+                
+                includes.append((include_file, include_origin, line_num))
+                self.logger.debug(f"Found $INCLUDE directive at line {line_num}: {include_file} origin={include_origin}")
+        
+        return includes
+    
+    def _resolve_include_path(self, include_path: str, base_dir: Path) -> Optional[Path]:
+        """
+        Resolve include path to absolute path
+        Returns None if path is invalid or outside base directory
+        """
+        # Convert to Path object
+        include_file = Path(include_path)
+        
+        # If absolute path
+        if include_file.is_absolute():
+            if not self.args.allow_abs_include:
+                self.logger.error(f"Absolute include path not allowed: {include_path}")
+                self.logger.error("Use --allow-abs-include to override this restriction")
+                return None
+            resolved = include_file
+        else:
+            # Relative path - resolve relative to base_dir
+            resolved = (base_dir / include_file).resolve()
+        
+        # Security check: ensure resolved path is within base directory
+        if not self.args.allow_abs_include:
+            try:
+                resolved.relative_to(base_dir.resolve())
+            except ValueError:
+                self.logger.error(f"Include path outside base directory: {include_path}")
+                return None
+        
+        # Check if file exists
+        if not resolved.exists():
+            self.logger.error(f"Include file not found: {resolved}")
+            return None
+        
+        return resolved
+    
+    def _create_zone_file_include_relationship(self, parent_id: int, include_id: int, position: int) -> bool:
+        """Create a relationship between parent zone and include zone"""
+        if self.args.dry_run:
+            self.logger.info(f"[DRY-RUN] Would create zone_file_includes relationship: parent={parent_id}, include={include_id}, position={position}")
+            return True
+        
+        if self.args.db_mode:
+            try:
+                with self.db_conn.cursor() as cursor:
+                    # Check if relationship already exists
+                    cursor.execute(
+                        "SELECT id FROM zone_file_includes WHERE parent_id = %s AND include_id = %s",
+                        (parent_id, include_id)
+                    )
+                    if cursor.fetchone():
+                        self.logger.debug(f"zone_file_includes relationship already exists")
+                        return True
+                    
+                    cursor.execute(
+                        "INSERT INTO zone_file_includes (parent_id, include_id, position) VALUES (%s, %s, %s)",
+                        (parent_id, include_id, position)
+                    )
+                    self.db_conn.commit()
+                    self.logger.debug(f"Created zone_file_includes relationship")
+                    return True
+            except pymysql.Error as e:
+                self.logger.error(f"Failed to create zone_file_includes relationship: {e}")
+                return False
+        else:
+            # API mode - use assign_include endpoint
+            try:
+                response = requests.post(
+                    f"{self.args.api_url}/api/zone_api.php?action=assign_include",
+                    json={'master_id': parent_id, 'include_id': include_id, 'position': position},
+                    headers={'Authorization': f'Bearer {self.args.api_token}'},
+                    timeout=30
+                )
+                
+                if response.status_code in (200, 201):
+                    self.logger.debug(f"Created zone_file_includes relationship via API")
+                    return True
+                else:
+                    self.logger.error(f"API error creating relationship: {response.status_code} - {response.text}")
+                    return False
+            except Exception as e:
+                self.logger.error(f"Failed to create relationship via API: {e}")
+                return False
+    
+    def _process_include_file(self, include_path: Path, origin: Optional[str], base_dir: Path, parent_zone_name: str) -> Optional[int]:
+        """
+        Process an include file and create zone_file entry with dns_records
+        Returns zone_id of the created/existing include, or None on error
+        """
+        # Check include depth
+        self.include_depth += 1
+        if self.include_depth > self.max_include_depth:
+            self.logger.error(f"Maximum include depth ({self.max_include_depth}) exceeded")
+            self.include_depth -= 1
+            return None
+        
+        # Check for cycles
+        include_path_str = str(include_path.resolve())
+        if include_path_str in self.visited_includes:
+            self.logger.error(f"Circular include detected: {include_path}")
+            self.include_depth -= 1
+            return None
+        
+        self.visited_includes.add(include_path_str)
+        
+        try:
+            # Check if already processed (deduplication)
+            file_hash = self._compute_file_hash(include_path)
+            if file_hash and file_hash in self.processed_includes:
+                zone_id = self.processed_includes[file_hash]
+                self.logger.info(f"Include already processed (dedup by hash): {include_path.name} (ID: {zone_id})")
+                self.include_depth -= 1
+                self.visited_includes.discard(include_path_str)
+                return zone_id
+            
+            # Check by absolute path
+            if include_path_str in self.processed_includes:
+                zone_id = self.processed_includes[include_path_str]
+                self.logger.info(f"Include already processed (dedup by path): {include_path.name} (ID: {zone_id})")
+                self.include_depth -= 1
+                self.visited_includes.discard(include_path_str)
+                return zone_id
+            
+            # Read include file content
+            with open(include_path, 'r', encoding='utf-8') as f:
+                include_content = f.read()
+            
+            # Determine origin for include file
+            # Check for $ORIGIN in include file first
+            origin_match = re.search(r'^\$ORIGIN\s+(\S+)', include_content, re.MULTILINE)
+            if origin_match:
+                effective_origin = origin_match.group(1)
+                if not effective_origin.endswith('.'):
+                    effective_origin += '.'
+            elif origin:
+                # Use origin passed from $INCLUDE directive
+                effective_origin = origin
+            else:
+                # Use parent zone's origin
+                effective_origin = parent_zone_name if parent_zone_name.endswith('.') else parent_zone_name + '.'
+            
+            self.logger.info(f"Processing include file: {include_path.name} with origin: {effective_origin}")
+            
+            # Check for nested $INCLUDE directives in include file
+            nested_includes = self._find_include_directives(include_content, include_path.parent)
+            
+            # Parse the include file using dnspython
+            try:
+                zone = dns.zone.from_text(include_content, origin=effective_origin, check_origin=False, relativize=False)
+            except Exception as e:
+                self.logger.error(f"Failed to parse include file {include_path}: {e}")
+                self.include_depth -= 1
+                self.visited_includes.discard(include_path_str)
+                return None
+            
+            # Extract default TTL
+            default_ttl = 86400
+            if hasattr(zone, 'default_ttl') and zone.default_ttl:
+                default_ttl = zone.default_ttl
+            elif hasattr(zone, 'ttl') and zone.ttl:
+                default_ttl = zone.ttl
+            
+            # Prepare zone data for include
+            include_zone_name = effective_origin.rstrip('.')
+            zone_data = {
+                'name': include_zone_name,
+                'filename': include_path.name,
+                'file_type': 'include',
+                'status': 'active',
+                'created_by': self.args.user_id,
+                'domain': include_zone_name,
+                'default_ttl': default_ttl,
+                'content': include_content,
+                'directory': str(include_path.parent)
+            }
+            
+            # Check if include zone already exists
+            if self.args.skip_existing:
+                # Check by filename and path or hash
+                if self.args.db_mode:
+                    with self.db_conn.cursor() as cursor:
+                        cursor.execute(
+                            "SELECT id FROM zone_files WHERE filename = %s AND file_type = 'include' AND directory = %s",
+                            (include_path.name, str(include_path.parent))
+                        )
+                        existing = cursor.fetchone()
+                        if existing:
+                            zone_id = existing['id']
+                            self.logger.info(f"Include zone already exists, reusing: {include_zone_name} (ID: {zone_id})")
+                            self.processed_includes[include_path_str] = zone_id
+                            if file_hash:
+                                self.processed_includes[file_hash] = zone_id
+                            self.stats['skipped'] += 1
+                            self.include_depth -= 1
+                            self.visited_includes.discard(include_path_str)
+                            return zone_id
+            
+            # Create zone_file entry for include
+            if self.args.dry_run:
+                self.logger.info(f"[DRY-RUN] Would create include zone: {include_zone_name}")
+                zone_id = 0
+            elif self.args.db_mode:
+                zone_id = self._create_zone_db(zone_data)
+            else:
+                zone_id = self._create_zone_api(zone_data)
+            
+            if not zone_id and not self.args.dry_run:
+                self.logger.error(f"Failed to create include zone: {include_path.name}")
+                self.include_depth -= 1
+                self.visited_includes.discard(include_path_str)
+                return None
+            
+            # Store in processed includes for deduplication
+            self.processed_includes[include_path_str] = zone_id
+            if file_hash:
+                self.processed_includes[file_hash] = zone_id
+            
+            self.stats['includes_created'] += 1
+            
+            # Process nested includes first (if any)
+            nested_include_ids = []
+            for nested_include_path, nested_origin, _ in nested_includes:
+                if self.args.create_includes:
+                    resolved_nested = self._resolve_include_path(nested_include_path, include_path.parent)
+                    if resolved_nested:
+                        nested_id = self._process_include_file(resolved_nested, nested_origin, include_path.parent, include_zone_name)
+                        if nested_id:
+                            nested_include_ids.append(nested_id)
+                            # Create relationship for nested include
+                            self._create_zone_file_include_relationship(zone_id, nested_id, len(nested_include_ids))
+            
+            # Extract and create DNS records from include
+            records = self._extract_records(zone, effective_origin, zone_id)
+            self.logger.info(f"Creating {len(records)} records for include {include_path.name}")
+            
+            for record in records:
+                if self.args.dry_run:
+                    self.logger.debug(f"[DRY-RUN] Would create record: {record['name']} {record['record_type']}")
+                elif self.args.db_mode:
+                    if self._create_record_db(record):
+                        self.stats['records_created'] += 1
+                else:
+                    if self._create_record_api(record):
+                        self.stats['records_created'] += 1
+            
+            self.include_depth -= 1
+            self.visited_includes.discard(include_path_str)
+            return zone_id
+            
+        except Exception as e:
+            self.logger.error(f"Error processing include file {include_path}: {e}")
+            self.include_depth -= 1
+            self.visited_includes.discard(include_path_str)
+            return None
+    
     def _parse_zone_file(self, filepath: Path) -> Optional[Tuple[dns.zone.Zone, str]]:
         """Parse a BIND zone file using dnspython"""
         try:
@@ -426,6 +733,26 @@ class ZoneImporter:
         """Import a single zone file"""
         self.logger.info(f"Processing zone file: {filepath}")
         
+        # Read the file content first to check for $INCLUDE directives
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+        except Exception as e:
+            self.logger.error(f"Failed to read zone file {filepath}: {e}")
+            self.stats['errors'] += 1
+            return False
+        
+        # Reset include tracking for this zone
+        self.include_depth = 0
+        self.visited_includes.clear()
+        
+        # Find $INCLUDE directives if --create-includes is enabled
+        include_directives = []
+        if self.args.create_includes:
+            include_directives = self._find_include_directives(file_content, filepath.parent)
+            if include_directives:
+                self.logger.info(f"Found {len(include_directives)} $INCLUDE directive(s) in {filepath.name}")
+        
         # Parse the zone file
         result = self._parse_zone_file(filepath)
         if not result:
@@ -441,71 +768,127 @@ class ZoneImporter:
             self.stats['skipped'] += 1
             return True
         
-        # Extract SOA data
-        soa_data = self._extract_soa_data(zone, origin)
+        # Start transaction for DB mode
+        if self.args.db_mode and not self.args.dry_run:
+            try:
+                self.db_conn.begin()
+            except Exception as e:
+                self.logger.warning(f"Could not start transaction: {e}")
         
-        # Get default TTL from zone (check various attributes)
-        default_ttl = 86400  # Default fallback
-        if hasattr(zone, 'default_ttl') and zone.default_ttl:
-            default_ttl = zone.default_ttl
-        elif hasattr(zone, 'ttl') and zone.ttl:
-            default_ttl = zone.ttl
-        
-        # Prepare zone data
-        zone_data = {
-            'name': zone_name,
-            'filename': filepath.name,
-            'file_type': 'master',
-            'status': 'active',
-            'created_by': self.args.user_id,
-            'domain': zone_name,
-            'default_ttl': default_ttl,
-            **soa_data
-        }
-        
-        # Dry-run mode
-        if self.args.dry_run:
-            self.logger.info(f"[DRY-RUN] Would create zone: {zone_name}")
-            self.logger.debug(f"[DRY-RUN] Zone data: {zone_data}")
+        try:
+            # Process $INCLUDE files first if enabled
+            include_zone_ids = []
+            if self.args.create_includes and include_directives:
+                for include_path, include_origin, line_num in include_directives:
+                    resolved_path = self._resolve_include_path(include_path, filepath.parent)
+                    if resolved_path:
+                        include_id = self._process_include_file(
+                            resolved_path, 
+                            include_origin, 
+                            filepath.parent,
+                            zone_name
+                        )
+                        if include_id:
+                            include_zone_ids.append((include_id, line_num))
+                        else:
+                            self.logger.warning(f"Failed to process include at line {line_num}: {include_path}")
+                    else:
+                        self.logger.warning(f"Could not resolve include at line {line_num}: {include_path}")
             
-            # Extract and display records
-            records = self._extract_records(zone, origin, 0)
-            self.logger.info(f"[DRY-RUN] Would create {len(records)} records")
-            for record in records[:5]:  # Show first 5
-                self.logger.debug(f"[DRY-RUN] Record: {record['name']} {record['record_type']} {record['value']}")
+            # Extract SOA data
+            soa_data = self._extract_soa_data(zone, origin)
+            
+            # Get default TTL from zone (check various attributes)
+            default_ttl = 86400  # Default fallback
+            if hasattr(zone, 'default_ttl') and zone.default_ttl:
+                default_ttl = zone.default_ttl
+            elif hasattr(zone, 'ttl') and zone.ttl:
+                default_ttl = zone.ttl
+            
+            # Prepare zone data - preserve $INCLUDE directives in content
+            zone_data = {
+                'name': zone_name,
+                'filename': filepath.name,
+                'file_type': 'master',
+                'status': 'active',
+                'created_by': self.args.user_id,
+                'domain': zone_name,
+                'default_ttl': default_ttl,
+                # Store original content preserving $INCLUDE directives (not expanded inline)
+                # This allows the system to regenerate flat zones dynamically while maintaining the include structure
+                'content': file_content,
+                'directory': str(filepath.parent),
+                **soa_data
+            }
+            
+            # Dry-run mode
+            if self.args.dry_run:
+                self.logger.info(f"[DRY-RUN] Would create zone: {zone_name}")
+                self.logger.debug(f"[DRY-RUN] Zone data: {zone_data}")
+                
+                # Extract and display records
+                records = self._extract_records(zone, origin, 0)
+                self.logger.info(f"[DRY-RUN] Would create {len(records)} records")
+                for record in records[:5]:  # Show first 5
+                    self.logger.debug(f"[DRY-RUN] Record: {record['name']} {record['record_type']} {record['value']}")
+                
+                # Show includes
+                if include_zone_ids:
+                    self.logger.info(f"[DRY-RUN] Would create {len(include_zone_ids)} zone_file_includes relationships")
+                
+                self.stats['zones_created'] += 1
+                self.stats['records_created'] += len(records)
+                return True
+            
+            # Create zone
+            if self.args.db_mode:
+                zone_id = self._create_zone_db(zone_data)
+            else:
+                zone_id = self._create_zone_api(zone_data)
+            
+            if not zone_id:
+                self.stats['errors'] += 1
+                if self.args.db_mode:
+                    self.db_conn.rollback()
+                return False
             
             self.stats['zones_created'] += 1
-            self.stats['records_created'] += len(records)
+            
+            # Create zone_file_includes relationships
+            for include_id, position in include_zone_ids:
+                self._create_zone_file_include_relationship(zone_id, include_id, position)
+            
+            # Extract and create records from master zone
+            records = self._extract_records(zone, origin, zone_id)
+            self.logger.info(f"Importing {len(records)} records for zone {zone_name}")
+            
+            for record in records:
+                if self.args.db_mode:
+                    success = self._create_record_db(record)
+                else:
+                    success = self._create_record_api(record)
+                
+                if success:
+                    self.stats['records_created'] += 1
+                else:
+                    self.stats['errors'] += 1
+            
+            # Commit transaction if in DB mode
+            if self.args.db_mode:
+                self.db_conn.commit()
+            
             return True
-        
-        # Create zone
-        if self.args.db_mode:
-            zone_id = self._create_zone_db(zone_data)
-        else:
-            zone_id = self._create_zone_api(zone_data)
-        
-        if not zone_id:
+            
+        except Exception as e:
+            self.logger.error(f"Error importing zone {filepath}: {e}")
+            if self.args.db_mode and not self.args.dry_run:
+                try:
+                    self.db_conn.rollback()
+                    self.logger.info("Transaction rolled back")
+                except Exception:
+                    pass
             self.stats['errors'] += 1
             return False
-        
-        self.stats['zones_created'] += 1
-        
-        # Extract and create records
-        records = self._extract_records(zone, origin, zone_id)
-        self.logger.info(f"Importing {len(records)} records for zone {zone_name}")
-        
-        for record in records:
-            if self.args.db_mode:
-                success = self._create_record_db(record)
-            else:
-                success = self._create_record_api(record)
-            
-            if success:
-                self.stats['records_created'] += 1
-            else:
-                self.stats['errors'] += 1
-        
-        return True
     
     def import_directory(self, directory: Path) -> bool:
         """Import all zone files from a directory"""
@@ -671,6 +1054,8 @@ def main():
                        help='User ID for created_by field (default: 1)')
     parser.add_argument('--create-includes', action='store_true',
                        help='Create include zone files for $INCLUDE directives')
+    parser.add_argument('--allow-abs-include', action='store_true',
+                       help='Allow absolute paths in $INCLUDE directives (security: use with caution)')
     
     args = parser.parse_args()
     
