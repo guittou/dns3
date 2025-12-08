@@ -111,57 +111,7 @@ CREATE TABLE `auth_mappings` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `record_types`
--- Reference table for extensible DNS record types with UI categorization
---
-
-DROP TABLE IF EXISTS `record_types`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `record_types` (
-  `name` varchar(50) NOT NULL COMMENT 'Record type name (e.g., A, AAAA, CNAME)',
-  `category` varchar(50) DEFAULT 'other' COMMENT 'Category for UI grouping (pointing, extended, mail, other)',
-  `description` varchar(255) DEFAULT NULL COMMENT 'Human-readable description',
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`name`),
-  KEY `idx_category` (`category`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Data for table `record_types`
---
-
-LOCK TABLES `record_types` WRITE;
-/*!40000 ALTER TABLE `record_types` DISABLE KEYS */;
-INSERT INTO `record_types` (`name`, `category`, `description`) VALUES
-('A', 'pointing', 'IPv4 address record'),
-('AAAA', 'pointing', 'IPv6 address record'),
-('NS', 'pointing', 'Name server record'),
-('CNAME', 'pointing', 'Canonical name (alias) record'),
-('DNAME', 'pointing', 'Delegation name record'),
-('CAA', 'extended', 'Certification Authority Authorization'),
-('TXT', 'extended', 'Text record'),
-('NAPTR', 'extended', 'Naming Authority Pointer'),
-('SRV', 'extended', 'Service location record'),
-('LOC', 'extended', 'Location record'),
-('SSHFP', 'extended', 'SSH Fingerprint record'),
-('TLSA', 'extended', 'DANE TLS Association record'),
-('RP', 'extended', 'Responsible Person record'),
-('SVCB', 'extended', 'Service Binding record'),
-('HTTPS', 'extended', 'HTTPS Service Binding record'),
-('MX', 'mail', 'Mail exchange record'),
-('SPF', 'mail', 'Sender Policy Framework (stored as TXT)'),
-('DKIM', 'mail', 'DomainKeys Identified Mail (stored as TXT)'),
-('DMARC', 'mail', 'Domain-based Message Authentication (stored as TXT)'),
-('PTR', 'other', 'Pointer record (reverse DNS)'),
-('SOA', 'other', 'Start of Authority record');
-/*!40000 ALTER TABLE `record_types` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `dns_record_history`
--- Note: record_type is VARCHAR(50) to support extensible record types
 --
 
 DROP TABLE IF EXISTS `dns_record_history`;
@@ -172,7 +122,7 @@ CREATE TABLE `dns_record_history` (
   `record_id` int(11) NOT NULL,
   `zone_file_id` int(11) DEFAULT NULL,
   `action` enum('created','updated','status_changed') NOT NULL,
-  `record_type` varchar(50) NOT NULL COMMENT 'DNS record type (extensible)',
+  `record_type` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
   `value` text NOT NULL,
   `address_ipv4` varchar(15) DEFAULT NULL,
@@ -194,12 +144,11 @@ CREATE TABLE `dns_record_history` (
   KEY `idx_changed_at` (`changed_at`),
   CONSTRAINT `dns_record_history_ibfk_1` FOREIGN KEY (`record_id`) REFERENCES `dns_records` (`id`) ON DELETE CASCADE,
   CONSTRAINT `dns_record_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=50 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=60 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `dns_records`
--- Note: record_type is VARCHAR(50) to support extensible record types
 --
 
 DROP TABLE IF EXISTS `dns_records`;
@@ -208,7 +157,7 @@ DROP TABLE IF EXISTS `dns_records`;
 CREATE TABLE `dns_records` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `zone_file_id` int(11) DEFAULT NULL COMMENT 'Associated zone file',
-  `record_type` varchar(50) NOT NULL COMMENT 'DNS record type (A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, SRV, CAA, TLSA, SSHFP, NAPTR, SVCB, HTTPS, DNAME, LOC, RP)',
+  `record_type` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
   `value` text NOT NULL,
   `address_ipv4` varchar(15) DEFAULT NULL COMMENT 'IPv4 address for A records',
@@ -217,13 +166,20 @@ CREATE TABLE `dns_records` (
   `ptrdname` varchar(255) DEFAULT NULL COMMENT 'Reverse DNS name for PTR records',
   `txt` text DEFAULT NULL COMMENT 'Text content for TXT records',
   `ttl` int(11) DEFAULT 3600,
-  `priority` int(11) DEFAULT NULL COMMENT 'Priority for MX and SRV records',
+  `priority` int(11) DEFAULT NULL,
+  `requester` varchar(255) DEFAULT NULL COMMENT 'Person or system requesting this DNS record',
+  `status` enum('active','disabled','deleted') DEFAULT 'active',
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_by` int(11) DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
+  `expires_at` datetime DEFAULT NULL COMMENT 'Expiration date for temporary records',
+  `ticket_ref` varchar(255) DEFAULT NULL COMMENT 'Reference to ticket system (JIRA, ServiceNow, etc.)',
+  `comment` text DEFAULT NULL COMMENT 'Additional notes or comments about this record',
+  `last_seen` datetime DEFAULT NULL COMMENT 'Last time this record was viewed (server-managed)',
   `port` int(11) DEFAULT NULL COMMENT 'Port number for SRV records',
   `weight` int(11) DEFAULT NULL COMMENT 'Weight for SRV records',
   `srv_target` varchar(255) DEFAULT NULL COMMENT 'Target hostname for SRV records',
-  `mx_target` varchar(255) DEFAULT NULL COMMENT 'Target mail server for MX records',
-  `ns_target` varchar(255) DEFAULT NULL COMMENT 'Target nameserver for NS records',
-  `dname_target` varchar(255) DEFAULT NULL COMMENT 'Target for DNAME records',
   `tlsa_usage` tinyint(4) DEFAULT NULL COMMENT 'TLSA certificate usage (0-3)',
   `tlsa_selector` tinyint(4) DEFAULT NULL COMMENT 'TLSA selector (0=full cert, 1=SubjectPublicKeyInfo)',
   `tlsa_matching` tinyint(4) DEFAULT NULL COMMENT 'TLSA matching type (0=exact, 1=SHA256, 2=SHA512)',
@@ -243,26 +199,18 @@ CREATE TABLE `dns_records` (
   `svc_priority` int(11) DEFAULT NULL COMMENT 'SVCB/HTTPS priority (0=AliasMode)',
   `svc_target` varchar(255) DEFAULT NULL COMMENT 'SVCB/HTTPS target name',
   `svc_params` text DEFAULT NULL COMMENT 'SVCB/HTTPS params (JSON or key=value pairs)',
+  `ns_target` varchar(255) DEFAULT NULL COMMENT 'NS record target nameserver',
+  `mx_target` varchar(255) DEFAULT NULL COMMENT 'MX record target mail server',
+  `dname_target` varchar(255) DEFAULT NULL COMMENT 'DNAME record target',
   `rp_mbox` varchar(255) DEFAULT NULL COMMENT 'RP mailbox (email as domain)',
   `rp_txt` varchar(255) DEFAULT NULL COMMENT 'RP TXT domain reference',
   `loc_latitude` varchar(50) DEFAULT NULL COMMENT 'LOC latitude',
   `loc_longitude` varchar(50) DEFAULT NULL COMMENT 'LOC longitude',
   `loc_altitude` varchar(50) DEFAULT NULL COMMENT 'LOC altitude',
   `rdata_json` text DEFAULT NULL COMMENT 'JSON storage for complex record data',
-  `requester` varchar(255) DEFAULT NULL COMMENT 'Person or system requesting this DNS record',
-  `status` enum('active','disabled','deleted') DEFAULT 'active',
-  `created_by` int(11) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `updated_by` int(11) DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL ON UPDATE current_timestamp(),
-  `expires_at` datetime DEFAULT NULL COMMENT 'Expiration date for temporary records',
-  `ticket_ref` varchar(255) DEFAULT NULL COMMENT 'Reference to ticket system (JIRA, ServiceNow, etc.)',
-  `comment` text DEFAULT NULL COMMENT 'Additional notes or comments about this record',
-  `last_seen` datetime DEFAULT NULL COMMENT 'Last time this record was viewed (server-managed)',
   PRIMARY KEY (`id`),
   KEY `updated_by` (`updated_by`),
   KEY `idx_name` (`name`),
-  KEY `idx_type` (`record_type`),
   KEY `idx_status` (`status`),
   KEY `idx_created_by` (`created_by`),
   KEY `idx_expires_at` (`expires_at`),
@@ -271,12 +219,29 @@ CREATE TABLE `dns_records` (
   KEY `idx_address_ipv6` (`address_ipv6`),
   KEY `idx_cname_target` (`cname_target`),
   KEY `idx_zone_file_id` (`zone_file_id`),
+  KEY `idx_type` (`record_type`),
   KEY `idx_srv_target` (`srv_target`),
   KEY `idx_mx_target` (`mx_target`),
   KEY `idx_ns_target` (`ns_target`),
   CONSTRAINT `dns_records_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
   CONSTRAINT `dns_records_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=218858 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=218864 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `record_types`
+--
+
+DROP TABLE IF EXISTS `record_types`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `record_types` (
+  `name` varchar(50) NOT NULL,
+  `category` varchar(50) DEFAULT 'other' COMMENT 'Category for UI grouping (pointing, extended, mail)',
+  `description` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -406,7 +371,7 @@ CREATE TABLE `zone_file_history` (
   KEY `idx_changed_at` (`changed_at`),
   CONSTRAINT `zone_file_history_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
   CONSTRAINT `zone_file_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=47 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -454,7 +419,7 @@ CREATE TABLE `zone_file_validation` (
   KEY `idx_zone_file_checked` (`zone_file_id`,`checked_at` DESC),
   CONSTRAINT `zone_file_validation_ibfk_1` FOREIGN KEY (`zone_file_id`) REFERENCES `zone_files` (`id`) ON DELETE CASCADE,
   CONSTRAINT `zone_file_validation_ibfk_2` FOREIGN KEY (`run_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=365 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=491 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -482,8 +447,8 @@ CREATE TABLE `zone_files` (
   `soa_retry` int(11) DEFAULT 900 COMMENT 'SOA retry timer (seconds)',
   `soa_expire` int(11) DEFAULT 604800 COMMENT 'SOA expire timer (seconds)',
   `soa_minimum` int(11) DEFAULT 3600 COMMENT 'SOA minimum/negative caching TTL (seconds)',
-  `soa_rname` varchar(255) DEFAULT NULL COMMENT 'SOA RNAME - contact email for zone',
-  `mname` varchar(255) DEFAULT NULL COMMENT 'SOA MNAME - primary master nameserver for zone',
+  `soa_rname` varchar(255) DEFAULT NULL COMMENT 'SOA RNAME - contact email for zone (e.g., admin.example.com or admin@example.com)',
+  `mname` varchar(255) DEFAULT NULL COMMENT 'SOA MNAME - primary master nameserver for zone (e.g., ns1.example.com.)',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
   KEY `updated_by` (`updated_by`),
@@ -496,7 +461,7 @@ CREATE TABLE `zone_files` (
   KEY `idx_domain` (`domain`),
   CONSTRAINT `zone_files_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
   CONSTRAINT `zone_files_ibfk_2` FOREIGN KEY (`updated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
-) ENGINE=InnoDB AUTO_INCREMENT=54011 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=54012 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -526,4 +491,4 @@ CREATE TABLE `zone_files` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-12-05  8:28:46
+-- Dump completed on 2025-12-08 13:54:57
