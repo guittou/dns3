@@ -1013,6 +1013,11 @@
     /**
      * Update create button state based on zone or domain selection
      * Button is enabled if EITHER a zone file is selected OR a domain is selected
+     * 
+     * Domain selection is detected via:
+     * - selectedDomainId (module-level variable)
+     * - dns-domain-id (hidden field for backward compatibility)
+     * - dns-domain-input (visible input field value)
      */
     function updateCreateBtnState() {
         const createBtn = document.getElementById('dns-create-btn');
@@ -1025,7 +1030,7 @@
         // Check if zone is selected
         const hasZone = zoneId && zoneId.value && zoneId.value !== '';
         
-        // Check if domain is selected (via selectedDomainId, hidden field, or visible input)
+        // Check if domain is selected (via selectedDomainId module variable, hidden field, or visible input)
         const hasDomain = (selectedDomainId && selectedDomainId !== '') ||
                          (domainId && domainId.value && domainId.value !== '') ||
                          (domainInput && domainInput.value && domainInput.value.trim() !== '');
