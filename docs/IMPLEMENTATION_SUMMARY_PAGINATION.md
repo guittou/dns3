@@ -122,6 +122,25 @@ Response:
 }
 ```
 
+**Zone File Combobox: Server-First Strategy**
+
+Both the Zones tab (`zone-files.php`) and DNS tab (`dns-management.php`) now use a unified server-first approach for zone file comboboxes:
+
+- **Queries ≥2 chars:** Calls `search_zones` API endpoint for server-side search
+  - Handles large datasets (300+ masters, ~15k records) efficiently
+  - Respects server-side ACL filtering
+  - Returns results from entire database, not limited to client cache
+- **Short queries (<2 chars):** Uses client-side filtering on cached zones (`window.ZONES_ALL`)
+  - Fallback for empty/short queries
+  - Also used if server search fails
+- **Implementation:** Uses `initServerSearchCombobox()` helper in `assets/js/zone-files.js`
+  - Reusable across both tabs for consistent behavior
+  - Configurable `file_type` filter (master/include/all)
+  - Preserves existing `ensureParentOptionPresent` logic for include edit modals
+  - Console debug traces available for verification (`[initServerSearchCombobox]`)
+
+This ensures that typing "fic001" in either tab's zone file combobox will search the server and find the zone, even if it's not in the first 100 results of a paginated list.
+
 ### 4. Presentation Layer
 
 #### List View (`zone-files.php`)

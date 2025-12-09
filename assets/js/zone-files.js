@@ -576,6 +576,172 @@ function clientFilterZones(query) {
 }
 
 /**
+ * Initialize server-first search combobox (unified helper for Zones and DNS tabs)
+ * Server-first strategy: for queries ≥2 chars, calls serverSearchZones() to handle large datasets
+ * Falls back to client filtering for short queries or if server search fails
+ * 
+ * @param {Object} opts - Configuration options
+ * @param {HTMLElement} opts.inputEl - Text input element
+ * @param {HTMLElement} opts.listEl - List element for dropdown
+ * @param {HTMLElement} [opts.hiddenEl] - Optional hidden input for storing selected ID
+ * @param {string} [opts.file_type] - Optional file_type filter ('master', 'include', or empty for all)
+ * @param {Function} [opts.onSelectItem] - Optional callback when item is selected, receives (zone) => void
+ * @param {number} [opts.minCharsForServer=2] - Minimum characters to trigger server search
+ * @param {number} [opts.blurDelay=150] - Delay before hiding list on blur (ms)
+ * @returns {Object} - Object with refresh() method
+ */
+function initServerSearchCombobox(opts) {
+    const input = opts.inputEl;
+    const list = opts.listEl;
+    const hidden = opts.hiddenEl || null;
+    const fileType = opts.file_type || '';
+    const minCharsForServer = opts.minCharsForServer || 2;
+    const blurDelay = opts.blurDelay || 150;
+    
+    if (!input || !list) {
+        console.warn('[initServerSearchCombobox] Missing required elements (inputEl or listEl)');
+        return { refresh: () => {} };
+    }
+    
+    console.debug('[initServerSearchCombobox] Initializing with file_type:', fileType || 'all');
+    
+    // Map zone to combobox item format
+    function mapZoneItem(zone) {
+        return {
+            id: zone.id,
+            text: `${zone.name || zone.filename} (${zone.file_type})`
+        };
+    }
+    
+    // Populate list and attach click handlers
+    function showZones(zones) {
+        populateComboboxList(list, zones, mapZoneItem, (zone) => {
+            // Update hidden input if provided
+            if (hidden) {
+                hidden.value = zone.id || '';
+            }
+            // Update visible input
+            input.value = `${zone.name || zone.filename} (${zone.file_type})`;
+            // Call custom onSelectItem callback if provided
+            if (typeof opts.onSelectItem === 'function') {
+                try {
+                    opts.onSelectItem(zone);
+                } catch (err) {
+                    console.error('[initServerSearchCombobox] onSelectItem callback error:', err);
+                }
+            }
+        });
+    }
+    
+    // Get client-filtered zones from cache
+    function getClientZones(query) {
+        const q = query.toLowerCase();
+        let zones = window.ZONES_ALL || window.CURRENT_ZONE_LIST || [];
+        
+        if (!Array.isArray(zones)) {
+            zones = [];
+        }
+        
+        // Filter by file_type if specified
+        if (fileType) {
+            zones = zones.filter(z => (z.file_type || '').toLowerCase() === fileType.toLowerCase());
+        }
+        
+        // Filter by query
+        if (q) {
+            zones = zones.filter(z => {
+                const name = (z.name || '').toLowerCase();
+                const filename = (z.filename || '').toLowerCase();
+                return name.includes(q) || filename.includes(q);
+            });
+        }
+        
+        return zones;
+    }
+    
+    // Input event: server-first for queries ≥minCharsForServer
+    input.addEventListener('input', async () => {
+        const query = input.value.trim();
+        const q = query.toLowerCase();
+        
+        // Server-first strategy for queries ≥minCharsForServer chars
+        if (query.length >= minCharsForServer) {
+            console.debug('[initServerSearchCombobox] server search for query:', query);
+            
+            try {
+                // Try to call serverSearchZones if available
+                let serverResults = [];
+                if (typeof window.serverSearchZones === 'function') {
+                    serverResults = await window.serverSearchZones(query, { 
+                        file_type: fileType,
+                        limit: 100 
+                    });
+                } else if (typeof window.zoneApiCall === 'function') {
+                    // Fallback: call zoneApiCall directly
+                    console.debug('[initServerSearchCombobox] serverSearchZones not found, using zoneApiCall');
+                    const params = { q: query, limit: 100 };
+                    if (fileType) params.file_type = fileType;
+                    const response = await window.zoneApiCall('search_zones', { params });
+                    serverResults = response.data || [];
+                } else {
+                    console.warn('[initServerSearchCombobox] No server search function available, falling back to client');
+                    throw new Error('No server search available');
+                }
+                
+                console.debug('[initServerSearchCombobox] server returned', serverResults.length, 'results');
+                showZones(serverResults);
+                return;
+            } catch (err) {
+                console.warn('[initServerSearchCombobox] server search failed, fallback to client:', err);
+                // Fall through to client filtering
+            }
+        }
+        
+        // Client filtering for short queries or when server search fails
+        console.debug('[initServerSearchCombobox] client filter for query:', query);
+        const clientZones = getClientZones(query);
+        showZones(clientZones);
+    });
+    
+    // Focus event: show all zones from cache
+    input.addEventListener('focus', () => {
+        const zones = getClientZones('');
+        showZones(zones);
+    });
+    
+    // Blur event: hide list after delay
+    input.addEventListener('blur', () => {
+        setTimeout(() => {
+            list.style.display = 'none';
+            list.setAttribute('aria-hidden', 'true');
+        }, blurDelay);
+    });
+    
+    // Keyboard navigation
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            list.style.display = 'none';
+            list.setAttribute('aria-hidden', 'true');
+            input.blur();
+        } else if (e.key === 'Enter') {
+            const firstItem = list.querySelector('.combobox-item:not(.combobox-empty)');
+            if (firstItem) {
+                firstItem.click();
+                e.preventDefault();
+            }
+        }
+    });
+    
+    // Return object with refresh method
+    return {
+        refresh: () => {
+            const zones = getClientZones('');
+            showZones(zones);
+        }
+    };
+}
+
+/**
  * Attach search handler to #searchInput with debouncing
  * Server-first approach: prefers server search for queries ≥2 chars to handle pagination
  * Updates the global searchQuery variable and re-renders the table
@@ -688,6 +854,7 @@ window.buildApiPath = buildApiPath;
 window.attachZoneSearchInput = attachZoneSearchInput;
 window.serverSearchZones = serverSearchZones;
 window.clientFilterZones = clientFilterZones;
+window.initServerSearchCombobox = initServerSearchCombobox;
 window.isZoneInMasterTree = isZoneInMasterTree;
 window.MAX_PARENT_CHAIN_DEPTH = MAX_PARENT_CHAIN_DEPTH;
 
@@ -1167,125 +1334,48 @@ async function onZoneDomainSelected(masterZoneId) {
 }
 
 /**
- * Initialize zone file combobox
- * Handles input/focus events with server-first search for queries ≥2 chars
+ * Initialize zone file combobox using unified server-first helper
+ * Wraps initServerSearchCombobox with zone-files-specific logic
  */
 async function initZoneFileCombobox() {
     await ensureZonesCache();
-    const input = document.getElementById('zone-file-input');
-    const list = document.getElementById('zone-file-list');
-    const hiddenInput = document.getElementById('zone-file-id');
-    if (!input || !list || !hiddenInput) return;
     
-    input.readOnly = false;
-    input.placeholder = 'Rechercher une zone...';
+    const inputEl = document.getElementById('zone-file-input');
+    const listEl = document.getElementById('zone-file-list');
+    const hiddenEl = document.getElementById('zone-file-id');
     
-    async function currentComboboxZones() {
-        const zones = getFilteredZonesForCombobox() || [];
-        
-        // If we have a selected master and got 0 or 1 results (master only, no includes),
-        // fetch recursive includes from API to populate cache
-        if (window.ZONES_SELECTED_MASTER_ID && zones.length <= 1) {
-            try {
-                const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-                const fetched = await fetchZonesForMaster(masterId);
-                
-                // Merge fetched includes into cache (deduplicate)
-                if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
-                (fetched || []).forEach(z => {
-                    if (!window.ZONES_ALL.find(x => String(x.id) === String(z.id))) {
-                        window.ZONES_ALL.push(z);
-                    }
-                });
-                
-                // Re-filter after cache update
-                return getFilteredZonesForCombobox() || [];
-            } catch (e) {
-                console.warn('initZoneFileCombobox: fetchZonesForMaster failed', e);
-                return zones;
-            }
-        }
-        
-        return zones;
+    if (!inputEl || !listEl || !hiddenEl) {
+        console.warn('[initZoneFileCombobox] Required elements not found');
+        return;
     }
     
-    // Clone input to remove old event listeners
-    const newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    const inputEl = document.getElementById('zone-file-input');
+    inputEl.readOnly = false;
+    inputEl.placeholder = 'Rechercher une zone...';
     
-    inputEl.addEventListener('input', async () => {
-        const query = inputEl.value.toLowerCase().trim();
-        
-        // Server-first strategy for queries ≥2 chars
-        if (query.length >= 2) {
-            console.debug('[initZoneFileCombobox] Using server search for query:', query);
-            try {
-                const serverResults = await serverSearchZones(query, { limit: 100 });
-                // Filter by selected master if one is selected
-                let filtered = serverResults;
-                if (window.ZONES_SELECTED_MASTER_ID) {
-                    const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-                    filtered = serverResults.filter(z => isZoneInMasterTree(z, masterId, serverResults));
-                }
-                
-                window.CURRENT_ZONE_LIST = filtered.slice();
-                populateComboboxList(list, filtered, (zone) => ({ 
-                    id: zone.id, 
-                    text: `${zone.name} (${zone.file_type})` 
-                }), (zone) => { 
-                    onZoneFileSelected(zone.id); 
-                });
-                return;
-            } catch (err) {
-                console.warn('[initZoneFileCombobox] Server search failed, fallback to client cache:', err);
-                // Fall through to client cache
+    // Use the unified initServerSearchCombobox helper
+    // Custom onSelectItem to call onZoneFileSelected and update CURRENT_ZONE_LIST
+    const comboboxInstance = initServerSearchCombobox({
+        inputEl: inputEl,
+        listEl: listEl,
+        hiddenEl: hiddenEl,
+        file_type: '', // No filter, show all types (master + include)
+        onSelectItem: (zone) => {
+            // Update CURRENT_ZONE_LIST for backward compatibility
+            if (zone) {
+                window.CURRENT_ZONE_LIST = [zone];
             }
-        }
-        
-        // Client cache for short queries or when server fails
-        const zones = await currentComboboxZones();
-        const filtered = zones.filter(z => 
-            (z.name||'').toLowerCase().includes(query) || 
-            (z.filename||'').toLowerCase().includes(query)
-        );
-        
-        window.CURRENT_ZONE_LIST = filtered.slice();
-        populateComboboxList(list, filtered, (zone) => ({ 
-            id: zone.id, 
-            text: `${zone.name} (${zone.file_type})` 
-        }), (zone) => { 
-            onZoneFileSelected(zone.id); 
-        });
+            // Call existing onZoneFileSelected handler
+            if (typeof onZoneFileSelected === 'function') {
+                onZoneFileSelected(zone.id);
+            }
+        },
+        minCharsForServer: 2,
+        blurDelay: window.COMBOBOX_BLUR_DELAY || 200
     });
     
-    inputEl.addEventListener('focus', async () => { 
-        const zones = await currentComboboxZones();
-        window.CURRENT_ZONE_LIST = zones.slice();
-        populateComboboxList(list, zones, (zone) => ({ 
-            id: zone.id, 
-            text: `${zone.name} (${zone.file_type})` 
-        }), (zone) => { 
-            onZoneFileSelected(zone.id); 
-        }); 
-    });
+    console.debug('[initZoneFileCombobox] Initialized using initServerSearchCombobox');
     
-    inputEl.addEventListener('blur', () => { 
-        setTimeout(() => { 
-            list.style.display = 'none'; 
-        }, window.COMBOBOX_BLUR_DELAY || 200); 
-    });
-    
-    inputEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') { 
-            list.style.display = 'none'; 
-            inputEl.blur(); 
-        } else if (e.key === 'Enter') { 
-            const first = list.querySelector('.combobox-item'); 
-            if (first) first.click(); 
-            e.preventDefault(); 
-        }
-    });
+    return comboboxInstance;
 }
 
 /**
