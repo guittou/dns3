@@ -458,6 +458,7 @@ process_include_file() {
     local include_origin="$2"
     local base_dir="$3"
     local parent_zone_name="$4"
+    local master_ttl="${5:-3600}"  # Default to 3600 if not provided
     
     # Compute hash for deduplication
     local file_hash=$(compute_file_hash "$include_path")
@@ -494,6 +495,22 @@ process_include_file() {
     
     echo "    Origin: $effective_origin"
     
+    # Check if include file has its own $TTL directive
+    local include_ttl=$(echo "$include_content" | grep -E '^\$TTL' | head -1 | awk '{print $2}' || echo "")
+    local ttl_to_use
+    if [[ -n "$include_ttl" ]]; then
+        ttl_to_use="$include_ttl"
+        echo "    Using include's own TTL: $ttl_to_use"
+    else
+        ttl_to_use="$master_ttl"
+        if [[ "$master_ttl" == "3600" ]] && [[ $(grep -E '^\$TTL' "$(dirname "$include_path")/../$(basename "$(dirname "$include_path")")") ]]; then
+            # Master had no TTL, using fallback
+            echo "    ⚠ Include has no \$TTL and master has no default TTL. Using fallback: $ttl_to_use"
+        else
+            echo "    Include has no \$TTL directive. Using master's default TTL: $ttl_to_use"
+        fi
+    fi
+    
     # Check if include zone already exists (skip-existing logic)
     local zone_id=""
     if [[ $SKIP_EXISTING -eq 1 ]]; then
@@ -527,7 +544,7 @@ process_include_file() {
     
     if has_column "zone_files" "default_ttl"; then
         zone_insert+=", default_ttl"
-        zone_values+=", 3600"
+        zone_values+=", $ttl_to_use"
     fi
     
     if has_column "zone_files" "created_at"; then
@@ -619,7 +636,7 @@ process_include_file() {
         
         # Create record for include
         local record_insert="INSERT INTO dns_records (zone_file_id, record_type, name, value, ttl, status, created_by"
-        local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")', 3600, 'active', $USER_ID"
+        local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")', $ttl_to_use, 'active', $USER_ID"
         
         # Add type-specific columns (simplified)
         if [[ "$record_type" == "A" ]] && has_column "dns_records" "address_ipv4"; then
@@ -730,8 +747,8 @@ parse_zone_file() {
                 # Resolve include path
                 local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
                 if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
-                    # Process include file
-                    local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name")
+                    # Process include file with master's TTL
+                    local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl")
                     if [[ -n "$include_id" ]] && [[ "$include_id" != "0" ]]; then
                         include_zone_ids+=("$include_id:$include_count")
                         ((include_count++))
