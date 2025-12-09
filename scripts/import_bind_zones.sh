@@ -503,12 +503,7 @@ process_include_file() {
         echo "    Using include's own TTL: $ttl_to_use"
     else
         ttl_to_use="$master_ttl"
-        if [[ "$master_ttl" == "3600" ]] && [[ $(grep -E '^\$TTL' "$(dirname "$include_path")/../$(basename "$(dirname "$include_path")")") ]]; then
-            # Master had no TTL, using fallback
-            echo "    ⚠ Include has no \$TTL and master has no default TTL. Using fallback: $ttl_to_use"
-        else
-            echo "    Include has no \$TTL directive. Using master's default TTL: $ttl_to_use"
-        fi
+        echo "    Include has no \$TTL directive. Using master's default TTL: $ttl_to_use"
     fi
     
     # Check if include zone already exists (skip-existing logic)

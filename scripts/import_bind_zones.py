@@ -613,7 +613,8 @@ class ZoneImporter:
                     self.logger.error(f"$INCLUDE directive(s) still present after filtering in {include_path.name}")
             
             # Check if include file has its own $TTL directive
-            has_ttl = re.search(r'^\$TTL\s+\d+', parse_text, re.MULTILINE) is not None
+            # BIND supports time unit suffixes: s, m, h, d, w (e.g., $TTL 1h, $TTL 30m)
+            has_ttl = re.search(r'^\$TTL\s+\d+[smhdw]?', parse_text, re.MULTILINE) is not None
             
             # If no $TTL in include, prefix with master's TTL (or fallback)
             if not has_ttl:
@@ -953,11 +954,9 @@ class ZoneImporter:
             default_ttl = zone.ttl
         else:
             # Check for $TTL directive in file content
-            ttl_match = re.search(r'^\$TTL\s+(\d+)', file_content, re.MULTILINE)
-            if ttl_match:
-                default_ttl = int(ttl_match.group(1))
-            else:
-                self.logger.warning(f"Master zone {zone_name} has no default TTL. Using fallback: {default_ttl}")
+            # BIND supports time unit suffixes: s, m, h, d, w
+            # dnspython already parsed this, so if we got here, there was no TTL
+            self.logger.warning(f"Master zone {zone_name} has no default TTL. Using fallback: {default_ttl}")
         
         self.logger.debug(f"Master zone default TTL: {default_ttl}")
         
