@@ -95,14 +95,56 @@ class ZoneImporter:
         self.visited_includes: Set[str] = set()  # Detect cycles
         
     def _setup_logging(self) -> logging.Logger:
-        """Configure logging"""
-        level = logging.DEBUG if self.args.verbose else logging.INFO
-        logging.basicConfig(
-            format='%(asctime)s [%(levelname)s] %(message)s',
-            level=level,
+        """Configure logging with optional file output and rotation"""
+        # Determine log level
+        if hasattr(self.args, 'log_level') and self.args.log_level:
+            level_name = self.args.log_level.upper()
+            level = getattr(logging, level_name, logging.INFO)
+        elif self.args.verbose:
+            level = logging.DEBUG
+        else:
+            level = logging.INFO
+        
+        # Configure formatters
+        formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
-        return logging.getLogger(__name__)
+        
+        # Get root logger
+        logger = logging.getLogger(__name__)
+        logger.setLevel(level)
+        
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+        
+        # File handler with rotation (if log_file specified)
+        if hasattr(self.args, 'log_file') and self.args.log_file:
+            from logging.handlers import RotatingFileHandler
+            import os
+            
+            # Ensure log directory exists
+            log_dir = os.path.dirname(self.args.log_file)
+            if log_dir and not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True)
+            
+            # Create rotating file handler (10MB max, 5 backups)
+            file_handler = RotatingFileHandler(
+                self.args.log_file,
+                maxBytes=10 * 1024 * 1024,  # 10 MB
+                backupCount=5,
+                encoding='utf-8'
+            )
+            file_handler.setLevel(level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+            
+            logger.info(f"Logging to file: {self.args.log_file}")
+        
+        return logger
     
     def _connect_db(self):
         """Connect to MySQL database (DB mode only)"""
@@ -194,8 +236,8 @@ class ZoneImporter:
     def _create_zone_db(self, zone_data: Dict) -> Optional[int]:
         """Create zone via direct DB insertion"""
         columns = ['name', 'filename', 'file_type', 'status', 'created_by', 'domain']
-        optional_columns = ['content', 'default_ttl', 'soa_refresh', 'soa_retry', 
-                          'soa_expire', 'soa_minimum', 'soa_rname', 'mname']
+        optional_columns = ['directory', 'default_ttl', 'soa_refresh', 'soa_retry', 
+                          'soa_expire', 'soa_minimum', 'soa_rname', 'soa_serial', 'mname']
         
         # Build column list based on what's available in schema
         available_columns = []
@@ -645,7 +687,7 @@ class ZoneImporter:
             elif hasattr(zone, 'ttl') and zone.ttl:
                 default_ttl = zone.ttl
             
-            # Prepare zone data for include
+            # Prepare zone data for include (content NOT stored - records will be in dns_records)
             include_zone_name = effective_origin.rstrip('.')
             zone_data = {
                 'name': include_zone_name,
@@ -655,7 +697,7 @@ class ZoneImporter:
                 'created_by': self.args.user_id,
                 'domain': include_zone_name,
                 'default_ttl': default_ttl,
-                'content': include_content,
+                # 'content': NOT stored - records extracted to dns_records table
                 'directory': str(include_path.parent)
             }
             
@@ -818,6 +860,7 @@ class ZoneImporter:
         soa_data = {
             'mname': None,
             'soa_rname': None,
+            'soa_serial': None,
             'soa_refresh': 10800,
             'soa_retry': 900,
             'soa_expire': 604800,
@@ -832,6 +875,7 @@ class ZoneImporter:
                 soa = list(soa_rdataset)[0]
                 soa_data['mname'] = str(soa.mname)
                 soa_data['soa_rname'] = str(soa.rname)
+                soa_data['soa_serial'] = soa.serial
                 soa_data['soa_refresh'] = soa.refresh
                 soa_data['soa_retry'] = soa.retry
                 soa_data['soa_expire'] = soa.expire
@@ -998,7 +1042,7 @@ class ZoneImporter:
             # Extract SOA data
             soa_data = self._extract_soa_data(zone, origin)
             
-            # Prepare zone data - preserve $INCLUDE directives in content
+            # Prepare zone data - content NOT stored, records will be in dns_records table
             zone_data = {
                 'name': zone_name,
                 'filename': filepath.name,
@@ -1007,9 +1051,7 @@ class ZoneImporter:
                 'created_by': self.args.user_id,
                 'domain': zone_name,
                 'default_ttl': default_ttl,
-                # Store original content preserving $INCLUDE directives (not expanded inline)
-                # This allows the system to regenerate flat zones dynamically while maintaining the include structure
-                'content': file_content,
+                # 'content': NOT stored - SOA/TTL in columns, records in dns_records table
                 'directory': str(filepath.parent),
                 **soa_data
             }
@@ -1251,6 +1293,13 @@ def main():
                        help='Allow absolute paths in $INCLUDE directives (security: use with caution)')
     parser.add_argument('--include-search-paths', type=str, default='',
                        help='Additional search paths for $INCLUDE files (colon or comma separated, e.g., "/var/named/includes:/etc/bind/includes")')
+    
+    # Logging options
+    parser.add_argument('--log-file', type=str,
+                       help='Path to log file (enables file logging with rotation)')
+    parser.add_argument('--log-level', type=str, 
+                       choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+                       help='Log level (default: INFO, or DEBUG if --verbose)')
     
     args = parser.parse_args()
     

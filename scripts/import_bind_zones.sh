@@ -19,6 +19,7 @@
 #   --create-includes      Create separate zone_file entries for $INCLUDE directives
 #   --allow-abs-include    Allow absolute paths in $INCLUDE directives (security: use with caution)
 #   --include-search-paths PATHS  Additional search paths for $INCLUDE files (colon or comma separated)
+#   --log-file PATH        Path to log file (stdout/stderr will be logged to file using tee)
 #
 # Examples:
 #   # Dry-run mode (safe testing)
@@ -49,6 +50,7 @@ USER_ID=1
 CREATE_INCLUDES=0
 ALLOW_ABS_INCLUDE=0
 INCLUDE_SEARCH_PATHS=""
+LOG_FILE=""
 
 # Validate database name (security: prevent SQL injection)
 validate_identifier() {
@@ -111,6 +113,10 @@ while [[ $# -gt 0 ]]; do
             INCLUDE_SEARCH_PATHS="$2"
             shift 2
             ;;
+        --log-file)
+            LOG_FILE="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1" >&2
             exit 1
@@ -137,6 +143,21 @@ validate_identifier "$DB_NAME" "DB_NAME"
 if [[ -z "$DB_PASSWORD" ]] && [[ $DRY_RUN -eq 0 ]]; then
     read -s -p "Database password for ${DB_USER}@${DB_HOST}: " DB_PASSWORD
     echo
+fi
+
+# Setup logging to file if requested
+if [[ -n "$LOG_FILE" ]]; then
+    # Create log directory if it doesn't exist
+    LOG_DIR="$(dirname "$LOG_FILE")"
+    if [[ -n "$LOG_DIR" ]] && [[ ! -d "$LOG_DIR" ]]; then
+        mkdir -p "$LOG_DIR"
+    fi
+    
+    # Redirect stdout and stderr to both console and log file (append mode)
+    exec > >(tee -a "$LOG_FILE")
+    exec 2>&1
+    
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] Logging to file: $LOG_FILE"
 fi
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
@@ -572,16 +593,11 @@ process_include_file() {
         fi
     fi
     
-    # Build INSERT statement for include zone
+    # Build INSERT statement for include zone (content NOT stored - records in dns_records)
     local zone_insert="INSERT INTO zone_files (name, filename, file_type, status, created_by, domain"
     local zone_values="VALUES ('$(mysql_escape "$effective_origin")', '$(mysql_escape "$filename")', 'include', 'active', $USER_ID, '$(mysql_escape "$effective_origin")'"
     
-    # Add optional columns
-    if has_column "zone_files" "content"; then
-        zone_insert+=", content"
-        zone_values+=", '$(mysql_escape "$include_content")'"
-    fi
-    
+    # Add optional columns (content NOT included - records will be in dns_records table)
     if has_column "zone_files" "directory"; then
         zone_insert+=", directory"
         zone_values+=", '$(mysql_escape "$directory")'"
@@ -819,6 +835,7 @@ parse_zone_file() {
     # For complex zones, use the Python importer which properly parses SOA records.
     local soa_mname=""
     local soa_rname=""
+    local soa_serial=""
     local soa_refresh=10800
     local soa_retry=900
     local soa_expire=604800
@@ -835,6 +852,7 @@ parse_zone_file() {
         # Try to extract numeric values (serial, refresh, retry, expire, minimum)
         local nums=$(echo "$soa_data" | grep -oE '[0-9]+' | head -5)
         if [[ -n "$nums" ]]; then
+            soa_serial=$(echo "$nums" | sed -n '1p')
             soa_refresh=$(echo "$nums" | sed -n '2p')
             soa_retry=$(echo "$nums" | sed -n '3p')
             soa_expire=$(echo "$nums" | sed -n '4p')
@@ -862,6 +880,11 @@ parse_zone_file() {
         zone_values+=", '$(mysql_escape "$soa_rname")'"
     fi
     
+    if has_column "zone_files" "soa_serial" && [[ -n "$soa_serial" ]]; then
+        zone_insert+=", soa_serial"
+        zone_values+=", $soa_serial"
+    fi
+    
     if has_column "zone_files" "soa_refresh"; then
         zone_insert+=", soa_refresh"
         zone_values+=", $soa_refresh"
@@ -882,12 +905,12 @@ parse_zone_file() {
         zone_values+=", $soa_minimum"
     fi
     
-    # Store file content with $INCLUDE directives preserved
-    if has_column "zone_files" "content"; then
-        local file_content=$(cat "$file")
-        zone_insert+=", content"
-        zone_values+=", '$(mysql_escape "$file_content")'"
-    fi
+    # Content NOT stored - SOA/TTL in columns, records in dns_records table
+    # if has_column "zone_files" "content"; then
+    #     local file_content=$(cat "$file")
+    #     zone_insert+=", content"
+    #     zone_values+=", '$(mysql_escape "$file_content")'"
+    # fi
     
     # Store directory path
     if has_column "zone_files" "directory"; then

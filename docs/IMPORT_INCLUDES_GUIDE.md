@@ -5,22 +5,87 @@ This guide explains how to use the `--create-includes` feature in the BIND impor
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Python Script Usage](#python-script-usage)
-3. [Bash Script Usage](#bash-script-usage)
-4. [Testing Scenarios](#testing-scenarios)
-5. [Security Considerations](#security-considerations)
-6. [Troubleshooting](#troubleshooting)
+2. [Normalized Import Behavior](#normalized-import-behavior)
+3. [Python Script Usage](#python-script-usage)
+4. [Bash Script Usage](#bash-script-usage)
+5. [Testing Scenarios](#testing-scenarios)
+6. [Security Considerations](#security-considerations)
+7. [Troubleshooting](#troubleshooting)
 
 ## Overview
 
 The enhanced import scripts now support `$INCLUDE` directives by:
 - Creating separate `zone_file` entries for master and include files
 - Establishing `zone_file_includes` relationships
-- Preserving `$INCLUDE` directives in master zone content
+- **NOT storing raw content in `zone_files.content`** (content is left NULL/empty)
+- **Extracting and storing SOA fields and default TTL** in dedicated `zone_files` columns
+- **Creating `dns_records` entries** for all resource records from both master and include files
 - Deduplicating includes by path or content hash
 - Detecting circular includes and limiting recursion depth
 - Preventing path traversal attacks
 - **Robust path resolution**: tries multiple strategies to locate include files
+
+## Normalized Import Behavior
+
+### What Gets Stored Where
+
+After import:
+
+1. **`zone_files` table**:
+   - Basic zone metadata (name, filename, directory, file_type, status)
+   - **SOA fields** (mname, soa_rname, soa_refresh, soa_retry, soa_expire, soa_minimum)
+   - **Default TTL** (default_ttl column)
+   - **`content` column is NULL** (not stored - records are normalized in dns_records)
+
+2. **`dns_records` table**:
+   - All DNS resource records (A, AAAA, CNAME, MX, NS, TXT, etc.)
+   - Each record has `zone_file_id` linking to the zone_files entry
+   - Records from includes have `zone_file_id` pointing to the include zone entry
+
+3. **`zone_file_includes` table**:
+   - Relationships between master zones and their includes
+   - Preserves include order via `position` column
+
+### Benefits of Normalized Import
+
+- **Query efficiency**: Records can be searched and filtered directly in `dns_records`
+- **Data integrity**: SOA and TTL in dedicated columns with proper types
+- **Schema flexibility**: Supports future columns without schema changes
+- **Record management**: Individual records can be updated without reparsing zone content
+- **Consistent structure**: All zones follow the same normalized pattern
+
+### Logging
+
+Both scripts support file logging with rotation (Python) or tee redirection (Bash):
+
+**Python**:
+```bash
+python3 scripts/import_bind_zones.py \
+  --dir /path/to/zones \
+  --log-file logs/import.log \
+  --log-level DEBUG \
+  --db-mode \
+  --db-user root \
+  --db-pass secret
+```
+
+- Rotating log files (10MB max, 5 backups)
+- Configurable log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- Logs to both console and file
+- **Security**: API tokens are never logged
+
+**Bash**:
+```bash
+./scripts/import_bind_zones.sh \
+  --dir /path/to/zones \
+  --log-file logs/import.log \
+  --db-user root \
+  --db-pass secret
+```
+
+- Uses `tee` for simultaneous console and file output
+- Append mode (doesn't overwrite existing logs)
+- Log directory created automatically if needed
 
 ## Include Path Resolution
 
