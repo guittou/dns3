@@ -66,6 +66,36 @@ Include files are stored in `zone_files` with:
 
 This naming convention avoids conflicts when an include's origin/domain equals the master zone's name, which would violate the UNIQUE constraint on `zone_files.name`.
 
+### RR Name Preservation
+
+The import scripts preserve DNS record names exactly as they appear in the zone file:
+
+- **Zone apex `@`**: Stored as `@` in `dns_records.name`
+- **Relative names**: Stored as-is (e.g., `www` stays as `www`)
+- **Fully qualified names**: Stored with trailing dot (e.g., `ns1.example.com.`)
+
+**Technical Implementation**:
+- Python: Uses `dns.zone.from_text(..., relativize=True)` and `name.to_text()`
+- Bash: Stores record names without concatenating zone origin
+
+This approach:
+- Avoids unwanted name transformations during import
+- Preserves the exact structure from BIND zone files
+- Allows application layer to handle name qualification when needed
+- Prevents issues where names might be double-qualified or incorrectly transformed
+
+**Before (incorrect)**:
+```
+Zone file: www IN A 192.0.2.1
+Stored as: www.example.com. (concatenated with origin)
+```
+
+**After (correct)**:
+```
+Zone file: www IN A 192.0.2.1
+Stored as: www (preserved as-is)
+```
+
 ### Import Order Guarantee
 
 The import scripts now ensure correct import order:

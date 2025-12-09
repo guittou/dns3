@@ -675,8 +675,9 @@ class ZoneImporter:
             self.logger.debug(f"Detected {len(explicit_ttls)} record(s) with explicit TTL in include {include_path.name}")
             
             # Parse the include file using dnspython
+            # Use relativize=True to preserve relative names as-is from the zone file
             try:
-                zone = dns.zone.from_text(parse_text, origin=effective_origin, check_origin=False, relativize=False)
+                zone = dns.zone.from_text(parse_text, origin=effective_origin, check_origin=False, relativize=True)
             except Exception as e:
                 self.logger.error(f"Failed to parse include file {include_path}: {e}")
                 self.logger.error(f"  Origin: {effective_origin}")
@@ -845,8 +846,9 @@ class ZoneImporter:
                     self.logger.error("This should not happen - parsing may fail")
             
             # Parse the zone
+            # Use relativize=True to preserve relative names as-is from the zone file
             self.logger.debug(f"Calling dns.zone.from_text for {filepath.name} with origin={origin}, create_includes={self.args.create_includes}")
-            zone = dns.zone.from_text(parse_text, origin=origin, relativize=False, check_origin=False)
+            zone = dns.zone.from_text(parse_text, origin=origin, relativize=True, check_origin=False)
             
             self.logger.info(f"Successfully parsed zone file: {filepath.name} with origin: {origin}")
             return zone, origin
@@ -996,7 +998,9 @@ class ZoneImporter:
         records = []
         
         for name, node in zone.items():
-            name_str = str(name.derelativize(dns.name.from_text(origin)))
+            # Use to_text() to preserve the exact name format from dnspython
+            # This avoids concatenating owner + zone name
+            name_str = name.to_text()
             
             for rdataset in node:
                 record_type = dns.rdatatype.to_text(rdataset.rdtype)
