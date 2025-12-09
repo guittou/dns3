@@ -2112,17 +2112,21 @@ async function loadParentOptions(currentParentId) {
                 const option = document.createElement('option');
                 option.value = zone.id;
                 option.textContent = `${zone.name} (${zone.file_type})`;
-                // Ensure proper selection by comparing as strings and numbers
-                if (zone.id == currentParentId || String(zone.id) === String(currentParentId)) {
-                    option.selected = true;
-                    console.debug('[loadParentOptions] Selected parent:', zone.name, 'id:', zone.id);
-                }
                 select.appendChild(option);
             });
             
-            // Double-check: if currentParentId is set but no option was selected, log a warning
-            if (currentParentId && !select.querySelector('option[selected]')) {
-                console.warn('[loadParentOptions] Parent ID provided but not found in options:', currentParentId);
+            // Set the select element's value directly after all options are added
+            // This is more reliable than setting option.selected on individual options
+            if (currentParentId) {
+                select.value = String(currentParentId);
+                
+                // Verify the selection was successful
+                if (select.value === String(currentParentId)) {
+                    const selectedOption = select.options[select.selectedIndex];
+                    console.debug('[loadParentOptions] Selected parent:', selectedOption?.textContent, 'id:', currentParentId);
+                } else {
+                    console.warn('[loadParentOptions] Parent ID provided but not found in options:', currentParentId);
+                }
             }
         }
     } catch (error) {
