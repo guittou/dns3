@@ -676,12 +676,12 @@ function initServerSearchCombobox(opts) {
                         file_type: fileType,
                         limit: 100 
                     });
-                } else if (typeof zoneApiCall === 'function') {
+                } else if (typeof window.zoneApiCall === 'function') {
                     // Fallback: call zoneApiCall directly
                     console.debug('[initServerSearchCombobox] serverSearchZones not found, using zoneApiCall');
                     const params = { q: query, limit: 100 };
                     if (fileType) params.file_type = fileType;
-                    const response = await zoneApiCall('search_zones', { params });
+                    const response = await window.zoneApiCall('search_zones', { params });
                     serverResults = response.data || [];
                 } else {
                     console.warn('[initServerSearchCombobox] No server search function available, falling back to client');
