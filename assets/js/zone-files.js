@@ -1469,15 +1469,24 @@ function getFilteredZonesForCombobox() {
             return fileType === 'include';
         });
         
+        // Get masters from global allMasters array or filter from zonesAll as fallback
+        const masterZones = (Array.isArray(allMasters) && allMasters.length > 0)
+            ? allMasters
+            : zonesAll.filter(z => (z.file_type || '').toLowerCase().trim() === 'master');
+        
         // Sort masters and includes alphabetically by name
-        const sortedMasters = sortZonesAlphabetically(allMasters);
+        const sortedMasters = sortZonesAlphabetically(masterZones);
         const sortedIncludes = sortZonesAlphabetically(includeZones);
         
         return [...sortedMasters, ...sortedIncludes];
     }
 
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-    const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
+    
+    // Get master zone from global allMasters array or filter from zonesAll as fallback
+    const masterZone = (Array.isArray(allMasters) && allMasters.length > 0)
+        ? allMasters.find(m => parseInt(m.id, 10) === masterId)
+        : zonesAll.find(z => parseInt(z.id, 10) === masterId && (z.file_type || '').toLowerCase().trim() === 'master');
     
     // Recursive ancestor-based filter: include all zones whose ancestor chain contains masterId
     const includeZones = zonesAll.filter(zone => {
