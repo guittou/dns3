@@ -138,8 +138,13 @@ Both the Zones tab (`zone-files.php`) and DNS tab (`dns-management.php`) now use
   - Configurable `file_type` filter (master/include/all)
   - Preserves existing `ensureParentOptionPresent` logic for include edit modals
   - Console debug traces available for verification (`[initServerSearchCombobox]`)
+- **Combobox State Management:**
+  - **Disabled when no domain selected:** Zone file combobox is disabled (grayed out) until a domain is selected
+  - **Enabled after domain selection:** Once a domain is selected via the domain combobox, the zone file combobox becomes enabled and populated with the master first, followed by includes sorted alphabetically
+  - Functions: `setZoneFileComboboxEnabled(enabled)` for Zones tab, `setDnsZoneComboboxEnabled(enabled)` for DNS tab
+  - Called by: `onZoneDomainSelected()`, `setDomainForZone()`, `selectDomain()`, and domain deselection handlers
 
-This ensures that typing "fic001" in either tab's zone file combobox will search the server and find the zone, even if it's not in the first 100 results of a paginated list.
+This ensures that typing "fic001" in either tab's zone file combobox will search the server and find the zone, even if it's not in the first 100 results of a paginated list. It also provides consistent UX by disabling the zone file selector until a domain context is established.
 
 ### 4. Presentation Layer
 

@@ -688,6 +688,42 @@
     }
 
     /**
+     * Enable or disable the DNS zone combobox
+     * @param {boolean} enabled - Whether to enable the combobox
+     */
+    function setDnsZoneComboboxEnabled(enabled) {
+        const inputEl = document.getElementById('dns-zone-input');
+        const hiddenEl = document.getElementById('dns-zone-id');
+        
+        if (!inputEl) {
+            console.warn('[setDnsZoneComboboxEnabled] dns-zone-input not found');
+            return;
+        }
+        
+        if (enabled) {
+            inputEl.disabled = false;
+            inputEl.placeholder = 'Rechercher une zone...';
+            inputEl.title = 'Sélectionnez un fichier de zone';
+        } else {
+            inputEl.disabled = true;
+            inputEl.value = '';
+            inputEl.placeholder = 'Sélectionnez d\'abord un domaine';
+            inputEl.title = 'Sélectionnez d\'abord un domaine';
+            if (hiddenEl) {
+                hiddenEl.value = '';
+            }
+            
+            // Hide the dropdown list if it's open
+            const listEl = document.getElementById('dns-zone-list');
+            if (listEl) {
+                listEl.style.display = 'none';
+            }
+        }
+        
+        console.debug('[setDnsZoneComboboxEnabled] DNS zone combobox', enabled ? 'enabled' : 'disabled');
+    }
+
+    /**
      * Initialize zone combobox with server-first search using unified helper
      */
     async function initZoneCombobox() {
@@ -705,6 +741,11 @@
             if (!inputEl || !listEl || !hiddenEl) {
                 console.warn('[DNS initZoneCombobox] Required elements not found');
                 return;
+            }
+            
+            // Start with combobox disabled if no domain selected
+            if (!selectedDomainId) {
+                setDnsZoneComboboxEnabled(false);
             }
             
             // Use the unified initServerSearchCombobox helper from zone-files.js
@@ -864,6 +905,16 @@
         // When domain is selected (via zone), filter zones
         if (zoneFileId) {
             populateZoneComboboxForDomain(zoneFileId);
+            
+            // Enable DNS zone combobox after population
+            if (typeof setDnsZoneComboboxEnabled === 'function') {
+                setDnsZoneComboboxEnabled(true);
+            }
+        } else {
+            // Disable DNS zone combobox when no domain selected
+            if (typeof setDnsZoneComboboxEnabled === 'function') {
+                setDnsZoneComboboxEnabled(false);
+            }
         }
         
         // Update create button state
@@ -965,6 +1016,11 @@
                 const legacy = document.getElementById('dns-domain-id'); if (legacy) legacy.value = '';
                 const zoneInput = document.getElementById('dns-zone-input'); if (zoneInput) zoneInput.value = '';
                 const recordZoneFile = document.getElementById('record-zone-file'); if (recordZoneFile) recordZoneFile.value = '';
+                
+                // Disable DNS zone combobox
+                if (typeof setDnsZoneComboboxEnabled === 'function') {
+                    setDnsZoneComboboxEnabled(false);
+                }
                 return;
             }
 
@@ -1042,6 +1098,11 @@
                     }
                 }
             }
+            
+            // Enable DNS zone combobox after population
+            if (typeof setDnsZoneComboboxEnabled === 'function') {
+                setDnsZoneComboboxEnabled(true);
+            }
 
             if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
         } catch (e) {
@@ -1090,6 +1151,11 @@
         if (domainInput) domainInput.value = '';
         if (zoneFileIdInput) zoneFileIdInput.value = '';
         if (domainIdInput) domainIdInput.value = '';
+        
+        // Disable DNS zone combobox when filters are reset
+        if (typeof setDnsZoneComboboxEnabled === 'function') {
+            setDnsZoneComboboxEnabled(false);
+        }
         
         // Clear zone selection
         clearZoneSelection();
@@ -4051,6 +4117,7 @@
     window.initModalZonefileSelect = initModalZonefileSelect;
     window.fillModalZonefileSelect = fillModalZonefileSelect;
     window.getMasterIdFromZoneId = getMasterIdFromZoneId;
+    window.setDnsZoneComboboxEnabled = setDnsZoneComboboxEnabled;
     
     // Expose combobox init functions for reuse by zone-files.js
     window.initDomainCombobox = initDomainCombobox;
