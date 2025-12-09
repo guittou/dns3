@@ -146,7 +146,7 @@ python3 scripts/import_bind_zones.py \
 
 **Purpose**: Verify explicit vs implicit TTL detection.
 
-**Test Zone File** (`/tmp/test_ttl/example.com.zone`):
+**Test Zone File** (e.g., `test_data/ttl_test/example.com.zone`):
 ```bind
 $ORIGIN example.com.
 $TTL 3600
@@ -171,7 +171,7 @@ ftp IN  A    192.0.2.2
 mail 1h IN A 192.0.2.3
 ```
 
-**Include File** (`/tmp/test_ttl/hosts.inc`):
+**Include File** (e.g., `test_data/ttl_test/hosts.inc`):
 ```bind
 ; No $TTL directive - inherits from master
 
@@ -185,7 +185,7 @@ server2 600 IN  A  192.0.2.12
 **Command**:
 ```bash
 python3 scripts/import_bind_zones.py \
-  --dir /tmp/test_ttl \
+  --dir test_data/ttl_test \
   --create-includes \
   --db-mode \
   --db-user root \
@@ -569,7 +569,7 @@ python3 scripts/import_bind_zones.py --example
 
 **Cause**: Old code that used origin as name for includes.
 
-**Solution**: Verify code uses `include_path.stem` (Python line 697) or `${filename%.*}` (Bash line 598).
+**Solution**: Verify code uses `include_path.stem` (Python) or `${filename%.*}` (Bash) for include naming. See implementation in import_bind_zones.py around the include zone data preparation section, and in import_bind_zones.sh in the include processing function.
 
 ### Issue: Records have double domain (www.example.com.example.com)
 
