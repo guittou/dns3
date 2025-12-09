@@ -119,7 +119,10 @@ function initCombobox(opts) {
 // =========================================================================
 
 // Constants for zone hierarchy traversal
-const MAX_PARENT_CHAIN_DEPTH = 20; // Safety limit to prevent infinite loops in malformed parent chains
+// MAX_PARENT_CHAIN_DEPTH: Safety limit to prevent infinite loops in malformed parent chains
+// Typical zone hierarchies are 2-5 levels deep (master -> include -> nested include)
+// 20 provides ample headroom for complex configurations while preventing runaway loops
+const MAX_PARENT_CHAIN_DEPTH = 20;
 
 /**
  * Check if a zone is in a master's tree by traversing its parent chain
@@ -2859,11 +2862,9 @@ async function populateIncludeParentCombobox(masterId) {
                 try {
                     const serverResults = await serverSearchZones(query, { limit: 100 });
                     // Filter to only include zones in the master's tree
-                    const filtered = serverResults.filter(z => {
-                        const zId = parseInt(z.id, 10);
-                        // Check if zone is in composedList (already part of this master's tree)
-                        return composedList.some(cz => parseInt(cz.id, 10) === zId);
-                    });
+                    // Use Set for O(1) lookup performance
+                    const composedIds = new Set(composedList.map(cz => parseInt(cz.id, 10)));
+                    const filtered = serverResults.filter(z => composedIds.has(parseInt(z.id, 10)));
                     
                     populateComboboxList(list, filtered, (zone) => ({
                         id: zone.id,
