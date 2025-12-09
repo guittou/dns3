@@ -128,7 +128,10 @@ const MAX_PARENT_CHAIN_DEPTH = 20;
  * Sort zones alphabetically by name (case-insensitive)
  * Used to harmonize combobox behavior between DNS and Zones tabs
  * @param {Array} zones - Array of zone objects to sort
- * @returns {Array} - New array with zones sorted alphabetically by name
+ * @returns {Array} - New array with zones sorted alphabetically by name (does not mutate original)
+ * @example
+ * const sorted = sortZonesAlphabetically([{name: 'zulu'}, {name: 'alpha'}]);
+ * // Returns: [{name: 'alpha'}, {name: 'zulu'}]
  */
 function sortZonesAlphabetically(zones) {
     return zones.slice().sort((a, b) => {
