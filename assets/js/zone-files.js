@@ -125,6 +125,23 @@ function initCombobox(opts) {
 const MAX_PARENT_CHAIN_DEPTH = 20;
 
 /**
+ * Sort zones alphabetically by name (case-insensitive)
+ * Used to harmonize combobox behavior between DNS and Zones tabs
+ * @param {Array} zones - Array of zone objects to sort
+ * @returns {Array} - New array with zones sorted alphabetically by name (does not mutate original)
+ * @example
+ * const sorted = sortZonesAlphabetically([{name: 'zulu'}, {name: 'alpha'}]);
+ * // Returns: [{name: 'alpha'}, {name: 'zulu'}]
+ */
+function sortZonesAlphabetically(zones) {
+    return zones.slice().sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+}
+
+/**
  * Check if a zone is in a master's tree by traversing its parent chain
  * @param {Object} zone - The zone object to check
  * @param {number} masterId - The master zone ID to look for
@@ -1454,11 +1471,25 @@ function getFilteredZonesForCombobox() {
             const fileType = (z.file_type || '').toLowerCase().trim();
             return fileType === 'include';
         });
-        return [...allMasters, ...includeZones];
+        
+        // Get masters from global allMasters array or filter from zonesAll as fallback
+        const masterZones = (Array.isArray(allMasters) && allMasters.length > 0)
+            ? allMasters
+            : zonesAll.filter(z => (z.file_type || '').toLowerCase().trim() === 'master');
+        
+        // Sort masters and includes alphabetically by name
+        const sortedMasters = sortZonesAlphabetically(masterZones);
+        const sortedIncludes = sortZonesAlphabetically(includeZones);
+        
+        return [...sortedMasters, ...sortedIncludes];
     }
 
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-    const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
+    
+    // Get master zone from global allMasters array or filter from zonesAll as fallback
+    const masterZone = (Array.isArray(allMasters) && allMasters.length > 0)
+        ? allMasters.find(m => parseInt(m.id, 10) === masterId)
+        : zonesAll.find(z => parseInt(z.id, 10) === masterId && (z.file_type || '').toLowerCase().trim() === 'master');
     
     // Recursive ancestor-based filter: include all zones whose ancestor chain contains masterId
     const includeZones = zonesAll.filter(zone => {
@@ -1491,7 +1522,10 @@ function getFilteredZonesForCombobox() {
         return false;
     });
     
-    return masterZone ? [masterZone, ...includeZones] : includeZones;
+    // Sort includes alphabetically by name to match DNS tab behavior
+    const sortedIncludes = sortZonesAlphabetically(includeZones);
+    
+    return masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
 }
 
 /**
@@ -1575,9 +1609,13 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         const listEl = document.getElementById('zone-file-list');
         if (!input) return;
 
-        // Build the items list: master (if present) + all recursive includes
-        const items = masterZone ? [masterZone, ...includeZones] : includeZones;
-        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master + includes)');
+        // Sort includes alphabetically by name to match DNS tab behavior
+        // (list_zone_files API returns: master first, then includes sorted by name ASC)
+        const sortedIncludes = sortZonesAlphabetically(includeZones);
+
+        // Build the items list: master (if present) + all recursive includes (sorted alphabetically)
+        const items = masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
+        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master first, then includes sorted A-Z)');
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
         window.CURRENT_ZONE_LIST = items.slice();
@@ -2944,7 +2982,7 @@ async function populateIncludeParentCombobox(masterId) {
             };
         }
         
-        // Compose final list with master first then includes (deduplicated)
+        // Compose final list with master first then includes sorted alphabetically (deduplicated)
         const composedList = [];
         const seenIds = new Set();
         
@@ -2954,8 +2992,11 @@ async function populateIncludeParentCombobox(masterId) {
             seenIds.add(String(masterZone.id));
         }
         
-        // Then add includes (deduplicated)
-        (zones || []).forEach(z => {
+        // Sort includes alphabetically by name before adding to list
+        const sortedZones = sortZonesAlphabetically(zones || []);
+        
+        // Then add sorted includes (deduplicated)
+        sortedZones.forEach(z => {
             if (!seenIds.has(String(z.id))) {
                 composedList.push(z);
                 seenIds.add(String(z.id));
