@@ -1027,13 +1027,18 @@ class ZoneImporter:
         has_explicit_ttl = False
         if explicit_ttls is not None:
             # Try to find match in explicit_ttls set
-            # We use a simplified rdata comparison - just check if the key matches
+            # Match by name, type, and a normalized form of rdata
             for (exp_name, exp_type, exp_rdata) in explicit_ttls:
                 if exp_name == name and exp_type == record_type:
-                    # Simplified match - if name and type match, consider it explicit
-                    # More sophisticated matching could compare rdata values
-                    has_explicit_ttl = True
-                    break
+                    # Also check rdata to avoid false positives when multiple records
+                    # with same name and type exist
+                    # Normalize both for comparison (strip whitespace, lowercase)
+                    exp_rdata_norm = exp_rdata.strip().lower()
+                    rdata_norm = rdata_str.strip().lower()
+                    # Check if rdata starts with expected value (handles variations in formatting)
+                    if rdata_norm.startswith(exp_rdata_norm) or exp_rdata_norm.startswith(rdata_norm):
+                        has_explicit_ttl = True
+                        break
         
         base_record = {
             'zone_file_id': zone_id,
