@@ -104,6 +104,12 @@ python3 scripts/import_bind_zones.py \
 - dns_records entries have zone_file_id = include_id
 - zone_file_includes relationship created
 
+**RR Name Preservation**:
+- Record names stored exactly as in zone file
+- Zone apex `@` stored as `@` (not expanded to domain name)
+- Relative names stored as-is (e.g., `www` not `www.example.com.`)
+- Fully qualified names stored with trailing dot unchanged
+
 **TTL Validation**:
 - Records with explicit TTL in source: dns_records.ttl = value
 - Records without explicit TTL: dns_records.ttl IS NULL
@@ -424,10 +430,11 @@ ORDER BY zf.file_type, zf.name;
 - Only records with explicit TTL in source have ttl value
 - explicit_ttl_values shows the unique TTL values used
 
-### Query 6: Verify No Record Name Concatenation
+### Query 6: Verify RR Name Preservation
 
 ```sql
--- Check that record names are properly formed (not concatenated)
+-- Check that record names are preserved as-is from zone file
+-- Should see @ for apex and relative names without dots
 SELECT 
     zf.name AS zone,
     zf.domain AS zone_domain,
@@ -435,21 +442,41 @@ SELECT
     dr.record_type,
     dr.value,
     CASE 
-        WHEN dr.name = zf.domain THEN 'ZONE APEX (@)'
-        WHEN dr.name LIKE CONCAT('%.', zf.domain) THEN 'SUBDOMAIN (correct)'
-        ELSE 'UNEXPECTED FORMAT'
-    END AS name_validation
+        WHEN dr.name = '@' THEN 'ZONE APEX (@) - preserved'
+        WHEN dr.name NOT LIKE '%.%' AND dr.name != '@' THEN 'RELATIVE NAME - preserved'
+        WHEN dr.name LIKE '%.%.' THEN 'FULLY QUALIFIED - preserved'
+        ELSE 'OTHER FORMAT'
+    END AS name_format
 FROM dns_records dr
 JOIN zone_files zf ON dr.zone_file_id = zf.id
 WHERE zf.created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
-  AND dr.record_type != 'SOA'
-ORDER BY zf.name, dr.name;
+ORDER BY zf.name, name_format, dr.name
+LIMIT 50;
 ```
 
 **Expected**:
-- All records show 'ZONE APEX (@)' or 'SUBDOMAIN (correct)'
-- No 'UNEXPECTED FORMAT' entries
-- No double-domain concatenation (e.g., `www.example.com.example.com`)
+- Zone apex records have name = `@` (not expanded to domain name)
+- Relative names stored without domain concatenation (e.g., `www` not `www.example.com.`)
+- Fully qualified names preserved with trailing dot
+- NO records with format like `www.example.com` (without trailing dot) - this would indicate incorrect concatenation
+
+**Statistics Query**:
+```sql
+-- Count records by name format
+SELECT 
+    CASE 
+        WHEN dr.name = '@' THEN 'apex (@)'
+        WHEN dr.name NOT LIKE '%.%' AND dr.name != '@' THEN 'relative (no dots)'
+        WHEN dr.name LIKE '%.%.' THEN 'fully qualified (with dot)'
+        ELSE 'other'
+    END AS name_type,
+    COUNT(*) AS count
+FROM dns_records dr
+JOIN zone_files zf ON dr.zone_file_id = zf.id
+WHERE zf.created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)
+GROUP BY name_type
+ORDER BY count DESC;
+```
 
 ### Query 7: Verify Content Field Not Populated
 
