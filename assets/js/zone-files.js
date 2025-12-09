@@ -300,7 +300,7 @@ async function fetchZonesForMaster(masterId) {
             params: {
                 master_id: masterIdNum, 
                 recursive: 1,
-                per_page: 1000
+                per_page: 5000  // Increased to 5000 to support masters with many includes (up to ~5000)
             }
         });
         

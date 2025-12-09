@@ -655,3 +655,19 @@ Or restore from backup:
 ```bash
 mysql -u root -p dns3_db < backup_before_import.sql
 ```
+
+## API Fetch Limits
+
+When fetching zones via the API endpoint `list_zones` with `recursive=1`, the system supports up to **5000 includes** in a single request:
+
+```javascript
+// JavaScript client example
+const result = await fetch('/api/zone_api.php?action=list_zones&master_id=123&recursive=1&per_page=5000');
+```
+
+**Important Notes:**
+- The `per_page` limit is **5000** for recursive requests (increased from 1000)
+- Standard non-recursive requests still have a max `per_page` of **100** for security
+- This higher limit is necessary for displaying parent options in include edit modals when masters have many includes (e.g., ~330+)
+- Controlled by the `MAX_INCLUDES_RETURN` constant in `api/zone_api.php`
+- Potential performance impact: fetching 5000 zones may take longer and use more memory

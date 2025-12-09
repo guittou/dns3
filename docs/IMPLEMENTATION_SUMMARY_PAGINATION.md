@@ -51,10 +51,24 @@ Returns total count of zones matching filters, essential for pagination metadata
 Request parameters:
 - `q` - Search query (searches name and filename)
 - `page` - Page number (default: 1)
-- `per_page` - Results per page (default: 25, max: 100)
+- `per_page` - Results per page (default: 25, max: 100 for standard requests, max: 5000 for recursive requests)
 - `file_type` - Filter by master/include
 - `status` - Filter by active/inactive/deleted
 - `owner` - Filter by creator user ID
+- `master_id` - Master zone ID for recursive fetch
+- `recursive` - Set to `1` to fetch master + all recursive includes (allows per_page up to 5000)
+
+**Recursive Fetch Enhancement:**
+
+When `recursive=1` is specified with a `master_id`, the endpoint returns the master zone and all its recursive includes in a single request. The `per_page` limit is increased to 5000 (from 100) for these requests to support masters with many includes (e.g., ~330 includes).
+
+This enhancement solves the issue where the Parent combobox in include edit modals couldn't display all available parent options due to pagination limits.
+
+**Important Notes:**
+- The increased limit (5000) only applies when `recursive=1` is present
+- Standard list requests still have a max `per_page` of 100 for security and performance
+- This is controlled by the `MAX_INCLUDES_RETURN` constant (set to 5000)
+- Potential memory/performance impact: fetching 5000 zones may take longer and use more memory
 
 Response format:
 ```json
