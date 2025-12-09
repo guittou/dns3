@@ -692,12 +692,9 @@ process_include_file() {
             ((idx++))
         done
         
-        # Handle @ for zone apex
-        if [[ "$record_name" == "@" ]]; then
-            record_name="$effective_origin"
-        elif [[ ! "$record_name" =~ \. ]]; then
-            record_name="${record_name}.${effective_origin}"
-        fi
+        # Preserve record name as-is from zone file (do not concatenate with origin)
+        # The name will be stored exactly as it appears: @ for apex, relative names stay relative
+        # This matches the Python script behavior with relativize=True and name.to_text()
         
         # Detect record type
         for part in "${parts[@]}"; do
@@ -1093,13 +1090,9 @@ parse_zone_file() {
             ((idx++))
         done
         
-        # Handle @ for zone apex
-        if [[ "$record_name" == "@" ]]; then
-            record_name="$zone_name"
-        elif [[ ! "$record_name" =~ \. ]]; then
-            # Relative name
-            record_name="${record_name}.${zone_name}"
-        fi
+        # Preserve record name as-is from zone file (do not concatenate with origin)
+        # The name will be stored exactly as it appears: @ for apex, relative names stay relative
+        # This matches the Python script behavior with relativize=True and name.to_text()
         
         # Detect record type (look for known types)
         for part in "${parts[@]}"; do
