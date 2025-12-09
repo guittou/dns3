@@ -44,13 +44,14 @@ function populateComboboxList(listElement, items, itemMapper, onSelect, showList
     }
 }
 
-// Lightweight reusable combobox initializer
-// opts: { inputEl, listEl, hiddenEl?, getItems?:fn, mapItem:fn, onSelectItem:fn, blurDelay }
+// Lightweight reusable combobox initializer with server search support
+// opts: { inputEl, listEl, hiddenEl?, getItems?:fn, serverSearch?:fn, mapItem:fn, onSelectItem:fn, blurDelay, minCharsForServer }
 function initCombobox(opts) {
     const input = opts.inputEl;
     const list = opts.listEl;
     const hidden = opts.hiddenEl || null;
     const blurDelay = opts.blurDelay || 150;
+    const minCharsForServer = opts.minCharsForServer || 2; // Minimum chars to trigger server search
     if (!input || !list) return;
 
     async function showItems(items) {
@@ -64,6 +65,21 @@ function initCombobox(opts) {
 
     input.addEventListener('input', async () => {
         const q = (input.value || '').toLowerCase().trim();
+        
+        // Server-first strategy: if query ≥ minCharsForServer and serverSearch available, use it
+        if (q.length >= minCharsForServer && typeof opts.serverSearch === 'function') {
+            console.debug('[initCombobox] Using server search for query:', q);
+            try {
+                const serverItems = await opts.serverSearch(q);
+                showItems(serverItems);
+                return;
+            } catch (err) {
+                console.warn('[initCombobox] Server search failed, fallback to client:', err);
+                // Fall through to client filtering
+            }
+        }
+        
+        // Client filtering (for short queries or server search not available/failed)
         let items = (typeof opts.getItems === 'function') ? await opts.getItems() : (opts.items || []);
         if (q) {
             items = (items || []).filter(i => (opts.mapItem(i).text || '').toLowerCase().includes(q));
@@ -469,21 +485,36 @@ function buildApiPath(endpoint) {
 
 /**
  * Perform server-side search for zones
+ * Uses search_zones endpoint which handles pagination and ACL filtering server-side
  * @param {string} query - Search query
+ * @param {object} options - Optional parameters (file_type, limit)
  * @returns {Promise<Array>} - Array of zone objects
  */
-async function serverSearchZones(query) {
-    const url = buildApiPath(`zone_api.php?action=search_zones&q=${encodeURIComponent(query)}&file_type=include&limit=20`);
+async function serverSearchZones(query, options = {}) {
+    const fileType = options.file_type || ''; // Empty = search all types
+    const limit = options.limit || 100; // Increased default limit
+    
+    let url = buildApiPath(`zone_api.php?action=search_zones&q=${encodeURIComponent(query)}&limit=${limit}`);
+    if (fileType) {
+        url += `&file_type=${encodeURIComponent(fileType)}`;
+    }
+    
+    console.debug('[serverSearchZones] Searching with query:', query, 'file_type:', fileType || 'all', 'limit:', limit);
+    
     try {
         const res = await fetch(url, { 
             credentials: 'same-origin', 
             headers: { 'X-Requested-With': 'XMLHttpRequest' } 
         });
-        if (!res.ok) return [];
+        if (!res.ok) {
+            console.warn('[serverSearchZones] HTTP error:', res.status);
+            return [];
+        }
         const json = await res.json();
+        console.debug('[serverSearchZones] Found', (json.data || []).length, 'results');
         return json.data || [];
     } catch (err) {
-        console.warn('serverSearchZones failed', err);
+        console.warn('[serverSearchZones] Exception:', err);
         return [];
     }
 }
@@ -507,7 +538,7 @@ function clientFilterZones(query) {
 
 /**
  * Attach search handler to #searchInput with debouncing
- * Uses client-side filtering first, falls back to server search if cache is empty
+ * Server-first approach: prefers server search for queries ≥2 chars to handle pagination
  * Updates the global searchQuery variable and re-renders the table
  */
 function attachZoneSearchInput() {
@@ -535,37 +566,52 @@ function attachZoneSearchInput() {
             
             if (val.length === 0) {
                 // Empty query: reset search and always reload full data to restore cache
+                console.debug('[attachZoneSearchInput] Empty query, reloading full data');
                 currentPage = 1;
                 await loadZonesData();
                 renderZonesTable();
                 return;
             }
             
-            // Try client-side filtering first (if cache is populated)
-            const clientResults = clientFilterZones(val);
-            if (clientResults !== null) {
-                // Client-side filtering available, just re-render table
-                // (renderZonesTable will apply the searchQuery filter)
-                currentPage = 1;
-                renderZonesTable();
-                return;
+            if (val.length < 2) {
+                // Short query (1 char): try client cache first, fallback to server if cache empty
+                console.debug('[attachZoneSearchInput] Short query (<2 chars), trying client cache');
+                const clientResults = clientFilterZones(val);
+                if (clientResults !== null) {
+                    console.debug('[attachZoneSearchInput] Using client cache,', clientResults.length, 'results');
+                    // Client-side filtering available, just re-render table
+                    currentPage = 1;
+                    renderZonesTable();
+                    return;
+                }
+                // Cache empty, fall through to server search
+                console.debug('[attachZoneSearchInput] Client cache empty, using server search for short query');
             }
             
-            // Fallback to server search (cache was empty)
+            // Query ≥2 chars or cache empty: prefer server search (handles pagination)
+            console.debug('[attachZoneSearchInput] Server search for query:', val);
             try {
-                const results = await serverSearchZones(val);
-                // Store server results in cache for rendering
+                const results = await serverSearchZones(val, { limit: 100 });
+                console.debug('[attachZoneSearchInput] Server search returned', results.length, 'results');
+                // Store server results in ZONES_ALL for rendering
                 // Note: These are partial results; when search is cleared, loadZonesData() will restore full data
                 window.ZONES_ALL = results;
                 currentPage = 1;
                 renderZonesTable();
             } catch (err) {
                 console.warn('[attachZoneSearchInput] Server search failed:', err);
+                // Fallback to client cache if server fails
+                const clientResults = clientFilterZones(val);
+                if (clientResults !== null) {
+                    console.debug('[attachZoneSearchInput] Server failed, using client cache fallback');
+                    currentPage = 1;
+                    renderZonesTable();
+                }
             }
         }, DEBOUNCE_MS);
     });
     
-    console.log('[attachZoneSearchInput] Search handler attached to #searchInput');
+    console.log('[attachZoneSearchInput] Search handler attached to #searchInput with server-first strategy');
 }
 
 /**
@@ -601,6 +647,8 @@ function attachFilterStatusHandler() {
 // Expose search functions globally
 window.buildApiPath = buildApiPath;
 window.attachZoneSearchInput = attachZoneSearchInput;
+window.serverSearchZones = serverSearchZones;
+window.clientFilterZones = clientFilterZones;
 
 /**
  * Ensure zone files initialization and expose helpers on window
@@ -1079,7 +1127,7 @@ async function onZoneDomainSelected(masterZoneId) {
 
 /**
  * Initialize zone file combobox
- * Handles input/focus events and fetches recursive includes when cache is insufficient
+ * Handles input/focus events with server-first search for queries ≥2 chars
  */
 async function initZoneFileCombobox() {
     await ensureZonesCache();
@@ -1127,6 +1175,48 @@ async function initZoneFileCombobox() {
     
     inputEl.addEventListener('input', async () => {
         const query = inputEl.value.toLowerCase().trim();
+        
+        // Server-first strategy for queries ≥2 chars
+        if (query.length >= 2) {
+            console.debug('[initZoneFileCombobox] Using server search for query:', query);
+            try {
+                const serverResults = await serverSearchZones(query, { limit: 100 });
+                // Filter by selected master if one is selected
+                let filtered = serverResults;
+                if (window.ZONES_SELECTED_MASTER_ID) {
+                    const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
+                    filtered = serverResults.filter(z => {
+                        if (parseInt(z.id, 10) === masterId) return true; // Include master itself
+                        // For includes, check if parent chain contains master
+                        let currentZone = z;
+                        let iterations = 0;
+                        while (currentZone && iterations < 20) {
+                            iterations++;
+                            if (currentZone.parent_id && parseInt(currentZone.parent_id, 10) === masterId) {
+                                return true;
+                            }
+                            // Try to find parent in server results
+                            currentZone = serverResults.find(sz => parseInt(sz.id, 10) === parseInt(currentZone.parent_id, 10));
+                        }
+                        return false;
+                    });
+                }
+                
+                window.CURRENT_ZONE_LIST = filtered.slice();
+                populateComboboxList(list, filtered, (zone) => ({ 
+                    id: zone.id, 
+                    text: `${zone.name} (${zone.file_type})` 
+                }), (zone) => { 
+                    onZoneFileSelected(zone.id); 
+                });
+                return;
+            } catch (err) {
+                console.warn('[initZoneFileCombobox] Server search failed, fallback to client cache:', err);
+                // Fall through to client cache
+            }
+        }
+        
+        // Client cache for short queries or when server fails
         const zones = await currentComboboxZones();
         const filtered = zones.filter(z => 
             (z.name||'').toLowerCase().includes(query) || 
@@ -2735,9 +2825,38 @@ async function populateIncludeParentCombobox(masterId) {
         input.parentNode.replaceChild(newInput, input);
         const inputEl = document.getElementById('include-parent-input');
         
-        // Input event - filter zones and show list
-        inputEl.addEventListener('input', () => {
+        // Input event - filter zones with server search for queries ≥2 chars
+        inputEl.addEventListener('input', async () => {
             const query = inputEl.value.toLowerCase().trim();
+            
+            // Server-first strategy for queries ≥2 chars
+            if (query.length >= 2) {
+                console.debug('[populateIncludeParentCombobox] Using server search for query:', query);
+                try {
+                    const serverResults = await serverSearchZones(query, { limit: 100 });
+                    // Filter to only include zones in the master's tree
+                    const filtered = serverResults.filter(z => {
+                        const zId = parseInt(z.id, 10);
+                        // Check if zone is in composedList (already part of this master's tree)
+                        return composedList.some(cz => parseInt(cz.id, 10) === zId);
+                    });
+                    
+                    populateComboboxList(list, filtered, (zone) => ({
+                        id: zone.id,
+                        text: `${zone.name} (${zone.file_type})`
+                    }), (zone) => {
+                        inputEl.value = `${zone.name} (${zone.file_type})`;
+                        hiddenField.value = zone.id;
+                        list.style.display = 'none';
+                    });
+                    return;
+                } catch (err) {
+                    console.warn('[populateIncludeParentCombobox] Server search failed, fallback to client:', err);
+                    // Fall through to client filtering
+                }
+            }
+            
+            // Client filtering for short queries or when server fails
             const filtered = composedList.filter(z => 
                 (z.name || '').toLowerCase().includes(query) || 
                 (z.filename || '').toLowerCase().includes(query)

@@ -688,7 +688,7 @@
     }
 
     /**
-     * Initialize zone combobox
+     * Initialize zone combobox with server-first search
      */
     async function initZoneCombobox() {
         try {
@@ -704,8 +704,54 @@
             
             if (!input || !hiddenInput || !list) return;
             
-            // Input event - filter CURRENT_ZONE_LIST and show list
+            // Input event - server search for queries ≥2 chars, client filter otherwise
             input.addEventListener('input', async () => {
+                const query = input.value.toLowerCase().trim();
+                
+                // Server-first strategy for queries ≥2 chars
+                if (query.length >= 2) {
+                    console.debug('[DNS initZoneCombobox] Using server search for query:', query);
+                    
+                    // Use window.serverSearchZones if available (from zone-files.js)
+                    if (typeof window.serverSearchZones === 'function') {
+                        try {
+                            const serverResults = await window.serverSearchZones(query, { limit: 100 });
+                            
+                            // Filter by selected master if one is selected
+                            let filtered = serverResults;
+                            if (window.ZONES_SELECTED_MASTER_ID) {
+                                const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
+                                filtered = serverResults.filter(z => {
+                                    if (parseInt(z.id, 10) === masterId) return true;
+                                    // For includes, check if in master's tree
+                                    let currentZone = z;
+                                    let iterations = 0;
+                                    while (currentZone && iterations < 20) {
+                                        iterations++;
+                                        if (currentZone.parent_id && parseInt(currentZone.parent_id, 10) === masterId) {
+                                            return true;
+                                        }
+                                        currentZone = serverResults.find(sz => parseInt(sz.id, 10) === parseInt(currentZone.parent_id, 10));
+                                    }
+                                    return false;
+                                });
+                            }
+                            
+                            populateComboboxList(list, filtered, (zone) => ({
+                                id: zone.id,
+                                text: `${zone.name} (${zone.file_type})`
+                            }), (zone) => {
+                                selectZone(zone.id, zone.name, zone.file_type);
+                            });
+                            return;
+                        } catch (err) {
+                            console.warn('[DNS initZoneCombobox] Server search failed, fallback to client:', err);
+                            // Fall through to client filtering
+                        }
+                    }
+                }
+                
+                // Client filtering for short queries or when server search unavailable/failed
                 // Defensive delegation: if populateZoneFileCombobox is available and a master is selected,
                 // call it to populate cache with master + recursive includes before filtering
                 if (window.ZONES_SELECTED_MASTER_ID && typeof window.populateZoneFileCombobox === 'function') {
@@ -716,7 +762,6 @@
                     }
                 }
                 
-                const query = input.value.toLowerCase().trim();
                 // Use CURRENT_ZONE_LIST from populateZoneFileCombobox if available, otherwise fallback to allZones
                 const sourceList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST || allZones;
                 const filtered = sourceList.filter(z => 

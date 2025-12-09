@@ -375,6 +375,7 @@ async function handleIncludeSearch(query) {
     }
     
     autocompleteTimeout = setTimeout(async () => {
+        console.debug('[handleIncludeSearch] Server search for query:', query);
         try {
             const response = await zoneApiCall('search_zones', {
                 params: {
@@ -384,9 +385,10 @@ async function handleIncludeSearch(query) {
                 }
             });
             
+            console.debug('[handleIncludeSearch] Found', (response.data || []).length, 'results');
             displayAutocompleteResults(response.data || []);
         } catch (error) {
-            console.error('Autocomplete search failed:', error);
+            console.error('[handleIncludeSearch] Autocomplete search failed:', error);
         }
     }, 300);
 }
