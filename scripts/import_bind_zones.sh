@@ -18,6 +18,7 @@
 #   --user-id ID           User ID for created_by field (default: 1)
 #   --create-includes      Create separate zone_file entries for $INCLUDE directives
 #   --allow-abs-include    Allow absolute paths in $INCLUDE directives (security: use with caution)
+#   --include-search-paths PATHS  Additional search paths for $INCLUDE files (colon or comma separated)
 #
 # Examples:
 #   # Dry-run mode (safe testing)
@@ -28,6 +29,9 @@
 #
 #   # Import with absolute includes allowed
 #   ./scripts/import_bind_zones.sh --dir /var/named/zones --db-user root --db-pass secret --create-includes --allow-abs-include
+#
+#   # Import with additional search paths for includes
+#   ./scripts/import_bind_zones.sh --dir /var/named/zones --db-user root --db-pass secret --create-includes --include-search-paths "/var/named/includes:/etc/bind/includes"
 #
 
 set -euo pipefail
@@ -44,6 +48,7 @@ SKIP_EXISTING=0
 USER_ID=1
 CREATE_INCLUDES=0
 ALLOW_ABS_INCLUDE=0
+INCLUDE_SEARCH_PATHS=""
 
 # Validate database name (security: prevent SQL injection)
 validate_identifier() {
@@ -101,6 +106,10 @@ while [[ $# -gt 0 ]]; do
         --allow-abs-include)
             ALLOW_ABS_INCLUDE=1
             shift
+            ;;
+        --include-search-paths)
+            INCLUDE_SEARCH_PATHS="$2"
+            shift 2
             ;;
         *)
             echo "Unknown option: $1" >&2
@@ -213,11 +222,24 @@ compute_file_hash() {
     fi
 }
 
-# Resolve include path (relative to absolute)
+# Resolve include path (relative to absolute) using multiple strategies
+# Resolution order for relative paths:
+# 1. Resolve relative to base_dir (directory of master zone file)
+# 2. Resolve relative to import_root (ZONE_DIR)
+# 3. Resolve relative to current working directory (CWD)
+# 4. Try each path in INCLUDE_SEARCH_PATHS
+# 5. If include_path is a basename (no slash), do recursive search under import_root
 resolve_include_path() {
     local include_path="$1"
     local base_dir="$2"
     local resolved=""
+    local attempted_paths=()
+    local import_root=""
+    
+    # Normalize import_root
+    if [[ -n "$ZONE_DIR" ]]; then
+        import_root="$(cd "$ZONE_DIR" && pwd)"
+    fi
     
     # Check if absolute path
     if [[ "$include_path" = /* ]]; then
@@ -226,38 +248,178 @@ resolve_include_path() {
             echo "Use --allow-abs-include to override" >&2
             return 1
         fi
+        
         resolved="$include_path"
-    else
-        # Relative path - resolve to absolute
-        # Note: realpath may not be available on all systems; fallback to manual resolution
-        if command -v realpath >/dev/null 2>&1; then
-            resolved="$(cd "$base_dir" && realpath "$include_path" 2>/dev/null || echo "")"
-        else
-            # Fallback: manual path resolution
-            resolved="$(cd "$base_dir" && pwd)/$include_path"
-            # Normalize path (remove ./ and ../)
-            resolved="$(echo "$resolved" | sed 's|/\./|/|g')"
-            while [[ "$resolved" =~ /[^/]+/\.\. ]]; do
-                resolved="$(echo "$resolved" | sed 's|/[^/]*/\.\.|/|')"
-            done
+        
+        # For absolute paths, still check import_root security unless explicitly allowed
+        if [[ $ALLOW_ABS_INCLUDE -eq 0 ]] && [[ -n "$import_root" ]]; then
+            if [[ "$resolved" != "$import_root"* ]]; then
+                echo "ERROR: Absolute include path outside import root: $include_path" >&2
+                return 1
+            fi
         fi
-    fi
-    
-    if [[ -z "$resolved" ]] || [[ ! -f "$resolved" ]]; then
-        echo "ERROR: Include file not found: $include_path" >&2
-        return 1
-    fi
-    
-    # Security: check path is within base directory (unless --allow-abs-include)
-    if [[ $ALLOW_ABS_INCLUDE -eq 0 ]]; then
-        local base_real="$(cd "$base_dir" && pwd)"
-        if [[ "$resolved" != "$base_real"* ]]; then
-            echo "ERROR: Include path outside base directory: $include_path" >&2
+        
+        if [[ -f "$resolved" ]]; then
+            echo "$resolved"
+            return 0
+        else
+            echo "ERROR: Absolute include file not found: $resolved" >&2
             return 1
         fi
     fi
     
-    echo "$resolved"
+    # Relative path - try multiple strategies in order
+    local candidates=()
+    local strategies=()
+    
+    # Strategy 1: Resolve relative to base_dir (directory of current master/include file)
+    if command -v realpath >/dev/null 2>&1; then
+        local candidate1="$(cd "$base_dir" && realpath "$include_path" 2>/dev/null || echo "")"
+    else
+        local candidate1="$(cd "$base_dir" && pwd)/$include_path"
+        # Normalize path
+        candidate1="$(echo "$candidate1" | sed 's|/\./|/|g')"
+        while [[ "$candidate1" =~ /[^/]+/\.\. ]]; do
+            candidate1="$(echo "$candidate1" | sed 's|/[^/]*/\.\.|/|')"
+        done
+    fi
+    if [[ -n "$candidate1" ]]; then
+        candidates+=("$candidate1")
+        strategies+=("base_dir")
+        attempted_paths+=("base_dir -> $candidate1")
+    fi
+    
+    # Strategy 2: Resolve relative to import_root (ZONE_DIR)
+    if [[ -n "$import_root" ]] && [[ "$import_root" != "$(cd "$base_dir" && pwd)" ]]; then
+        if command -v realpath >/dev/null 2>&1; then
+            local candidate2="$(cd "$import_root" && realpath "$include_path" 2>/dev/null || echo "")"
+        else
+            local candidate2="$import_root/$include_path"
+            # Normalize path
+            candidate2="$(echo "$candidate2" | sed 's|/\./|/|g')"
+            while [[ "$candidate2" =~ /[^/]+/\.\. ]]; do
+                candidate2="$(echo "$candidate2" | sed 's|/[^/]*/\.\.|/|')"
+            done
+        fi
+        if [[ -n "$candidate2" ]]; then
+            candidates+=("$candidate2")
+            strategies+=("import_root")
+            attempted_paths+=("import_root -> $candidate2")
+        fi
+    fi
+    
+    # Strategy 3: Resolve relative to current working directory
+    local cwd="$(pwd)"
+    if [[ "$cwd" != "$(cd "$base_dir" && pwd)" ]] && [[ -z "$import_root" || "$cwd" != "$import_root" ]]; then
+        if command -v realpath >/dev/null 2>&1; then
+            local candidate3="$(realpath "$include_path" 2>/dev/null || echo "")"
+        else
+            local candidate3="$cwd/$include_path"
+            # Normalize path
+            candidate3="$(echo "$candidate3" | sed 's|/\./|/|g')"
+            while [[ "$candidate3" =~ /[^/]+/\.\. ]]; do
+                candidate3="$(echo "$candidate3" | sed 's|/[^/]*/\.\.|/|')"
+            done
+        fi
+        if [[ -n "$candidate3" ]]; then
+            candidates+=("$candidate3")
+            strategies+=("cwd")
+            attempted_paths+=("cwd -> $candidate3")
+        fi
+    fi
+    
+    # Strategy 4: Try each path in INCLUDE_SEARCH_PATHS
+    if [[ -n "$INCLUDE_SEARCH_PATHS" ]]; then
+        # Split by colon or comma
+        local IFS
+        if [[ "$INCLUDE_SEARCH_PATHS" == *:* ]]; then
+            IFS=':'
+        else
+            IFS=','
+        fi
+        local search_paths_array=($INCLUDE_SEARCH_PATHS)
+        
+        for search_path in "${search_paths_array[@]}"; do
+            # Trim whitespace
+            search_path="$(echo "$search_path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+            if [[ -z "$search_path" ]]; then
+                continue
+            fi
+            
+            if command -v realpath >/dev/null 2>&1; then
+                local candidate4="$(cd "$search_path" 2>/dev/null && realpath "$include_path" 2>/dev/null || echo "")"
+            else
+                local candidate4="$search_path/$include_path"
+                # Normalize path
+                candidate4="$(echo "$candidate4" | sed 's|/\./|/|g')"
+                while [[ "$candidate4" =~ /[^/]+/\.\. ]]; do
+                    candidate4="$(echo "$candidate4" | sed 's|/[^/]*/\.\.|/|')"
+                done
+            fi
+            
+            if [[ -n "$candidate4" ]]; then
+                candidates+=("$candidate4")
+                strategies+=("search_path:$search_path")
+                attempted_paths+=("search_path:$search_path -> $candidate4")
+            fi
+        done
+    fi
+    
+    # Check each candidate
+    for i in "${!candidates[@]}"; do
+        local candidate="${candidates[$i]}"
+        local strategy="${strategies[$i]}"
+        
+        # Security check: ensure resolved path is within import_root (unless allow_abs_include)
+        if [[ $ALLOW_ABS_INCLUDE -eq 0 ]] && [[ -n "$import_root" ]]; then
+            if [[ "$candidate" != "$import_root"* ]]; then
+                # Skip candidates outside import_root
+                continue
+            fi
+        fi
+        
+        # Check if file exists
+        if [[ -f "$candidate" ]]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+    
+    # Strategy 5: If include_path is a basename (no slash), do recursive search under import_root
+    if [[ "$include_path" != */* ]] && [[ -n "$import_root" ]]; then
+        attempted_paths+=("recursive_search under $import_root")
+        
+        # Use find to search recursively
+        local matches=()
+        while IFS= read -r -d '' match; do
+            matches+=("$match")
+        done < <(find "$import_root" -type f -name "$include_path" -print0 2>/dev/null)
+        
+        if [[ ${#matches[@]} -gt 0 ]]; then
+            if [[ ${#matches[@]} -gt 1 ]]; then
+                echo "WARNING: Multiple matches found for '$include_path': ${#matches[@]} files" >&2
+                echo "WARNING: Using first match: ${matches[0]}" >&2
+                local limit=5
+                for idx in "${!matches[@]}"; do
+                    if [[ $idx -lt $limit ]]; then
+                        echo "  Match $((idx+1)): ${matches[$idx]}" >&2
+                    fi
+                done
+            fi
+            
+            echo "${matches[0]}"
+            return 0
+        fi
+    fi
+    
+    # No candidate found - log all attempted paths
+    echo "ERROR: Include file not found: $include_path" >&2
+    echo "Attempted paths:" >&2
+    for path in "${attempted_paths[@]}"; do
+        echo "  - $path" >&2
+    done
+    
+    return 1
 }
 
 # Create zone_file_includes relationship

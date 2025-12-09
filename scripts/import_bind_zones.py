@@ -15,6 +15,7 @@ Features:
   * Preserves $INCLUDE directives in master zone content
   * Supports deduplication by file path or content hash
   * Detects circular includes and limits recursion depth
+  * Robust path resolution: tries multiple strategies to locate include files
   * Security: prevents includes outside base directory (unless --allow-abs-include)
 - Supports dry-run mode for safe testing
 - Validates input and provides detailed error reporting
@@ -28,6 +29,9 @@ Usage examples:
 
   # DB mode with $INCLUDE support
   python3 scripts/import_bind_zones.py --dir /path/to/zones --db-mode --db-user root --db-pass secret --create-includes
+  
+  # With additional search paths for includes
+  python3 scripts/import_bind_zones.py --dir /path/to/zones --db-mode --db-user root --db-pass secret --create-includes --include-search-paths "/var/named/includes:/etc/bind/includes"
 
   # Dry-run mode to preview changes
   python3 scripts/import_bind_zones.py --dir /path/to/zones --dry-run --api-url http://localhost/dns3 --api-token abc123 --create-includes
@@ -348,11 +352,23 @@ class ZoneImporter:
     
     def _resolve_include_path(self, include_path: str, base_dir: Path) -> Optional[Path]:
         """
-        Resolve include path to absolute path
-        Returns None if path is invalid or outside base directory
+        Resolve include path to absolute path using multiple strategies.
+        
+        Resolution order (for relative paths):
+        1. Resolve relative to base_dir (directory of master zone file)
+        2. Resolve relative to import_root (--dir argument)
+        3. Resolve relative to current working directory (CWD)
+        4. Try each path in --include-search-paths
+        5. If include_path is a basename (no slash), do recursive search under import_root
+        
+        For absolute paths: respects --allow-abs-include security setting.
+        
+        Returns:
+            Resolved Path object if file found, None otherwise
         """
-        # Convert to Path object
         include_file = Path(include_path)
+        attempted_paths = []
+        import_root = Path(self.args.dir).resolve() if self.args.dir else None
         
         # If absolute path
         if include_file.is_absolute():
@@ -360,25 +376,103 @@ class ZoneImporter:
                 self.logger.error(f"Absolute include path not allowed: {include_path}")
                 self.logger.error("Use --allow-abs-include to override this restriction")
                 return None
-            resolved = include_file
-        else:
-            # Relative path - resolve relative to base_dir
-            resolved = (base_dir / include_file).resolve()
-        
-        # Security check: ensure resolved path is within base directory
-        if not self.args.allow_abs_include:
-            try:
-                resolved.relative_to(base_dir.resolve())
-            except ValueError:
-                self.logger.error(f"Include path outside base directory: {include_path}")
+            
+            # For absolute paths with allow_abs_include, still check import_root security unless explicitly allowed
+            resolved = include_file.resolve()
+            if not self.args.allow_abs_include and import_root:
+                try:
+                    resolved.relative_to(import_root)
+                except ValueError:
+                    self.logger.error(f"Absolute include path outside import root: {include_path}")
+                    return None
+            
+            if resolved.exists():
+                self.logger.debug(f"Resolved absolute include path: {resolved}")
+                return resolved
+            else:
+                self.logger.error(f"Absolute include file not found: {resolved}")
                 return None
         
-        # Check if file exists
-        if not resolved.exists():
-            self.logger.error(f"Include file not found: {resolved}")
-            return None
+        # Relative path - try multiple strategies in order
+        candidates = []
         
-        return resolved
+        # Strategy 1: Resolve relative to base_dir (directory of current master/include file)
+        candidate = (base_dir / include_file).resolve()
+        candidates.append(("base_dir", candidate))
+        
+        # Strategy 2: Resolve relative to import_root (--dir argument)
+        if import_root and import_root != base_dir.resolve():
+            candidate = (import_root / include_file).resolve()
+            candidates.append(("import_root", candidate))
+        
+        # Strategy 3: Resolve relative to current working directory
+        cwd = Path.cwd()
+        if cwd != base_dir.resolve() and (not import_root or cwd != import_root):
+            candidate = (cwd / include_file).resolve()
+            candidates.append(("cwd", candidate))
+        
+        # Strategy 4: Try each path in --include-search-paths
+        if hasattr(self.args, 'include_search_paths') and self.args.include_search_paths:
+            for search_path in self.args.include_search_paths:
+                search_path_obj = Path(search_path).resolve()
+                candidate = (search_path_obj / include_file).resolve()
+                candidates.append((f"search_path:{search_path}", candidate))
+        
+        # Check each candidate, ensuring it's within import_root (unless allow_abs_include)
+        for strategy, candidate in candidates:
+            attempted_paths.append(f"{strategy} -> {candidate}")
+            
+            # Security check: ensure resolved path is within import_root
+            if not self.args.allow_abs_include and import_root:
+                try:
+                    candidate.relative_to(import_root)
+                except ValueError:
+                    self.logger.debug(f"Path outside import_root (skipping): {candidate}")
+                    continue
+            
+            # Check if file exists
+            if candidate.exists() and candidate.is_file():
+                self.logger.debug(f"Resolved include via {strategy}: {candidate}")
+                return candidate
+        
+        # Strategy 5: If include_path is a basename (no directory separators), 
+        # do recursive search under import_root
+        if '/' not in include_path and '\\' not in include_path and import_root:
+            self.logger.debug(f"Attempting recursive search for basename: {include_path}")
+            try:
+                # Use rglob to search recursively, limit results for safety
+                matches = list(import_root.rglob(include_path))
+                
+                # Filter to only files (not directories)
+                matches = [m for m in matches if m.is_file()]
+                
+                if matches:
+                    if len(matches) > 1:
+                        self.logger.warning(f"Multiple matches found for '{include_path}': {len(matches)} files")
+                        self.logger.warning(f"Using first match: {matches[0]}")
+                        for idx, match in enumerate(matches[:5], 1):
+                            self.logger.debug(f"  Match {idx}: {match}")
+                    
+                    resolved = matches[0].resolve()
+                    attempted_paths.append(f"recursive_search -> {resolved}")
+                    self.logger.debug(f"Resolved include via recursive search: {resolved}")
+                    return resolved
+                else:
+                    attempted_paths.append(f"recursive_search under {import_root} -> no matches")
+            except Exception as e:
+                self.logger.debug(f"Recursive search failed: {e}")
+                attempted_paths.append(f"recursive_search -> error: {e}")
+        
+        # No candidate found - log all attempted paths
+        self.logger.error(f"Include file not found: {include_path}")
+        if self.args.verbose:
+            self.logger.error("Attempted paths:")
+            for path in attempted_paths:
+                self.logger.error(f"  - {path}")
+        else:
+            self.logger.error(f"Tried {len(attempted_paths)} location(s). Use --verbose to see all attempted paths.")
+        
+        return None
     
     def _create_zone_file_include_relationship(self, parent_id: int, include_id: int, position: int) -> bool:
         """Create a relationship between parent zone and include zone"""
@@ -1123,8 +1217,20 @@ def main():
                        help='Create include zone files for $INCLUDE directives')
     parser.add_argument('--allow-abs-include', action='store_true',
                        help='Allow absolute paths in $INCLUDE directives (security: use with caution)')
+    parser.add_argument('--include-search-paths', type=str, default='',
+                       help='Additional search paths for $INCLUDE files (colon or comma separated, e.g., "/var/named/includes:/etc/bind/includes")')
     
     args = parser.parse_args()
+    
+    # Process include-search-paths: split by colon or comma
+    if args.include_search_paths:
+        # Split by colon or comma, strip whitespace, filter empty strings
+        separator = ':' if ':' in args.include_search_paths else ','
+        args.include_search_paths = [
+            p.strip() for p in args.include_search_paths.split(separator) if p.strip()
+        ]
+    else:
+        args.include_search_paths = []
     
     # Create and run importer
     importer = ZoneImporter(args)
