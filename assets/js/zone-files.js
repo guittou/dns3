@@ -1454,7 +1454,20 @@ function getFilteredZonesForCombobox() {
             const fileType = (z.file_type || '').toLowerCase().trim();
             return fileType === 'include';
         });
-        return [...allMasters, ...includeZones];
+        
+        // Sort masters and includes alphabetically by name
+        const sortedMasters = allMasters.slice().sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        const sortedIncludes = includeZones.sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        
+        return [...sortedMasters, ...sortedIncludes];
     }
 
     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
@@ -1491,7 +1504,14 @@ function getFilteredZonesForCombobox() {
         return false;
     });
     
-    return masterZone ? [masterZone, ...includeZones] : includeZones;
+    // Sort includes alphabetically by name to match DNS tab behavior
+    const sortedIncludes = includeZones.sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+    
+    return masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
 }
 
 /**
@@ -1575,9 +1595,17 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         const listEl = document.getElementById('zone-file-list');
         if (!input) return;
 
-        // Build the items list: master (if present) + all recursive includes
-        const items = masterZone ? [masterZone, ...includeZones] : includeZones;
-        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master + includes)');
+        // Sort includes alphabetically by name to match DNS tab behavior
+        // (list_zone_files API returns: master first, then includes sorted by name ASC)
+        const sortedIncludes = includeZones.slice().sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+
+        // Build the items list: master (if present) + all recursive includes (sorted alphabetically)
+        const items = masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
+        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master + includes, sorted alphabetically)');
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
         window.CURRENT_ZONE_LIST = items.slice();
@@ -2944,7 +2972,7 @@ async function populateIncludeParentCombobox(masterId) {
             };
         }
         
-        // Compose final list with master first then includes (deduplicated)
+        // Compose final list with master first then includes sorted alphabetically (deduplicated)
         const composedList = [];
         const seenIds = new Set();
         
@@ -2954,8 +2982,15 @@ async function populateIncludeParentCombobox(masterId) {
             seenIds.add(String(masterZone.id));
         }
         
-        // Then add includes (deduplicated)
-        (zones || []).forEach(z => {
+        // Sort includes alphabetically by name before adding to list
+        const sortedZones = (zones || []).slice().sort((a, b) => {
+            const nameA = (a.name || '').toLowerCase();
+            const nameB = (b.name || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+        });
+        
+        // Then add sorted includes (deduplicated)
+        sortedZones.forEach(z => {
             if (!seenIds.has(String(z.id))) {
                 composedList.push(z);
                 seenIds.add(String(z.id));
