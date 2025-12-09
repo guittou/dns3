@@ -224,26 +224,46 @@ compute_file_hash() {
 
 # Convert BIND time unit to seconds
 # Supports: s (seconds), m (minutes), h (hours), d (days), w (weeks)
-# Example: "1h" -> 3600, "30m" -> 1800, "86400" -> 86400
+# Also supports decimal values: 1.5h, 0.5d, 2.25m
+# Example: "1h" -> 3600, "1.5h" -> 5400, "30m" -> 1800, "86400" -> 86400
 convert_ttl_to_seconds() {
     local ttl="$1"
     
-    # Check if TTL has a time unit suffix
-    if [[ "$ttl" =~ ^([0-9]+)([smhdw])$ ]]; then
+    # Check if TTL has a time unit suffix (supports decimal values)
+    if [[ "$ttl" =~ ^([0-9]+(\.[0-9]+)?)([smhdw])$ ]]; then
         local value="${BASH_REMATCH[1]}"
-        local unit="${BASH_REMATCH[2]}"
+        local unit="${BASH_REMATCH[3]}"
         
-        case "$unit" in
-            s) echo "$value" ;;
-            m) echo $((value * 60)) ;;
-            h) echo $((value * 3600)) ;;
-            d) echo $((value * 86400)) ;;
-            w) echo $((value * 604800)) ;;
-            *) echo "$ttl" ;;  # Fallback
-        esac
+        # Use bc for decimal arithmetic if available, otherwise use integer arithmetic
+        if command -v bc >/dev/null 2>&1; then
+            case "$unit" in
+                s) echo "$value" | bc | awk '{printf "%d", $0}' ;;
+                m) echo "$value * 60" | bc | awk '{printf "%d", $0}' ;;
+                h) echo "$value * 3600" | bc | awk '{printf "%d", $0}' ;;
+                d) echo "$value * 86400" | bc | awk '{printf "%d", $0}' ;;
+                w) echo "$value * 604800" | bc | awk '{printf "%d", $0}' ;;
+                *) echo "$ttl" ;;  # Fallback
+            esac
+        else
+            # Fallback to integer-only arithmetic if bc is not available
+            local int_value="${value%.*}"  # Extract integer part
+            case "$unit" in
+                s) echo "$int_value" ;;
+                m) echo $((int_value * 60)) ;;
+                h) echo $((int_value * 3600)) ;;
+                d) echo $((int_value * 86400)) ;;
+                w) echo $((int_value * 604800)) ;;
+                *) echo "$ttl" ;;  # Fallback
+            esac
+        fi
     else
-        # No unit suffix, assume already in seconds
-        echo "$ttl"
+        # No unit suffix, assume already in seconds (handle decimal values)
+        if [[ "$ttl" =~ \. ]] && command -v bc >/dev/null 2>&1; then
+            echo "$ttl" | bc | awk '{printf "%d", $0}'
+        else
+            # Integer or no bc available
+            echo "${ttl%.*}"
+        fi
     fi
 }
 
