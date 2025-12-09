@@ -1461,7 +1461,7 @@ function getFilteredZonesForCombobox() {
             const nameB = (b.name || '').toLowerCase();
             return nameA.localeCompare(nameB);
         });
-        const sortedIncludes = includeZones.sort((a, b) => {
+        const sortedIncludes = includeZones.slice().sort((a, b) => {
             const nameA = (a.name || '').toLowerCase();
             const nameB = (b.name || '').toLowerCase();
             return nameA.localeCompare(nameB);
@@ -1505,7 +1505,7 @@ function getFilteredZonesForCombobox() {
     });
     
     // Sort includes alphabetically by name to match DNS tab behavior
-    const sortedIncludes = includeZones.sort((a, b) => {
+    const sortedIncludes = includeZones.slice().sort((a, b) => {
         const nameA = (a.name || '').toLowerCase();
         const nameB = (b.name || '').toLowerCase();
         return nameA.localeCompare(nameB);
