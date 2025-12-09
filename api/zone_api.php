@@ -18,7 +18,7 @@ require_once __DIR__ . '/../includes/models/ZoneFile.php';
 require_once __DIR__ . '/../includes/lib/DnsValidator.php';
 
 // Constants
-define('MAX_INCLUDES_RETURN', 1000); // Maximum number of includes to return in get_zone to prevent OOM
+define('MAX_INCLUDES_RETURN', 5000); // Maximum number of includes to return in get_zone and recursive fetches to prevent OOM
 
 // Set JSON header
 header('Content-Type: application/json');
@@ -97,13 +97,19 @@ try {
             // List zone files with pagination (requires authentication)
             requireAuth();
 
+            // Check if this is a recursive tree request (parsed early to determine per_page limit)
+            $recursive = isset($_GET['recursive']) && $_GET['recursive'] == '1';
+            
             // Pagination parameters (parsed early for use in both paths)
+            // For recursive requests, allow up to MAX_INCLUDES_RETURN (5000) to fetch all includes in one request
+            // For standard requests, keep the general limit at 100 for security and performance
+            $max_per_page = $recursive ? MAX_INCLUDES_RETURN : 100;
             $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-            $per_page = isset($_GET['per_page']) ? min(100, max(1, (int)$_GET['per_page'])) : 25;
+            $per_page = isset($_GET['per_page']) ? min($max_per_page, max(1, (int)$_GET['per_page'])) : 25;
             
             // For backwards compatibility, also support limit/offset
             if (isset($_GET['limit'])) {
-                $per_page = min(100, max(1, (int)$_GET['limit']));
+                $per_page = min($max_per_page, max(1, (int)$_GET['limit']));
             }
 
             // Get allowed zone IDs for non-admin users (for ACL filtering)
@@ -133,9 +139,8 @@ try {
             // Note: For admins, $allowedZoneIds and $expandedZoneIds remain null
             // which means no ACL filtering is applied (admin sees all zones)
 
-            // Check if this is a recursive tree request
+            // Get master_id for recursive tree request (recursive flag already parsed above)
             $master_id = isset($_GET['master_id']) ? (int)$_GET['master_id'] : 0;
-            $recursive = isset($_GET['recursive']) && $_GET['recursive'] == '1';
 
             if ($master_id > 0 && $recursive) {
                 // For recursive tree, check if user has access to the master zone
