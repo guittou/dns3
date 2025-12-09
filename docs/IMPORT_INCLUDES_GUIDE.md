@@ -12,6 +12,8 @@ This guide explains how to use the `--create-includes` feature in the BIND impor
 6. [Security Considerations](#security-considerations)
 7. [Troubleshooting](#troubleshooting)
 
+**For comprehensive test scenarios and SQL validation queries, see [IMPORT_BIND_INCLUDES_TEST_PLAN.md](IMPORT_BIND_INCLUDES_TEST_PLAN.md)**
+
 ## Overview
 
 The enhanced import scripts now support `$INCLUDE` directives by:
