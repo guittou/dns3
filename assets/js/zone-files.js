@@ -2090,7 +2090,8 @@ async function loadParentOptions(currentParentId) {
         const response = await zoneApiCall('list_zones', { 
             params: { 
                 status: 'active',
-                per_page: 100 
+                recursive: 1,
+                per_page: 5000  // Increased to 5000 with recursive=1 to support instances with many zones (~300+)
             } 
         });
         
