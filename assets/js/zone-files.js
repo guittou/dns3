@@ -125,6 +125,20 @@ function initCombobox(opts) {
 const MAX_PARENT_CHAIN_DEPTH = 20;
 
 /**
+ * Sort zones alphabetically by name (case-insensitive)
+ * Used to harmonize combobox behavior between DNS and Zones tabs
+ * @param {Array} zones - Array of zone objects to sort
+ * @returns {Array} - New array with zones sorted alphabetically by name
+ */
+function sortZonesAlphabetically(zones) {
+    return zones.slice().sort((a, b) => {
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
+        return nameA.localeCompare(nameB);
+    });
+}
+
+/**
  * Check if a zone is in a master's tree by traversing its parent chain
  * @param {Object} zone - The zone object to check
  * @param {number} masterId - The master zone ID to look for
@@ -1456,16 +1470,8 @@ function getFilteredZonesForCombobox() {
         });
         
         // Sort masters and includes alphabetically by name
-        const sortedMasters = allMasters.slice().sort((a, b) => {
-            const nameA = (a.name || '').toLowerCase();
-            const nameB = (b.name || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
-        const sortedIncludes = includeZones.slice().sort((a, b) => {
-            const nameA = (a.name || '').toLowerCase();
-            const nameB = (b.name || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
+        const sortedMasters = sortZonesAlphabetically(allMasters);
+        const sortedIncludes = sortZonesAlphabetically(includeZones);
         
         return [...sortedMasters, ...sortedIncludes];
     }
@@ -1505,11 +1511,7 @@ function getFilteredZonesForCombobox() {
     });
     
     // Sort includes alphabetically by name to match DNS tab behavior
-    const sortedIncludes = includeZones.slice().sort((a, b) => {
-        const nameA = (a.name || '').toLowerCase();
-        const nameB = (b.name || '').toLowerCase();
-        return nameA.localeCompare(nameB);
-    });
+    const sortedIncludes = sortZonesAlphabetically(includeZones);
     
     return masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
 }
@@ -1597,15 +1599,11 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
 
         // Sort includes alphabetically by name to match DNS tab behavior
         // (list_zone_files API returns: master first, then includes sorted by name ASC)
-        const sortedIncludes = includeZones.slice().sort((a, b) => {
-            const nameA = (a.name || '').toLowerCase();
-            const nameB = (b.name || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
+        const sortedIncludes = sortZonesAlphabetically(includeZones);
 
         // Build the items list: master (if present) + all recursive includes (sorted alphabetically)
         const items = masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
-        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master + includes, sorted alphabetically)');
+        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master first, then includes sorted A-Z)');
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
         window.CURRENT_ZONE_LIST = items.slice();
@@ -2983,11 +2981,7 @@ async function populateIncludeParentCombobox(masterId) {
         }
         
         // Sort includes alphabetically by name before adding to list
-        const sortedZones = (zones || []).slice().sort((a, b) => {
-            const nameA = (a.name || '').toLowerCase();
-            const nameB = (b.name || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-        });
+        const sortedZones = sortZonesAlphabetically(zones || []);
         
         // Then add sorted includes (deduplicated)
         sortedZones.forEach(z => {
