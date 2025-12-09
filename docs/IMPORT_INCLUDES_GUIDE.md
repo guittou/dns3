@@ -20,6 +20,86 @@ The enhanced import scripts now support `$INCLUDE` directives by:
 - Deduplicating includes by path or content hash
 - Detecting circular includes and limiting recursion depth
 - Preventing path traversal attacks
+- **Robust path resolution**: tries multiple strategies to locate include files
+
+## Include Path Resolution
+
+When the scripts encounter a `$INCLUDE` directive with a relative path, they try to resolve it using the following strategies in order:
+
+1. **Relative to master zone's directory** (base_dir): Most common case
+2. **Relative to import root** (--dir argument): For includes stored in the root import directory
+3. **Relative to current working directory** (CWD): When running from a specific location
+4. **Search paths** (--include-search-paths): Additional directories to search
+5. **Recursive search** (basename only): If include is just a filename without path separators, recursively search under import_root
+
+### Using --include-search-paths
+
+The `--include-search-paths` option allows you to specify additional directories where the scripts should look for include files. This is useful when your include files are stored in standard locations outside the zone directory.
+
+**Format**: Colon-separated (`:`) or comma-separated (`,`) list of directory paths
+
+**Example with Python**:
+```bash
+python3 scripts/import_bind_zones.py \
+  --dir /var/named/zones \
+  --create-includes \
+  --include-search-paths "/var/named/includes:/etc/bind/includes" \
+  --db-mode \
+  --db-user root \
+  --db-pass secret
+```
+
+**Example with Bash**:
+```bash
+./scripts/import_bind_zones.sh \
+  --dir /var/named/zones \
+  --create-includes \
+  --include-search-paths "/var/named/includes:/etc/bind/includes" \
+  --db-user root \
+  --db-pass secret
+```
+
+### Resolution Examples
+
+Given this zone file in `/var/named/zones/example.com.zone`:
+```bind
+$ORIGIN example.com.
+$INCLUDE common/hosts.inc
+```
+
+The scripts will try:
+1. `/var/named/zones/common/hosts.inc` (relative to zone file)
+2. `/var/named/zones/common/hosts.inc` (relative to --dir, same in this case)
+3. `$(pwd)/common/hosts.inc` (relative to CWD)
+4. `/var/named/includes/common/hosts.inc` (if in search paths)
+5. `/etc/bind/includes/common/hosts.inc` (if in search paths)
+
+If the include is just a basename like `$INCLUDE hosts.inc`, the script will recursively search under the import root directory.
+
+### Verbose Logging
+
+Use `--verbose` (Python) to see all attempted paths when an include file is not found:
+
+```bash
+python3 scripts/import_bind_zones.py \
+  --dir /path/to/zones \
+  --create-includes \
+  --verbose \
+  --db-mode \
+  --db-user root \
+  --db-pass secret
+```
+
+Output example:
+```
+ERROR: Include file not found: common/hosts.inc
+Attempted paths:
+  - base_dir -> /var/named/zones/common/hosts.inc
+  - import_root -> /var/named/zones/common/hosts.inc
+  - cwd -> /home/user/common/hosts.inc
+  - search_path:/var/named/includes -> /var/named/includes/common/hosts.inc
+  - recursive_search under /var/named/zones -> no matches
+```
 
 ## Python Script Usage
 
@@ -91,9 +171,10 @@ python3 scripts/import_bind_zones.py \
 |--------|-------------|
 | `--create-includes` | Enable $INCLUDE directive processing (required) |
 | `--allow-abs-include` | Allow absolute paths in $INCLUDE directives |
+| `--include-search-paths PATHS` | Additional search paths for includes (colon/comma separated) |
 | `--skip-existing` | Skip zones that already exist (deduplication) |
 | `--dry-run` | Show what would be done without making changes |
-| `--verbose` | Enable detailed logging |
+| `--verbose` | Enable detailed logging (shows all attempted paths on errors) |
 | `--db-mode` | Use direct database insertion (default: API mode) |
 | `--user-id ID` | User ID for created_by field (default: 1) |
 
@@ -146,6 +227,7 @@ python3 scripts/import_bind_zones.py \
 |--------|-------------|
 | `--create-includes` | Enable $INCLUDE directive processing (required) |
 | `--allow-abs-include` | Allow absolute paths in $INCLUDE directives |
+| `--include-search-paths PATHS` | Additional search paths for includes (colon/comma separated) |
 | `--skip-existing` | Skip zones that already exist |
 | `--dry-run` | Show what would be done without making changes |
 | `--db-user USER` | Database user (default: root) |
@@ -315,13 +397,30 @@ Maximum include depth is limited to 50 levels to prevent excessive recursion.
 
 ### Issue: "Include file not found"
 
-**Cause**: Include path cannot be resolved.
+**Cause**: Include path cannot be resolved using any of the resolution strategies.
 
-**Solution**: 
-- Check that include files exist in the expected location
-- Use relative paths from the master zone's directory
-- Verify file permissions
+**Solutions**: 
+1. **Check file location**: Verify include files exist in expected location
+2. **Use relative paths**: Reference includes relative to the master zone's directory
+3. **Verify permissions**: Ensure files are readable
+4. **Use --verbose**: See all attempted paths to understand why resolution failed
+5. **Use --include-search-paths**: Add additional directories where includes may be located
+   ```bash
+   --include-search-paths "/var/named/includes:/etc/bind/includes"
+   ```
+6. **Check path separators**: For basename-only includes (no `/` or `\`), recursive search is used
 
+**Example diagnostic run**:
+```bash
+python3 scripts/import_bind_zones.py \
+  --dir /path/to/zones \
+  --create-includes \
+  --verbose \
+  --dry-run \
+  --db-mode
+```
+
+This will show all attempted resolution paths.
 ### Issue: "Absolute include path not allowed"
 
 **Cause**: Security protection against absolute paths.
