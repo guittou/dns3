@@ -594,8 +594,10 @@ process_include_file() {
     fi
     
     # Build INSERT statement for include zone (content NOT stored - records in dns_records)
+    # Use filename stem (without extension) as name to avoid conflicts with master zone
+    local filename_stem="${filename%.*}"  # e.g., "logiciel1" from "logiciel1.db"
     local zone_insert="INSERT INTO zone_files (name, filename, file_type, status, created_by, domain"
-    local zone_values="VALUES ('$(mysql_escape "$effective_origin")', '$(mysql_escape "$filename")', 'include', 'active', $USER_ID, '$(mysql_escape "$effective_origin")'"
+    local zone_values="VALUES ('$(mysql_escape "$filename_stem")', '$(mysql_escape "$filename")', 'include', 'active', $USER_ID, '$(mysql_escape "$effective_origin")'"
     
     # Add optional columns (content NOT included - records will be in dns_records table)
     if has_column "zone_files" "directory"; then
@@ -630,7 +632,7 @@ process_include_file() {
     
     # Get zone ID
     zone_id=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -N -s -e \
-        "SELECT id FROM zone_files WHERE name='$(mysql_escape "$effective_origin")' AND file_type='include' ORDER BY id DESC LIMIT 1" "$DB_NAME")
+        "SELECT id FROM zone_files WHERE name='$(mysql_escape "$filename_stem")' AND file_type='include' ORDER BY id DESC LIMIT 1" "$DB_NAME")
     
     if [[ -z "$zone_id" ]]; then
         echo "    ✗ Failed to get include zone ID" >&2
@@ -661,6 +663,34 @@ process_include_file() {
         local record_name="${parts[0]}"
         local record_type=""
         local record_value=""
+        local explicit_ttl=""
+        local has_explicit_ttl=0
+        
+        # Detect if line has explicit TTL (number after name, before or with class/type)
+        # Format: name [ttl] [class] type rdata
+        local idx=1
+        while [[ $idx -lt ${#parts[@]} ]]; do
+            local part="${parts[$idx]}"
+            
+            # Check if this looks like a TTL (number with optional time unit)
+            if [[ "$part" =~ ^[0-9]+(\.[0-9]+)?[smhdw]?$ ]]; then
+                # Next part should be class or type
+                if [[ $((idx + 1)) -lt ${#parts[@]} ]]; then
+                    local next_part="${parts[$((idx + 1))]}"
+                    case "$next_part" in
+                        IN|CH|HS|NONE|ANY|A|AAAA|CNAME|MX|NS|PTR|TXT|SRV|CAA)
+                            has_explicit_ttl=1
+                            explicit_ttl=$(convert_ttl_to_seconds "$part")
+                            ;;
+                    esac
+                fi
+                break
+            # Check if this is a class or type (no TTL found)
+            elif [[ "$part" =~ ^(IN|CH|HS|NONE|ANY|A|AAAA|CNAME|MX|NS|PTR|TXT|SRV|CAA)$ ]]; then
+                break
+            fi
+            ((idx++))
+        done
         
         # Handle @ for zone apex
         if [[ "$record_name" == "@" ]]; then
@@ -695,9 +725,18 @@ process_include_file() {
         
         [[ -z "$record_value" ]] && continue
         
-        # Create record for include
-        local record_insert="INSERT INTO dns_records (zone_file_id, record_type, name, value, ttl, status, created_by"
-        local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")', $ttl_to_use, 'active', $USER_ID"
+        # Create record for include - only include TTL if it was explicit
+        local record_insert="INSERT INTO dns_records (zone_file_id, record_type, name, value"
+        local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")'"
+        
+        # Only add TTL column if it was explicit in the original line
+        if [[ $has_explicit_ttl -eq 1 ]]; then
+            record_insert+=", ttl"
+            record_vals+=", $explicit_ttl"
+        fi
+        
+        record_insert+=", status, created_by"
+        record_vals+=", 'active', $USER_ID"
         
         # Add type-specific columns (simplified)
         if [[ "$record_type" == "A" ]] && has_column "dns_records" "address_ipv4"; then
@@ -777,57 +816,6 @@ parse_zone_file() {
     fi
     
     echo "  Default TTL: $default_ttl seconds"
-    
-    # Find and process $INCLUDE directives if --create-includes is enabled
-    local include_zone_ids=()
-    if [[ $CREATE_INCLUDES -eq 1 ]]; then
-        echo "  Checking for \$INCLUDE directives..."
-        local include_count=0
-        local line_num=0
-        local current_origin="$origin"
-        
-        while IFS= read -r line; do
-            ((line_num++))
-            
-            # Track $ORIGIN changes
-            if [[ "$line" =~ ^\$ORIGIN[[:space:]]+([^[:space:]]+) ]]; then
-                current_origin="${BASH_REMATCH[1]}"
-                current_origin="${current_origin%.}"
-                continue
-            fi
-            
-            # Find $INCLUDE directives
-            if [[ "$line" =~ ^\$INCLUDE[[:space:]]+([^[:space:]]+)([[:space:]]+([^[:space:]]+))? ]]; then
-                local include_file="${BASH_REMATCH[1]}"
-                local include_origin="${BASH_REMATCH[3]:-$current_origin}"
-                
-                # Remove quotes
-                include_file="${include_file//\"/}"
-                include_file="${include_file//\'/}"
-                
-                echo "  Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
-                
-                # Resolve include path
-                local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
-                if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
-                    # Process include file with master's TTL
-                    local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl")
-                    if [[ -n "$include_id" ]] && [[ "$include_id" != "0" ]]; then
-                        include_zone_ids+=("$include_id:$include_count")
-                        ((include_count++))
-                    else
-                        echo "  ⚠ Failed to process include at line $line_num: $include_file" >&2
-                    fi
-                else
-                    echo "  ⚠ Could not resolve include at line $line_num: $include_file" >&2
-                fi
-            fi
-        done < "$file"
-        
-        if [[ ${#include_zone_ids[@]} -gt 0 ]]; then
-            echo "  ✓ Processed ${#include_zone_ids[@]} include(s)"
-        fi
-    fi
     
     # Parse SOA (heuristic - assumes standard multi-line format)
     # WARNING: This uses -A 6 to grab 6 lines after SOA keyword, which works for most
@@ -926,11 +914,52 @@ parse_zone_file() {
     zone_insert+=") $zone_values);"
     
     if [[ $DRY_RUN -eq 1 ]]; then
-        echo "  [DRY-RUN] Would execute: $zone_insert"
+        echo "  [DRY-RUN] Would create master zone: $zone_name"
+        echo "  [DRY-RUN] SQL: $zone_insert"
         
-        # Show includes that would be created
-        if [[ ${#include_zone_ids[@]} -gt 0 ]]; then
-            echo "  [DRY-RUN] Would create ${#include_zone_ids[@]} zone_file_includes relationship(s)"
+        # Process $INCLUDE directives in dry-run
+        local include_count=0
+        if [[ $CREATE_INCLUDES -eq 1 ]]; then
+            echo "  [DRY-RUN] Checking for \$INCLUDE directives..."
+            local line_num=0
+            local current_origin="$origin"
+            
+            while IFS= read -r line; do
+                ((line_num++))
+                
+                # Track $ORIGIN changes
+                if [[ "$line" =~ ^\$ORIGIN[[:space:]]+([^[:space:]]+) ]]; then
+                    current_origin="${BASH_REMATCH[1]}"
+                    current_origin="${current_origin%.}"
+                    continue
+                fi
+                
+                # Find $INCLUDE directives
+                if [[ "$line" =~ ^\$INCLUDE[[:space:]]+([^[:space:]]+)([[:space:]]+([^[:space:]]+))? ]]; then
+                    local include_file="${BASH_REMATCH[1]}"
+                    local include_origin="${BASH_REMATCH[3]:-$current_origin}"
+                    
+                    # Remove quotes
+                    include_file="${include_file//\"/}"
+                    include_file="${include_file//\'/}"
+                    
+                    echo "    [DRY-RUN] Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
+                    
+                    # Resolve include path
+                    local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
+                    if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
+                        # Process include file with master's TTL
+                        local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl")
+                        if [[ -n "$include_id" ]] && [[ "$include_id" != "" ]]; then
+                            ((include_count++))
+                        fi
+                    fi
+                fi
+            done < "$file"
+            
+            if [[ $include_count -gt 0 ]]; then
+                echo "  [DRY-RUN] Would create $include_count zone_file_includes relationship(s)"
+            fi
         fi
     else
         # Execute zone creation
@@ -943,7 +972,58 @@ parse_zone_file() {
         local zone_id=$(mysql -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -p"$DB_PASSWORD" -N -s -e \
             "SELECT id FROM zone_files WHERE name='$(mysql_escape "$zone_name")' ORDER BY id DESC LIMIT 1" "$DB_NAME")
         
-        echo "  ✓ Zone created (ID: $zone_id)"
+        echo "  ✓ Master zone created (ID: $zone_id)"
+        
+        # Process $INCLUDE directives after master zone is created
+        local include_zone_ids=()
+        if [[ $CREATE_INCLUDES -eq 1 ]]; then
+            echo "  Processing \$INCLUDE directives..."
+            local include_count=0
+            local line_num=0
+            local current_origin="$origin"
+            
+            while IFS= read -r line; do
+                ((line_num++))
+                
+                # Track $ORIGIN changes
+                if [[ "$line" =~ ^\$ORIGIN[[:space:]]+([^[:space:]]+) ]]; then
+                    current_origin="${BASH_REMATCH[1]}"
+                    current_origin="${current_origin%.}"
+                    continue
+                fi
+                
+                # Find $INCLUDE directives
+                if [[ "$line" =~ ^\$INCLUDE[[:space:]]+([^[:space:]]+)([[:space:]]+([^[:space:]]+))? ]]; then
+                    local include_file="${BASH_REMATCH[1]}"
+                    local include_origin="${BASH_REMATCH[3]:-$current_origin}"
+                    
+                    # Remove quotes
+                    include_file="${include_file//\"/}"
+                    include_file="${include_file//\'/}"
+                    
+                    echo "    Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
+                    
+                    # Resolve include path
+                    local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
+                    if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
+                        # Process include file with master's TTL
+                        local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl")
+                        if [[ -n "$include_id" ]] && [[ "$include_id" != "0" ]]; then
+                            include_zone_ids+=("$include_id:$include_count")
+                            ((include_count++))
+                        else
+                            echo "    ⚠ Failed to process include at line $line_num: $include_file" >&2
+                        fi
+                    else
+                        echo "    ⚠ Could not resolve include at line $line_num: $include_file" >&2
+                    fi
+                fi
+            done < "$file"
+            
+            if [[ ${#include_zone_ids[@]} -gt 0 ]]; then
+                echo "  ✓ Processed ${#include_zone_ids[@]} include(s)"
+            fi
+        fi
         
         # Create zone_file_includes relationships
         if [[ ${#include_zone_ids[@]} -gt 0 ]]; then
@@ -985,7 +1065,33 @@ parse_zone_file() {
         local record_name="${parts[0]}"
         local record_type=""
         local record_value=""
-        local record_ttl=$default_ttl
+        local explicit_ttl=""
+        local has_explicit_ttl=0
+        
+        # Detect if line has explicit TTL (number after name, before or with class/type)
+        local idx=1
+        while [[ $idx -lt ${#parts[@]} ]]; do
+            local part="${parts[$idx]}"
+            
+            # Check if this looks like a TTL (number with optional time unit)
+            if [[ "$part" =~ ^[0-9]+(\.[0-9]+)?[smhdw]?$ ]]; then
+                # Next part should be class or type
+                if [[ $((idx + 1)) -lt ${#parts[@]} ]]; then
+                    local next_part="${parts[$((idx + 1))]}"
+                    case "$next_part" in
+                        IN|CH|HS|NONE|ANY|A|AAAA|CNAME|MX|NS|PTR|TXT|SRV|CAA)
+                            has_explicit_ttl=1
+                            explicit_ttl=$(convert_ttl_to_seconds "$part")
+                            ;;
+                    esac
+                fi
+                break
+            # Check if this is a class or type (no TTL found)
+            elif [[ "$part" =~ ^(IN|CH|HS|NONE|ANY|A|AAAA|CNAME|MX|NS|PTR|TXT|SRV|CAA)$ ]]; then
+                break
+            fi
+            ((idx++))
+        done
         
         # Handle @ for zone apex
         if [[ "$record_name" == "@" ]]; then
@@ -1027,12 +1133,25 @@ parse_zone_file() {
         
         # Build INSERT statement for record (simplified)
         if [[ $DRY_RUN -eq 1 ]]; then
-            echo "  [DRY-RUN] Would create record: $record_name $record_type $record_value"
+            local ttl_msg=""
+            if [[ $has_explicit_ttl -eq 1 ]]; then
+                ttl_msg=" (explicit TTL: $explicit_ttl)"
+            fi
+            echo "  [DRY-RUN] Would create record: $record_name $record_type $record_value$ttl_msg"
             ((record_count++))
         else
-            # Basic insert (using name column as per schema)
-            local record_insert="INSERT INTO dns_records (zone_file_id, record_type, name, value, ttl, status, created_by"
-            local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")', $record_ttl, 'active', $USER_ID"
+            # Basic insert - only include TTL if it was explicit
+            local record_insert="INSERT INTO dns_records (zone_file_id, record_type, name, value"
+            local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")'"
+            
+            # Only add TTL column if it was explicit in the original line
+            if [[ $has_explicit_ttl -eq 1 ]]; then
+                record_insert+=", ttl"
+                record_vals+=", $explicit_ttl"
+            fi
+            
+            record_insert+=", status, created_by"
+            record_vals+=", 'active', $USER_ID"
             
             # Add type-specific columns if available
             if [[ "$record_type" == "A" ]] && has_column "dns_records" "address_ipv4"; then
