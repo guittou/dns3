@@ -614,7 +614,8 @@ class ZoneImporter:
             
             # Check if include file has its own $TTL directive
             # BIND supports time unit suffixes: s, m, h, d, w (e.g., $TTL 1h, $TTL 30m)
-            has_ttl = re.search(r'^\$TTL\s+\d+[smhdw]?', parse_text, re.MULTILINE) is not None
+            # Also supports decimal values: $TTL 1.5h
+            has_ttl = re.search(r'^\$TTL\s+\d+(?:\.\d+)?[smhdw]?', parse_text, re.MULTILINE) is not None
             
             # If no $TTL in include, prefix with master's TTL (or fallback)
             if not has_ttl:

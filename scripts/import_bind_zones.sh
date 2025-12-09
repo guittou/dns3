@@ -222,6 +222,31 @@ compute_file_hash() {
     fi
 }
 
+# Convert BIND time unit to seconds
+# Supports: s (seconds), m (minutes), h (hours), d (days), w (weeks)
+# Example: "1h" -> 3600, "30m" -> 1800, "86400" -> 86400
+convert_ttl_to_seconds() {
+    local ttl="$1"
+    
+    # Check if TTL has a time unit suffix
+    if [[ "$ttl" =~ ^([0-9]+)([smhdw])$ ]]; then
+        local value="${BASH_REMATCH[1]}"
+        local unit="${BASH_REMATCH[2]}"
+        
+        case "$unit" in
+            s) echo "$value" ;;
+            m) echo $((value * 60)) ;;
+            h) echo $((value * 3600)) ;;
+            d) echo $((value * 86400)) ;;
+            w) echo $((value * 604800)) ;;
+            *) echo "$ttl" ;;  # Fallback
+        esac
+    else
+        # No unit suffix, assume already in seconds
+        echo "$ttl"
+    fi
+}
+
 # Resolve include path (relative to absolute) using multiple strategies
 # Resolution order for relative paths:
 # 1. Resolve relative to base_dir (directory of master zone file)
@@ -496,14 +521,15 @@ process_include_file() {
     echo "    Origin: $effective_origin"
     
     # Check if include file has its own $TTL directive
-    local include_ttl=$(echo "$include_content" | grep -E '^\$TTL' | head -1 | awk '{print $2}' || echo "")
+    local include_ttl_raw=$(echo "$include_content" | grep -E '^\$TTL' | head -1 | awk '{print $2}' || echo "")
     local ttl_to_use
-    if [[ -n "$include_ttl" ]]; then
-        ttl_to_use="$include_ttl"
-        echo "    Using include's own TTL: $ttl_to_use"
+    if [[ -n "$include_ttl_raw" ]]; then
+        # Convert BIND time units to seconds
+        ttl_to_use=$(convert_ttl_to_seconds "$include_ttl_raw")
+        echo "    Using include's own TTL: $include_ttl_raw ($ttl_to_use seconds)"
     else
         ttl_to_use="$master_ttl"
-        echo "    Include has no \$TTL directive. Using master's default TTL: $ttl_to_use"
+        echo "    Include has no \$TTL directive. Using master's default TTL: $ttl_to_use seconds"
     fi
     
     # Check if include zone already exists (skip-existing logic)
@@ -705,10 +731,12 @@ parse_zone_file() {
     # Extract $TTL
     local ttl_line=$(grep -E '^\$TTL' "$file" | head -1 || echo "")
     if [[ -n "$ttl_line" ]]; then
-        default_ttl=$(echo "$ttl_line" | awk '{print $2}')
+        local ttl_raw=$(echo "$ttl_line" | awk '{print $2}')
+        # Convert BIND time units to seconds
+        default_ttl=$(convert_ttl_to_seconds "$ttl_raw")
     fi
     
-    echo "  Default TTL: $default_ttl"
+    echo "  Default TTL: $default_ttl seconds"
     
     # Find and process $INCLUDE directives if --create-includes is enabled
     local include_zone_ids=()
