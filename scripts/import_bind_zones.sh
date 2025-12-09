@@ -222,6 +222,55 @@ compute_file_hash() {
     fi
 }
 
+# Convert BIND time unit to seconds
+# Supports: s (seconds), m (minutes), h (hours), d (days), w (weeks)
+# Also supports decimal values: 1.5h, 0.5d, 2.25m
+# Example: "1h" -> 3600, "1.5h" -> 5400, "30m" -> 1800, "86400" -> 86400
+convert_ttl_to_seconds() {
+    local ttl="$1"
+    
+    # Check if TTL has a time unit suffix (supports decimal values)
+    if [[ "$ttl" =~ ^([0-9]+(\.[0-9]+)?)([smhdw])$ ]]; then
+        local value="${BASH_REMATCH[1]}"
+        local unit="${BASH_REMATCH[3]}"
+        
+        # Use bc for decimal arithmetic if available, otherwise use integer arithmetic
+        if command -v bc >/dev/null 2>&1; then
+            local multiplier
+            case "$unit" in
+                s) multiplier=1 ;;
+                m) multiplier=60 ;;
+                h) multiplier=3600 ;;
+                d) multiplier=86400 ;;
+                w) multiplier=604800 ;;
+                *) echo "$ttl"; return ;;  # Fallback
+            esac
+            # Use scale=0 to get integer result
+            echo "scale=0; $value * $multiplier / 1" | bc
+        else
+            # Fallback to integer-only arithmetic if bc is not available (truncates decimals)
+            local int_value="${value%.*}"  # Extract integer part
+            case "$unit" in
+                s) echo "$int_value" ;;
+                m) echo $((int_value * 60)) ;;
+                h) echo $((int_value * 3600)) ;;
+                d) echo $((int_value * 86400)) ;;
+                w) echo $((int_value * 604800)) ;;
+                *) echo "$ttl" ;;  # Fallback
+            esac
+        fi
+    else
+        # No unit suffix, assume already in seconds (handle decimal values)
+        if [[ "$ttl" =~ \. ]] && command -v bc >/dev/null 2>&1; then
+            # Truncate decimal part for consistency (BIND expects integer seconds)
+            echo "scale=0; $ttl / 1" | bc
+        else
+            # Integer or no bc available - truncate decimal part
+            echo "${ttl%.*}"
+        fi
+    fi
+}
+
 # Resolve include path (relative to absolute) using multiple strategies
 # Resolution order for relative paths:
 # 1. Resolve relative to base_dir (directory of master zone file)
@@ -458,6 +507,7 @@ process_include_file() {
     local include_origin="$2"
     local base_dir="$3"
     local parent_zone_name="$4"
+    local master_ttl="${5:-3600}"  # Default to 3600 if not provided
     
     # Compute hash for deduplication
     local file_hash=$(compute_file_hash "$include_path")
@@ -494,6 +544,18 @@ process_include_file() {
     
     echo "    Origin: $effective_origin"
     
+    # Check if include file has its own $TTL directive
+    local include_ttl_raw=$(echo "$include_content" | grep -E '^\$TTL' | head -1 | awk '{print $2}' || echo "")
+    local ttl_to_use
+    if [[ -n "$include_ttl_raw" ]]; then
+        # Convert BIND time units to seconds
+        ttl_to_use=$(convert_ttl_to_seconds "$include_ttl_raw")
+        echo "    Using include's own TTL: $include_ttl_raw ($ttl_to_use seconds)"
+    else
+        ttl_to_use="$master_ttl"
+        echo "    Include has no \$TTL directive. Using master's default TTL: $ttl_to_use seconds"
+    fi
+    
     # Check if include zone already exists (skip-existing logic)
     local zone_id=""
     if [[ $SKIP_EXISTING -eq 1 ]]; then
@@ -527,7 +589,7 @@ process_include_file() {
     
     if has_column "zone_files" "default_ttl"; then
         zone_insert+=", default_ttl"
-        zone_values+=", 3600"
+        zone_values+=", $ttl_to_use"
     fi
     
     if has_column "zone_files" "created_at"; then
@@ -619,7 +681,7 @@ process_include_file() {
         
         # Create record for include
         local record_insert="INSERT INTO dns_records (zone_file_id, record_type, name, value, ttl, status, created_by"
-        local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")', 3600, 'active', $USER_ID"
+        local record_vals="VALUES ($zone_id, '$(mysql_escape "$record_type")', '$(mysql_escape "$record_name")', '$(mysql_escape "$record_value")', $ttl_to_use, 'active', $USER_ID"
         
         # Add type-specific columns (simplified)
         if [[ "$record_type" == "A" ]] && has_column "dns_records" "address_ipv4"; then
@@ -693,10 +755,12 @@ parse_zone_file() {
     # Extract $TTL
     local ttl_line=$(grep -E '^\$TTL' "$file" | head -1 || echo "")
     if [[ -n "$ttl_line" ]]; then
-        default_ttl=$(echo "$ttl_line" | awk '{print $2}')
+        local ttl_raw=$(echo "$ttl_line" | awk '{print $2}')
+        # Convert BIND time units to seconds
+        default_ttl=$(convert_ttl_to_seconds "$ttl_raw")
     fi
     
-    echo "  Default TTL: $default_ttl"
+    echo "  Default TTL: $default_ttl seconds"
     
     # Find and process $INCLUDE directives if --create-includes is enabled
     local include_zone_ids=()
@@ -730,8 +794,8 @@ parse_zone_file() {
                 # Resolve include path
                 local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
                 if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
-                    # Process include file
-                    local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name")
+                    # Process include file with master's TTL
+                    local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl")
                     if [[ -n "$include_id" ]] && [[ "$include_id" != "0" ]]; then
                         include_zone_ids+=("$include_id:$include_count")
                         ((include_count++))

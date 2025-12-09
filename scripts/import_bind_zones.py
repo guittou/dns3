@@ -522,10 +522,17 @@ class ZoneImporter:
                 self.logger.error(f"Failed to create relationship via API: {e}")
                 return False
     
-    def _process_include_file(self, include_path: Path, origin: Optional[str], base_dir: Path, parent_zone_name: str) -> Optional[int]:
+    def _process_include_file(self, include_path: Path, origin: Optional[str], base_dir: Path, parent_zone_name: str, master_ttl: Optional[int] = None) -> Optional[int]:
         """
         Process an include file and create zone_file entry with dns_records
         Returns zone_id of the created/existing include, or None on error
+        
+        Args:
+            include_path: Path to the include file
+            origin: Optional origin for the include
+            base_dir: Base directory for resolving relative paths
+            parent_zone_name: Name of the parent zone
+            master_ttl: Default TTL from the master zone (used if include has no $TTL)
         """
         # Check include depth
         self.include_depth += 1
@@ -604,6 +611,22 @@ class ZoneImporter:
                 # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
                 if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
                     self.logger.error(f"$INCLUDE directive(s) still present after filtering in {include_path.name}")
+            
+            # Check if include file has its own $TTL directive
+            # BIND supports time unit suffixes: s, m, h, d, w (e.g., $TTL 1h, $TTL 30m)
+            # Also supports decimal values: $TTL 1.5h, $TTL 0.5d
+            has_ttl = re.search(r'^\$TTL\s+\d+(?:\.\d+)?[smhdw]?', parse_text, re.MULTILINE) is not None
+            
+            # If no $TTL in include, prefix with master's TTL (or fallback)
+            if not has_ttl:
+                ttl_to_use = master_ttl if master_ttl else 86400
+                if not master_ttl:
+                    self.logger.warning(f"Include {include_path.name} has no $TTL and master has no default TTL. Using fallback: {ttl_to_use}")
+                else:
+                    self.logger.debug(f"Include {include_path.name} has no $TTL directive. Using master's default TTL: {ttl_to_use}")
+                
+                # Prefix the content with $TTL directive
+                parse_text = f"$TTL {ttl_to_use}\n{parse_text}"
             
             # Parse the include file using dnspython
             try:
@@ -685,7 +708,7 @@ class ZoneImporter:
                 if self.args.create_includes:
                     resolved_nested = self._resolve_include_path(nested_include_path, include_path.parent)
                     if resolved_nested:
-                        nested_id = self._process_include_file(resolved_nested, nested_origin, include_path.parent, include_zone_name)
+                        nested_id = self._process_include_file(resolved_nested, nested_origin, include_path.parent, include_zone_name, master_ttl)
                         if nested_id:
                             nested_include_ids.append(nested_id)
                             # Create relationship for nested include
@@ -923,6 +946,21 @@ class ZoneImporter:
         zone, origin = result
         zone_name = origin.rstrip('.')
         
+        # Get default TTL from zone (check various attributes)
+        # Extract this early so it can be passed to includes
+        default_ttl = 86400  # Default fallback
+        if hasattr(zone, 'default_ttl') and zone.default_ttl:
+            default_ttl = zone.default_ttl
+        elif hasattr(zone, 'ttl') and zone.ttl:
+            default_ttl = zone.ttl
+        else:
+            # Check for $TTL directive in file content
+            # BIND supports time unit suffixes: s, m, h, d, w
+            # dnspython already parsed this, so if we got here, there was no TTL
+            self.logger.warning(f"Master zone {zone_name} has no default TTL. Using fallback: {default_ttl}")
+        
+        self.logger.debug(f"Master zone default TTL: {default_ttl}")
+        
         # Check if zone already exists
         if self.args.skip_existing and self._check_zone_exists(zone_name):
             self.logger.info(f"Zone {zone_name} already exists, skipping")
@@ -947,7 +985,8 @@ class ZoneImporter:
                             resolved_path, 
                             include_origin, 
                             filepath.parent,
-                            zone_name
+                            zone_name,
+                            default_ttl  # Pass master's TTL to include
                         )
                         if include_id:
                             include_zone_ids.append((include_id, line_num))
@@ -958,13 +997,6 @@ class ZoneImporter:
             
             # Extract SOA data
             soa_data = self._extract_soa_data(zone, origin)
-            
-            # Get default TTL from zone (check various attributes)
-            default_ttl = 86400  # Default fallback
-            if hasattr(zone, 'default_ttl') and zone.default_ttl:
-                default_ttl = zone.default_ttl
-            elif hasattr(zone, 'ttl') and zone.ttl:
-                default_ttl = zone.ttl
             
             # Prepare zone data - preserve $INCLUDE directives in content
             zone_data = {
