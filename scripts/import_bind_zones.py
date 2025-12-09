@@ -490,11 +490,33 @@ class ZoneImporter:
             # Check for nested $INCLUDE directives in include file
             nested_includes = self._find_include_directives(include_content, include_path.parent)
             
+            # Prepare content for parsing - filter out $INCLUDE directives
+            # dnspython's zone.from_text() does not support $INCLUDE directives
+            parse_text = include_content
+            if self.args.create_includes and nested_includes:
+                self.logger.debug(f"Filtering {len(nested_includes)} nested $INCLUDE directive(s) from {include_path.name}")
+                lines = include_content.split('\n')
+                filtered_lines = []
+                
+                for line in lines:
+                    # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
+                    if re.match(r'^\$INCLUDE\s+\S+', line):
+                        self.logger.debug(f"Filtering out $INCLUDE line: {line.strip()}")
+                        continue
+                    filtered_lines.append(line)
+                
+                parse_text = '\n'.join(filtered_lines)
+                
+                # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
+                if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
+                    self.logger.error(f"$INCLUDE directive(s) still present after filtering in {include_path.name}")
+            
             # Parse the include file using dnspython
             try:
-                zone = dns.zone.from_text(include_content, origin=effective_origin, check_origin=False, relativize=False)
+                zone = dns.zone.from_text(parse_text, origin=effective_origin, check_origin=False, relativize=False)
             except Exception as e:
                 self.logger.error(f"Failed to parse include file {include_path}: {e}")
+                self.logger.error(f"  Origin: {effective_origin}")
                 self.include_depth -= 1
                 self.visited_includes.discard(include_path_str)
                 return None
@@ -544,7 +566,7 @@ class ZoneImporter:
             # Create zone_file entry for include
             if self.args.dry_run:
                 self.logger.info(f"[DRY-RUN] Would create include zone: {include_zone_name}")
-                zone_id = 0
+                zone_id = -1  # Use -1 for dry-run to distinguish from failure (None)
             elif self.args.db_mode:
                 zone_id = self._create_zone_db(zone_data)
             else:
@@ -600,13 +622,20 @@ class ZoneImporter:
             return None
     
     def _parse_zone_file(self, filepath: Path) -> Optional[Tuple[dns.zone.Zone, str]]:
-        """Parse a BIND zone file using dnspython"""
+        """
+        Parse a BIND zone file using dnspython
+        
+        When --create-includes is enabled, $INCLUDE directives are stripped from the
+        content before parsing, as dnspython does not support them in zone.from_text.
+        The include files are processed separately via _process_include_file.
+        """
         try:
             # Try to extract origin from filename or file content
             zone_name = filepath.stem
             
             # Read file content to check for $ORIGIN
-            with open(filepath, 'r') as f:
+            self.logger.debug(f"Reading zone file: {filepath.name}")
+            with open(filepath, 'r', encoding='utf-8') as f:
                 content = f.read()
             
             # Look for $ORIGIN directive
@@ -615,18 +644,56 @@ class ZoneImporter:
                 origin = origin_match.group(1)
                 if not origin.endswith('.'):
                     origin += '.'
+                self.logger.debug(f"Found $ORIGIN directive: {origin}")
             else:
                 # Use filename as origin
                 origin = zone_name if zone_name.endswith('.') else zone_name + '.'
+                self.logger.debug(f"No $ORIGIN found, using filename as origin: {origin}")
+            
+            # Prepare content for parsing
+            parse_text = content
+            
+            # If --create-includes is enabled, filter out $INCLUDE lines before parsing
+            # dnspython's zone.from_text() does not support $INCLUDE directives
+            if self.args.create_includes:
+                self.logger.debug(f"Filtering $INCLUDE directives before parsing (create_includes=True)")
+                lines = content.split('\n')
+                filtered_lines = []
+                include_count = 0
+                
+                for line in lines:
+                    # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
+                    if re.match(r'^\$INCLUDE\s+\S+', line):
+                        include_count += 1
+                        self.logger.debug(f"Filtering out $INCLUDE line: {line.strip()}")
+                        continue
+                    filtered_lines.append(line)
+                
+                parse_text = '\n'.join(filtered_lines)
+                
+                if include_count > 0:
+                    self.logger.info(f"Filtered {include_count} $INCLUDE directive(s) before parsing {filepath.name}")
+                
+                # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
+                if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
+                    self.logger.error(f"$INCLUDE directive(s) still present after filtering in {filepath.name}")
+                    self.logger.error("This should not happen - parsing may fail")
             
             # Parse the zone
-            zone = dns.zone.from_text(content, origin=origin, check_origin=False)
+            self.logger.debug(f"Calling dns.zone.from_text for {filepath.name} with origin={origin}, create_includes={self.args.create_includes}")
+            zone = dns.zone.from_text(parse_text, origin=origin, relativize=False, check_origin=False)
             
-            self.logger.debug(f"Parsed zone file: {filepath.name} with origin: {origin}")
+            self.logger.info(f"Successfully parsed zone file: {filepath.name} with origin: {origin}")
             return zone, origin
             
+        except dns.exception.DNSException as e:
+            self.logger.error(f"DNS parsing error in {filepath.name}: {e}")
+            self.logger.error(f"  Origin: {origin if 'origin' in locals() else 'unknown'}")
+            self.logger.error(f"  create_includes: {self.args.create_includes}")
+            return None
         except Exception as e:
-            self.logger.error(f"Failed to parse zone file {filepath}: {e}")
+            self.logger.error(f"Failed to parse zone file {filepath.name}: {e}")
+            self.logger.error(f"  create_includes: {self.args.create_includes}")
             return None
     
     def _extract_soa_data(self, zone: dns.zone.Zone, origin: str) -> Dict:
