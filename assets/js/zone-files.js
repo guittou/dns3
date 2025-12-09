@@ -1181,7 +1181,11 @@ function getFilteredZonesForCombobox() {
         : (Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : []);
 
     if (!window.ZONES_SELECTED_MASTER_ID) {
-        const includeZones = zonesAll.filter(z => z.file_type === 'include');
+        // Normalize file_type check to handle variations in case/whitespace
+        const includeZones = zonesAll.filter(z => {
+            const fileType = (z.file_type || '').toLowerCase().trim();
+            return fileType === 'include';
+        });
         return [...allMasters, ...includeZones];
     }
 
@@ -1190,7 +1194,9 @@ function getFilteredZonesForCombobox() {
     
     // Recursive ancestor-based filter: include all zones whose ancestor chain contains masterId
     const includeZones = zonesAll.filter(zone => {
-        if (zone.file_type !== 'include') return false;
+        // Normalize file_type check to handle variations in case/whitespace
+        const fileType = (zone.file_type || '').toLowerCase().trim();
+        if (fileType !== 'include') return false;
         
         // Check if this zone's ancestor chain contains the master
         let currentZone = zone;
@@ -1237,9 +1243,13 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         const masterId = parseInt(masterZoneId, 10);
         const masterZone = allMasters.find(m => parseInt(m.id, 10) === masterId);
 
+        console.debug('[populateZoneFileCombobox] masterZoneId:', masterId, 'masterZone:', masterZone ? masterZone.name : 'not found');
+
         // Try to get recursive includes from the cache first using ancestor-based filter
         let includeZones = (window.ZONES_ALL || []).filter(zone => {
-            if (zone.file_type !== 'include') return false;
+            // Normalize file_type check to handle variations in case/whitespace
+            const fileType = (zone.file_type || '').toLowerCase().trim();
+            if (fileType !== 'include') return false;
             
             // Check if this zone's ancestor chain contains the master
             let currentZone = zone;
@@ -1266,23 +1276,30 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             return false;
         });
 
+        console.debug('[populateZoneFileCombobox] includeZones from cache:', includeZones.length);
+
         // If cache is empty or incomplete for this master, fetch from API
         if (!includeZones || includeZones.length === 0) {
+            console.debug('[populateZoneFileCombobox] Cache empty, fetching from API...');
             try {
                 const fetched = await fetchZonesForMaster(masterId);
                 includeZones = fetched || [];
+                console.debug('[populateZoneFileCombobox] Fetched from API:', includeZones.length, 'zones');
                 
-                // Merge fetched includes into cache to keep it up-to-date (deduplicate)
+                // Merge fetched includes into cache to keep it up-to-date (deduplicate using string comparison)
                 if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
                 includeZones.forEach(z => {
                     if (!window.ZONES_ALL.find(x => String(x.id) === String(z.id))) {
                         window.ZONES_ALL.push(z);
                     }
                 });
+                console.debug('[populateZoneFileCombobox] Cache updated, total zones:', window.ZONES_ALL.length);
             } catch (e) {
-                console.warn('populateZoneFileCombobox: fetchZonesForMaster failed', e);
+                console.warn('[populateZoneFileCombobox] fetchZonesForMaster failed, falling back to empty list:', e);
                 includeZones = includeZones || [];
             }
+        } else {
+            console.debug('[populateZoneFileCombobox] Using cached includeZones:', includeZones.length);
         }
 
         const input = document.getElementById('zone-file-input');
@@ -1292,6 +1309,7 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
 
         // Build the items list: master (if present) + all recursive includes
         const items = masterZone ? [masterZone, ...includeZones] : includeZones;
+        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master + includes)');
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
         window.CURRENT_ZONE_LIST = items.slice();
@@ -1346,7 +1364,7 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             window.ZONES_SELECTED_ZONEFILE_ID = null;
         }
     } catch (error) {
-        console.error('Failed to populate zone file combobox:', error);
+        console.error('[populateZoneFileCombobox] Fatal error:', error);
     }
 }
 
@@ -1842,8 +1860,10 @@ async function openZoneModal(zoneId) {
         if (typeof populateZoneIncludes === 'function') try { await populateZoneIncludes(zone.id); } catch (e) {}
         
         // Store current zone ID and data (maintain existing functionality)
+        // IMPORTANT: Set both local and global currentZone BEFORE calling loadParentOptions
         currentZoneId = zoneId;
         currentZone = zone;
+        window.currentZone = zone; // Expose globally for helper functions
         originalZoneData = JSON.parse(JSON.stringify(zone));
         hasUnsavedChanges = false;
         
@@ -2047,6 +2067,26 @@ function setZoneTabContentHeight() {
  */
 async function loadParentOptions(currentParentId) {
     try {
+        // Fallback: if currentZone is not set, try to get zone info from hidden field or currentZoneId
+        if (!currentZone && !window.currentZone) {
+            const zoneIdEl = document.getElementById('zoneId');
+            const zoneIdValue = zoneIdEl ? zoneIdEl.value : currentZoneId;
+            console.warn('[loadParentOptions] currentZone is not set, using fallback with zoneId:', zoneIdValue);
+            
+            // Try to fetch the current zone if we have an ID
+            if (zoneIdValue) {
+                try {
+                    const res = await zoneApiCall('get_zone', { params: { id: zoneIdValue } });
+                    if (res && res.data) {
+                        currentZone = res.data;
+                        window.currentZone = res.data;
+                    }
+                } catch (e) {
+                    console.error('[loadParentOptions] Failed to fetch current zone:', e);
+                }
+            }
+        }
+        
         const response = await zoneApiCall('list_zones', { 
             params: { 
                 status: 'active',
@@ -2056,23 +2096,37 @@ async function loadParentOptions(currentParentId) {
         
         if (response.success) {
             const select = document.getElementById('zoneParent');
+            if (!select) {
+                console.warn('[loadParentOptions] zoneParent select element not found');
+                return;
+            }
+            
             select.innerHTML = '<option value="">Aucun parent</option>';
             
-            // Filter out the current zone itself
-            const zones = response.data.filter(z => z.id != currentZone.id);
+            // Filter out the current zone itself (use both currentZone and window.currentZone)
+            const currentZoneObj = currentZone || window.currentZone;
+            const currentZoneIdValue = currentZoneObj ? currentZoneObj.id : (currentZoneId || null);
+            const zones = response.data.filter(z => z.id != currentZoneIdValue);
             
             zones.forEach(zone => {
                 const option = document.createElement('option');
                 option.value = zone.id;
                 option.textContent = `${zone.name} (${zone.file_type})`;
-                if (zone.id == currentParentId) {
+                // Ensure proper selection by comparing as strings and numbers
+                if (zone.id == currentParentId || String(zone.id) === String(currentParentId)) {
                     option.selected = true;
+                    console.debug('[loadParentOptions] Selected parent:', zone.name, 'id:', zone.id);
                 }
                 select.appendChild(option);
             });
+            
+            // Double-check: if currentParentId is set but no option was selected, log a warning
+            if (currentParentId && !select.querySelector('option[selected]')) {
+                console.warn('[loadParentOptions] Parent ID provided but not found in options:', currentParentId);
+            }
         }
     } catch (error) {
-        console.error('Failed to load parent options:', error);
+        console.error('[loadParentOptions] Failed to load parent options:', error);
     }
 }
 
@@ -2481,6 +2535,8 @@ async function populateIncludeParentCombobox(masterId) {
             return;
         }
         
+        console.debug('[populateIncludeParentCombobox] Starting with masterId:', masterIdNum);
+        
         // If a non-master id is passed, resolve the real master by calling getMasterIdFromZoneId
         let zoneToCheck = null;
         try {
@@ -2492,16 +2548,19 @@ async function populateIncludeParentCombobox(masterId) {
             console.warn('[populateIncludeParentCombobox] Failed to fetch zone to check type:', e);
         }
         
-        // If the zone is an include, resolve to its master
-        if (zoneToCheck && zoneToCheck.file_type === 'include') {
-            try {
-                const resolvedMasterId = await getMasterIdFromZoneId(masterIdNum);
-                if (resolvedMasterId) {
-                    masterIdNum = parseInt(resolvedMasterId, 10);
-                    console.log('[populateIncludeParentCombobox] Resolved include to master:', masterIdNum);
+        // If the zone is an include, resolve to its master (normalize file_type check)
+        if (zoneToCheck) {
+            const fileType = (zoneToCheck.file_type || '').toLowerCase().trim();
+            if (fileType === 'include') {
+                try {
+                    const resolvedMasterId = await getMasterIdFromZoneId(masterIdNum);
+                    if (resolvedMasterId) {
+                        masterIdNum = parseInt(resolvedMasterId, 10);
+                        console.debug('[populateIncludeParentCombobox] Resolved include to master:', masterIdNum);
+                    }
+                } catch (e) {
+                    console.warn('[populateIncludeParentCombobox] Failed to resolve include to master:', e);
                 }
-            } catch (e) {
-                console.warn('[populateIncludeParentCombobox] Failed to resolve include to master:', e);
             }
         }
         
@@ -2509,6 +2568,7 @@ async function populateIncludeParentCombobox(masterId) {
         let zones = [];
         try {
             zones = await fetchZonesForMaster(masterIdNum);
+            console.debug('[populateIncludeParentCombobox] Fetched zones:', zones.length);
         } catch (e) {
             console.warn('[populateIncludeParentCombobox] fetchZonesForMaster failed, falling back to ancestor-chain filtering:', e);
             
@@ -2524,9 +2584,10 @@ async function populateIncludeParentCombobox(masterId) {
                 if (response.success) {
                     const allZones = response.data || [];
                     
-                    // Filter zones whose ancestor chain contains masterId
+                    // Filter zones whose ancestor chain contains masterId (normalize file_type)
                     zones = allZones.filter(zone => {
-                        if (zone.file_type !== 'include') return false;
+                        const fileType = (zone.file_type || '').toLowerCase().trim();
+                        if (fileType !== 'include') return false;
                         
                         // Check if this zone's ancestor chain contains the master
                         let currentZone = zone;
@@ -2551,12 +2612,15 @@ async function populateIncludeParentCombobox(masterId) {
                         
                         return false;
                     });
+                    console.debug('[populateIncludeParentCombobox] Fallback filtered zones:', zones.length);
                 }
             } catch (fallbackErr) {
                 console.error('[populateIncludeParentCombobox] Fallback also failed:', fallbackErr);
                 zones = [];
             }
         }
+        
+        console.debug('[populateIncludeParentCombobox] Total zones to populate:', zones.length);
         
         // Try to fetch the master via zoneApiCall('get_zone'); if that returns nothing,
         // search caches; if still missing, create a minimal placeholder master object
@@ -2565,6 +2629,7 @@ async function populateIncludeParentCombobox(masterId) {
             const masterResponse = await zoneApiCall('get_zone', { params: { id: masterIdNum } });
             if (masterResponse && masterResponse.data) {
                 masterZone = masterResponse.data;
+                console.debug('[populateIncludeParentCombobox] Master zone fetched:', masterZone.name);
             }
         } catch (e) {
             console.warn('[populateIncludeParentCombobox] Failed to fetch master zone, searching caches:', e);
