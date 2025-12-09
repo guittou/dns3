@@ -118,6 +118,42 @@ function initCombobox(opts) {
 // Business helper functions (copied from dns-records.js for autonomy)
 // =========================================================================
 
+// Constants for zone hierarchy traversal
+const MAX_PARENT_CHAIN_DEPTH = 20; // Safety limit to prevent infinite loops in malformed parent chains
+
+/**
+ * Check if a zone is in a master's tree by traversing its parent chain
+ * @param {Object} zone - The zone object to check
+ * @param {number} masterId - The master zone ID to look for
+ * @param {Array} zoneList - List of zones to search for parents
+ * @returns {boolean} True if zone's parent chain contains masterId
+ */
+function isZoneInMasterTree(zone, masterId, zoneList) {
+    if (!zone || !masterId) return false;
+    
+    const masterIdNum = parseInt(masterId, 10);
+    if (parseInt(zone.id, 10) === masterIdNum) return true; // Zone is the master itself
+    
+    let currentZone = zone;
+    let iterations = 0;
+    
+    while (currentZone && iterations < MAX_PARENT_CHAIN_DEPTH) {
+        iterations++;
+        
+        const parentId = currentZone.parent_id ? parseInt(currentZone.parent_id, 10) : null;
+        if (!parentId) break;
+        
+        if (parentId === masterIdNum) {
+            return true; // Found master in parent chain
+        }
+        
+        // Find parent in zoneList
+        currentZone = zoneList.find(z => parseInt(z.id, 10) === parentId);
+    }
+    
+    return false;
+}
+
 /**
  * Make an API call with fallback to zoneApiCall
  * This ensures zone-files page can call both dns_api and zone_api endpoints
@@ -649,6 +685,8 @@ window.buildApiPath = buildApiPath;
 window.attachZoneSearchInput = attachZoneSearchInput;
 window.serverSearchZones = serverSearchZones;
 window.clientFilterZones = clientFilterZones;
+window.isZoneInMasterTree = isZoneInMasterTree;
+window.MAX_PARENT_CHAIN_DEPTH = MAX_PARENT_CHAIN_DEPTH;
 
 /**
  * Ensure zone files initialization and expose helpers on window
@@ -1185,21 +1223,7 @@ async function initZoneFileCombobox() {
                 let filtered = serverResults;
                 if (window.ZONES_SELECTED_MASTER_ID) {
                     const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-                    filtered = serverResults.filter(z => {
-                        if (parseInt(z.id, 10) === masterId) return true; // Include master itself
-                        // For includes, check if parent chain contains master
-                        let currentZone = z;
-                        let iterations = 0;
-                        while (currentZone && iterations < 20) {
-                            iterations++;
-                            if (currentZone.parent_id && parseInt(currentZone.parent_id, 10) === masterId) {
-                                return true;
-                            }
-                            // Try to find parent in server results
-                            currentZone = serverResults.find(sz => parseInt(sz.id, 10) === parseInt(currentZone.parent_id, 10));
-                        }
-                        return false;
-                    });
+                    filtered = serverResults.filter(z => isZoneInMasterTree(z, masterId, serverResults));
                 }
                 
                 window.CURRENT_ZONE_LIST = filtered.slice();

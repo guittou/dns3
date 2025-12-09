@@ -719,22 +719,9 @@
                             
                             // Filter by selected master if one is selected
                             let filtered = serverResults;
-                            if (window.ZONES_SELECTED_MASTER_ID) {
+                            if (window.ZONES_SELECTED_MASTER_ID && typeof window.isZoneInMasterTree === 'function') {
                                 const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-                                filtered = serverResults.filter(z => {
-                                    if (parseInt(z.id, 10) === masterId) return true;
-                                    // For includes, check if in master's tree
-                                    let currentZone = z;
-                                    let iterations = 0;
-                                    while (currentZone && iterations < 20) {
-                                        iterations++;
-                                        if (currentZone.parent_id && parseInt(currentZone.parent_id, 10) === masterId) {
-                                            return true;
-                                        }
-                                        currentZone = serverResults.find(sz => parseInt(sz.id, 10) === parseInt(currentZone.parent_id, 10));
-                                    }
-                                    return false;
-                                });
+                                filtered = serverResults.filter(z => window.isZoneInMasterTree(z, masterId, serverResults));
                             }
                             
                             populateComboboxList(list, filtered, (zone) => ({
