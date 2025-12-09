@@ -54,6 +54,38 @@ After import:
 - **Record management**: Individual records can be updated without reparsing zone content
 - **Consistent structure**: All zones follow the same normalized pattern
 
+### Include Naming Convention
+
+Include files are stored in `zone_files` with:
+- **`name`**: Filename stem (without extension) - e.g., `logiciel1` from `logiciel1.db`
+- **`filename`**: Actual filename - e.g., `logiciel1.db`
+- **`domain`**: Effective origin/domain for the include
+- **`file_type`**: `'include'`
+
+This naming convention avoids conflicts when an include's origin/domain equals the master zone's name, which would violate the UNIQUE constraint on `zone_files.name`.
+
+### Import Order Guarantee
+
+The import scripts now ensure correct import order:
+1. **Master zone created first** in `zone_files` table
+2. **Includes processed second** after master zone exists in DB
+3. **Zone relationships created** via `zone_file_includes` table
+
+This prevents foreign key errors and ensures referential integrity.
+
+### TTL Insertion Policy
+
+The import scripts distinguish between explicit and implicit TTLs:
+
+- **Explicit TTL**: RR line contains a numeric TTL value (e.g., `www 300 IN A 192.0.2.1`)
+  - TTL column **IS** populated in `dns_records` table
+  
+- **Implicit TTL**: RR line has no TTL, inherits from zone's $TTL directive (e.g., `www IN A 192.0.2.1`)
+  - TTL column is **NULL** in `dns_records` table
+  - Runtime logic can use master zone's `default_ttl` when TTL is NULL
+
+This approach correctly represents the zone file semantics: only records with explicit TTLs have their TTL stored, allowing the application to implement proper TTL inheritance at query time.
+
 ### Logging
 
 Both scripts support file logging with rotation (Python) or tee redirection (Bash):

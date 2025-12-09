@@ -670,6 +670,10 @@ class ZoneImporter:
                 # Prefix the content with $TTL directive
                 parse_text = f"$TTL {ttl_to_use}\n{parse_text}"
             
+            # Detect explicit TTLs before parsing (use original include_content, not parse_text)
+            explicit_ttls = self._detect_explicit_ttls(include_content, effective_origin)
+            self.logger.debug(f"Detected {len(explicit_ttls)} record(s) with explicit TTL in include {include_path.name}")
+            
             # Parse the include file using dnspython
             try:
                 zone = dns.zone.from_text(parse_text, origin=effective_origin, check_origin=False, relativize=False)
@@ -688,9 +692,11 @@ class ZoneImporter:
                 default_ttl = zone.ttl
             
             # Prepare zone data for include (content NOT stored - records will be in dns_records)
+            # Use filename stem (without extension) as name to avoid conflicts with master zone
             include_zone_name = effective_origin.rstrip('.')
+            include_file_stem = include_path.stem  # e.g., "logiciel1" from "logiciel1.db"
             zone_data = {
-                'name': include_zone_name,
+                'name': include_file_stem,
                 'filename': include_path.name,
                 'file_type': 'include',
                 'status': 'active',
@@ -757,7 +763,7 @@ class ZoneImporter:
                             self._create_zone_file_include_relationship(zone_id, nested_id, len(nested_include_ids))
             
             # Extract and create DNS records from include
-            records = self._extract_records(zone, effective_origin, zone_id)
+            records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls)
             self.logger.info(f"Creating {len(records)} records for include {include_path.name}")
             
             for record in records:
@@ -855,6 +861,105 @@ class ZoneImporter:
             self.logger.error(f"  create_includes: {self.args.create_includes}")
             return None
     
+    def _detect_explicit_ttls(self, content: str, origin: str) -> Set[Tuple[str, str, str]]:
+        """
+        Detect which records have explicit TTL in raw zone file content.
+        Returns a set of (name, record_type, rdata_key) tuples for records with explicit TTL.
+        
+        This is needed because dnspython always returns a TTL for every record (either explicit
+        or inherited from $TTL), but we need to store NULL in the ttl column for records that
+        inherit the default TTL.
+        """
+        explicit_ttls = set()
+        lines = content.split('\n')
+        current_origin = origin if origin.endswith('.') else origin + '.'
+        
+        # TTL can be specified:
+        # 1. As a directive: $TTL 3600
+        # 2. Per record: name TTL class type rdata
+        # 3. Per record with class omitted: name TTL type rdata
+        
+        # Pattern to match RR lines with explicit TTL
+        # Format: name [ttl] [class] type rdata
+        # TTL is numeric (possibly with time suffix: s,m,h,d,w)
+        # If there's a number after the name and before the type, it's likely a TTL
+        
+        for line in lines:
+            # Skip empty lines, comments, directives
+            line = line.strip()
+            if not line or line.startswith(';') or line.startswith('$'):
+                continue
+            
+            # Skip multi-line records (continuation lines start with whitespace in original)
+            # For simplicity, we'll just mark SOA records as having explicit TTL structure
+            if 'SOA' in line.upper():
+                continue  # SOA handled separately
+            
+            # Split the line into parts
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            
+            # Try to parse: name [ttl] [class] type rdata
+            name = parts[0]
+            remaining = parts[1:]
+            
+            # Check if first field after name is a TTL (number with optional suffix)
+            has_explicit_ttl = False
+            record_type = None
+            rdata_start_idx = None
+            
+            for idx, part in enumerate(remaining):
+                # Check if this looks like a TTL (number with optional time unit)
+                if re.match(r'^\d+(?:\.\d+)?[smhdw]?$', part, re.IGNORECASE):
+                    # This could be a TTL
+                    # Next should be class (IN, CH, HS) or record type
+                    if idx + 1 < len(remaining):
+                        next_part = remaining[idx + 1].upper()
+                        # If next is a class, TTL is explicit
+                        if next_part in ('IN', 'CH', 'HS', 'NONE', 'ANY'):
+                            has_explicit_ttl = True
+                            if idx + 2 < len(remaining):
+                                record_type = remaining[idx + 2].upper()
+                                rdata_start_idx = idx + 3
+                        # If next is a record type, TTL is explicit
+                        elif next_part in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR'):
+                            has_explicit_ttl = True
+                            record_type = next_part
+                            rdata_start_idx = idx + 2
+                    break
+                # Check if this is a class (without TTL before it)
+                elif part.upper() in ('IN', 'CH', 'HS', 'NONE', 'ANY'):
+                    # No TTL found, class is here
+                    if idx + 1 < len(remaining):
+                        record_type = remaining[idx + 1].upper()
+                        rdata_start_idx = idx + 2
+                    break
+                # Check if this is a record type (no TTL, no class)
+                elif part.upper() in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR'):
+                    record_type = part.upper()
+                    rdata_start_idx = idx + 1
+                    break
+            
+            if has_explicit_ttl and record_type and rdata_start_idx is not None:
+                # Normalize name
+                if name == '@':
+                    normalized_name = current_origin.rstrip('.')
+                elif not name.endswith('.'):
+                    normalized_name = f"{name}.{current_origin}".rstrip('.')
+                else:
+                    normalized_name = name.rstrip('.')
+                
+                # Build rdata key (simplified - just join remaining parts)
+                rdata_parts = remaining[rdata_start_idx:]
+                rdata_key = ' '.join(rdata_parts) if rdata_parts else ''
+                
+                # Add to set
+                explicit_ttls.add((normalized_name, record_type, rdata_key))
+                self.logger.debug(f"Detected explicit TTL: {normalized_name} {record_type} {rdata_key}")
+        
+        return explicit_ttls
+    
     def _extract_soa_data(self, zone: dns.zone.Zone, origin: str) -> Dict:
         """Extract SOA record data from zone"""
         soa_data = {
@@ -885,7 +990,8 @@ class ZoneImporter:
         
         return soa_data
     
-    def _extract_records(self, zone: dns.zone.Zone, origin: str, zone_id: int) -> List[Dict]:
+    def _extract_records(self, zone: dns.zone.Zone, origin: str, zone_id: int, 
+                        explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None) -> List[Dict]:
         """Extract DNS records from zone"""
         records = []
         
@@ -902,7 +1008,7 @@ class ZoneImporter:
                 
                 for rdata in rdataset:
                     record_data = self._convert_rdata_to_record(
-                        name_str, record_type, rdata, ttl, zone_id
+                        name_str, record_type, rdata, ttl, zone_id, explicit_ttls
                     )
                     if record_data:
                         records.append(record_data)
@@ -910,17 +1016,42 @@ class ZoneImporter:
         return records
     
     def _convert_rdata_to_record(self, name: str, record_type: str, 
-                                 rdata: Any, ttl: int, zone_id: int) -> Optional[Dict]:
+                                 rdata: Any, ttl: int, zone_id: int,
+                                 explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None) -> Optional[Dict]:
         """Convert dnspython rdata to dns_records table format"""
+        # Build rdata key for TTL detection (simplified)
+        rdata_str = str(rdata)
+        rdata_key = rdata_str
+        
+        # Check if this record had an explicit TTL
+        has_explicit_ttl = False
+        if explicit_ttls is not None:
+            # Try to find match in explicit_ttls set
+            # Match by name, type, and a normalized form of rdata
+            for (exp_name, exp_type, exp_rdata) in explicit_ttls:
+                if exp_name == name and exp_type == record_type:
+                    # Also check rdata to avoid false positives when multiple records
+                    # with same name and type exist
+                    # Normalize both for comparison (strip whitespace, lowercase)
+                    exp_rdata_norm = exp_rdata.strip().lower()
+                    rdata_norm = rdata_str.strip().lower()
+                    # Check if rdata starts with expected value (handles variations in formatting)
+                    if rdata_norm.startswith(exp_rdata_norm) or exp_rdata_norm.startswith(rdata_norm):
+                        has_explicit_ttl = True
+                        break
+        
         base_record = {
             'zone_file_id': zone_id,
             'record_type': record_type,
             'name': name,
-            'ttl': ttl,
             'status': 'active',
             'created_by': self.args.user_id,
-            'value': str(rdata)
+            'value': rdata_str
         }
+        
+        # Only set TTL if it was explicit in the original file
+        if has_explicit_ttl or explicit_ttls is None:
+            base_record['ttl'] = ttl
         
         try:
             if record_type == 'A':
@@ -1019,25 +1150,9 @@ class ZoneImporter:
                 self.logger.warning(f"Could not start transaction: {e}")
         
         try:
-            # Process $INCLUDE files first if enabled
-            include_zone_ids = []
-            if self.args.create_includes and include_directives:
-                for include_path, include_origin, line_num in include_directives:
-                    resolved_path = self._resolve_include_path(include_path, filepath.parent)
-                    if resolved_path:
-                        include_id = self._process_include_file(
-                            resolved_path, 
-                            include_origin, 
-                            filepath.parent,
-                            zone_name,
-                            default_ttl  # Pass master's TTL to include
-                        )
-                        if include_id:
-                            include_zone_ids.append((include_id, line_num))
-                        else:
-                            self.logger.warning(f"Failed to process include at line {line_num}: {include_path}")
-                    else:
-                        self.logger.warning(f"Could not resolve include at line {line_num}: {include_path}")
+            # Detect explicit TTLs before processing records
+            explicit_ttls = self._detect_explicit_ttls(file_content, origin)
+            self.logger.debug(f"Detected {len(explicit_ttls)} record(s) with explicit TTL in master zone {zone_name}")
             
             # Extract SOA data
             soa_data = self._extract_soa_data(zone, origin)
@@ -1058,24 +1173,39 @@ class ZoneImporter:
             
             # Dry-run mode
             if self.args.dry_run:
-                self.logger.info(f"[DRY-RUN] Would create zone: {zone_name}")
+                self.logger.info(f"[DRY-RUN] Would create master zone: {zone_name}")
                 self.logger.debug(f"[DRY-RUN] Zone data: {zone_data}")
                 
                 # Extract and display records
-                records = self._extract_records(zone, origin, 0)
-                self.logger.info(f"[DRY-RUN] Would create {len(records)} records")
+                records = self._extract_records(zone, origin, 0, explicit_ttls)
+                self.logger.info(f"[DRY-RUN] Would create {len(records)} records for master")
                 for record in records[:5]:  # Show first 5
                     self.logger.debug(f"[DRY-RUN] Record: {record['name']} {record['record_type']} {record['value']}")
                 
-                # Show includes
-                if include_zone_ids:
-                    self.logger.info(f"[DRY-RUN] Would create {len(include_zone_ids)} zone_file_includes relationships")
+                # Process includes in dry-run
+                include_count = 0
+                if self.args.create_includes and include_directives:
+                    for include_path, include_origin, line_num in include_directives:
+                        resolved_path = self._resolve_include_path(include_path, filepath.parent)
+                        if resolved_path:
+                            include_id = self._process_include_file(
+                                resolved_path, 
+                                include_origin, 
+                                filepath.parent,
+                                zone_name,
+                                default_ttl
+                            )
+                            if include_id:
+                                include_count += 1
+                    
+                    if include_count > 0:
+                        self.logger.info(f"[DRY-RUN] Would create {include_count} zone_file_includes relationships")
                 
                 self.stats['zones_created'] += 1
                 self.stats['records_created'] += len(records)
                 return True
             
-            # Create zone
+            # Create master zone first (before processing includes)
             if self.args.db_mode:
                 zone_id = self._create_zone_db(zone_data)
             else:
@@ -1088,13 +1218,34 @@ class ZoneImporter:
                 return False
             
             self.stats['zones_created'] += 1
+            self.logger.info(f"Master zone created (ID: {zone_id}), now processing includes...")
+            
+            # Process $INCLUDE files after master zone is created
+            include_zone_ids = []
+            if self.args.create_includes and include_directives:
+                for include_path, include_origin, line_num in include_directives:
+                    resolved_path = self._resolve_include_path(include_path, filepath.parent)
+                    if resolved_path:
+                        include_id = self._process_include_file(
+                            resolved_path, 
+                            include_origin, 
+                            filepath.parent,
+                            zone_name,
+                            default_ttl  # Pass master's TTL to include
+                        )
+                        if include_id:
+                            include_zone_ids.append((include_id, line_num))
+                        else:
+                            self.logger.warning(f"Failed to process include at line {line_num}: {include_path}")
+                    else:
+                        self.logger.warning(f"Could not resolve include at line {line_num}: {include_path}")
             
             # Create zone_file_includes relationships
             for include_id, position in include_zone_ids:
                 self._create_zone_file_include_relationship(zone_id, include_id, position)
             
             # Extract and create records from master zone
-            records = self._extract_records(zone, origin, zone_id)
+            records = self._extract_records(zone, origin, zone_id, explicit_ttls)
             self.logger.info(f"Importing {len(records)} records for zone {zone_name}")
             
             for record in records:
