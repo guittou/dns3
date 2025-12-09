@@ -236,16 +236,19 @@ convert_ttl_to_seconds() {
         
         # Use bc for decimal arithmetic if available, otherwise use integer arithmetic
         if command -v bc >/dev/null 2>&1; then
+            local multiplier
             case "$unit" in
-                s) echo "$value" | bc | awk '{printf "%d", $0}' ;;
-                m) echo "$value * 60" | bc | awk '{printf "%d", $0}' ;;
-                h) echo "$value * 3600" | bc | awk '{printf "%d", $0}' ;;
-                d) echo "$value * 86400" | bc | awk '{printf "%d", $0}' ;;
-                w) echo "$value * 604800" | bc | awk '{printf "%d", $0}' ;;
-                *) echo "$ttl" ;;  # Fallback
+                s) multiplier=1 ;;
+                m) multiplier=60 ;;
+                h) multiplier=3600 ;;
+                d) multiplier=86400 ;;
+                w) multiplier=604800 ;;
+                *) echo "$ttl"; return ;;  # Fallback
             esac
+            # Use scale=0 to get integer result
+            echo "scale=0; $value * $multiplier / 1" | bc
         else
-            # Fallback to integer-only arithmetic if bc is not available
+            # Fallback to integer-only arithmetic if bc is not available (truncates decimals)
             local int_value="${value%.*}"  # Extract integer part
             case "$unit" in
                 s) echo "$int_value" ;;
@@ -259,9 +262,10 @@ convert_ttl_to_seconds() {
     else
         # No unit suffix, assume already in seconds (handle decimal values)
         if [[ "$ttl" =~ \. ]] && command -v bc >/dev/null 2>&1; then
-            echo "$ttl" | bc | awk '{printf "%d", $0}'
+            # Truncate decimal part for consistency (BIND expects integer seconds)
+            echo "scale=0; $ttl / 1" | bc
         else
-            # Integer or no bc available
+            # Integer or no bc available - truncate decimal part
             echo "${ttl%.*}"
         fi
     fi
