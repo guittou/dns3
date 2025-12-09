@@ -414,6 +414,11 @@ async function setDomainForZone(zoneId) {
             if (input) input.value = '';
             const hiddenInput = document.getElementById('zone-master-id');
             if (hiddenInput) hiddenInput.value = '';
+            
+            // Disable zone file combobox
+            if (typeof setZoneFileComboboxEnabled === 'function') {
+                setZoneFileComboboxEnabled(false);
+            }
             return;
         }
 
@@ -464,6 +469,11 @@ async function setDomainForZone(zoneId) {
                     }
                 }
             }
+        }
+        
+        // Enable zone file combobox after population
+        if (typeof setZoneFileComboboxEnabled === 'function') {
+            setZoneFileComboboxEnabled(true);
         }
 
         if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
@@ -1309,6 +1319,11 @@ async function onZoneDomainSelected(masterZoneId) {
         
         // Populate zone file combobox for the selected domain (without auto-selecting)
         await populateZoneFileCombobox(masterZoneId, null, false);
+        
+        // Enable zone file combobox after population
+        if (typeof setZoneFileComboboxEnabled === 'function') {
+            setZoneFileComboboxEnabled(true);
+        }
     } else {
         if (btnNewZoneFile) {
             btnNewZoneFile.disabled = true;
@@ -1316,6 +1331,11 @@ async function onZoneDomainSelected(masterZoneId) {
         if (btnEditDomain) {
             btnEditDomain.style.display = 'none';
             btnEditDomain.disabled = true;
+        }
+        
+        // Disable zone file combobox when no domain selected
+        if (typeof setZoneFileComboboxEnabled === 'function') {
+            setZoneFileComboboxEnabled(false);
         }
         
         // Clear zone file combobox
@@ -1331,6 +1351,42 @@ async function onZoneDomainSelected(masterZoneId) {
     // Re-render table with filter after cache is updated
     currentPage = 1;
     await renderZonesTable();
+}
+
+/**
+ * Enable or disable the zone file combobox
+ * @param {boolean} enabled - Whether to enable the combobox
+ */
+function setZoneFileComboboxEnabled(enabled) {
+    const inputEl = document.getElementById('zone-file-input');
+    const hiddenEl = document.getElementById('zone-file-id');
+    
+    if (!inputEl) {
+        console.warn('[setZoneFileComboboxEnabled] zone-file-input not found');
+        return;
+    }
+    
+    if (enabled) {
+        inputEl.disabled = false;
+        inputEl.placeholder = 'Rechercher une zone...';
+        inputEl.title = 'Sélectionnez un fichier de zone';
+    } else {
+        inputEl.disabled = true;
+        inputEl.value = '';
+        inputEl.placeholder = 'Sélectionnez d\'abord un domaine';
+        inputEl.title = 'Sélectionnez d\'abord un domaine';
+        if (hiddenEl) {
+            hiddenEl.value = '';
+        }
+        
+        // Hide the dropdown list if it's open
+        const listEl = document.getElementById('zone-file-list');
+        if (listEl) {
+            listEl.style.display = 'none';
+        }
+    }
+    
+    console.debug('[setZoneFileComboboxEnabled] Zone file combobox', enabled ? 'enabled' : 'disabled');
 }
 
 /**
@@ -1351,6 +1407,11 @@ async function initZoneFileCombobox() {
     
     inputEl.readOnly = false;
     inputEl.placeholder = 'Rechercher une zone...';
+    
+    // Start with combobox disabled if no domain selected
+    if (!window.ZONES_SELECTED_MASTER_ID) {
+        setZoneFileComboboxEnabled(false);
+    }
     
     // Use the unified initServerSearchCombobox helper
     // Custom onSelectItem to call onZoneFileSelected and update CURRENT_ZONE_LIST
@@ -4192,6 +4253,7 @@ window.openCreateIncludeModal = openCreateIncludeModal;
 window.closeIncludeCreateModal = closeIncludeCreateModal;
 window.saveInclude = saveInclude;
 window.renderZonesTable = renderZonesTable;
+window.setZoneFileComboboxEnabled = setZoneFileComboboxEnabled;
 
 // Initialize on DOM ready
 if (document.readyState === 'loading') {
