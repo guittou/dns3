@@ -678,6 +678,9 @@ function initServerSearchCombobox(opts) {
     
     // Populate list and attach click handlers
     function showZones(zones) {
+        // Update CURRENT_ZONE_LIST to keep it in sync with displayed zones
+        window.CURRENT_ZONE_LIST = zones;
+        
         populateComboboxList(list, zones, mapZoneItem, (zone) => {
             // Update hidden input if provided
             if (hidden) {
@@ -719,6 +722,12 @@ function initServerSearchCombobox(opts) {
             });
         }
         
+        // Apply ordering: master first, then includes sorted A-Z
+        const masterId = window.ZONES_SELECTED_MASTER_ID || null;
+        if (typeof window.makeOrderedZoneList === 'function') {
+            zones = window.makeOrderedZoneList(zones, masterId);
+        }
+        
         return zones;
     }
     
@@ -749,6 +758,12 @@ function initServerSearchCombobox(opts) {
                 } else {
                     console.warn('[initServerSearchCombobox] No server search function available, falling back to client');
                     throw new Error('No server search available');
+                }
+                
+                // Apply ordering to server results: master first, then includes sorted A-Z
+                const masterId = window.ZONES_SELECTED_MASTER_ID || null;
+                if (typeof window.makeOrderedZoneList === 'function') {
+                    serverResults = window.makeOrderedZoneList(serverResults, masterId);
                 }
                 
                 console.debug('[initServerSearchCombobox] server returned', serverResults.length, 'results');
