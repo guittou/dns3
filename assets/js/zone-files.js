@@ -1665,6 +1665,12 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         window.CURRENT_ZONE_LIST = orderedZones.slice();
         console.debug('[populateZoneFileCombobox] Final items for combobox:', orderedZones.length, '(master first, then includes sorted A-Z)');
 
+        // Refresh the combobox instance to immediately display the updated zones
+        if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+            window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
+            console.debug('[populateZoneFileCombobox] Refreshed combobox with updated zones');
+        }
+
         // Populate the visible list so user sees updated options
         // Don't show the list automatically when autoSelect is false
         if (listEl) {
