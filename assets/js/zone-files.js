@@ -1509,14 +1509,17 @@ async function onZoneDomainSelected(masterZoneId) {
             btnEditDomain.disabled = false;
         }
         
-        // Populate zone file combobox for the selected domain (with auto-selection of master)
-        await populateZoneFileCombobox(masterZoneId, null, true);
+        // Populate zone file combobox for the selected domain WITHOUT auto-selection
+        // This keeps the visible input empty and ready for search (aligned with problem statement)
+        await populateZoneFileCombobox(masterZoneId, null, false);
         
         // Race-resistant hiding: ensure zone file list is hidden after domain selection
         forceHideZoneFileList();
         
-        // Enable zone file combobox after population
-        if (typeof setZoneFileComboboxEnabled === 'function') {
+        // Enable zone file combobox after population using shared helper
+        if (typeof window.setZoneComboboxEnabledShared === 'function') {
+            window.setZoneComboboxEnabledShared('zone-file-input', 'zone-file-id', true);
+        } else if (typeof setZoneFileComboboxEnabled === 'function') {
             setZoneFileComboboxEnabled(true);
         }
     } else {
@@ -1528,8 +1531,10 @@ async function onZoneDomainSelected(masterZoneId) {
             btnEditDomain.disabled = true;
         }
         
-        // Disable zone file combobox when no domain selected
-        if (typeof setZoneFileComboboxEnabled === 'function') {
+        // Disable zone file combobox when no domain selected using shared helper
+        if (typeof window.setZoneComboboxEnabledShared === 'function') {
+            window.setZoneComboboxEnabledShared('zone-file-input', 'zone-file-id', false);
+        } else if (typeof setZoneFileComboboxEnabled === 'function') {
             setZoneFileComboboxEnabled(false);
         }
         
@@ -1794,7 +1799,13 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         }
 
         // Sync combobox instance state with updated CURRENT_ZONE_LIST
-        syncZoneFileComboboxInstance();
+        // Use suppress flag to prevent refresh() from overwriting cache
+        try {
+            window.__ZONE_FILE_COMBOBOX_SUPPRESS_CACHE = true;
+            syncZoneFileComboboxInstance();
+        } finally {
+            window.__ZONE_FILE_COMBOBOX_SUPPRESS_CACHE = false;
+        }
 
         // DO NOT populate or show the combobox list - user must click/focus to see it (aligned with DNS tab)
         // The list will be populated from CURRENT_ZONE_LIST when user interacts with the input
@@ -1839,7 +1850,10 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         }
         
         // Always enable combobox after population (whether autoSelect is true or false)
-        if (typeof window.setZoneFileComboboxEnabled === 'function') {
+        // Use shared helper if available for consistency
+        if (typeof window.setZoneComboboxEnabledShared === 'function') {
+            window.setZoneComboboxEnabledShared('zone-file-input', 'zone-file-id', true);
+        } else if (typeof window.setZoneFileComboboxEnabled === 'function') {
             window.setZoneFileComboboxEnabled(true);
         }
         
@@ -2001,14 +2015,40 @@ async function zoneApiCall(action, options = {}) {
     try {
         const response = await fetch(url.toString(), fetchOptions);
 
-        // Try parse JSON
+        // Clone response for retry-safe parsing (avoids "body stream already read" errors)
+        // This is critical when antivirus/proxy returns 499 or other error codes
+        const responseClone = response.clone();
+
+        // Try parse JSON from clone
         let data;
         try {
-            data = await response.json();
+            data = await responseClone.json();
         } catch (jsonErr) {
-            const text = await response.text();
-            console.error('zoneApiCall: invalid JSON response', text);
-            throw new Error('Invalid JSON response from server');
+            // JSON parsing failed - try to get text from original response for better error message
+            let text = '';
+            try {
+                text = await response.text();
+            } catch (textErr) {
+                console.error('[zoneApiCall] Could not read response text:', textErr);
+            }
+            
+            console.error('[zoneApiCall] Invalid JSON response for action:', action, {
+                status: response.status,
+                statusText: response.statusText,
+                responseText: text ? text.substring(0, 200) : '(empty)',
+                jsonError: jsonErr.message
+            });
+            
+            // Provide user-friendly error message based on status code
+            if (response.status === 499) {
+                throw new Error('Erreur de connexion (499): Veuillez réessayer');
+            } else if (response.status >= 500) {
+                throw new Error(`Erreur serveur (${response.status}): ${response.statusText}`);
+            } else if (response.status >= 400) {
+                throw new Error(`Erreur client (${response.status}): ${response.statusText}`);
+            } else {
+                throw new Error('Réponse invalide du serveur');
+            }
         }
 
         if (!response.ok) {
