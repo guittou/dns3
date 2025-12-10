@@ -275,6 +275,38 @@ function syncZoneFileComboboxInstance() {
 }
 
 /**
+ * Race-resistant hiding of zone file combobox list
+ * 
+ * Forcefully hides the #zone-file-list dropdown immediately and after a delay
+ * to catch any async operations that might try to show it (e.g., from refresh).
+ * 
+ * This prevents the UX "flash" where the list briefly appears after domain selection
+ * due to race conditions with async refresh operations.
+ */
+function forceHideZoneFileList() {
+    const listEl = document.getElementById('zone-file-list');
+    if (!listEl) return;
+    
+    // Hide immediately
+    listEl.style.display = 'none';
+    listEl.setAttribute('aria-hidden', 'true');
+    
+    // Hide again after a short delay to catch any async operations
+    setTimeout(() => {
+        listEl.style.display = 'none';
+        listEl.setAttribute('aria-hidden', 'true');
+        console.debug('[forceHideZoneFileList] Re-applied hiding after delay');
+    }, 50);
+    
+    // Additional safety: hide again after a longer delay
+    setTimeout(() => {
+        listEl.style.display = 'none';
+        listEl.setAttribute('aria-hidden', 'true');
+        console.debug('[forceHideZoneFileList] Re-applied hiding after longer delay');
+    }, 150);
+}
+
+/**
  * Get master zone ID from any zone ID
  * If zone is an include, returns its parent_id; if master, returns itself
  */
@@ -1453,6 +1485,9 @@ async function onZoneDomainSelected(masterZoneId) {
         // Populate zone file combobox for the selected domain (with auto-selection of master)
         await populateZoneFileCombobox(masterZoneId, null, true);
         
+        // Race-resistant hiding: ensure zone file list is hidden after domain selection
+        forceHideZoneFileList();
+        
         // Enable zone file combobox after population
         if (typeof setZoneFileComboboxEnabled === 'function') {
             setZoneFileComboboxEnabled(true);
@@ -1708,14 +1743,25 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             }
         }
 
+        // Ensure orderedZones is always an array (safeguard for error cases)
+        if (!orderedZones || !Array.isArray(orderedZones)) {
+            orderedZones = [];
+            console.warn('[populateZoneFileCombobox] orderedZones was null or invalid, defaulting to empty array');
+        }
+
         const input = document.getElementById('zone-file-input');
         const hiddenInput = document.getElementById('zone-file-id');
         const listEl = document.getElementById('zone-file-list');
         if (!input) return;
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
-        window.CURRENT_ZONE_LIST = orderedZones.slice();
-        console.debug('[populateZoneFileCombobox] Final items for combobox:', orderedZones.length, '(master first, then includes sorted A-Z)');
+        // DEFENSIVE: Only update cache if orderedZones is non-empty to prevent clearing cache on API errors
+        if (orderedZones && orderedZones.length > 0) {
+            window.CURRENT_ZONE_LIST = orderedZones.slice();
+            console.debug('[populateZoneFileCombobox] Updated CURRENT_ZONE_LIST with', orderedZones.length, 'zones (master first, then includes sorted A-Z)');
+        } else {
+            console.warn('[populateZoneFileCombobox] orderedZones is empty, preserving existing CURRENT_ZONE_LIST');
+        }
 
         // Sync combobox instance state with updated CURRENT_ZONE_LIST
         syncZoneFileComboboxInstance();
@@ -1766,6 +1812,10 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         if (typeof window.setZoneFileComboboxEnabled === 'function') {
             window.setZoneFileComboboxEnabled(true);
         }
+        
+        // Race-resistant hiding: forcefully hide the list to prevent it from appearing
+        // due to async refresh operations or other side effects
+        forceHideZoneFileList();
     } catch (error) {
         console.error('[populateZoneFileCombobox] Fatal error:', error);
     }
