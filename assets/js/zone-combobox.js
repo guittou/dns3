@@ -55,7 +55,7 @@
         // Deduplicate zones by ID (keep first occurrence)
         const seen = new Set();
         const dedupedZones = zones.filter(zone => {
-            const id = String(zone.id || '');
+            const id = String(zone.id !== undefined && zone.id !== null ? zone.id : '');
             if (id === '' || seen.has(id)) return false;
             seen.add(id);
             return true;
