@@ -280,12 +280,13 @@ const ZONE_LIST_HIDE_RETRY_DELAY_LONG = 150;  // ms - catch slightly delayed asy
 
 /**
  * Ensure a value is a valid array, returning fallback if not
+ * Note: Empty arrays are considered valid and will be returned as-is
  * @param {*} value - Value to check
  * @param {Array} fallback - Fallback value if not a valid array
- * @returns {Array} - Valid array
+ * @returns {Array} - Valid array (may be empty)
  */
 function ensureValidArray(value, fallback = []) {
-    return (value && Array.isArray(value)) ? value : fallback;
+    return Array.isArray(value) ? value : fallback;
 }
 
 /**
@@ -301,10 +302,11 @@ function forceHideZoneFileList() {
     const listEl = document.getElementById('zone-file-list');
     if (!listEl) return;
     
-    // Helper to hide the list
+    // Helper to hide the list (sets display, aria-hidden, and removes from tab order for accessibility)
     const hideList = (source = '') => {
         listEl.style.display = 'none';
         listEl.setAttribute('aria-hidden', 'true');
+        listEl.setAttribute('tabindex', '-1');  // Remove from tab order for accessibility
         if (source) {
             console.debug(`[forceHideZoneFileList] ${source}`);
         }
@@ -1748,8 +1750,9 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             const allZones = masterZone ? [masterZone, ...includeZones] : includeZones;
             if (typeof window.makeOrderedZoneList === 'function') {
                 const result = window.makeOrderedZoneList(allZones, masterId);
-                orderedZones = ensureValidArray(result, allZones);
-                if (result === orderedZones) {
+                const isValidResult = Array.isArray(result);
+                orderedZones = isValidResult ? result : allZones;
+                if (isValidResult) {
                     console.debug('[populateZoneFileCombobox] Used makeOrderedZoneList for ordering:', orderedZones.length, 'zones');
                 } else {
                     console.warn('[populateZoneFileCombobox] makeOrderedZoneList returned invalid result, defaulting to allZones');
