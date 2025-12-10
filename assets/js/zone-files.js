@@ -1398,8 +1398,8 @@ async function onZoneDomainSelected(masterZoneId) {
             btnEditDomain.disabled = false;
         }
         
-        // Populate zone file combobox for the selected domain (without auto-selecting)
-        await populateZoneFileCombobox(masterZoneId, null, false);
+        // Populate zone file combobox for the selected domain (with auto-selecting master)
+        await populateZoneFileCombobox(masterZoneId, null, true);
         
         // Enable zone file combobox after population
         if (typeof setZoneFileComboboxEnabled === 'function') {
