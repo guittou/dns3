@@ -1986,8 +1986,8 @@ async function onZoneFileSelected(zoneFileId) {
         
         if (zone) {
             // Update zone file input text with nicer display value using centralized helper
-            // Note: setZoneFileDisplay may be called again by the onSelectItem callback's finally block,
-            // but the flag mechanism prevents concurrent updates
+            // Note: This will be called again by the onSelectItem callback's finally block,
+            // but by then enough time will have passed (due to async operations) for the flag to clear
             setZoneFileDisplay(zone);
             
             // Get the top master ID for this zone (recursively traverse to root)
