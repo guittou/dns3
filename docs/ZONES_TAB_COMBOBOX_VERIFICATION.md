@@ -6,7 +6,27 @@
 
 **Translation**: "On the Zones tab, the visible combobox (UL #zone-file-list) previously displayed window.CURRENT_ZONE_LIST (global) — this exposed elements not related to the selected domain and the visible input (zone-file-input) and hidden field (zone-file-id) remained empty. The DNS tab has correct behavior: it displays the ordered list specific to the selected domain (master then includes) via shared logic/helpers, fills the..."
 
-## Current Implementation Status: ✅ CORRECT
+## Update (2025-12-10): Server Search Bug Fixed
+
+### Bug Discovered
+A bug was discovered where server search in the zone-file combobox was overwriting `CURRENT_ZONE_LIST` with zones from all domains:
+- When user typed a search query (≥2 chars), server returned zones from ALL domains
+- `showZones` would overwrite `CURRENT_ZONE_LIST` with these unfiltered results
+- When user cleared search, combobox would show zones from all domains
+
+### Fix Applied (PR #296)
+Added domain filtering to server search results in `initServerSearchCombobox` (lines 778-784):
+```javascript
+// Filter server results by selected domain if one is selected
+const masterId = window.ZONES_SELECTED_MASTER_ID || null;
+if (masterId && typeof window.isZoneInMasterTree === 'function') {
+    const unfilteredCount = serverResults.length;
+    serverResults = serverResults.filter(z => window.isZoneInMasterTree(z, masterId, serverResults));
+    console.debug('[initServerSearchCombobox] Filtered server results by domain:', unfilteredCount, '→', serverResults.length);
+}
+```
+
+## Current Implementation Status: ✅ FIXED
 
 ### Implementation Analysis
 
