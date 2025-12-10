@@ -408,8 +408,18 @@ async function populateZoneComboboxForDomain(masterId) {
         
         const zones = result.data || [];
         
-        // Update CURRENT_ZONE_LIST with filtered zones
-        window.CURRENT_ZONE_LIST = zones;
+        // Find the master zone from the zones array
+        const masterZone = zones.find(z => 
+            (z.file_type || '').toLowerCase().trim() === 'master' && 
+            parseInt(z.id, 10) === parseInt(masterId, 10)
+        );
+        
+        // Use shared helper for consistent ordering: master first, then includes sorted A-Z
+        const masterIdToUse = masterZone ? masterZone.id : masterId;
+        const orderedZones = window.makeOrderedZoneList(zones, masterIdToUse);
+        
+        // Update CURRENT_ZONE_LIST with ordered zones
+        window.CURRENT_ZONE_LIST = orderedZones;
         
     } catch (error) {
         console.error('Error populating zones for domain:', error);
