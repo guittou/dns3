@@ -487,13 +487,16 @@ async function setDomainForZone(zoneId) {
                 await populateZoneComboboxForDomain(zone.id); 
             } catch (e) {
                 console.warn('populateZoneComboboxForDomain failed:', e);
-                // Fallback: filter ALL_ZONES by domain if available
+                // Fallback: filter ALL_ZONES by domain if available and apply ordering
                 if (Array.isArray(window.ALL_ZONES)) {
+                    let filteredZones;
                     if (domainName) {
-                        window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
+                        filteredZones = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
                     } else {
-                        window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => z.id === zone.id);
+                        filteredZones = window.ALL_ZONES.filter(z => z.id === zone.id);
                     }
+                    // Apply consistent ordering using shared helper
+                    window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(filteredZones, zone.id);
                 }
             }
         }
