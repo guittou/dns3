@@ -1,22 +1,7 @@
 /**
  * Zone Files Management JavaScript - Paginated List View
  * Handles paginated table view for zone file management
- * 
- * DEPENDENCIES:
- * - zone-combobox.js must be loaded before this file
- * - Provides: window.makeOrderedZoneList, window.populateZoneListForDomain, window.initServerSearchCombobox
  */
-
-// Defensive check: ensure zone-combobox.js helpers are loaded
-(function() {
-    'use strict';
-    const requiredHelpers = ['makeOrderedZoneList', 'populateZoneListForDomain'];
-    const missing = requiredHelpers.filter(fn => typeof window[fn] !== 'function');
-    if (missing.length > 0) {
-        console.error('[zone-files.js] Missing required helpers from zone-combobox.js:', missing.join(', '));
-        console.error('[zone-files.js] Ensure zone-combobox.js is loaded before zone-files.js in your HTML template');
-    }
-})();
 
 // --- BEGIN: local copy of combobox helpers (populateComboboxList, initCombobox) ---
 function populateComboboxList(listElement, items, itemMapper, onSelect, showList = true) {
@@ -403,57 +388,41 @@ async function fetchZonesForMaster(masterId) {
  * Populate zone combobox for a specific domain
  * Updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
  * Uses zone_api.php?action=list_zone_files&domain_id=... which applies ACL filtering for non-admin users
- * 
- * This function now delegates to the shared window.populateZoneListForDomain helper
- * from zone-combobox.js for consistent behavior across DNS and Zones tabs.
  */
 async function populateZoneComboboxForDomain(masterId) {
     try {
-        // Check if shared helper is available
-        if (typeof window.populateZoneListForDomain !== 'function') {
-            console.error('[populateZoneComboboxForDomain] window.populateZoneListForDomain is not defined. Check that zone-combobox.js is loaded before zone-files.js');
-            
-            // Fallback to inline implementation if helper is missing
-            console.warn('[populateZoneComboboxForDomain] Using fallback inline implementation');
-            let result;
+        // Use the new list_zone_files endpoint from zone_api.php
+        // This applies ACL filtering for non-admin users
+        let result;
+        try {
+            result = await zoneApiCall('list_zone_files', { params: { domain_id: masterId } });
+        } catch (e) {
+            console.warn('[populateZoneComboboxForDomain] list_zone_files failed, falling back:', e);
+            // Fallback to old API (list_zones_by_domain) if list_zone_files is not available
             try {
-                result = await zoneApiCall('list_zone_files', { params: { domain_id: masterId } });
-            } catch (e) {
-                console.warn('[populateZoneComboboxForDomain] list_zone_files failed, falling back:', e);
-                try {
-                    result = await apiCall('list_zones_by_domain', { zone_id: masterId });
-                } catch (e2) {
-                    result = await apiCall('list_zones_by_domain', { domain_id: masterId });
-                }
+                result = await apiCall('list_zones_by_domain', { zone_id: masterId });
+            } catch (e2) {
+                result = await apiCall('list_zones_by_domain', { domain_id: masterId });
             }
-            
-            const zones = result.data || [];
-            const masterZone = zones.find(z => 
-                (z.file_type || '').toLowerCase().trim() === 'master' && 
-                parseInt(z.id, 10) === parseInt(masterId, 10)
-            );
-            
-            // Use makeOrderedZoneList if available, otherwise just use zones as-is
-            if (typeof window.makeOrderedZoneList === 'function') {
-                const masterIdToUse = masterZone ? masterZone.id : masterId;
-                window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(zones, masterIdToUse);
-            } else {
-                console.error('[populateZoneComboboxForDomain] window.makeOrderedZoneList is also not defined');
-                window.CURRENT_ZONE_LIST = zones;
-            }
-            return;
         }
         
-        // Use shared helper from zone-combobox.js
-        const orderedZones = await window.populateZoneListForDomain(masterId);
+        const zones = result.data || [];
+        
+        // Find the master zone from the zones array
+        const masterZone = zones.find(z => 
+            (z.file_type || '').toLowerCase().trim() === 'master' && 
+            parseInt(z.id, 10) === parseInt(masterId, 10)
+        );
+        
+        // Use shared helper for consistent ordering: master first, then includes sorted A-Z
+        const masterIdToUse = masterZone ? masterZone.id : masterId;
+        const orderedZones = window.makeOrderedZoneList(zones, masterIdToUse);
         
         // Update CURRENT_ZONE_LIST with ordered zones
         window.CURRENT_ZONE_LIST = orderedZones;
         
-        console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST with', orderedZones.length, 'zones');
-        
     } catch (error) {
-        console.error('[populateZoneComboboxForDomain] Error:', error);
+        console.error('Error populating zones for domain:', error);
         window.CURRENT_ZONE_LIST = [];
     }
 }
