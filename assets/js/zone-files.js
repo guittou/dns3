@@ -403,11 +403,8 @@ async function populateZoneComboboxForDomain(masterId) {
                 // Update CURRENT_ZONE_LIST with ordered zones from helper
                 window.CURRENT_ZONE_LIST = orderedZones;
                 
-                // Refresh the combobox to immediately display the ordered list
-                if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
-                    window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
-                    console.debug('[populateZoneComboboxForDomain] Refreshed combobox with ordered zones');
-                }
+                // DO NOT populate or show the combobox list - user must click/focus to see it
+                console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST, list will populate on user interaction');
                 
                 return;
             } catch (e) {
@@ -451,11 +448,8 @@ async function populateZoneComboboxForDomain(masterId) {
         // Update CURRENT_ZONE_LIST with ordered zones
         window.CURRENT_ZONE_LIST = orderedZones;
         
-        // Refresh the combobox to immediately display the ordered list
-        if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
-            window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
-            console.debug('[populateZoneComboboxForDomain] Refreshed combobox with ordered zones');
-        }
+        // DO NOT populate or show the combobox list - user must click/focus to see it
+        console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST, list will populate on user interaction');
         
     } catch (error) {
         console.error('Error populating zones for domain:', error);
@@ -1676,12 +1670,8 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         window.CURRENT_ZONE_LIST = orderedZones.slice();
         console.debug('[populateZoneFileCombobox] Final items for combobox:', orderedZones.length, '(master first, then includes sorted A-Z)');
 
-        // Refresh the combobox instance to immediately update the internal list
-        // This updates CURRENT_ZONE_LIST and populates the <ul> but does NOT show it (aligned with DNS tab)
-        if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
-            window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
-            console.debug('[populateZoneFileCombobox] Refreshed combobox with updated zones (list hidden until user interaction)');
-        }
+        // DO NOT populate or show the combobox list - user must click/focus to see it (aligned with DNS tab)
+        // The list will be populated from CURRENT_ZONE_LIST when user interacts with the input
 
         // Handle auto-selection based on autoSelect parameter
         if (autoSelect) {
