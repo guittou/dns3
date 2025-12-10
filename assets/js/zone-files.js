@@ -1842,11 +1842,22 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
                 }
             }
         } else {
-            // autoSelect is false: clear input and hidden value, but keep list populated
+            // autoSelect is false: clear visible input but pre-fill hidden field with master zone ID
+            // This allows user to search while having the master zone pre-selected in the hidden field
             input.value = '';
             input.placeholder = 'Rechercher une zone...';
-            if (hiddenInput) hiddenInput.value = '';
-            window.ZONES_SELECTED_ZONEFILE_ID = null;
+            
+            // Pre-fill hidden field with master zone ID (or selectedZoneFileId if provided)
+            if (selectedZoneFileId) {
+                if (hiddenInput) hiddenInput.value = selectedZoneFileId;
+                window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
+            } else if (masterZone) {
+                if (hiddenInput) hiddenInput.value = masterId;
+                window.ZONES_SELECTED_ZONEFILE_ID = masterId;
+            } else {
+                if (hiddenInput) hiddenInput.value = '';
+                window.ZONES_SELECTED_ZONEFILE_ID = null;
+            }
         }
         
         // Always enable combobox after population (whether autoSelect is true or false)
