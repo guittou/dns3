@@ -690,7 +690,8 @@ function initServerSearchCombobox(opts) {
     }
     
     // Populate list and attach click handlers
-    function showZones(zones) {
+    // showList defaults to false to prevent auto-display on domain selection (aligned with DNS tab)
+    function showZones(zones, showList = false) {
         // Update CURRENT_ZONE_LIST to keep it in sync with displayed zones
         window.CURRENT_ZONE_LIST = zones;
         
@@ -709,7 +710,7 @@ function initServerSearchCombobox(opts) {
                     console.error('[initServerSearchCombobox] onSelectItem callback error:', err);
                 }
             }
-        });
+        }, showList);
     }
     
     // Get client-filtered zones from cache
@@ -789,7 +790,7 @@ function initServerSearchCombobox(opts) {
                 }
                 
                 console.debug('[initServerSearchCombobox] server returned', serverResults.length, 'results');
-                showZones(serverResults);
+                showZones(serverResults, true); // Show list when user is typing
                 return;
             } catch (err) {
                 console.warn('[initServerSearchCombobox] server search failed, fallback to client:', err);
@@ -800,13 +801,13 @@ function initServerSearchCombobox(opts) {
         // Client filtering for short queries or when server search fails
         console.debug('[initServerSearchCombobox] client filter for query:', query);
         const clientZones = getClientZones(query);
-        showZones(clientZones);
+        showZones(clientZones, true); // Show list when user is typing
     });
     
     // Focus event: show all zones from cache
     input.addEventListener('focus', () => {
         const zones = getClientZones('');
-        showZones(zones);
+        showZones(zones, true); // Show list when user focuses input
     });
     
     // Blur event: hide list after delay
@@ -833,10 +834,11 @@ function initServerSearchCombobox(opts) {
     });
     
     // Return object with refresh method
+    // refresh() does NOT show the list by default (aligned with DNS tab - list only shown on user interaction)
     return {
         refresh: () => {
             const zones = getClientZones('');
-            showZones(zones);
+            showZones(zones, false); // Do NOT show list on refresh - only update internal state
         }
     };
 }
@@ -1674,16 +1676,11 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         window.CURRENT_ZONE_LIST = orderedZones.slice();
         console.debug('[populateZoneFileCombobox] Final items for combobox:', orderedZones.length, '(master first, then includes sorted A-Z)');
 
-        // Refresh the combobox instance to immediately display the updated zones
+        // Refresh the combobox instance to immediately update the internal list
+        // This updates CURRENT_ZONE_LIST and populates the <ul> but does NOT show it (aligned with DNS tab)
         if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
             window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
-            console.debug('[populateZoneFileCombobox] Refreshed combobox with updated zones');
-        }
-
-        // Populate the visible list so user sees updated options
-        // NEVER show the list automatically - user must click/focus to see it (aligned with DNS tab behavior)
-        if (listEl) {
-            populateComboboxList(listEl, orderedZones, z => ({ id: z.id, text: `${z.name} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); }, false);
+            console.debug('[populateZoneFileCombobox] Refreshed combobox with updated zones (list hidden until user interaction)');
         }
 
         // Handle auto-selection based on autoSelect parameter
