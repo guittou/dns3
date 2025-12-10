@@ -302,7 +302,9 @@
                     });
                 } catch (e) {
                     console.warn('[populateZoneListForDomain] list_zone_files failed, trying fallback:', e);
-                    // Fallback to list_zones_by_domain
+                    // Fallback to list_zones_by_domain API
+                    // Note: Different API versions use different parameter names (zone_id vs domain_id)
+                    // We try both for backward compatibility
                     if (typeof window.apiCall === 'function') {
                         try {
                             result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
@@ -314,7 +316,9 @@
                     }
                 }
             } else if (typeof window.apiCall === 'function') {
-                // Use apiCall as fallback
+                // Use apiCall as fallback when zoneApiCall not available
+                // Note: Different API versions use different parameter names (zone_id vs domain_id)
+                // We try both for backward compatibility
                 try {
                     result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
                 } catch (e) {

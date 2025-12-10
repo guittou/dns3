@@ -1514,24 +1514,26 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         console.debug('[populateZoneFileCombobox] masterZoneId:', masterId, 'masterZone:', masterZone ? masterZone.name : 'not found');
 
         // Defensive logic: Use shared helper if available, otherwise fallback
-        let orderedZones = [];
+        let orderedZones = null;
+        let sharedHelperSucceeded = false;
         
         if (typeof window.populateZoneListForDomain === 'function') {
             // Use shared helper from zone-combobox.js (preferred)
             console.debug('[populateZoneFileCombobox] Using shared helper populateZoneListForDomain');
             try {
                 orderedZones = await window.populateZoneListForDomain(masterId);
+                sharedHelperSucceeded = true;
                 console.debug('[populateZoneFileCombobox] Shared helper returned', orderedZones.length, 'zones');
             } catch (e) {
                 console.warn('[populateZoneFileCombobox] Shared helper failed, falling back to local implementation:', e);
-                // Fall through to fallback
+                orderedZones = null;
             }
         } else {
             console.debug('[populateZoneFileCombobox] Shared helper not available, using fallback implementation');
         }
         
         // Fallback implementation if shared helper not available or failed
-        if (!orderedZones || orderedZones.length === 0) {
+        if (!sharedHelperSucceeded) {
             // Try to get recursive includes from the cache first using ancestor-based filter
             let includeZones = (window.ZONES_ALL || []).filter(zone => {
                 // Normalize file_type check to handle variations in case/whitespace
