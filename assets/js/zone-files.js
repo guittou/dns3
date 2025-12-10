@@ -244,8 +244,15 @@ function initZonesCache() {
 
 /**
  * Sync zone file combobox instance state after CURRENT_ZONE_LIST update
- * Calls refresh() on the combobox instance to update internal state without showing the dropdown
- * This prevents race conditions where async operations could clear the cache
+ * 
+ * Calls refresh() on the combobox instance to update internal state without showing the dropdown.
+ * The refresh() method internally calls showZones(zones, false), where showList=false prevents
+ * the dropdown from auto-displaying, ensuring the list only appears on user interaction.
+ * 
+ * This prevents race conditions where async operations could clear or overwrite the cache
+ * after it has been populated with domain-specific zones.
+ * 
+ * @see initServerSearchCombobox for the refresh() method implementation
  */
 function syncZoneFileComboboxInstance() {
     if (!window.ZONE_FILE_COMBOBOX_INSTANCE) {
@@ -1704,7 +1711,6 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         console.debug('[populateZoneFileCombobox] Final items for combobox:', orderedZones.length, '(master first, then includes sorted A-Z)');
 
         // Sync combobox instance state with updated CURRENT_ZONE_LIST
-        // refresh() will update internal state without showing the list (showList=false)
         syncZoneFileComboboxInstance();
 
         // DO NOT populate or show the combobox list - user must click/focus to see it (aligned with DNS tab)
