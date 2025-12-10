@@ -297,9 +297,8 @@
             // Try zoneApiCall if available (preferred)
             if (typeof window.zoneApiCall === 'function') {
                 try {
-                    result = await window.zoneApiCall('list_zone_files', { 
-                        params: { domain_id: domainIdNum } 
-                    });
+                    // Note: list_zone_files expects domain_id directly, not wrapped in params
+                    result = await window.zoneApiCall('list_zone_files', { domain_id: domainIdNum });
                 } catch (e) {
                     console.warn('[populateZoneListForDomain] list_zone_files failed, trying fallback:', e);
                     // Fallback to list_zones_by_domain API

@@ -1662,8 +1662,8 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         }
         
         // Always enable combobox after population (whether autoSelect is true or false)
-        if (typeof setZoneFileComboboxEnabled === 'function') {
-            setZoneFileComboboxEnabled(true);
+        if (typeof window.setZoneFileComboboxEnabled === 'function') {
+            window.setZoneFileComboboxEnabled(true);
         }
     } catch (error) {
         console.error('[populateZoneFileCombobox] Fatal error:', error);
