@@ -248,9 +248,21 @@ function initZonesCache() {
  * This prevents race conditions where async operations could clear the cache
  */
 function syncZoneFileComboboxInstance() {
-    if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+    if (!window.ZONE_FILE_COMBOBOX_INSTANCE) {
+        console.debug('[syncZoneFileComboboxInstance] Combobox instance not available (not initialized yet)');
+        return;
+    }
+    
+    if (typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh !== 'function') {
+        console.warn('[syncZoneFileComboboxInstance] Combobox instance does not have a refresh method');
+        return;
+    }
+    
+    try {
         window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
-        console.debug('[syncZoneFileComboboxInstance] Called refresh() to sync combobox state');
+        console.debug('[syncZoneFileComboboxInstance] Successfully synced combobox state');
+    } catch (error) {
+        console.error('[syncZoneFileComboboxInstance] Error calling refresh:', error);
     }
 }
 
