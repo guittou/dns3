@@ -402,6 +402,13 @@ async function populateZoneComboboxForDomain(masterId) {
                 
                 // Update CURRENT_ZONE_LIST with ordered zones from helper
                 window.CURRENT_ZONE_LIST = orderedZones;
+                
+                // Refresh the combobox to immediately display the ordered list
+                if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+                    window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
+                    console.debug('[populateZoneComboboxForDomain] Refreshed combobox with ordered zones');
+                }
+                
                 return;
             } catch (e) {
                 console.warn('[populateZoneComboboxForDomain] Shared helper failed, falling back to direct API:', e);
@@ -443,6 +450,12 @@ async function populateZoneComboboxForDomain(masterId) {
         
         // Update CURRENT_ZONE_LIST with ordered zones
         window.CURRENT_ZONE_LIST = orderedZones;
+        
+        // Refresh the combobox to immediately display the ordered list
+        if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+            window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
+            console.debug('[populateZoneComboboxForDomain] Refreshed combobox with ordered zones');
+        }
         
     } catch (error) {
         console.error('Error populating zones for domain:', error);
@@ -1501,6 +1514,9 @@ async function initZoneFileCombobox() {
         minCharsForServer: 2,
         blurDelay: window.COMBOBOX_BLUR_DELAY || 200
     });
+    
+    // Store combobox instance globally so populateZoneComboboxForDomain can refresh it
+    window.ZONE_FILE_COMBOBOX_INSTANCE = comboboxInstance;
     
     console.debug('[initZoneFileCombobox] Initialized using initServerSearchCombobox');
     
