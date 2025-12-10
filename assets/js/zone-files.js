@@ -715,7 +715,9 @@ function initServerSearchCombobox(opts) {
     // Get client-filtered zones from cache
     function getClientZones(query) {
         const q = query.toLowerCase();
-        let zones = window.ZONES_ALL || window.CURRENT_ZONE_LIST || [];
+        // Prioritize CURRENT_ZONE_LIST (domain-specific zones) over ZONES_ALL (all zones)
+        // This ensures domain-filtered zones are shown when a domain is selected
+        let zones = window.CURRENT_ZONE_LIST || window.ZONES_ALL || [];
         
         if (!Array.isArray(zones)) {
             zones = [];
@@ -1398,8 +1400,8 @@ async function onZoneDomainSelected(masterZoneId) {
             btnEditDomain.disabled = false;
         }
         
-        // Populate zone file combobox for the selected domain (without auto-selecting)
-        await populateZoneFileCombobox(masterZoneId, null, false);
+        // Populate zone file combobox for the selected domain (with auto-selection of master)
+        await populateZoneFileCombobox(masterZoneId, null, true);
         
         // Enable zone file combobox after population
         if (typeof setZoneFileComboboxEnabled === 'function') {
