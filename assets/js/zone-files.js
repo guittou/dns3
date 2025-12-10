@@ -403,6 +403,11 @@ async function populateZoneComboboxForDomain(masterId) {
                 // Update CURRENT_ZONE_LIST with ordered zones from helper
                 window.CURRENT_ZONE_LIST = orderedZones;
                 
+                // Sync combobox instance state with updated CURRENT_ZONE_LIST
+                if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+                    window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
+                }
+                
                 // DO NOT populate or show the combobox list - user must click/focus to see it
                 console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST, list will populate on user interaction');
                 
@@ -447,6 +452,11 @@ async function populateZoneComboboxForDomain(masterId) {
         
         // Update CURRENT_ZONE_LIST with ordered zones
         window.CURRENT_ZONE_LIST = orderedZones;
+        
+        // Sync combobox instance state with updated CURRENT_ZONE_LIST
+        if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+            window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
+        }
         
         // DO NOT populate or show the combobox list - user must click/focus to see it
         console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST, list will populate on user interaction');
@@ -527,6 +537,11 @@ async function setDomainForZone(zoneId) {
                     }
                     // Apply consistent ordering using shared helper
                     window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(filteredZones, zone.id);
+                    
+                    // Sync combobox instance state with updated CURRENT_ZONE_LIST
+                    if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+                        window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
+                    }
                 }
             }
         }
@@ -1669,6 +1684,13 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
         window.CURRENT_ZONE_LIST = orderedZones.slice();
         console.debug('[populateZoneFileCombobox] Final items for combobox:', orderedZones.length, '(master first, then includes sorted A-Z)');
+
+        // Sync combobox instance state with updated CURRENT_ZONE_LIST
+        // refresh() will update internal state without showing the list (showList=false)
+        if (window.ZONE_FILE_COMBOBOX_INSTANCE && typeof window.ZONE_FILE_COMBOBOX_INSTANCE.refresh === 'function') {
+            window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
+            console.debug('[populateZoneFileCombobox] Called refresh() to sync combobox state');
+        }
 
         // DO NOT populate or show the combobox list - user must click/focus to see it (aligned with DNS tab)
         // The list will be populated from CURRENT_ZONE_LIST when user interacts with the input
