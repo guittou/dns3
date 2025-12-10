@@ -387,12 +387,30 @@ async function fetchZonesForMaster(masterId) {
 /**
  * Populate zone combobox for a specific domain
  * Updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
- * Uses zone_api.php?action=list_zone_files&domain_id=... which applies ACL filtering for non-admin users
+ * Uses shared helper populateZoneListForDomain from zone-combobox.js with defensive fallback
  */
 async function populateZoneComboboxForDomain(masterId) {
     try {
-        // Use the new list_zone_files endpoint from zone_api.php
-        // This applies ACL filtering for non-admin users
+        let orderedZones = [];
+        
+        // Defensive: Try shared helper first (preferred)
+        if (typeof window.populateZoneListForDomain === 'function') {
+            console.debug('[populateZoneComboboxForDomain] Using shared helper populateZoneListForDomain');
+            try {
+                orderedZones = await window.populateZoneListForDomain(masterId);
+                console.debug('[populateZoneComboboxForDomain] Shared helper returned', orderedZones.length, 'zones');
+                
+                // Update CURRENT_ZONE_LIST with ordered zones from helper
+                window.CURRENT_ZONE_LIST = orderedZones;
+                return;
+            } catch (e) {
+                console.warn('[populateZoneComboboxForDomain] Shared helper failed, falling back to direct API:', e);
+            }
+        } else {
+            console.debug('[populateZoneComboboxForDomain] Shared helper not available, using fallback');
+        }
+        
+        // Fallback: Use direct API call if shared helper unavailable or failed
         let result;
         try {
             result = await zoneApiCall('list_zone_files', { params: { domain_id: masterId } });
@@ -416,7 +434,12 @@ async function populateZoneComboboxForDomain(masterId) {
         
         // Use shared helper for consistent ordering: master first, then includes sorted A-Z
         const masterIdToUse = masterZone ? masterZone.id : masterId;
-        const orderedZones = window.makeOrderedZoneList(zones, masterIdToUse);
+        if (typeof window.makeOrderedZoneList === 'function') {
+            orderedZones = window.makeOrderedZoneList(zones, masterIdToUse);
+        } else {
+            // Final fallback: just use zones as-is
+            orderedZones = zones;
+        }
         
         // Update CURRENT_ZONE_LIST with ordered zones
         window.CURRENT_ZONE_LIST = orderedZones;
