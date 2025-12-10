@@ -275,8 +275,14 @@ function syncZoneFileComboboxInstance() {
 }
 
 // Constants for race-resistant hiding delays
-const ZONE_LIST_HIDE_RETRY_DELAY_SHORT = 50;  // ms - catch immediate async operations
-const ZONE_LIST_HIDE_RETRY_DELAY_LONG = 150;  // ms - catch slightly delayed async operations
+// These delays are chosen to catch async operations that might occur after domain selection:
+// - 50ms: catches immediate async callbacks (e.g., from refresh())
+// - 150ms: catches slightly delayed operations (e.g., from setTimeout in other code)
+// This setTimeout-based approach is necessary because we cannot control when external
+// async operations (like combobox refresh) might try to show the list, and we need to
+// ensure the list remains hidden regardless of these operations.
+const ZONE_LIST_HIDE_RETRY_DELAY_SHORT = 50;  // ms
+const ZONE_LIST_HIDE_RETRY_DELAY_LONG = 150;  // ms
 
 /**
  * Ensure a value is a valid array, returning fallback if not
@@ -297,6 +303,11 @@ function ensureValidArray(value, fallback = []) {
  * 
  * This prevents the UX "flash" where the list briefly appears after domain selection
  * due to race conditions with async refresh operations.
+ * 
+ * Note: This uses setTimeout-based retries because we cannot control when external
+ * async operations (like combobox refresh) might try to show the list. Alternative
+ * approaches like Promise.all or event-based coordination are not viable since we
+ * don't have access to the Promise chain of the external operations.
  */
 function forceHideZoneFileList() {
     const listEl = document.getElementById('zone-file-list');
@@ -304,11 +315,13 @@ function forceHideZoneFileList() {
     
     // Helper to hide the list (sets display, aria-hidden, and removes from tab order for accessibility)
     const hideList = (source = '') => {
+        const wasVisible = listEl.style.display !== 'none';
         listEl.style.display = 'none';
         listEl.setAttribute('aria-hidden', 'true');
         listEl.setAttribute('tabindex', '-1');  // Remove from tab order for accessibility
         if (source) {
-            console.debug(`[forceHideZoneFileList] ${source}`);
+            const stateMsg = wasVisible ? ' (was visible, now hidden)' : ' (already hidden)';
+            console.debug(`[forceHideZoneFileList] ${source}${stateMsg}`);
         }
     };
     
