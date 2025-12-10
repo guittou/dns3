@@ -1765,10 +1765,7 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
 
         // Ensure orderedZones is always an array (final safeguard for all error paths)
         orderedZones = ensureValidArray(orderedZones, []);
-        if (orderedZones.length === 0) {
-            console.warn('[populateZoneFileCombobox] orderedZones is empty after all attempts, preserving existing CURRENT_ZONE_LIST');
-        }
-
+        
         const input = document.getElementById('zone-file-input');
         const hiddenInput = document.getElementById('zone-file-id');
         const listEl = document.getElementById('zone-file-list');
@@ -1776,7 +1773,7 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
         // DEFENSIVE: Only update cache if orderedZones is non-empty to prevent clearing cache on API errors
-        if (orderedZones && orderedZones.length > 0) {
+        if (orderedZones.length > 0) {
             window.CURRENT_ZONE_LIST = orderedZones.slice();
             console.debug('[populateZoneFileCombobox] Updated CURRENT_ZONE_LIST with', orderedZones.length, 'zones (master first, then includes sorted A-Z)');
         } else {
