@@ -334,6 +334,53 @@ function forceHideZoneFileList() {
 }
 
 /**
+ * Centralized helper to update the zone-file-input field display
+ * Prevents concurrent writes and ensures consistent formatting
+ * 
+ * @param {Object|string} zoneOrText - Zone object with name/filename/file_type, or plain text string
+ */
+function setZoneFileDisplay(zoneOrText) {
+    const input = document.getElementById('zone-file-input');
+    if (!input) {
+        console.warn('[setZoneFileDisplay] zone-file-input element not found');
+        return;
+    }
+    
+    // Prevent concurrent updates by checking if an update is in progress
+    if (window.__ZONE_FILE_DISPLAY_UPDATING) {
+        console.debug('[setZoneFileDisplay] Update already in progress, skipping');
+        return;
+    }
+    
+    try {
+        window.__ZONE_FILE_DISPLAY_UPDATING = true;
+        
+        if (typeof zoneOrText === 'string') {
+            // Plain text: set directly
+            input.value = zoneOrText;
+            console.debug('[setZoneFileDisplay] Set input to plain text:', zoneOrText);
+        } else if (zoneOrText && typeof zoneOrText === 'object') {
+            // Zone object: format as "name (filename)"
+            const name = zoneOrText.name || zoneOrText.filename || 'Unknown';
+            const filename = zoneOrText.filename || zoneOrText.file_type || '';
+            const displayText = `${name} (${filename})`;
+            input.value = displayText;
+            console.debug('[setZoneFileDisplay] Set input to zone:', displayText);
+        } else {
+            // Fallback: clear input
+            input.value = '';
+            input.placeholder = 'Rechercher une zone...';
+            console.debug('[setZoneFileDisplay] Cleared input (fallback)');
+        }
+    } finally {
+        // Clear the flag after a short delay to allow the update to complete
+        setTimeout(() => {
+            window.__ZONE_FILE_DISPLAY_UPDATING = false;
+        }, 10);
+    }
+}
+
+/**
  * Get master zone ID from any zone ID
  * If zone is an include, returns its parent_id; if master, returns itself
  */
@@ -1614,20 +1661,39 @@ async function initZoneFileCombobox() {
     }
     
     // Use the unified initServerSearchCombobox helper
-    // Custom onSelectItem to call onZoneFileSelected and update CURRENT_ZONE_LIST
+    // Custom onSelectItem to update state and call business logic handler
     const comboboxInstance = initServerSearchCombobox({
         inputEl: inputEl,
         listEl: listEl,
         hiddenEl: hiddenEl,
         file_type: '', // No filter, show all types (master + include)
-        onSelectItem: (zone) => {
-            // Update CURRENT_ZONE_LIST for backward compatibility
-            if (zone) {
-                window.CURRENT_ZONE_LIST = [zone];
-            }
-            // Call existing onZoneFileSelected handler
-            if (typeof onZoneFileSelected === 'function') {
-                onZoneFileSelected(zone.id);
+        onSelectItem: async (zone) => {
+            try {
+                if (!zone) return;
+                
+                // Update global state variables
+                // DO NOT update window.CURRENT_ZONE_LIST - preserve the full zone list for the domain
+                window.ZONES_SELECTED_ZONEFILE_ID = zone.id;
+                window.selectedZoneId = zone.id;
+                
+                // Update hidden input
+                if (hiddenEl) {
+                    hiddenEl.value = zone.id;
+                }
+                
+                // Call existing onZoneFileSelected handler for business logic
+                if (typeof onZoneFileSelected === 'function') {
+                    await onZoneFileSelected(zone.id);
+                }
+            } finally {
+                // Centralized display update to ensure consistent final display
+                // This runs after all other updates to prevent race conditions
+                if (zone) {
+                    setZoneFileDisplay(zone);
+                }
+                
+                // Hide the list after selection to prevent flickers
+                forceHideZoneFileList();
             }
         },
         minCharsForServer: 2,
@@ -1919,8 +1985,10 @@ async function onZoneFileSelected(zoneFileId) {
         }
         
         if (zone) {
-            // Update zone file input text with nicer display value
-            if (input) input.value = `${zone.name} (${zone.filename})`;
+            // Update zone file input text with nicer display value using centralized helper
+            // Note: This will be called again by the onSelectItem callback's finally block,
+            // but by then enough time will have passed (due to async operations) for the flag to clear
+            setZoneFileDisplay(zone);
             
             // Get the top master ID for this zone (recursively traverse to root)
             let topMasterId = await getTopMasterId(zone.id);
@@ -1943,13 +2011,13 @@ async function onZoneFileSelected(zoneFileId) {
             }
         } else {
             // Fallback: just set the value even if we couldn't fetch display info
-            if (input) input.value = `Zone ${zoneFileId}`;
+            setZoneFileDisplay(`Zone ${zoneFileId}`);
         }
     } else {
         // Clear selection
         window.selectedZoneId = null;
         window.ZONES_SELECTED_ZONEFILE_ID = null;
-        if (input) input.value = '';
+        setZoneFileDisplay('');
         if (hiddenInput) hiddenInput.value = '';
     }
     
@@ -1969,15 +2037,13 @@ async function onZoneFileSelected(zoneFileId) {
  * Clear zone file selection
  */
 function clearZoneFileSelection() {
-    const input = document.getElementById('zone-file-input');
     const hiddenInput = document.getElementById('zone-file-id');
     
     window.ZONES_SELECTED_ZONEFILE_ID = null;
     
-    if (input) {
-        input.value = '';
-        input.placeholder = 'Rechercher une zone...';
-    }
+    // Use centralized helper to clear the input
+    setZoneFileDisplay('');
+    
     if (hiddenInput) {
         hiddenInput.value = '';
     }
