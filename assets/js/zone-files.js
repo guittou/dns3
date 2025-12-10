@@ -775,8 +775,15 @@ function initServerSearchCombobox(opts) {
                     throw new Error('No server search available');
                 }
                 
-                // Apply ordering to server results: master first, then includes sorted A-Z
+                // Filter server results by selected domain if one is selected
                 const masterId = window.ZONES_SELECTED_MASTER_ID || null;
+                if (masterId && typeof window.isZoneInMasterTree === 'function') {
+                    const unfilteredCount = serverResults.length;
+                    serverResults = serverResults.filter(z => window.isZoneInMasterTree(z, masterId, serverResults));
+                    console.debug('[initServerSearchCombobox] Filtered server results by domain:', unfilteredCount, '→', serverResults.length);
+                }
+                
+                // Apply ordering to server results: master first, then includes sorted A-Z
                 if (typeof window.makeOrderedZoneList === 'function') {
                     serverResults = window.makeOrderedZoneList(serverResults, masterId);
                 }
