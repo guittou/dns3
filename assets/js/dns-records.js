@@ -989,9 +989,17 @@
             
             const zones = result.data || [];
             
+            // Find the master zone from the zones array (it should be the one with file_type='master')
+            // The domainIdOrZoneId parameter is typically the master zone ID
+            const masterZone = zones.find(z => 
+                (z.file_type || '').toLowerCase().trim() === 'master' && 
+                parseInt(z.id, 10) === parseInt(domainIdOrZoneId, 10)
+            );
+            
             // Use shared helper for consistent ordering: master first, then includes sorted A-Z
-            // The API already returns zones in this order, but we apply it here for consistency
-            const orderedZones = window.makeOrderedZoneList(zones, domainIdOrZoneId);
+            // Pass the master ID if found, otherwise pass the domainIdOrZoneId as-is
+            const masterId = masterZone ? masterZone.id : domainIdOrZoneId;
+            const orderedZones = window.makeOrderedZoneList(zones, masterId);
             
             // Update CURRENT_ZONE_LIST with ordered zones
             CURRENT_ZONE_LIST = orderedZones;

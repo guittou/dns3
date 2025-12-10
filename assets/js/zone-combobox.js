@@ -56,7 +56,7 @@
         const seen = new Set();
         const dedupedZones = zones.filter(zone => {
             const id = String(zone.id || '');
-            if (!id || seen.has(id)) return false;
+            if (id === '' || seen.has(id)) return false;
             seen.add(id);
             return true;
         });
