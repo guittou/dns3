@@ -968,6 +968,7 @@
      * Populate zone combobox for a specific domain
      * This updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
      * Uses zone_api.php?action=list_zone_files&domain_id=... which applies ACL filtering for non-admin users
+     * Now uses shared makeOrderedZoneList helper for consistent ordering
      */
     async function populateZoneComboboxForDomain(domainIdOrZoneId) {
         try {
@@ -988,8 +989,20 @@
             
             const zones = result.data || [];
             
-            // Update CURRENT_ZONE_LIST with filtered zones
-            CURRENT_ZONE_LIST = zones;
+            // Find the master zone from the zones array (it should be the one with file_type='master')
+            // The domainIdOrZoneId parameter is typically the master zone ID
+            const masterZone = zones.find(z => 
+                (z.file_type || '').toLowerCase().trim() === 'master' && 
+                parseInt(z.id, 10) === parseInt(domainIdOrZoneId, 10)
+            );
+            
+            // Use shared helper for consistent ordering: master first, then includes sorted A-Z
+            // Pass the master ID if found, otherwise pass the domainIdOrZoneId as-is
+            const masterId = masterZone ? masterZone.id : domainIdOrZoneId;
+            const orderedZones = window.makeOrderedZoneList(zones, masterId);
+            
+            // Update CURRENT_ZONE_LIST with ordered zones
+            CURRENT_ZONE_LIST = orderedZones;
             
             // DO NOT open the combobox list - user must click/focus to see it
             // DO NOT auto-select a zone - zone selection must be explicit

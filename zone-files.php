@@ -586,6 +586,7 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
 
 <script src="<?php echo $basePath; ?>assets/js/modal-utils.js"></script>
 <script src="<?php echo $basePath; ?>assets/js/combobox-utils.js"></script>
+<script src="<?php echo $basePath; ?>assets/js/zone-combobox.js"></script>
 <script src="<?php echo $basePath; ?>assets/js/zone-files.js"></script>
 
 <?php
