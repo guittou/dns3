@@ -267,18 +267,91 @@
             listElement.setAttribute('aria-hidden', 'true');
         }
     }
+    
+    /**
+     * Populate zone list for a specific domain (master zone)
+     * Fetches zones from API and returns ordered list
+     * 
+     * @param {number} domainId - Master zone ID (domain)
+     * @returns {Promise<Array>} - Ordered array of zones (master first, then includes sorted A-Z)
+     * 
+     * @example
+     * const ordered = await populateZoneListForDomain(5);
+     * // Returns: [masterZone5, includeA, includeB, includeC]
+     */
+    async function populateZoneListForDomain(domainId) {
+        if (!domainId) {
+            console.warn('[populateZoneListForDomain] No domainId provided');
+            return [];
+        }
+        
+        const domainIdNum = parseInt(domainId, 10);
+        if (isNaN(domainIdNum) || domainIdNum <= 0) {
+            console.warn('[populateZoneListForDomain] Invalid domainId:', domainId);
+            return [];
+        }
+        
+        try {
+            let result;
+            
+            // Try zoneApiCall if available (preferred)
+            if (typeof window.zoneApiCall === 'function') {
+                try {
+                    result = await window.zoneApiCall('list_zone_files', { 
+                        params: { domain_id: domainIdNum } 
+                    });
+                } catch (e) {
+                    console.warn('[populateZoneListForDomain] list_zone_files failed, trying fallback:', e);
+                    // Fallback to list_zones_by_domain
+                    if (typeof window.apiCall === 'function') {
+                        try {
+                            result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
+                        } catch (e2) {
+                            result = await window.apiCall('list_zones_by_domain', { domain_id: domainIdNum });
+                        }
+                    } else {
+                        throw new Error('No API call function available');
+                    }
+                }
+            } else if (typeof window.apiCall === 'function') {
+                // Use apiCall as fallback
+                try {
+                    result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
+                } catch (e) {
+                    result = await window.apiCall('list_zones_by_domain', { domain_id: domainIdNum });
+                }
+            } else {
+                throw new Error('No API call function available (zoneApiCall or apiCall)');
+            }
+            
+            const zones = result.data || [];
+            
+            // Use makeOrderedZoneList for consistent ordering
+            const orderedZones = makeOrderedZoneList(zones, domainIdNum);
+            
+            console.debug('[populateZoneListForDomain] Fetched and ordered', orderedZones.length, 'zones for domain', domainIdNum);
+            
+            return orderedZones;
+            
+        } catch (error) {
+            console.error('[populateZoneListForDomain] Failed to populate zones for domain:', domainIdNum, error);
+            return [];
+        }
+    }
 
     // Export functions to window for global access
     window.ZoneComboboxHelpers = {
         makeOrderedZoneList: makeOrderedZoneList,
         fillSelectWithOrderedZones: fillSelectWithOrderedZones,
         populateComboboxListWithOrderedZones: populateComboboxListWithOrderedZones,
-        sortZonesAlphabetically: sortZonesAlphabetically
+        sortZonesAlphabetically: sortZonesAlphabetically,
+        populateZoneListForDomain: populateZoneListForDomain
     };
     
     // Also export individual functions for backward compatibility
     window.makeOrderedZoneList = makeOrderedZoneList;
     window.fillSelectWithOrderedZones = fillSelectWithOrderedZones;
     window.populateComboboxListWithOrderedZones = populateComboboxListWithOrderedZones;
+    window.populateZoneListForDomain = populateZoneListForDomain;
     
 })(window);

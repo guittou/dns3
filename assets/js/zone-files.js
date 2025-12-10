@@ -1513,61 +1513,91 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
 
         console.debug('[populateZoneFileCombobox] masterZoneId:', masterId, 'masterZone:', masterZone ? masterZone.name : 'not found');
 
-        // Try to get recursive includes from the cache first using ancestor-based filter
-        let includeZones = (window.ZONES_ALL || []).filter(zone => {
-            // Normalize file_type check to handle variations in case/whitespace
-            const fileType = (zone.file_type || '').toLowerCase().trim();
-            if (fileType !== 'include') return false;
-            
-            // Check if this zone's ancestor chain contains the master
-            let currentZone = zone;
-            let iterations = 0;
-            const maxIterations = 50;
-            
-            while (currentZone && iterations < maxIterations) {
-                iterations++;
-                const parentId = parseInt(currentZone.parent_id || 0, 10);
-                
-                if (parentId === masterId) {
-                    return true;
-                }
-                
-                if (parentId === 0 || !parentId) {
-                    break;
-                }
-                
-                // Find parent in cache
-                currentZone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === parentId) ||
-                             allMasters.find(m => parseInt(m.id, 10) === parentId);
-            }
-            
-            return false;
-        });
-
-        console.debug('[populateZoneFileCombobox] includeZones from cache:', includeZones.length);
-
-        // If cache is empty or incomplete for this master, fetch from API
-        if (!includeZones || includeZones.length === 0) {
-            console.debug('[populateZoneFileCombobox] Cache empty, fetching from API...');
+        // Defensive logic: Use shared helper if available, otherwise fallback
+        let orderedZones = [];
+        
+        if (typeof window.populateZoneListForDomain === 'function') {
+            // Use shared helper from zone-combobox.js (preferred)
+            console.debug('[populateZoneFileCombobox] Using shared helper populateZoneListForDomain');
             try {
-                const fetched = await fetchZonesForMaster(masterId);
-                includeZones = fetched || [];
-                console.debug('[populateZoneFileCombobox] Fetched from API:', includeZones.length, 'zones');
-                
-                // Merge fetched includes into cache to keep it up-to-date (deduplicate using string comparison)
-                if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
-                includeZones.forEach(z => {
-                    if (!window.ZONES_ALL.find(x => String(x.id) === String(z.id))) {
-                        window.ZONES_ALL.push(z);
-                    }
-                });
-                console.debug('[populateZoneFileCombobox] Cache updated, total zones:', window.ZONES_ALL.length);
+                orderedZones = await window.populateZoneListForDomain(masterId);
+                console.debug('[populateZoneFileCombobox] Shared helper returned', orderedZones.length, 'zones');
             } catch (e) {
-                console.warn('[populateZoneFileCombobox] fetchZonesForMaster failed, falling back to empty list:', e);
-                includeZones = includeZones || [];
+                console.warn('[populateZoneFileCombobox] Shared helper failed, falling back to local implementation:', e);
+                // Fall through to fallback
             }
         } else {
-            console.debug('[populateZoneFileCombobox] Using cached includeZones:', includeZones.length);
+            console.debug('[populateZoneFileCombobox] Shared helper not available, using fallback implementation');
+        }
+        
+        // Fallback implementation if shared helper not available or failed
+        if (!orderedZones || orderedZones.length === 0) {
+            // Try to get recursive includes from the cache first using ancestor-based filter
+            let includeZones = (window.ZONES_ALL || []).filter(zone => {
+                // Normalize file_type check to handle variations in case/whitespace
+                const fileType = (zone.file_type || '').toLowerCase().trim();
+                if (fileType !== 'include') return false;
+                
+                // Check if this zone's ancestor chain contains the master
+                let currentZone = zone;
+                let iterations = 0;
+                const maxIterations = 50;
+                
+                while (currentZone && iterations < maxIterations) {
+                    iterations++;
+                    const parentId = parseInt(currentZone.parent_id || 0, 10);
+                    
+                    if (parentId === masterId) {
+                        return true;
+                    }
+                    
+                    if (parentId === 0 || !parentId) {
+                        break;
+                    }
+                    
+                    // Find parent in cache
+                    currentZone = (window.ZONES_ALL || []).find(z => parseInt(z.id, 10) === parentId) ||
+                                 allMasters.find(m => parseInt(m.id, 10) === parentId);
+                }
+                
+                return false;
+            });
+
+            console.debug('[populateZoneFileCombobox] includeZones from cache:', includeZones.length);
+
+            // If cache is empty or incomplete for this master, fetch from API
+            if (!includeZones || includeZones.length === 0) {
+                console.debug('[populateZoneFileCombobox] Cache empty, fetching from API...');
+                try {
+                    const fetched = await fetchZonesForMaster(masterId);
+                    includeZones = fetched || [];
+                    console.debug('[populateZoneFileCombobox] Fetched from API:', includeZones.length, 'zones');
+                    
+                    // Merge fetched includes into cache to keep it up-to-date (deduplicate using string comparison)
+                    if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
+                    includeZones.forEach(z => {
+                        if (!window.ZONES_ALL.find(x => String(x.id) === String(z.id))) {
+                            window.ZONES_ALL.push(z);
+                        }
+                    });
+                    console.debug('[populateZoneFileCombobox] Cache updated, total zones:', window.ZONES_ALL.length);
+                } catch (e) {
+                    console.warn('[populateZoneFileCombobox] fetchZonesForMaster failed, falling back to empty list:', e);
+                    includeZones = includeZones || [];
+                }
+            } else {
+                console.debug('[populateZoneFileCombobox] Using cached includeZones:', includeZones.length);
+            }
+
+            // Use shared helper for consistent ordering: master first, then includes sorted A-Z
+            const allZones = masterZone ? [masterZone, ...includeZones] : includeZones;
+            if (typeof window.makeOrderedZoneList === 'function') {
+                orderedZones = window.makeOrderedZoneList(allZones, masterId);
+                console.debug('[populateZoneFileCombobox] Used makeOrderedZoneList for ordering:', orderedZones.length, 'zones');
+            } else {
+                console.warn('[populateZoneFileCombobox] makeOrderedZoneList not available, using unordered list');
+                orderedZones = allZones;
+            }
         }
 
         const input = document.getElementById('zone-file-input');
@@ -1575,18 +1605,14 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         const listEl = document.getElementById('zone-file-list');
         if (!input) return;
 
-        // Use shared helper for consistent ordering: master first, then includes sorted A-Z
-        const allZones = masterZone ? [masterZone, ...includeZones] : includeZones;
-        const items = window.makeOrderedZoneList(allZones, masterId);
-        console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master first, then includes sorted A-Z)');
-
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
-        window.CURRENT_ZONE_LIST = items.slice();
+        window.CURRENT_ZONE_LIST = orderedZones.slice();
+        console.debug('[populateZoneFileCombobox] Final items for combobox:', orderedZones.length, '(master first, then includes sorted A-Z)');
 
         // Populate the visible list so user sees updated options
         // Don't show the list automatically when autoSelect is false
         if (listEl) {
-            populateComboboxList(listEl, items, z => ({ id: z.id, text: `${z.name} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); }, autoSelect);
+            populateComboboxList(listEl, orderedZones, z => ({ id: z.id, text: `${z.name} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); }, autoSelect);
             // Explicitly ensure list is hidden when autoSelect is false
             if (!autoSelect) {
                 listEl.style.display = 'none';
@@ -1605,7 +1631,7 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
                     if (hiddenInput) hiddenInput.value = selectedZoneFileId;
                     window.ZONES_SELECTED_ZONEFILE_ID = selectedZoneFileId;
                 } else {
-                    const selectedZone = includeZones.find(z => parseInt(z.id, 10) === selectedId);
+                    const selectedZone = orderedZones.find(z => parseInt(z.id, 10) === selectedId);
                     if (selectedZone) {
                         input.value = `${selectedZone.name} (${selectedZone.filename || selectedZone.file_type})`;
                         if (hiddenInput) hiddenInput.value = selectedZoneFileId;
@@ -1631,6 +1657,11 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             input.placeholder = 'Rechercher une zone...';
             if (hiddenInput) hiddenInput.value = '';
             window.ZONES_SELECTED_ZONEFILE_ID = null;
+        }
+        
+        // Always enable combobox after population (whether autoSelect is true or false)
+        if (typeof setZoneFileComboboxEnabled === 'function') {
+            setZoneFileComboboxEnabled(true);
         }
     } catch (error) {
         console.error('[populateZoneFileCombobox] Fatal error:', error);
