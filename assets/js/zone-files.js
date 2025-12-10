@@ -408,8 +408,18 @@ async function populateZoneComboboxForDomain(masterId) {
         
         const zones = result.data || [];
         
-        // Update CURRENT_ZONE_LIST with filtered zones
-        window.CURRENT_ZONE_LIST = zones;
+        // Find the master zone from the zones array
+        const masterZone = zones.find(z => 
+            (z.file_type || '').toLowerCase().trim() === 'master' && 
+            parseInt(z.id, 10) === parseInt(masterId, 10)
+        );
+        
+        // Use shared helper for consistent ordering: master first, then includes sorted A-Z
+        const masterIdToUse = masterZone ? masterZone.id : masterId;
+        const orderedZones = window.makeOrderedZoneList(zones, masterIdToUse);
+        
+        // Update CURRENT_ZONE_LIST with ordered zones
+        window.CURRENT_ZONE_LIST = orderedZones;
         
     } catch (error) {
         console.error('Error populating zones for domain:', error);
@@ -477,13 +487,16 @@ async function setDomainForZone(zoneId) {
                 await populateZoneComboboxForDomain(zone.id); 
             } catch (e) {
                 console.warn('populateZoneComboboxForDomain failed:', e);
-                // Fallback: filter ALL_ZONES by domain if available
+                // Fallback: filter ALL_ZONES by domain if available and apply ordering
                 if (Array.isArray(window.ALL_ZONES)) {
+                    let filteredZones;
                     if (domainName) {
-                        window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
+                        filteredZones = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
                     } else {
-                        window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => z.id === zone.id);
+                        filteredZones = window.ALL_ZONES.filter(z => z.id === zone.id);
                     }
+                    // Apply consistent ordering using shared helper
+                    window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(filteredZones, zone.id);
                 }
             }
         }
