@@ -274,6 +274,20 @@ function syncZoneFileComboboxInstance() {
     }
 }
 
+// Constants for race-resistant hiding delays
+const ZONE_LIST_HIDE_RETRY_DELAY_SHORT = 50;  // ms - catch immediate async operations
+const ZONE_LIST_HIDE_RETRY_DELAY_LONG = 150;  // ms - catch slightly delayed async operations
+
+/**
+ * Ensure a value is a valid array, returning fallback if not
+ * @param {*} value - Value to check
+ * @param {Array} fallback - Fallback value if not a valid array
+ * @returns {Array} - Valid array
+ */
+function ensureValidArray(value, fallback = []) {
+    return (value && Array.isArray(value)) ? value : fallback;
+}
+
 /**
  * Race-resistant hiding of zone file combobox list
  * 
@@ -300,8 +314,8 @@ function forceHideZoneFileList() {
     hideList('Applied initial hiding');
     
     // Hide again after short delays to catch any async operations
-    setTimeout(() => hideList('Re-applied hiding after 50ms'), 50);
-    setTimeout(() => hideList('Re-applied hiding after 150ms'), 150);
+    setTimeout(() => hideList(`Re-applied hiding after ${ZONE_LIST_HIDE_RETRY_DELAY_SHORT}ms`), ZONE_LIST_HIDE_RETRY_DELAY_SHORT);
+    setTimeout(() => hideList(`Re-applied hiding after ${ZONE_LIST_HIDE_RETRY_DELAY_LONG}ms`), ZONE_LIST_HIDE_RETRY_DELAY_LONG);
 }
 
 /**
@@ -1733,13 +1747,12 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             // Use shared helper for consistent ordering: master first, then includes sorted A-Z
             const allZones = masterZone ? [masterZone, ...includeZones] : includeZones;
             if (typeof window.makeOrderedZoneList === 'function') {
-                orderedZones = window.makeOrderedZoneList(allZones, masterId);
-                // Defensive: ensure orderedZones is an array before accessing .length
-                if (orderedZones && Array.isArray(orderedZones)) {
+                const result = window.makeOrderedZoneList(allZones, masterId);
+                orderedZones = ensureValidArray(result, allZones);
+                if (result === orderedZones) {
                     console.debug('[populateZoneFileCombobox] Used makeOrderedZoneList for ordering:', orderedZones.length, 'zones');
                 } else {
                     console.warn('[populateZoneFileCombobox] makeOrderedZoneList returned invalid result, defaulting to allZones');
-                    orderedZones = allZones;
                 }
             } else {
                 console.warn('[populateZoneFileCombobox] makeOrderedZoneList not available, using unordered list');
@@ -1747,10 +1760,10 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             }
         }
 
-        // Ensure orderedZones is always an array (safeguard for error cases)
-        if (!orderedZones || !Array.isArray(orderedZones)) {
-            orderedZones = [];
-            console.warn('[populateZoneFileCombobox] orderedZones was null or invalid, defaulting to empty array');
+        // Ensure orderedZones is always an array (final safeguard for all error paths)
+        orderedZones = ensureValidArray(orderedZones, []);
+        if (orderedZones.length === 0) {
+            console.warn('[populateZoneFileCombobox] orderedZones is empty after all attempts, preserving existing CURRENT_ZONE_LIST');
         }
 
         const input = document.getElementById('zone-file-input');
