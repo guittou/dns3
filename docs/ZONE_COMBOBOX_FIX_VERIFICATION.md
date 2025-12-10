@@ -9,23 +9,36 @@ The Zones tab zone file combobox (`#zone-file-list`) was automatically displayin
 
 ## Root Cause
 
-In `assets/js/zone-files.js` at line 1686, the `populateZoneFileCombobox()` function was calling:
+The real root cause was in the `initServerSearchCombobox()` function in `assets/js/zone-files.js`:
 
-```javascript
-populateComboboxList(listEl, orderedZones, mapper, handler, autoSelect);
-```
+1. **`showZones()` function** (line 693): Called `populateComboboxList()` without passing a `showList` parameter, defaulting to `true`
+2. **`refresh()` method** (line 837): Called `showZones()` without controlling list visibility
+3. **Trigger**: When `populateZoneFileCombobox()` called `ZONE_FILE_COMBOBOX_INSTANCE.refresh()` (line 1679), it caused the list to auto-display
 
-When `autoSelect=true` (which is the case when a domain is selected), this passed `true` as the `showList` parameter to `populateComboboxList()`, causing the list to be displayed automatically.
+The previous fix attempt at line 1686 only addressed one call to `populateComboboxList`, but the `refresh()` method continued to show the list.
 
 ## Solution
 
-Modified line 1686 in `assets/js/zone-files.js` to always pass `false` for the `showList` parameter:
+Modified `assets/js/zone-files.js` to control list visibility at the source:
+
+1. **Updated `showZones()` function** (line 693): Added `showList` parameter with default value `false`
+2. **Updated `refresh()` method** (line 837): Explicitly passes `showList=false` to prevent auto-display
+3. **Updated input/focus handlers** (lines 793, 804, 810): Pass `showList=true` when user is actively interacting
+4. **Removed redundant code** (line 1686): Removed duplicate `populateComboboxList` call as refresh() now handles this
 
 ```javascript
-populateComboboxList(listEl, orderedZones, mapper, handler, false);
-```
+// Before fix:
+function showZones(zones) {
+    window.CURRENT_ZONE_LIST = zones;
+    populateComboboxList(list, zones, mapZoneItem, onSelect); // showList defaults to true!
+}
 
-Also removed the conditional logic (lines 1687-1691) that tried to hide the list when `autoSelect` was false, as this is now unnecessary.
+// After fix:
+function showZones(zones, showList = false) {
+    window.CURRENT_ZONE_LIST = zones;
+    populateComboboxList(list, zones, mapZoneItem, onSelect, showList);
+}
+```
 
 ## Expected Behavior After Fix
 
@@ -89,13 +102,17 @@ Also removed the conditional logic (lines 1687-1691) that tried to hide the list
 
 ### Key Functions Modified
 
-- **`populateZoneFileCombobox()`** (line 1686): Now always passes `false` for `showList` parameter
+- **`showZones()`** (line 693): Now accepts `showList` parameter (default `false`)
+- **`refresh()`** (line 837): Explicitly passes `showList=false` to prevent auto-display
+- **Input event handler** (lines 793, 804): Pass `showList=true` when user is typing
+- **Focus event handler** (line 810): Passes `showList=true` when user focuses input
+- **`populateZoneFileCombobox()`** (line 1686): Removed redundant `populateComboboxList` call
 
 ### Key Functions Unchanged
 
-- **`initServerSearchCombobox()`**: Focus event handler (line 807-810) still shows list on user interaction
-- **`showZones()`**: Still calls `populateComboboxList()` with default `showList=true`
 - **`onZoneDomainSelected()`**: Still calls `populateZoneFileCombobox()` with `autoSelect=true`
+- **Zone ordering**: Still uses `makeOrderedZoneList()` for consistent ordering
+- **Domain filtering**: Still uses `isZoneInMasterTree()` for server search results
 
 ### Behavior Alignment
 
@@ -107,10 +124,13 @@ This fix aligns the Zones tab with the DNS tab's behavior:
 // DO NOT auto-select a zone - zone selection must be explicit
 ```
 
-**Zones Tab** (`zone-files.js:1683-1684`):
+**Zones Tab** (`zone-files.js:693-713`):
 ```javascript
-// Populate the visible list so user sees updated options
-// NEVER show the list automatically - user must click/focus to see it (aligned with DNS tab behavior)
+// showList defaults to false to prevent auto-display on domain selection (aligned with DNS tab)
+function showZones(zones, showList = false) {
+    // ...
+    populateComboboxList(list, zones, mapZoneItem, onSelect, showList);
+}
 ```
 
 ## Security Considerations
