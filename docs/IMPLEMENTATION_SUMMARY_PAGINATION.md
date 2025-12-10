@@ -133,16 +133,29 @@ Both the Zones tab (`zone-files.php`) and DNS tab (`dns-management.php`) now use
 - **Short queries (<2 chars):** Uses client-side filtering on cached zones (`window.ZONES_ALL`)
   - Fallback for empty/short queries
   - Also used if server search fails
-- **Implementation:** Uses `initServerSearchCombobox()` helper in `assets/js/zone-files.js`
-  - Reusable across both tabs for consistent behavior
+- **Implementation:** Uses shared helpers from `assets/js/zone-combobox.js`
+  - `initServerSearchCombobox()` - Reusable server-first combobox initializer
+  - `populateZoneListForDomain(domainId)` - API wrapper that fetches and orders zones for a domain
+  - `makeOrderedZoneList(zones, masterId)` - Core ordering logic (master first, includes alphabetically)
+  - `fillSelectWithOrderedZones()` - Populate standard `<select>` elements
+  - `populateComboboxListWithOrderedZones()` - Populate custom combobox lists
+  - Consistent behavior across both tabs
   - Configurable `file_type` filter (master/include/all)
-  - Preserves existing `ensureParentOptionPresent` logic for include edit modals
-  - Console debug traces available for verification (`[initServerSearchCombobox]`)
+  - Console debug traces available for verification (`[initServerSearchCombobox]`, `[populateZoneListForDomain]`)
 - **Combobox State Management:**
   - **Disabled when no domain selected:** Zone file combobox is disabled (grayed out) until a domain is selected
   - **Enabled after domain selection:** Once a domain is selected via the domain combobox, the zone file combobox becomes enabled and populated with the master first, followed by includes sorted alphabetically
   - Functions: `setZoneFileComboboxEnabled(enabled)` for Zones tab, `setDnsZoneComboboxEnabled(enabled)` for DNS tab
   - Called by: `onZoneDomainSelected()`, `setDomainForZone()`, `selectDomain()`, and domain deselection handlers
+
+**Script Loading Order:**
+
+To ensure helpers are available when needed, scripts must be loaded in this order:
+1. `zone-combobox.js` - Shared helpers (must load first)
+2. `zone-files.js` - Zones tab logic (depends on zone-combobox.js)
+3. `dns-records.js` - DNS tab logic (depends on zone-combobox.js)
+
+This order is enforced in both `zone-files.php` and `dns-management.php` templates.
 
 This ensures that typing "fic001" in either tab's zone file combobox will search the server and find the zone, even if it's not in the first 100 results of a paginated list. It also provides consistent UX by disabling the zone file selector until a domain context is established.
 
