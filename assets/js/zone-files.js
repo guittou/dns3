@@ -878,8 +878,7 @@ function initServerSearchCombobox(opts) {
     return {
         refresh: () => {
             const zones = getClientZones('');
-            // Do NOT update CURRENT_ZONE_LIST on refresh - zones are already derived from it
-            // This prevents race conditions and preserves the domain-specific cache set by populateZoneFileCombobox
+            // Prevent cache overwrite: zones derived from CURRENT_ZONE_LIST, preserves domain-specific cache
             showZones(zones, false, false);
         }
     };
