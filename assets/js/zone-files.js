@@ -277,7 +277,7 @@ function syncZoneFileComboboxInstance() {
 /**
  * Race-resistant hiding of zone file combobox list
  * 
- * Forcefully hides the #zone-file-list dropdown immediately and after a delay
+ * Forcefully hides the #zone-file-list dropdown immediately and after delays
  * to catch any async operations that might try to show it (e.g., from refresh).
  * 
  * This prevents the UX "flash" where the list briefly appears after domain selection
@@ -287,23 +287,21 @@ function forceHideZoneFileList() {
     const listEl = document.getElementById('zone-file-list');
     if (!listEl) return;
     
+    // Helper to hide the list
+    const hideList = (source = '') => {
+        listEl.style.display = 'none';
+        listEl.setAttribute('aria-hidden', 'true');
+        if (source) {
+            console.debug(`[forceHideZoneFileList] ${source}`);
+        }
+    };
+    
     // Hide immediately
-    listEl.style.display = 'none';
-    listEl.setAttribute('aria-hidden', 'true');
+    hideList('Applied initial hiding');
     
-    // Hide again after a short delay to catch any async operations
-    setTimeout(() => {
-        listEl.style.display = 'none';
-        listEl.setAttribute('aria-hidden', 'true');
-        console.debug('[forceHideZoneFileList] Re-applied hiding after delay');
-    }, 50);
-    
-    // Additional safety: hide again after a longer delay
-    setTimeout(() => {
-        listEl.style.display = 'none';
-        listEl.setAttribute('aria-hidden', 'true');
-        console.debug('[forceHideZoneFileList] Re-applied hiding after longer delay');
-    }, 150);
+    // Hide again after short delays to catch any async operations
+    setTimeout(() => hideList('Re-applied hiding after 50ms'), 50);
+    setTimeout(() => hideList('Re-applied hiding after 150ms'), 150);
 }
 
 /**
@@ -1736,7 +1734,13 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
             const allZones = masterZone ? [masterZone, ...includeZones] : includeZones;
             if (typeof window.makeOrderedZoneList === 'function') {
                 orderedZones = window.makeOrderedZoneList(allZones, masterId);
-                console.debug('[populateZoneFileCombobox] Used makeOrderedZoneList for ordering:', orderedZones.length, 'zones');
+                // Defensive: ensure orderedZones is an array before accessing .length
+                if (orderedZones && Array.isArray(orderedZones)) {
+                    console.debug('[populateZoneFileCombobox] Used makeOrderedZoneList for ordering:', orderedZones.length, 'zones');
+                } else {
+                    console.warn('[populateZoneFileCombobox] makeOrderedZoneList returned invalid result, defaulting to allZones');
+                    orderedZones = allZones;
+                }
             } else {
                 console.warn('[populateZoneFileCombobox] makeOrderedZoneList not available, using unordered list');
                 orderedZones = allZones;
