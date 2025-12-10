@@ -1681,14 +1681,9 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         }
 
         // Populate the visible list so user sees updated options
-        // Don't show the list automatically when autoSelect is false
+        // NEVER show the list automatically - user must click/focus to see it (aligned with DNS tab behavior)
         if (listEl) {
-            populateComboboxList(listEl, orderedZones, z => ({ id: z.id, text: `${z.name} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); }, autoSelect);
-            // Explicitly ensure list is hidden when autoSelect is false
-            if (!autoSelect) {
-                listEl.style.display = 'none';
-                listEl.setAttribute('aria-hidden', 'true');
-            }
+            populateComboboxList(listEl, orderedZones, z => ({ id: z.id, text: `${z.name} (${z.file_type})` }), (z) => { onZoneFileSelected(z.id); }, false);
         }
 
         // Handle auto-selection based on autoSelect parameter
