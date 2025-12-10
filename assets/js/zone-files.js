@@ -246,11 +246,12 @@ function initZonesCache() {
  * Sync zone file combobox instance state after CURRENT_ZONE_LIST update
  * 
  * Calls refresh() on the combobox instance to update internal state without showing the dropdown.
- * The refresh() method internally calls showZones(zones, false), where showList=false prevents
- * the dropdown from auto-displaying, ensuring the list only appears on user interaction.
+ * The refresh() method internally calls showZones(zones, false, false), where:
+ *   - showList=false prevents the dropdown from auto-displaying
+ *   - updateCache=false prevents overwriting CURRENT_ZONE_LIST with derived zones
  * 
- * This prevents race conditions where async operations could clear or overwrite the cache
- * after it has been populated with domain-specific zones.
+ * This prevents race conditions where refresh could overwrite the carefully constructed
+ * domain-specific cache after it has been populated by populateZoneFileCombobox.
  * 
  * @see initServerSearchCombobox for the refresh() method implementation
  */
@@ -725,9 +726,14 @@ function initServerSearchCombobox(opts) {
     
     // Populate list and attach click handlers
     // showList defaults to false to prevent auto-display on domain selection (aligned with DNS tab)
-    function showZones(zones, showList = false) {
+    // updateCache defaults to true to update CURRENT_ZONE_LIST, but should be false when zones are derived from it (e.g., refresh)
+    function showZones(zones, showList = false, updateCache = true) {
         // Update CURRENT_ZONE_LIST to keep it in sync with displayed zones
-        window.CURRENT_ZONE_LIST = zones;
+        // Skip update when zones are already derived from CURRENT_ZONE_LIST (e.g., from refresh)
+        // to prevent overwriting the carefully constructed domain-specific cache
+        if (updateCache) {
+            window.CURRENT_ZONE_LIST = zones;
+        }
         
         populateComboboxList(list, zones, mapZoneItem, (zone) => {
             // Update hidden input if provided
@@ -872,7 +878,9 @@ function initServerSearchCombobox(opts) {
     return {
         refresh: () => {
             const zones = getClientZones('');
-            showZones(zones, false); // Do NOT show list on refresh - only update internal state
+            // Do NOT update CURRENT_ZONE_LIST on refresh - zones are already derived from it
+            // This prevents race conditions and preserves the domain-specific cache set by populateZoneFileCombobox
+            showZones(zones, false, false);
         }
     };
 }
