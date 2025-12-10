@@ -1459,73 +1459,26 @@ async function initZoneFileCombobox() {
 /**
  * Get filtered zones for combobox based on selected domain
  * Uses recursive ancestor-based filtering to include all nested includes
+ * Now uses shared makeOrderedZoneList helper for consistent ordering
  */
 function getFilteredZonesForCombobox() {
     const zonesAll = Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length
         ? window.ZONES_ALL
         : (Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : []);
 
-    if (!window.ZONES_SELECTED_MASTER_ID) {
-        // Normalize file_type check to handle variations in case/whitespace
-        const includeZones = zonesAll.filter(z => {
-            const fileType = (z.file_type || '').toLowerCase().trim();
-            return fileType === 'include';
+    // Merge allMasters into zonesAll for makeOrderedZoneList to work properly
+    const allZones = [...zonesAll];
+    if (Array.isArray(allMasters) && allMasters.length > 0) {
+        allMasters.forEach(master => {
+            if (!allZones.find(z => String(z.id) === String(master.id))) {
+                allZones.push(master);
+            }
         });
-        
-        // Get masters from global allMasters array or filter from zonesAll as fallback
-        const masterZones = (Array.isArray(allMasters) && allMasters.length > 0)
-            ? allMasters
-            : zonesAll.filter(z => (z.file_type || '').toLowerCase().trim() === 'master');
-        
-        // Sort masters and includes alphabetically by name
-        const sortedMasters = sortZonesAlphabetically(masterZones);
-        const sortedIncludes = sortZonesAlphabetically(includeZones);
-        
-        return [...sortedMasters, ...sortedIncludes];
     }
 
-    const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-    
-    // Get master zone from global allMasters array or filter from zonesAll as fallback
-    const masterZone = (Array.isArray(allMasters) && allMasters.length > 0)
-        ? allMasters.find(m => parseInt(m.id, 10) === masterId)
-        : zonesAll.find(z => parseInt(z.id, 10) === masterId && (z.file_type || '').toLowerCase().trim() === 'master');
-    
-    // Recursive ancestor-based filter: include all zones whose ancestor chain contains masterId
-    const includeZones = zonesAll.filter(zone => {
-        // Normalize file_type check to handle variations in case/whitespace
-        const fileType = (zone.file_type || '').toLowerCase().trim();
-        if (fileType !== 'include') return false;
-        
-        // Check if this zone's ancestor chain contains the master
-        let currentZone = zone;
-        let iterations = 0;
-        const maxIterations = 50; // Safety limit to prevent infinite loops
-        
-        while (currentZone && iterations < maxIterations) {
-            iterations++;
-            const parentId = parseInt(currentZone.parent_id || 0, 10);
-            
-            if (parentId === masterId) {
-                return true; // Found the master in the ancestor chain
-            }
-            
-            if (parentId === 0 || !parentId) {
-                break; // No more parents
-            }
-            
-            // Find the parent zone in the cache
-            currentZone = zonesAll.find(z => parseInt(z.id, 10) === parentId) ||
-                         allMasters.find(m => parseInt(m.id, 10) === parentId);
-        }
-        
-        return false;
-    });
-    
-    // Sort includes alphabetically by name to match DNS tab behavior
-    const sortedIncludes = sortZonesAlphabetically(includeZones);
-    
-    return masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
+    // Use shared helper for consistent ordering: master first, then includes sorted A-Z
+    const masterId = window.ZONES_SELECTED_MASTER_ID || null;
+    return window.makeOrderedZoneList(allZones, masterId);
 }
 
 /**
@@ -1609,12 +1562,9 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         const listEl = document.getElementById('zone-file-list');
         if (!input) return;
 
-        // Sort includes alphabetically by name to match DNS tab behavior
-        // (list_zone_files API returns: master first, then includes sorted by name ASC)
-        const sortedIncludes = sortZonesAlphabetically(includeZones);
-
-        // Build the items list: master (if present) + all recursive includes (sorted alphabetically)
-        const items = masterZone ? [masterZone, ...sortedIncludes] : sortedIncludes;
+        // Use shared helper for consistent ordering: master first, then includes sorted A-Z
+        const allZones = masterZone ? [masterZone, ...includeZones] : includeZones;
+        const items = window.makeOrderedZoneList(allZones, masterId);
         console.debug('[populateZoneFileCombobox] Final items for combobox:', items.length, '(master first, then includes sorted A-Z)');
 
         // Keep CURRENT_ZONE_LIST in sync with what's shown in combobox
