@@ -141,38 +141,7 @@ function sortZonesAlphabetically(zones) {
     });
 }
 
-/**
- * Check if a zone is in a master's tree by traversing its parent chain
- * @param {Object} zone - The zone object to check
- * @param {number} masterId - The master zone ID to look for
- * @param {Array} zoneList - List of zones to search for parents
- * @returns {boolean} True if zone's parent chain contains masterId
- */
-function isZoneInMasterTree(zone, masterId, zoneList) {
-    if (!zone || !masterId) return false;
-    
-    const masterIdNum = parseInt(masterId, 10);
-    if (parseInt(zone.id, 10) === masterIdNum) return true; // Zone is the master itself
-    
-    let currentZone = zone;
-    let iterations = 0;
-    
-    while (currentZone && iterations < MAX_PARENT_CHAIN_DEPTH) {
-        iterations++;
-        
-        const parentId = currentZone.parent_id ? parseInt(currentZone.parent_id, 10) : null;
-        if (!parentId) break;
-        
-        if (parentId === masterIdNum) {
-            return true; // Found master in parent chain
-        }
-        
-        // Find parent in zoneList
-        currentZone = zoneList.find(z => parseInt(z.id, 10) === parentId);
-    }
-    
-    return false;
-}
+// isZoneInMasterTree moved to zone-combobox-shared.js and exported as window.isZoneInMasterTree
 
 /**
  * Make an API call with fallback to zoneApiCall
@@ -811,41 +780,7 @@ function buildApiPath(endpoint) {
     return b + '/api/' + e;
 }
 
-/**
- * Perform server-side search for zones
- * Uses search_zones endpoint which handles pagination and ACL filtering server-side
- * @param {string} query - Search query
- * @param {object} options - Optional parameters (file_type, limit)
- * @returns {Promise<Array>} - Array of zone objects
- */
-async function serverSearchZones(query, options = {}) {
-    const fileType = options.file_type || ''; // Empty = search all types
-    const limit = options.limit || 100; // Increased default limit
-    
-    let url = buildApiPath(`zone_api.php?action=search_zones&q=${encodeURIComponent(query)}&limit=${limit}`);
-    if (fileType) {
-        url += `&file_type=${encodeURIComponent(fileType)}`;
-    }
-    
-    console.debug('[serverSearchZones] Searching with query:', query, 'file_type:', fileType || 'all', 'limit:', limit);
-    
-    try {
-        const res = await fetch(url, { 
-            credentials: 'same-origin', 
-            headers: { 'X-Requested-With': 'XMLHttpRequest' } 
-        });
-        if (!res.ok) {
-            console.warn('[serverSearchZones] HTTP error:', res.status);
-            return [];
-        }
-        const json = await res.json();
-        console.debug('[serverSearchZones] Found', (json.data || []).length, 'results');
-        return json.data || [];
-    } catch (err) {
-        console.warn('[serverSearchZones] Exception:', err);
-        return [];
-    }
-}
+// serverSearchZones moved to zone-combobox-shared.js and exported as window.serverSearchZones
 
 /**
  * Filter zones client-side using cached ZONES_ALL
@@ -864,203 +799,7 @@ function clientFilterZones(query) {
     });
 }
 
-/**
- * Initialize server-first search combobox (unified helper for Zones and DNS tabs)
- * Server-first strategy: for queries ≥2 chars, calls serverSearchZones() to handle large datasets
- * Falls back to client filtering for short queries or if server search fails
- * 
- * @param {Object} opts - Configuration options
- * @param {HTMLElement} opts.inputEl - Text input element
- * @param {HTMLElement} opts.listEl - List element for dropdown
- * @param {HTMLElement} [opts.hiddenEl] - Optional hidden input for storing selected ID
- * @param {string} [opts.file_type] - Optional file_type filter ('master', 'include', or empty for all)
- * @param {Function} [opts.onSelectItem] - Optional callback when item is selected, receives (zone) => void
- * @param {number} [opts.minCharsForServer=2] - Minimum characters to trigger server search
- * @param {number} [opts.blurDelay=150] - Delay before hiding list on blur (ms)
- * @returns {Object} - Object with refresh() method
- */
-function initServerSearchCombobox(opts) {
-    const input = opts.inputEl;
-    const list = opts.listEl;
-    const hidden = opts.hiddenEl || null;
-    const fileType = opts.file_type || '';
-    const minCharsForServer = opts.minCharsForServer || 2;
-    const blurDelay = opts.blurDelay || 150;
-    
-    if (!input || !list) {
-        console.warn('[initServerSearchCombobox] Missing required elements (inputEl or listEl)');
-        return { refresh: () => {} };
-    }
-    
-    console.debug('[initServerSearchCombobox] Initializing with file_type:', fileType || 'all');
-    
-    // Map zone to combobox item format
-    function mapZoneItem(zone) {
-        return {
-            id: zone.id,
-            text: `${zone.name || zone.filename} (${zone.file_type})`
-        };
-    }
-    
-    // Populate list and attach click handlers
-    // showList defaults to false to prevent auto-display on domain selection (aligned with DNS tab)
-    // updateCache defaults to true to update CURRENT_ZONE_LIST, but should be false when zones are derived from it (e.g., refresh)
-    function showZones(zones, showList = false, updateCache = true) {
-        // Update CURRENT_ZONE_LIST to keep it in sync with displayed zones
-        // Skip update when zones are already derived from CURRENT_ZONE_LIST (e.g., from refresh)
-        // to prevent overwriting the carefully constructed domain-specific cache
-        if (updateCache) {
-            window.CURRENT_ZONE_LIST = zones;
-        }
-        
-        populateComboboxList(list, zones, mapZoneItem, (zone) => {
-            // Update hidden input if provided
-            if (hidden) {
-                hidden.value = zone.id || '';
-            }
-            // Update visible input
-            input.value = `${zone.name || zone.filename} (${zone.file_type})`;
-            // Call custom onSelectItem callback if provided
-            if (typeof opts.onSelectItem === 'function') {
-                try {
-                    opts.onSelectItem(zone);
-                } catch (err) {
-                    console.error('[initServerSearchCombobox] onSelectItem callback error:', err);
-                }
-            }
-        }, showList);
-    }
-    
-    // Get client-filtered zones from cache
-    function getClientZones(query) {
-        const q = query.toLowerCase();
-        // Prioritize CURRENT_ZONE_LIST (domain-specific zones) over ZONES_ALL (all zones)
-        // This ensures domain-filtered zones are shown when a domain is selected
-        let zones = window.CURRENT_ZONE_LIST || window.ZONES_ALL || [];
-        
-        if (!Array.isArray(zones)) {
-            zones = [];
-        }
-        
-        // Filter by file_type if specified
-        if (fileType) {
-            zones = zones.filter(z => (z.file_type || '').toLowerCase() === fileType.toLowerCase());
-        }
-        
-        // Filter by query
-        if (q) {
-            zones = zones.filter(z => {
-                const name = (z.name || '').toLowerCase();
-                const filename = (z.filename || '').toLowerCase();
-                return name.includes(q) || filename.includes(q);
-            });
-        }
-        
-        // Apply ordering: master first, then includes sorted A-Z
-        const masterId = window.ZONES_SELECTED_MASTER_ID || null;
-        if (typeof window.makeOrderedZoneList === 'function') {
-            zones = window.makeOrderedZoneList(zones, masterId);
-        }
-        
-        return zones;
-    }
-    
-    // Input event: server-first for queries ≥minCharsForServer
-    input.addEventListener('input', async () => {
-        const query = input.value.trim();
-        const q = query.toLowerCase();
-        
-        // Server-first strategy for queries ≥minCharsForServer chars
-        if (query.length >= minCharsForServer) {
-            console.debug('[initServerSearchCombobox] server search for query:', query);
-            
-            try {
-                // Try to call serverSearchZones if available
-                let serverResults = [];
-                if (typeof window.serverSearchZones === 'function') {
-                    serverResults = await window.serverSearchZones(query, { 
-                        file_type: fileType,
-                        limit: 100 
-                    });
-                } else if (typeof window.zoneApiCall === 'function') {
-                    // Fallback: call zoneApiCall directly
-                    console.debug('[initServerSearchCombobox] serverSearchZones not found, using zoneApiCall');
-                    const params = { q: query, limit: 100 };
-                    if (fileType) params.file_type = fileType;
-                    const response = await window.zoneApiCall('search_zones', { params });
-                    serverResults = response.data || [];
-                } else {
-                    console.warn('[initServerSearchCombobox] No server search function available, falling back to client');
-                    throw new Error('No server search available');
-                }
-                
-                // Filter server results by selected domain if one is selected
-                const masterId = window.ZONES_SELECTED_MASTER_ID || null;
-                if (masterId && typeof window.isZoneInMasterTree === 'function') {
-                    const unfilteredCount = serverResults.length;
-                    serverResults = serverResults.filter(z => window.isZoneInMasterTree(z, masterId, serverResults));
-                    console.debug('[initServerSearchCombobox] Filtered server results by domain:', unfilteredCount, '→', serverResults.length);
-                }
-                
-                // Apply ordering to server results: master first, then includes sorted A-Z
-                if (typeof window.makeOrderedZoneList === 'function') {
-                    serverResults = window.makeOrderedZoneList(serverResults, masterId);
-                }
-                
-                console.debug('[initServerSearchCombobox] server returned', serverResults.length, 'results');
-                showZones(serverResults, true); // Show list when user is typing
-                return;
-            } catch (err) {
-                console.warn('[initServerSearchCombobox] server search failed, fallback to client:', err);
-                // Fall through to client filtering
-            }
-        }
-        
-        // Client filtering for short queries or when server search fails
-        console.debug('[initServerSearchCombobox] client filter for query:', query);
-        const clientZones = getClientZones(query);
-        showZones(clientZones, true); // Show list when user is typing
-    });
-    
-    // Focus event: show all zones from cache
-    input.addEventListener('focus', () => {
-        const zones = getClientZones('');
-        showZones(zones, true); // Show list when user focuses input
-    });
-    
-    // Blur event: hide list after delay
-    input.addEventListener('blur', () => {
-        setTimeout(() => {
-            list.style.display = 'none';
-            list.setAttribute('aria-hidden', 'true');
-        }, blurDelay);
-    });
-    
-    // Keyboard navigation
-    input.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            list.style.display = 'none';
-            list.setAttribute('aria-hidden', 'true');
-            input.blur();
-        } else if (e.key === 'Enter') {
-            const firstItem = list.querySelector('.combobox-item:not(.combobox-empty)');
-            if (firstItem) {
-                firstItem.click();
-                e.preventDefault();
-            }
-        }
-    });
-    
-    // Return object with refresh method
-    // refresh() does NOT show the list by default (aligned with DNS tab - list only shown on user interaction)
-    return {
-        refresh: () => {
-            const zones = getClientZones('');
-            // Prevent cache overwrite: zones derived from CURRENT_ZONE_LIST, preserves domain-specific cache
-            showZones(zones, false, false);
-        }
-    };
-}
+// initServerSearchCombobox moved to zone-combobox-shared.js and exported as window.initServerSearchCombobox
 
 /**
  * Attach search handler to #searchInput with debouncing
@@ -1173,10 +912,8 @@ function attachFilterStatusHandler() {
 // Expose search functions globally
 window.buildApiPath = buildApiPath;
 window.attachZoneSearchInput = attachZoneSearchInput;
-window.serverSearchZones = serverSearchZones;
+// serverSearchZones, initServerSearchCombobox, isZoneInMasterTree are now in zone-combobox-shared.js
 window.clientFilterZones = clientFilterZones;
-window.initServerSearchCombobox = initServerSearchCombobox;
-window.isZoneInMasterTree = isZoneInMasterTree;
 window.MAX_PARENT_CHAIN_DEPTH = MAX_PARENT_CHAIN_DEPTH;
 
 /**
@@ -1300,7 +1037,29 @@ const API_BASE = window.API_BASE || '/api/zone_api.php';
 /**
  * Initialize zones page - load domains and zones
  */
+/**
+ * Check if the Zones page elements are present in the DOM
+ * @returns {boolean} True if zones page elements exist
+ */
+function shouldInitZonesPage() {
+    const zonesTable = document.getElementById('zonesTable');
+    const zoneDomainSelect = document.getElementById('zone-domain-select');
+    
+    if (!zonesTable && !zoneDomainSelect) {
+        console.debug('[shouldInitZonesPage] Zones page elements not found, skipping init');
+        return false;
+    }
+    
+    return true;
+}
+
 async function initZonesPage() {
+    // Guard: Only initialize if zones page elements exist
+    if (!shouldInitZonesPage()) {
+        console.debug('[initZonesPage] Not on zones page, skipping initialization');
+        return;
+    }
+    
     // Initialize business helpers and cache before any combobox initialization
     ensureZoneFilesInit();
     await ensureZonesCache();
@@ -1713,16 +1472,17 @@ function setZoneFileComboboxEnabled(enabled) {
  * Wraps initServerSearchCombobox with zone-files-specific logic
  */
 async function initZoneFileCombobox() {
-    await ensureZonesCache();
-    
+    // Guard: Only initialize if zone file combobox elements exist
     const inputEl = document.getElementById('zone-file-input');
     const listEl = document.getElementById('zone-file-list');
     const hiddenEl = document.getElementById('zone-file-id');
     
     if (!inputEl || !listEl || !hiddenEl) {
-        console.warn('[initZoneFileCombobox] Required elements not found');
+        console.debug('[initZoneFileCombobox] Zone file combobox elements not found, skipping init');
         return;
     }
+    
+    await ensureZonesCache();
     
     inputEl.readOnly = false;
     inputEl.placeholder = 'Rechercher une zone...';

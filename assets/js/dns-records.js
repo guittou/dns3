@@ -787,111 +787,32 @@
                 setDnsZoneComboboxEnabled(false);
             }
             
-            // Wait for the unified initServerSearchCombobox helper to become available
-            // This prevents race conditions when scripts load asynchronously
-            try {
-                console.debug('[DNS initZoneCombobox] Waiting for initServerSearchCombobox helper...');
-                await waitForGlobal('initServerSearchCombobox');
-                console.log('[DNS initZoneCombobox] initServerSearchCombobox found after wait, using unified helper');
-                
-                window.initServerSearchCombobox({
-                    inputEl: inputEl,
-                    listEl: listEl,
-                    hiddenEl: hiddenEl,
-                    file_type: '', // No filter, show all types (master + include)
-                    onSelectItem: (zone) => {
-                        // Call selectZone to maintain existing behavior
-                        if (zone && zone.id) {
-                            selectZone(zone.id, zone.name || zone.filename, zone.file_type);
-                        }
-                    },
-                    minCharsForServer: 2,
-                    blurDelay: COMBOBOX_BLUR_DELAY
-                });
-                
-                console.debug('[DNS initZoneCombobox] Initialized using unified helper');
+            // Use the unified initServerSearchCombobox helper
+            // Note: zone-combobox-shared.js is loaded before dns-records.js in dns-management.php
+            // This guarantees the helper is available when this code executes
+            console.debug('[DNS initZoneCombobox] Initializing with unified helper from zone-combobox-shared.js');
+            
+            if (typeof window.initServerSearchCombobox !== 'function') {
+                console.error('[DNS initZoneCombobox] initServerSearchCombobox not found. Ensure zone-combobox-shared.js is loaded before dns-records.js');
                 return;
-            } catch (err) {
-                // Timeout expired - initServerSearchCombobox not available
-                console.warn('[DNS initZoneCombobox] initServerSearchCombobox not found after wait, using fallback implementation', err.message);
             }
             
-            // Fallback: if unified helper not available, use inline implementation (backward compatibility)
-            
-            // Input event - server search for queries ≥2 chars, client filter otherwise
-            inputEl.addEventListener('input', async () => {
-                const query = inputEl.value.toLowerCase().trim();
-                
-                // Server-first strategy for queries ≥2 chars
-                if (query.length >= 2) {
-                    console.debug('[DNS initZoneCombobox] Using server search for query:', query);
-                    
-                    // Use window.serverSearchZones if available (from zone-files.js)
-                    if (typeof window.serverSearchZones === 'function') {
-                        try {
-                            const serverResults = await window.serverSearchZones(query, { limit: 100 });
-                            
-                            // Filter by selected master if one is selected
-                            let filtered = serverResults;
-                            if (window.ZONES_SELECTED_MASTER_ID && typeof window.isZoneInMasterTree === 'function') {
-                                const masterId = parseInt(window.ZONES_SELECTED_MASTER_ID, 10);
-                                filtered = serverResults.filter(z => window.isZoneInMasterTree(z, masterId, serverResults));
-                            }
-                            
-                            populateComboboxList(listEl, filtered, (zone) => ({
-                                id: zone.id,
-                                text: `${zone.name} (${zone.file_type})`
-                            }), (zone) => {
-                                selectZone(zone.id, zone.name, zone.file_type);
-                            });
-                            return;
-                        } catch (err) {
-                            console.warn('[DNS initZoneCombobox] Server search failed, fallback to client:', err);
-                            // Fall through to client filtering
-                        }
+            window.initServerSearchCombobox({
+                inputEl: inputEl,
+                listEl: listEl,
+                hiddenEl: hiddenEl,
+                file_type: '', // No filter, show all types (master + include)
+                onSelectItem: (zone) => {
+                    // Call selectZone to maintain existing behavior
+                    if (zone && zone.id) {
+                        selectZone(zone.id, zone.name || zone.filename, zone.file_type);
                     }
-                }
-                
-                // Client filtering for short queries or when server search unavailable/failed
-                const sourceList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST || allZones;
-                const filtered = sourceList.filter(z => 
-                    z.name.toLowerCase().includes(query) || 
-                    z.filename.toLowerCase().includes(query)
-                );
-                
-                populateComboboxList(listEl, filtered, (zone) => ({
-                    id: zone.id,
-                    text: `${zone.name} (${zone.file_type})`
-                }), (zone) => {
-                    selectZone(zone.id, zone.name, zone.file_type);
-                });
+                },
+                minCharsForServer: 2,
+                blurDelay: COMBOBOX_BLUR_DELAY
             });
             
-            // Focus - show CURRENT_ZONE_LIST
-            inputEl.addEventListener('focus', async () => {
-                const sourceList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST || allZones;
-                populateComboboxList(listEl, sourceList, (zone) => ({
-                    id: zone.id,
-                    text: `${zone.name} (${zone.file_type})`
-                }), (zone) => {
-                    selectZone(zone.id, zone.name, zone.file_type);
-                });
-            });
-            
-            // Blur - hide list (with delay to allow click)
-            inputEl.addEventListener('blur', () => {
-                setTimeout(() => {
-                    listEl.style.display = 'none';
-                }, COMBOBOX_BLUR_DELAY);
-            });
-            
-            // Escape key - close list
-            inputEl.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    listEl.style.display = 'none';
-                    inputEl.blur();
-                }
-            });
+            console.debug('[DNS initZoneCombobox] Successfully initialized using unified helper');
         } catch (error) {
             console.error('Error initializing zone combobox:', error);
         }
