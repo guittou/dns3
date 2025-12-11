@@ -526,28 +526,52 @@ async function fetchZonesForMaster(masterId) {
  * Populate zone combobox for a specific domain
  * Updates CURRENT_ZONE_LIST but does NOT open the list or auto-select a zone
  * Uses shared helper populateZoneListForDomain from zone-combobox.js with defensive fallback
+ * 
+ * DEFENSIVE: Always ensures CURRENT_ZONE_LIST is a valid array
+ * FALLBACKS: Uses multiple strategies to populate the list if primary call fails or returns empty
  */
 async function populateZoneComboboxForDomain(masterId) {
     try {
+        console.debug('[populateZoneComboboxForDomain] Called with masterId:', masterId);
+        
+        // Normalize arrays before any operations
+        if (!Array.isArray(window.ALL_ZONES)) {
+            window.ALL_ZONES = [];
+        }
+        if (!Array.isArray(window.CURRENT_ZONE_LIST)) {
+            window.CURRENT_ZONE_LIST = [];
+        }
+        
         let orderedZones = [];
         
         // Defensive: Try shared helper first (preferred)
         if (typeof window.populateZoneListForDomain === 'function') {
             console.debug('[populateZoneComboboxForDomain] Using shared helper populateZoneListForDomain');
             try {
-                orderedZones = await window.populateZoneListForDomain(masterId);
+                const result = await window.populateZoneListForDomain(masterId);
+                orderedZones = Array.isArray(result) ? result : [];
                 console.debug('[populateZoneComboboxForDomain] Shared helper returned', orderedZones.length, 'zones');
                 
                 // Update CURRENT_ZONE_LIST with ordered zones from helper
-                window.CURRENT_ZONE_LIST = orderedZones;
-                
-                // Sync combobox instance state with updated CURRENT_ZONE_LIST
-                syncZoneFileComboboxInstance();
-                
-                // DO NOT populate or show the combobox list - user must click/focus to see it
-                console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST, list will populate on user interaction');
-                
-                return;
+                if (orderedZones.length > 0) {
+                    window.CURRENT_ZONE_LIST = orderedZones;
+                    
+                    // Sync combobox instance state with updated CURRENT_ZONE_LIST
+                    if (typeof syncZoneFileComboboxInstance === 'function') {
+                        try {
+                            syncZoneFileComboboxInstance();
+                            console.debug('[populateZoneComboboxForDomain] Synced combobox instance');
+                        } catch (syncError) {
+                            console.warn('[populateZoneComboboxForDomain] syncZoneFileComboboxInstance failed:', syncError);
+                        }
+                    }
+                    
+                    // DO NOT populate or show the combobox list - user must click/focus to see it
+                    console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST, list will populate on user interaction');
+                    return;
+                } else {
+                    console.warn('[populateZoneComboboxForDomain] Shared helper returned empty, trying fallback');
+                }
             } catch (e) {
                 console.warn('[populateZoneComboboxForDomain] Shared helper failed, falling back to direct API:', e);
             }
@@ -557,19 +581,35 @@ async function populateZoneComboboxForDomain(masterId) {
         
         // Fallback: Use direct API call if shared helper unavailable or failed
         let result;
+        let zones = [];
+        
         try {
             result = await zoneApiCall('list_zone_files', { params: { domain_id: masterId } });
+            zones = Array.isArray(result.data) ? result.data : [];
+            console.debug('[populateZoneComboboxForDomain] list_zone_files by domain_id returned', zones.length, 'zones');
         } catch (e) {
             console.warn('[populateZoneComboboxForDomain] list_zone_files failed, falling back:', e);
             // Fallback to old API (list_zones_by_domain) if list_zone_files is not available
             try {
                 result = await apiCall('list_zones_by_domain', { zone_id: masterId });
+                zones = Array.isArray(result.data) ? result.data : [];
+                console.debug('[populateZoneComboboxForDomain] list_zones_by_domain (zone_id) returned', zones.length, 'zones');
             } catch (e2) {
-                result = await apiCall('list_zones_by_domain', { domain_id: masterId });
+                try {
+                    result = await apiCall('list_zones_by_domain', { domain_id: masterId });
+                    zones = Array.isArray(result.data) ? result.data : [];
+                    console.debug('[populateZoneComboboxForDomain] list_zones_by_domain (domain_id) returned', zones.length, 'zones');
+                } catch (e3) {
+                    console.warn('[populateZoneComboboxForDomain] All domain_id fallbacks failed:', e3);
+                }
             }
         }
         
-        const zones = result.data || [];
+        // Filter zones to only include master and include types
+        zones = zones.filter(z => {
+            const fileType = (z.file_type || '').toLowerCase().trim();
+            return fileType === 'master' || fileType === 'include';
+        });
         
         // Find the master zone from the zones array
         const masterZone = zones.find(z => 
@@ -579,25 +619,57 @@ async function populateZoneComboboxForDomain(masterId) {
         
         // Use shared helper for consistent ordering: master first, then includes sorted A-Z
         const masterIdToUse = masterZone ? masterZone.id : masterId;
+        
+        // Always ensure makeOrderedZoneList returns an array
         if (typeof window.makeOrderedZoneList === 'function') {
-            orderedZones = window.makeOrderedZoneList(zones, masterIdToUse);
+            const result = window.makeOrderedZoneList(zones, masterIdToUse);
+            orderedZones = Array.isArray(result) ? result : [];
+            console.debug('[populateZoneComboboxForDomain] makeOrderedZoneList returned', orderedZones.length, 'zones');
         } else {
-            // Final fallback: just use zones as-is
+            console.warn('[populateZoneComboboxForDomain] makeOrderedZoneList not available, using unordered zones');
             orderedZones = zones;
         }
         
         // Update CURRENT_ZONE_LIST with ordered zones
-        window.CURRENT_ZONE_LIST = orderedZones;
-        
-        // Sync combobox instance state with updated CURRENT_ZONE_LIST
-        syncZoneFileComboboxInstance();
+        // DEFENSIVE: Only update if we have zones to avoid clearing cache unnecessarily
+        if (orderedZones.length > 0) {
+            window.CURRENT_ZONE_LIST = orderedZones;
+            console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST with', orderedZones.length, 'zones');
+            
+            // Merge into ALL_ZONES cache without overwriting (O(n) performance with Set)
+            const existingAllZones = Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : [];
+            const existingIds = new Set(existingAllZones.map(z => parseInt(z.id, 10)));
+            orderedZones.forEach(z => {
+                const zoneId = parseInt(z.id, 10);
+                if (!existingIds.has(zoneId)) {
+                    existingAllZones.push(z);
+                    existingIds.add(zoneId);
+                }
+            });
+            window.ALL_ZONES = existingAllZones;
+            
+            // Sync combobox instance state with updated CURRENT_ZONE_LIST
+            if (typeof syncZoneFileComboboxInstance === 'function') {
+                try {
+                    syncZoneFileComboboxInstance();
+                    console.debug('[populateZoneComboboxForDomain] Synced combobox instance');
+                } catch (syncError) {
+                    console.warn('[populateZoneComboboxForDomain] syncZoneFileComboboxInstance failed:', syncError);
+                }
+            }
+        } else {
+            console.warn('[populateZoneComboboxForDomain] No zones returned, preserving existing CURRENT_ZONE_LIST');
+        }
         
         // DO NOT populate or show the combobox list - user must click/focus to see it
         console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST, list will populate on user interaction');
         
     } catch (error) {
-        console.error('Error populating zones for domain:', error);
-        window.CURRENT_ZONE_LIST = [];
+        console.error('[populateZoneComboboxForDomain] Critical error:', error);
+        // DEFENSIVE: Don't clear CURRENT_ZONE_LIST on error, preserve what we have
+        if (!Array.isArray(window.CURRENT_ZONE_LIST) || window.CURRENT_ZONE_LIST.length === 0) {
+            window.CURRENT_ZONE_LIST = [];
+        }
     }
 }
 
