@@ -4546,6 +4546,7 @@ if (document.readyState === 'loading') {
 
 // Fallback mechanism: ensure initialization happens even if DOM ready fired too early
 // This handles cases where scripts load in unexpected order or async timing issues
+// Note: Only TWO attempts maximum - at 30ms and 800ms. Idempotency flag prevents infinite loops.
 setTimeout(() => {
     // Quick async call to initZonesWhenReady (idempotent, will skip if already run)
     initZonesWhenReady().catch(err => {
@@ -4554,11 +4555,14 @@ setTimeout(() => {
 }, 30);
 
 // Retry fallback: check if initialization ran, retry if not
+// This is the FINAL retry attempt. No further retries after this.
 setTimeout(() => {
     if (!window._zonesInitRun && shouldInitZonesPage()) {
         console.debug('[Fallback] Zones not initialized after 800ms, retrying...');
         initZonesWhenReady().catch(err => {
             console.error('[Fallback] Retry init failed:', err);
+            // If this retry also fails and doesn't set _zonesInitRun, user can manually call:
+            // window.initZonesWhenReady() in console to force initialization
         });
     }
 }, 800);
