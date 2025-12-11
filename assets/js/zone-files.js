@@ -2106,6 +2106,14 @@ async function loadZonesData() {
         if (response.success) {
             window.ZONES_ALL = response.data || [];
             totalCount = window.ZONES_ALL.length;
+            // Re-render table after successful data load to ensure UI updates
+            if (typeof renderZonesTable === 'function') {
+                try {
+                    renderZonesTable();
+                } catch (e) {
+                    console.error('[loadZonesData] renderZonesTable failed:', e);
+                }
+            }
         }
     } catch (error) {
         console.error('Failed to load zones:', error);
