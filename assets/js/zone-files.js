@@ -1171,8 +1171,7 @@ async function initZonesWhenReady() {
             console.debug('[initZonesWhenReady] Not on zones page, skipping initialization');
             // Always call setupNameFilenameAutofill as it may be needed for other functionality
             callSetupAutofill();
-            // Mark as run to prevent retry attempts (not applicable for this page)
-            window._zonesInitRun = true;
+            // Don't mark as run - this allows function to be called again if page context changes
             window._zonesInitStarted = false;
             return;
         }
@@ -2194,7 +2193,6 @@ async function loadZonesData() {
         if (response.success) {
             window.ZONES_ALL = response.data || [];
             totalCount = window.ZONES_ALL.length;
-            
             // Re-render table after successful data load to ensure UI updates
             // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
             // (because data is empty), we don't want that loadZonesData to call
