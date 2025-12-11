@@ -2107,11 +2107,15 @@ async function loadZonesData() {
             window.ZONES_ALL = response.data || [];
             totalCount = window.ZONES_ALL.length;
             // Re-render table after successful data load to ensure UI updates
-            if (typeof renderZonesTable === 'function') {
+            // Use flag to prevent recursion when called from renderZonesTable
+            if (typeof renderZonesTable === 'function' && !window.__LOADING_ZONES_DATA) {
                 try {
+                    window.__LOADING_ZONES_DATA = true;
                     renderZonesTable();
                 } catch (e) {
                     console.error('[loadZonesData] renderZonesTable failed:', e);
+                } finally {
+                    window.__LOADING_ZONES_DATA = false;
                 }
             }
         }
