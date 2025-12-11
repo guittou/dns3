@@ -3,6 +3,9 @@
  * Handles paginated table view for zone file management
  */
 
+// Global in-flight promise guard to prevent duplicate loadZonesData calls
+window._loadZonesDataPromise = null;
+
 /**
  * Wait for a global variable to be defined (async polling)
  * Used to wait for shared helpers that may load asynchronously
@@ -1258,7 +1261,7 @@ async function initZonesWhenReady() {
             try {
                 renderZonesTable();
             } catch (renderErr) {
-                console.error('[initZonesWhenReady] renderZonesTable failed after init:', renderErr);
+                console.debug('[initZonesWhenReady] renderZonesTable failed after init:', renderErr);
             }
         }
         
@@ -1267,27 +1270,61 @@ async function initZonesWhenReady() {
             try {
                 syncZoneFileComboboxInstance();
             } catch (syncErr) {
-                console.error('[initZonesWhenReady] syncZoneFileComboboxInstance failed:', syncErr);
+                console.debug('[initZonesWhenReady] syncZoneFileComboboxInstance failed:', syncErr);
             }
         }
         
         // Verify that data was actually loaded
         if (!window.ZONES_ALL || window.ZONES_ALL.length === 0) {
-            console.warn('[initZonesWhenReady] ZONES_ALL is empty after init, attempting direct API call');
-            // Last resort: direct API call
-            try {
-                const response = await zoneApiCall('list_zones', { params: { file_type: 'include', per_page: 1000 } });
-                if (response.success && response.data && response.data.length > 0) {
-                    window.ZONES_ALL = response.data;
-                    console.debug('[initZonesWhenReady] Direct API call succeeded, loaded', response.data.length, 'zones');
-                    // Re-render with new data
-                    if (typeof renderZonesTable === 'function') {
-                        renderZonesTable();
+            console.debug('[initZonesWhenReady] ZONES_ALL is empty after init, attempting direct API call with retry');
+            
+            // Retry with exponential backoff (3 attempts: immediate, 300ms, 1000ms)
+            const retryDelays = [0, 300, 1000];
+            let retrySuccess = false;
+            
+            for (let i = 0; i < retryDelays.length; i++) {
+                try {
+                    if (retryDelays[i] > 0) {
+                        console.debug(`[initZonesWhenReady] Retry attempt ${i + 1}/${retryDelays.length} after ${retryDelays[i]}ms`);
+                        await new Promise(resolve => setTimeout(resolve, retryDelays[i]));
+                    }
+                    
+                    const response = await zoneApiCall('list_zones', { params: { file_type: 'include', per_page: 1000 } });
+                    if (response.success && response.data && response.data.length > 0) {
+                        window.ZONES_ALL = response.data;
+                        console.debug('[initZonesWhenReady] Direct API call succeeded, loaded', response.data.length, 'zones');
+                        retrySuccess = true;
+                        
+                        // Re-render with new data
+                        try {
+                            if (typeof renderZonesTable === 'function') {
+                                renderZonesTable();
+                            }
+                        } catch (renderErr) {
+                            console.debug('[initZonesWhenReady] renderZonesTable failed after retry:', renderErr);
+                        }
+                        
+                        // Sync comboboxes after successful retry
+                        try {
+                            await initializeComboboxes();
+                        } catch (comboErr) {
+                            console.debug('[initZonesWhenReady] initializeComboboxes failed after retry:', comboErr);
+                        }
+                        
+                        break; // Success, exit retry loop
+                    }
+                } catch (apiErr) {
+                    console.debug(`[initZonesWhenReady] Direct API call attempt ${i + 1}/${retryDelays.length} failed:`, apiErr);
+                    // Continue to next retry unless this was the last attempt
+                    if (i === retryDelays.length - 1) {
+                        console.warn('[initZonesWhenReady] All retry attempts exhausted, API calls failed');
                     }
                 }
-            } catch (apiErr) {
-                console.error('[initZonesWhenReady] Direct API call failed:', apiErr);
-                throw apiErr; // Re-throw to trigger recovery
+            }
+            
+            // If all retries failed, throw to trigger recovery
+            if (!retrySuccess) {
+                throw new Error('Failed to load zones after all retry attempts');
             }
         }
         
@@ -1297,14 +1334,18 @@ async function initZonesWhenReady() {
             console.debug('[initZonesWhenReady] Zones page initialized successfully with', window.ZONES_ALL.length, 'zones');
             
             // Defensive combobox initialization to ensure UI components are populated
-            await initializeComboboxes();
+            try {
+                await initializeComboboxes();
+            } catch (comboErr) {
+                console.debug('[initZonesWhenReady] Final initializeComboboxes failed:', comboErr);
+            }
         } else {
             console.warn('[initZonesWhenReady] Initialization completed but no zones loaded');
             throw new Error('No zones loaded after initialization');
         }
         
     } catch (err) {
-        console.error('[initZonesWhenReady] Failed to initialize zones page (attempt', window._zonesInitAttempts, '):', err);
+        console.warn('[initZonesWhenReady] Failed to initialize zones page (attempt', window._zonesInitAttempts, '):', err);
         
         // Defensive recovery: try minimal functions to populate page
         console.debug('[initZonesWhenReady] Attempting defensive recovery...');
@@ -1333,7 +1374,7 @@ async function initZonesWhenReady() {
                 // Don't mark as run to allow retry
             }
         } catch (recoveryErr) {
-            console.error('[initZonesWhenReady] Defensive recovery also failed:', recoveryErr);
+            console.warn('[initZonesWhenReady] Defensive recovery also failed:', recoveryErr);
             // Don't mark as run so retry can attempt again
         }
     } finally {
@@ -2250,48 +2291,92 @@ async function zoneApiCall(action, options = {}) {
 
 /**
  * Load all zones data from API and cache it
+ * Deduplicates in-flight requests to prevent duplicate API calls
  */
 async function loadZonesData() {
-    try {
-        const params = {
-            file_type: 'include',
-            per_page: MAX_INCLUDES_PER_FETCH
-        };
+    // If a load is already in progress, return the existing promise
+    if (window._loadZonesDataPromise) {
+        console.debug('[loadZonesData] Load already in progress, returning existing promise');
+        return window._loadZonesDataPromise;
+    }
+    
+    // Create and store the promise
+    window._loadZonesDataPromise = (async () => {
+        try {
+            const params = {
+                file_type: 'include',
+                per_page: MAX_INCLUDES_PER_FETCH
+            };
 
-        if (filterStatus) {
-            params.status = filterStatus;
-        }
+            if (filterStatus) {
+                params.status = filterStatus;
+            }
 
-        const response = await zoneApiCall('list_zones', { params });
+            const response = await zoneApiCall('list_zones', { params });
 
-        if (response.success) {
-            window.ZONES_ALL = response.data || [];
-            totalCount = window.ZONES_ALL.length;
-            
-            // Defensive combobox initialization to ensure UI components are populated
-            // This covers cases where loadZonesData is called outside initZonesWhenReady (e.g., manual refresh)
-            await initializeComboboxes();
-            
-            // Re-render table after successful data load to ensure UI updates
-            // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
-            // (because data is empty), we don't want that loadZonesData to call
-            // renderZonesTable again, which would create an infinite loop.
-            if (typeof renderZonesTable === 'function' && !window.__LOADING_ZONES_DATA) {
+            if (response.success) {
+                window.ZONES_ALL = response.data || [];
+                totalCount = window.ZONES_ALL.length;
+                
+                // Defensive combobox initialization to ensure UI components are populated
+                // This covers cases where loadZonesData is called outside initZonesWhenReady (e.g., manual refresh)
                 try {
-                    window.__LOADING_ZONES_DATA = true;
-                    renderZonesTable();
+                    await initializeComboboxes();
                 } catch (e) {
-                    console.error('[loadZonesData] renderZonesTable failed:', e);
-                } finally {
-                    window.__LOADING_ZONES_DATA = false;
+                    console.debug('[loadZonesData] initializeComboboxes failed:', e);
+                }
+                
+                // Additional defensive UI population
+                try {
+                    if (typeof populateZoneDomainSelect === 'function') {
+                        await populateZoneDomainSelect();
+                    }
+                } catch (e) {
+                    console.debug('[loadZonesData] populateZoneDomainSelect failed:', e);
+                }
+                
+                try {
+                    if (typeof initZoneFileCombobox === 'function') {
+                        await initZoneFileCombobox();
+                    }
+                } catch (e) {
+                    console.debug('[loadZonesData] initZoneFileCombobox failed:', e);
+                }
+                
+                try {
+                    if (typeof syncZoneFileComboboxInstance === 'function') {
+                        syncZoneFileComboboxInstance();
+                    }
+                } catch (e) {
+                    console.debug('[loadZonesData] syncZoneFileComboboxInstance failed:', e);
+                }
+                
+                // Re-render table after successful data load to ensure UI updates
+                // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
+                // (because data is empty), we don't want that loadZonesData to call
+                // renderZonesTable again, which would create an infinite loop.
+                if (typeof renderZonesTable === 'function' && !window.__LOADING_ZONES_DATA) {
+                    try {
+                        window.__LOADING_ZONES_DATA = true;
+                        renderZonesTable();
+                    } catch (e) {
+                        console.debug('[loadZonesData] renderZonesTable failed:', e);
+                    } finally {
+                        window.__LOADING_ZONES_DATA = false;
+                    }
                 }
             }
+        } catch (error) {
+            console.warn('[loadZonesData] Failed to load zones:', error);
+            showError('Erreur lors du chargement des zones: ' + error.message);
+            window.ZONES_ALL = [];
+        } finally {
+            // Clear the promise guard after completion
+            window._loadZonesDataPromise = null;
         }
-    } catch (error) {
-        console.error('Failed to load zones:', error);
-        showError('Erreur lors du chargement des zones: ' + error.message);
-        window.ZONES_ALL = [];
-    }
+    })();
+    
+    return window._loadZonesDataPromise;
 }
 
 /**
