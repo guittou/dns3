@@ -247,8 +247,8 @@ function initZonesCache() {
     if (!Array.isArray(window.ALL_ZONES)) window.ALL_ZONES = [];
     if (!Array.isArray(window.CURRENT_ZONE_LIST)) window.CURRENT_ZONE_LIST = [];
     if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
-    if (typeof allMasters === 'undefined' || !Array.isArray(window.allMasters)) window.allMasters = [];
-    if (typeof allDomains === 'undefined' || !Array.isArray(window.allDomains)) window.allDomains = [];
+    if (typeof window.allMasters === 'undefined' || !Array.isArray(window.allMasters)) window.allMasters = [];
+    if (typeof window.allDomains === 'undefined' || !Array.isArray(window.allDomains)) window.allDomains = [];
 }
 
 /**
@@ -1117,6 +1117,15 @@ async function initZonesPage() {
  * Falls back gracefully if helper is not found within timeout period.
  */
 async function initZonesWhenReady() {
+    // Helper to safely call setupNameFilenameAutofill
+    const callSetupAutofill = () => {
+        try {
+            setupNameFilenameAutofill();
+        } catch (err) {
+            console.debug('[initZonesWhenReady] setupNameFilenameAutofill not available or failed:', err);
+        }
+    };
+    
     // Wait for shared helper to be available (with timeout)
     try {
         await waitForGlobal('initServerSearchCombobox', 1200, 80);
@@ -1129,11 +1138,7 @@ async function initZonesWhenReady() {
     if (!shouldInitZonesPage()) {
         console.debug('[initZonesWhenReady] Not on zones page, skipping initialization');
         // Always call setupNameFilenameAutofill as it may be needed for other functionality
-        try {
-            setupNameFilenameAutofill();
-        } catch (err) {
-            console.debug('[initZonesWhenReady] setupNameFilenameAutofill not available or failed:', err);
-        }
+        callSetupAutofill();
         return;
     }
     
@@ -1144,11 +1149,7 @@ async function initZonesWhenReady() {
         console.error('[initZonesWhenReady] Failed to initialize zones page:', err);
     } finally {
         // Always call setupNameFilenameAutofill to preserve existing behavior
-        try {
-            setupNameFilenameAutofill();
-        } catch (err) {
-            console.debug('[initZonesWhenReady] setupNameFilenameAutofill not available or failed:', err);
-        }
+        callSetupAutofill();
     }
 }
 
