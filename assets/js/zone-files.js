@@ -3,6 +3,45 @@
  * Handles paginated table view for zone file management
  */
 
+/**
+ * Wait for a global variable to be defined (async polling)
+ * Used to wait for shared helpers that may load asynchronously
+ * 
+ * @param {string} name - Name of the global variable to wait for
+ * @param {number} timeout - Maximum time to wait in milliseconds (default: 1200ms)
+ * @param {number} interval - Polling interval in milliseconds (default: 80ms)
+ * @returns {Promise<any>} - Resolves with the global variable when found, rejects on timeout
+ */
+async function waitForGlobal(name, timeout = 1200, interval = 80) {
+    const startTime = Date.now();
+    let completed = false;
+    
+    return new Promise((resolve, reject) => {
+        const checkInterval = setInterval(() => {
+            // Prevent race condition - ensure only one completion path
+            if (completed) {
+                return;
+            }
+            
+            // Check if global variable exists
+            if (typeof window[name] !== 'undefined') {
+                completed = true;
+                clearInterval(checkInterval);
+                resolve(window[name]);
+                return;
+            }
+            
+            // Check if timeout expired
+            const elapsed = Date.now() - startTime;
+            if (elapsed >= timeout) {
+                completed = true;
+                clearInterval(checkInterval);
+                reject(new Error(`Timeout waiting for global variable: ${name}`));
+            }
+        }, interval);
+    });
+}
+
 // --- BEGIN: local copy of combobox helpers (populateComboboxList, initCombobox) ---
 function populateComboboxList(listElement, items, itemMapper, onSelect, showList = true) {
     if (!listElement) return;
@@ -204,11 +243,12 @@ async function apiCall(action, params = {}, method = 'GET', body = null) {
  */
 function initZonesCache() {
     // Initialize cache arrays if not already initialized
-    if (!window.ALL_ZONES) window.ALL_ZONES = [];
-    if (!window.CURRENT_ZONE_LIST) window.CURRENT_ZONE_LIST = [];
-    if (!window.ZONES_ALL) window.ZONES_ALL = [];
-    if (typeof allMasters === 'undefined') window.allMasters = [];
-    if (typeof allDomains === 'undefined') window.allDomains = [];
+    // Use Array.isArray checks to ensure they are proper arrays
+    if (!Array.isArray(window.ALL_ZONES)) window.ALL_ZONES = [];
+    if (!Array.isArray(window.CURRENT_ZONE_LIST)) window.CURRENT_ZONE_LIST = [];
+    if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
+    if (typeof allMasters === 'undefined' || !Array.isArray(window.allMasters)) window.allMasters = [];
+    if (typeof allDomains === 'undefined' || !Array.isArray(window.allDomains)) window.allDomains = [];
 }
 
 /**
@@ -1067,6 +1107,49 @@ async function initZonesPage() {
     await initZoneFileCombobox();
     await loadZonesData();
     renderZonesTable();
+}
+
+/**
+ * Initialize zones page when ready, waiting for shared helpers
+ * 
+ * Waits briefly for initServerSearchCombobox to be available before initializing.
+ * This prevents race conditions when zone-combobox-shared.js loads slightly after zone-files.js.
+ * Falls back gracefully if helper is not found within timeout period.
+ */
+async function initZonesWhenReady() {
+    // Wait for shared helper to be available (with timeout)
+    try {
+        await waitForGlobal('initServerSearchCombobox', 1200, 80);
+        console.debug('[initZonesWhenReady] initServerSearchCombobox present — continuing init');
+    } catch (err) {
+        console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with init (fallback)');
+    }
+    
+    // Check if we should initialize zones page
+    if (!shouldInitZonesPage()) {
+        console.debug('[initZonesWhenReady] Not on zones page, skipping initialization');
+        // Always call setupNameFilenameAutofill as it may be needed for other functionality
+        try {
+            setupNameFilenameAutofill();
+        } catch (err) {
+            console.debug('[initZonesWhenReady] setupNameFilenameAutofill not available or failed:', err);
+        }
+        return;
+    }
+    
+    // Initialize zones page
+    try {
+        await initZonesPage();
+    } catch (err) {
+        console.error('[initZonesWhenReady] Failed to initialize zones page:', err);
+    } finally {
+        // Always call setupNameFilenameAutofill to preserve existing behavior
+        try {
+            setupNameFilenameAutofill();
+        } catch (err) {
+            console.debug('[initZonesWhenReady] setupNameFilenameAutofill not available or failed:', err);
+        }
+    }
 }
 
 /**
@@ -4421,11 +4504,9 @@ window.setZoneFileComboboxEnabled = setZoneFileComboboxEnabled;
 // Initialize on DOM ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        initZonesPage();
-        setupNameFilenameAutofill();
+        initZonesWhenReady();
     });
 } else {
     // DOM already loaded, init immediately
-    initZonesPage();
-    setupNameFilenameAutofill();
+    initZonesWhenReady();
 }
