@@ -724,6 +724,45 @@
     }
 
     /**
+     * Wait for a global variable to become available
+     * Polls for the variable's existence with a configurable timeout and interval
+     * 
+     * @param {string} name - Name of the global variable to wait for (e.g., 'initServerSearchCombobox')
+     * @param {number} timeout - Maximum time to wait in milliseconds (default: 1200ms)
+     * @param {number} interval - Polling interval in milliseconds (default: 50ms)
+     * @returns {Promise<any>} - Resolves with the global variable if found, rejects if timeout expires
+     */
+    async function waitForGlobal(name, timeout = 1200, interval = 50) {
+        const startTime = Date.now();
+        let completed = false;
+        
+        return new Promise((resolve, reject) => {
+            const checkInterval = setInterval(() => {
+                // Prevent race condition - ensure only one completion path
+                if (completed) {
+                    return;
+                }
+                
+                // Check if global variable exists
+                if (typeof window[name] !== 'undefined') {
+                    completed = true;
+                    clearInterval(checkInterval);
+                    resolve(window[name]);
+                    return;
+                }
+                
+                // Check if timeout expired
+                const elapsed = Date.now() - startTime;
+                if (elapsed >= timeout) {
+                    completed = true;
+                    clearInterval(checkInterval);
+                    reject(new Error(`Timeout waiting for global variable: ${name}`));
+                }
+            }, interval);
+        });
+    }
+
+    /**
      * Initialize zone combobox with server-first search using unified helper
      */
     async function initZoneCombobox() {
@@ -748,9 +787,12 @@
                 setDnsZoneComboboxEnabled(false);
             }
             
-            // Use the unified initServerSearchCombobox helper from zone-files.js
-            if (typeof window.initServerSearchCombobox === 'function') {
-                console.debug('[DNS initZoneCombobox] Using unified initServerSearchCombobox helper');
+            // Wait for the unified initServerSearchCombobox helper to become available
+            // This prevents race conditions when scripts load asynchronously
+            try {
+                console.debug('[DNS initZoneCombobox] Waiting for initServerSearchCombobox helper...');
+                await waitForGlobal('initServerSearchCombobox');
+                console.log('[DNS initZoneCombobox] initServerSearchCombobox found after wait, using unified helper');
                 
                 window.initServerSearchCombobox({
                     inputEl: inputEl,
@@ -769,10 +811,12 @@
                 
                 console.debug('[DNS initZoneCombobox] Initialized using unified helper');
                 return;
+            } catch (err) {
+                // Timeout expired - initServerSearchCombobox not available
+                console.warn('[DNS initZoneCombobox] initServerSearchCombobox not found after wait, using fallback implementation', err.message);
             }
             
             // Fallback: if unified helper not available, use inline implementation (backward compatibility)
-            console.warn('[DNS initZoneCombobox] initServerSearchCombobox not found, using fallback implementation');
             
             // Input event - server search for queries ≥2 chars, client filter otherwise
             inputEl.addEventListener('input', async () => {
