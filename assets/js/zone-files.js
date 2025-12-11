@@ -252,6 +252,49 @@ function initZonesCache() {
 }
 
 /**
+ * Get default domain ID for combobox population
+ * Falls back through multiple sources to find a suitable domain ID
+ * @returns {number|null} Domain ID or null if none available
+ */
+function getDefaultDomainId() {
+    return window.ZONES_SELECTED_MASTER_ID || 
+           window.selectedDomainId || 
+           (Array.isArray(allMasters) && allMasters.length ? allMasters[0].id : null);
+}
+
+/**
+ * Defensive combobox initialization to ensure UI components are populated
+ * Calls initialization functions with error handling to prevent cascading failures
+ * This is idempotent and safe to call multiple times
+ */
+async function initializeComboboxes() {
+    try {
+        if (typeof ensureZoneFilesInit === 'function') await ensureZoneFilesInit();
+    } catch (e) { console.warn('[zone-files] ensureZoneFilesInit failed during post-init:', e); }
+    
+    try {
+        if (typeof populateZoneDomainSelect === 'function') await populateZoneDomainSelect();
+    } catch (e) { console.warn('[zone-files] populateZoneDomainSelect failed during post-init:', e); }
+    
+    try {
+        if (typeof initZoneFileCombobox === 'function') await initZoneFileCombobox();
+    } catch (e) { console.warn('[zone-files] initZoneFileCombobox failed during post-init:', e); }
+    
+    // If populateZoneListForDomain expects a domain id, try to call with a sensible default
+    try {
+        if (typeof window.populateZoneListForDomain === 'function') {
+            const domainId = getDefaultDomainId();
+            if (domainId) await window.populateZoneListForDomain(domainId);
+        }
+    } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
+    
+    // Sync combobox instance if helper exposed
+    try {
+        if (typeof syncZoneFileComboboxInstance === 'function') syncZoneFileComboboxInstance();
+    } catch (e) { console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+}
+
+/**
  * Sync zone file combobox instance state after CURRENT_ZONE_LIST update
  * 
  * Calls refresh() on the combobox instance to update internal state without showing the dropdown.
@@ -1252,6 +1295,9 @@ async function initZonesWhenReady() {
         if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
             window._zonesInitRun = true;
             console.debug('[initZonesWhenReady] Zones page initialized successfully with', window.ZONES_ALL.length, 'zones');
+            
+            // Defensive combobox initialization to ensure UI components are populated
+            await initializeComboboxes();
         } else {
             console.warn('[initZonesWhenReady] Initialization completed but no zones loaded');
             throw new Error('No zones loaded after initialization');
@@ -2221,6 +2267,11 @@ async function loadZonesData() {
         if (response.success) {
             window.ZONES_ALL = response.data || [];
             totalCount = window.ZONES_ALL.length;
+            
+            // Defensive combobox initialization to ensure UI components are populated
+            // This covers cases where loadZonesData is called outside initZonesWhenReady (e.g., manual refresh)
+            await initializeComboboxes();
+            
             // Re-render table after successful data load to ensure UI updates
             // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
             // (because data is empty), we don't want that loadZonesData to call
@@ -2233,15 +2284,6 @@ async function loadZonesData() {
                     console.error('[loadZonesData] renderZonesTable failed:', e);
                 } finally {
                     window.__LOADING_ZONES_DATA = false;
-                }
-            }
-            
-            // Sync zone file combobox after data load
-            if (typeof syncZoneFileComboboxInstance === 'function' && !window.__LOADING_ZONES_DATA) {
-                try {
-                    syncZoneFileComboboxInstance();
-                } catch (e) {
-                    console.error('[loadZonesData] syncZoneFileComboboxInstance failed:', e);
                 }
             }
         }
