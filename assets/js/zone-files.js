@@ -4566,3 +4566,14 @@ setTimeout(() => {
         });
     }
 }, 800);
+
+// Window load listener: additional fallback for atypical script loading order
+// This ensures initZonesWhenReady is called when window.load event fires
+// Safe due to idempotency guard (window._zonesInitRun)
+window.addEventListener('load', () => {
+    try {
+        window.initZonesWhenReady();
+    } catch (e) {
+        console.error('[zone-files] initZonesWhenReady on load failed', e);
+    }
+});
