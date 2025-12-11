@@ -1047,12 +1047,14 @@
                 CURRENT_ZONE_LIST = orderedZones;
                 console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST with', orderedZones.length, 'zones');
                 
-                // Merge into ALL_ZONES cache without overwriting
+                // Merge into ALL_ZONES cache without overwriting (O(n) performance with Set)
                 const existingAllZones = Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : [];
+                const existingIds = new Set(existingAllZones.map(z => parseInt(z.id, 10)));
                 orderedZones.forEach(z => {
-                    const exists = existingAllZones.some(existing => parseInt(existing.id, 10) === parseInt(z.id, 10));
-                    if (!exists) {
+                    const zoneId = parseInt(z.id, 10);
+                    if (!existingIds.has(zoneId)) {
                         existingAllZones.push(z);
+                        existingIds.add(zoneId);
                     }
                 });
                 window.ALL_ZONES = existingAllZones;
