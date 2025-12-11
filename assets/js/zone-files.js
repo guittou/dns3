@@ -252,6 +252,17 @@ function initZonesCache() {
 }
 
 /**
+ * Get default domain ID for combobox population
+ * Falls back through multiple sources to find a suitable domain ID
+ * @returns {number|null} Domain ID or null if none available
+ */
+function getDefaultDomainId() {
+    return window.ZONES_SELECTED_MASTER_ID || 
+           window.selectedDomainId || 
+           (Array.isArray(allMasters) && allMasters.length ? allMasters[0].id : null);
+}
+
+/**
  * Sync zone file combobox instance state after CURRENT_ZONE_LIST update
  * 
  * Calls refresh() on the combobox instance to update internal state without showing the dropdown.
@@ -1269,13 +1280,15 @@ async function initZonesWhenReady() {
             // If populateZoneListForDomain expects a domain id, try to call with a sensible default
             try {
                 if (typeof populateZoneListForDomain === 'function') {
-                    const domainId = window.ZONES_SELECTED_MASTER_ID || window.selectedDomainId || (Array.isArray(allMasters) && allMasters.length ? allMasters[0].id : null);
+                    const domainId = getDefaultDomainId();
                     if (domainId) await populateZoneListForDomain(domainId);
                 }
             } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
             
             // Sync combobox instance if helper exposed
-            try { if (typeof window.syncZoneFileComboboxInstance === 'function') window.syncZoneFileComboboxInstance(); } catch(e){ console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+            try {
+                if (typeof syncZoneFileComboboxInstance === 'function') syncZoneFileComboboxInstance();
+            } catch (e) { console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
         } else {
             console.warn('[initZonesWhenReady] Initialization completed but no zones loaded');
             throw new Error('No zones loaded after initialization');
@@ -2263,13 +2276,15 @@ async function loadZonesData() {
             // If populateZoneListForDomain expects a domain id, try to call with a sensible default
             try {
                 if (typeof populateZoneListForDomain === 'function') {
-                    const domainId = window.ZONES_SELECTED_MASTER_ID || window.selectedDomainId || (Array.isArray(allMasters) && allMasters.length ? allMasters[0].id : null);
+                    const domainId = getDefaultDomainId();
                     if (domainId) await populateZoneListForDomain(domainId);
                 }
             } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
             
             // Sync combobox instance if helper exposed
-            try { if (typeof window.syncZoneFileComboboxInstance === 'function') window.syncZoneFileComboboxInstance(); } catch(e){ console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+            try {
+                if (typeof syncZoneFileComboboxInstance === 'function') syncZoneFileComboboxInstance();
+            } catch (e) { console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
             
             // Re-render table after successful data load to ensure UI updates
             // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
