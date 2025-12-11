@@ -263,6 +263,38 @@ function getDefaultDomainId() {
 }
 
 /**
+ * Defensive combobox initialization to ensure UI components are populated
+ * Calls initialization functions with error handling to prevent cascading failures
+ * This is idempotent and safe to call multiple times
+ */
+async function initializeComboboxes() {
+    try {
+        if (typeof ensureZoneFilesInit === 'function') await ensureZoneFilesInit();
+    } catch (e) { console.warn('[zone-files] ensureZoneFilesInit failed during post-init:', e); }
+    
+    try {
+        if (typeof populateZoneDomainSelect === 'function') await populateZoneDomainSelect();
+    } catch (e) { console.warn('[zone-files] populateZoneDomainSelect failed during post-init:', e); }
+    
+    try {
+        if (typeof initZoneFileCombobox === 'function') await initZoneFileCombobox();
+    } catch (e) { console.warn('[zone-files] initZoneFileCombobox failed during post-init:', e); }
+    
+    // If populateZoneListForDomain expects a domain id, try to call with a sensible default
+    try {
+        if (typeof window.populateZoneListForDomain === 'function') {
+            const domainId = getDefaultDomainId();
+            if (domainId) await window.populateZoneListForDomain(domainId);
+        }
+    } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
+    
+    // Sync combobox instance if helper exposed
+    try {
+        if (typeof syncZoneFileComboboxInstance === 'function') syncZoneFileComboboxInstance();
+    } catch (e) { console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+}
+
+/**
  * Sync zone file combobox instance state after CURRENT_ZONE_LIST update
  * 
  * Calls refresh() on the combobox instance to update internal state without showing the dropdown.
@@ -1265,30 +1297,7 @@ async function initZonesWhenReady() {
             console.debug('[initZonesWhenReady] Zones page initialized successfully with', window.ZONES_ALL.length, 'zones');
             
             // Defensive combobox initialization to ensure UI components are populated
-            try {
-                if (typeof ensureZoneFilesInit === 'function') await ensureZoneFilesInit();
-            } catch (e) { console.warn('[zone-files] ensureZoneFilesInit failed during post-init:', e); }
-            
-            try {
-                if (typeof populateZoneDomainSelect === 'function') await populateZoneDomainSelect();
-            } catch (e) { console.warn('[zone-files] populateZoneDomainSelect failed during post-init:', e); }
-            
-            try {
-                if (typeof initZoneFileCombobox === 'function') await initZoneFileCombobox();
-            } catch (e) { console.warn('[zone-files] initZoneFileCombobox failed during post-init:', e); }
-            
-            // If populateZoneListForDomain expects a domain id, try to call with a sensible default
-            try {
-                if (typeof populateZoneListForDomain === 'function') {
-                    const domainId = getDefaultDomainId();
-                    if (domainId) await populateZoneListForDomain(domainId);
-                }
-            } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
-            
-            // Sync combobox instance if helper exposed
-            try {
-                if (typeof syncZoneFileComboboxInstance === 'function') syncZoneFileComboboxInstance();
-            } catch (e) { console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+            await initializeComboboxes();
         } else {
             console.warn('[initZonesWhenReady] Initialization completed but no zones loaded');
             throw new Error('No zones loaded after initialization');
@@ -2261,30 +2270,7 @@ async function loadZonesData() {
             
             // Defensive combobox initialization to ensure UI components are populated
             // This covers cases where loadZonesData is called outside initZonesWhenReady (e.g., manual refresh)
-            try {
-                if (typeof ensureZoneFilesInit === 'function') await ensureZoneFilesInit();
-            } catch (e) { console.warn('[zone-files] ensureZoneFilesInit failed during post-init:', e); }
-            
-            try {
-                if (typeof populateZoneDomainSelect === 'function') await populateZoneDomainSelect();
-            } catch (e) { console.warn('[zone-files] populateZoneDomainSelect failed during post-init:', e); }
-            
-            try {
-                if (typeof initZoneFileCombobox === 'function') await initZoneFileCombobox();
-            } catch (e) { console.warn('[zone-files] initZoneFileCombobox failed during post-init:', e); }
-            
-            // If populateZoneListForDomain expects a domain id, try to call with a sensible default
-            try {
-                if (typeof populateZoneListForDomain === 'function') {
-                    const domainId = getDefaultDomainId();
-                    if (domainId) await populateZoneListForDomain(domainId);
-                }
-            } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
-            
-            // Sync combobox instance if helper exposed
-            try {
-                if (typeof syncZoneFileComboboxInstance === 'function') syncZoneFileComboboxInstance();
-            } catch (e) { console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+            await initializeComboboxes();
             
             // Re-render table after successful data load to ensure UI updates
             // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
