@@ -1115,8 +1115,16 @@ async function initZonesPage() {
  * Waits briefly for initServerSearchCombobox to be available before initializing.
  * This prevents race conditions when zone-combobox-shared.js loads slightly after zone-files.js.
  * Falls back gracefully if helper is not found within timeout period.
+ * 
+ * This function is idempotent and can be called multiple times safely.
  */
 async function initZonesWhenReady() {
+    // Idempotency guard: only initialize once
+    if (window._zonesInitRun) {
+        console.debug('[initZonesWhenReady] Already initialized, skipping');
+        return;
+    }
+    
     // Helper to safely call setupNameFilenameAutofill
     const callSetupAutofill = () => {
         try {
@@ -1129,9 +1137,9 @@ async function initZonesWhenReady() {
     // Wait for shared helper to be available (with timeout)
     try {
         await waitForGlobal('initServerSearchCombobox', 1200, 80);
-        console.debug('[initZonesWhenReady] initServerSearchCombobox present — continuing init');
+        console.debug('[initZonesWhenReady] initServerSearchCombobox found — continuing init');
     } catch (err) {
-        console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with init (fallback)');
+        console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with fallback');
     }
     
     // Check if we should initialize zones page
@@ -1139,14 +1147,37 @@ async function initZonesWhenReady() {
         console.debug('[initZonesWhenReady] Not on zones page, skipping initialization');
         // Always call setupNameFilenameAutofill as it may be needed for other functionality
         callSetupAutofill();
+        // Mark as run to prevent retry attempts
+        window._zonesInitRun = true;
         return;
     }
+    
+    // Ensure cache is initialized before any operations
+    initZonesCache();
     
     // Initialize zones page
     try {
         await initZonesPage();
+        // Mark successful initialization
+        window._zonesInitRun = true;
+        console.debug('[initZonesWhenReady] Zones page initialized successfully');
     } catch (err) {
         console.error('[initZonesWhenReady] Failed to initialize zones page:', err);
+        
+        // Defensive recovery: try to populate page even if full init failed
+        console.debug('[initZonesWhenReady] Attempting defensive recovery...');
+        try {
+            await ensureZonesCache();
+            await populateZoneDomainSelect();
+            await initZoneFileCombobox();
+            renderZonesTable();
+            // Mark as recovered
+            window._zonesInitRun = true;
+            console.debug('[initZonesWhenReady] Defensive recovery completed');
+        } catch (recoveryErr) {
+            console.error('[initZonesWhenReady] Defensive recovery also failed:', recoveryErr);
+            // Don't mark as run so retry can attempt again
+        }
     } finally {
         // Always call setupNameFilenameAutofill to preserve existing behavior
         callSetupAutofill();
@@ -4501,6 +4532,7 @@ window.closeIncludeCreateModal = closeIncludeCreateModal;
 window.saveInclude = saveInclude;
 window.renderZonesTable = renderZonesTable;
 window.setZoneFileComboboxEnabled = setZoneFileComboboxEnabled;
+window.initZonesWhenReady = initZonesWhenReady; // Expose for manual testing and fallback retry
 
 // Initialize on DOM ready
 if (document.readyState === 'loading') {
@@ -4511,3 +4543,26 @@ if (document.readyState === 'loading') {
     // DOM already loaded, init immediately
     initZonesWhenReady();
 }
+
+// Fallback mechanism: ensure initialization happens even if DOM ready fired too early
+// This handles cases where scripts load in unexpected order or async timing issues
+// Note: Only TWO attempts maximum - at 30ms and 800ms. Idempotency flag prevents infinite loops.
+setTimeout(() => {
+    // Quick async call to initZonesWhenReady (idempotent, will skip if already run)
+    initZonesWhenReady().catch(err => {
+        console.debug('[Fallback] Initial async init attempt failed or skipped:', err);
+    });
+}, 30);
+
+// Retry fallback: check if initialization ran, retry if not
+// This is the FINAL retry attempt. No further retries after this.
+setTimeout(() => {
+    if (!window._zonesInitRun && shouldInitZonesPage()) {
+        console.debug('[Fallback] Zones not initialized after 800ms, retrying...');
+        initZonesWhenReady().catch(err => {
+            console.error('[Fallback] Retry init failed:', err);
+            // If this retry also fails and doesn't set _zonesInitRun, user can manually call:
+            // window.initZonesWhenReady() in console to force initialization
+        });
+    }
+}, 800);
