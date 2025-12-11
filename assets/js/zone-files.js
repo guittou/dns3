@@ -1252,6 +1252,30 @@ async function initZonesWhenReady() {
         if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
             window._zonesInitRun = true;
             console.debug('[initZonesWhenReady] Zones page initialized successfully with', window.ZONES_ALL.length, 'zones');
+            
+            // Defensive combobox initialization to ensure UI components are populated
+            try {
+                if (typeof ensureZoneFilesInit === 'function') await ensureZoneFilesInit();
+            } catch (e) { console.warn('[zone-files] ensureZoneFilesInit failed during post-init:', e); }
+            
+            try {
+                if (typeof populateZoneDomainSelect === 'function') await populateZoneDomainSelect();
+            } catch (e) { console.warn('[zone-files] populateZoneDomainSelect failed during post-init:', e); }
+            
+            try {
+                if (typeof initZoneFileCombobox === 'function') await initZoneFileCombobox();
+            } catch (e) { console.warn('[zone-files] initZoneFileCombobox failed during post-init:', e); }
+            
+            // If populateZoneListForDomain expects a domain id, try to call with a sensible default
+            try {
+                if (typeof populateZoneListForDomain === 'function') {
+                    const domainId = window.ZONES_SELECTED_MASTER_ID || window.selectedDomainId || (Array.isArray(allMasters) && allMasters.length ? allMasters[0].id : null);
+                    if (domainId) await populateZoneListForDomain(domainId);
+                }
+            } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
+            
+            // Sync combobox instance if helper exposed
+            try { if (typeof window.syncZoneFileComboboxInstance === 'function') window.syncZoneFileComboboxInstance(); } catch(e){ console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
         } else {
             console.warn('[initZonesWhenReady] Initialization completed but no zones loaded');
             throw new Error('No zones loaded after initialization');
@@ -2221,6 +2245,32 @@ async function loadZonesData() {
         if (response.success) {
             window.ZONES_ALL = response.data || [];
             totalCount = window.ZONES_ALL.length;
+            
+            // Defensive combobox initialization to ensure UI components are populated
+            // This covers cases where loadZonesData is called outside initZonesWhenReady (e.g., manual refresh)
+            try {
+                if (typeof ensureZoneFilesInit === 'function') await ensureZoneFilesInit();
+            } catch (e) { console.warn('[zone-files] ensureZoneFilesInit failed during post-init:', e); }
+            
+            try {
+                if (typeof populateZoneDomainSelect === 'function') await populateZoneDomainSelect();
+            } catch (e) { console.warn('[zone-files] populateZoneDomainSelect failed during post-init:', e); }
+            
+            try {
+                if (typeof initZoneFileCombobox === 'function') await initZoneFileCombobox();
+            } catch (e) { console.warn('[zone-files] initZoneFileCombobox failed during post-init:', e); }
+            
+            // If populateZoneListForDomain expects a domain id, try to call with a sensible default
+            try {
+                if (typeof populateZoneListForDomain === 'function') {
+                    const domainId = window.ZONES_SELECTED_MASTER_ID || window.selectedDomainId || (Array.isArray(allMasters) && allMasters.length ? allMasters[0].id : null);
+                    if (domainId) await populateZoneListForDomain(domainId);
+                }
+            } catch (e) { console.warn('[zone-files] populateZoneListForDomain failed during post-init:', e); }
+            
+            // Sync combobox instance if helper exposed
+            try { if (typeof window.syncZoneFileComboboxInstance === 'function') window.syncZoneFileComboboxInstance(); } catch(e){ console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+            
             // Re-render table after successful data load to ensure UI updates
             // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
             // (because data is empty), we don't want that loadZonesData to call
@@ -2233,15 +2283,6 @@ async function loadZonesData() {
                     console.error('[loadZonesData] renderZonesTable failed:', e);
                 } finally {
                     window.__LOADING_ZONES_DATA = false;
-                }
-            }
-            
-            // Sync zone file combobox after data load
-            if (typeof syncZoneFileComboboxInstance === 'function' && !window.__LOADING_ZONES_DATA) {
-                try {
-                    syncZoneFileComboboxInstance();
-                } catch (e) {
-                    console.error('[loadZonesData] syncZoneFileComboboxInstance failed:', e);
                 }
             }
         }
