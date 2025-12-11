@@ -962,7 +962,7 @@ function attachZoneSearchInput() {
         }, DEBOUNCE_MS);
     });
     
-    console.log('[attachZoneSearchInput] Search handler attached to #searchInput with server-first strategy');
+    console.debug('[attachZoneSearchInput] Search handler attached to #searchInput with server-first strategy');
 }
 
 /**
@@ -992,7 +992,7 @@ function attachFilterStatusHandler() {
         renderZonesTable();
     });
     
-    console.log('[attachFilterStatusHandler] Filter status handler attached to #filterStatus');
+    console.debug('[attachFilterStatusHandler] Filter status handler attached to #filterStatus');
 }
 
 // Expose search functions globally
