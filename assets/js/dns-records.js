@@ -787,8 +787,15 @@
                 setDnsZoneComboboxEnabled(false);
             }
             
-            // Use the unified initServerSearchCombobox helper (now always available from zone-combobox-shared.js)
+            // Use the unified initServerSearchCombobox helper
+            // Note: zone-combobox-shared.js is loaded before dns-records.js in dns-management.php
+            // This guarantees the helper is available when this code executes
             console.debug('[DNS initZoneCombobox] Initializing with unified helper from zone-combobox-shared.js');
+            
+            if (typeof window.initServerSearchCombobox !== 'function') {
+                console.error('[DNS initZoneCombobox] initServerSearchCombobox not found. Ensure zone-combobox-shared.js is loaded before dns-records.js');
+                return;
+            }
             
             window.initServerSearchCombobox({
                 inputEl: inputEl,

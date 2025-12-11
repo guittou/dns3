@@ -419,7 +419,8 @@
     function isZoneInMasterTree(zone, masterId, zoneList) {
         if (!zone || !masterId) return false;
         
-        const MAX_PARENT_CHAIN_DEPTH = 20; // Safety limit to prevent infinite loops
+        // Use global constant if available, otherwise default to 20
+        const MAX_PARENT_CHAIN_DEPTH = window.MAX_PARENT_CHAIN_DEPTH || 20;
         const masterIdNum = parseInt(masterId, 10);
         if (parseInt(zone.id, 10) === masterIdNum) return true; // Zone is the master itself
         
@@ -556,7 +557,7 @@
                 }, showList);
             } else {
                 // Fallback: manual implementation
-                console.warn('[initServerSearchCombobox] populateComboboxList not available, using fallback');
+                console.warn('[initServerSearchCombobox] populateComboboxList helper function not available. Ensure combobox-utils.js or zone-files.js is loaded before calling this function. Using fallback implementation.');
                 list.innerHTML = '';
                 
                 if (!Array.isArray(zones) || zones.length === 0) {
