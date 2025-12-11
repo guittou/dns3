@@ -1166,9 +1166,37 @@ async function initZonesWhenReady() {
             console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with fallback');
         }
         
-        // Check if we should initialize zones page
-        if (!shouldInitZonesPage()) {
-            console.debug('[initZonesWhenReady] Not on zones page, skipping initialization');
+        // Enhanced Zones page detection (fallback URL/DOM if shouldInitZonesPage returns false)
+        let shouldInit = true;
+        if (typeof shouldInitZonesPage === 'function') {
+            try {
+                shouldInit = !!shouldInitZonesPage();
+            } catch (e) {
+                console.debug('[initZonesWhenReady] shouldInitZonesPage threw:', e);
+                shouldInit = false;
+            }
+        }
+        
+        if (!shouldInit) {
+            // Fallback heuristics: URL pathname matches zone-files page OR multiple zone-specific DOM markers present
+            // Note: Using different DOM elements than shouldInitZonesPage because those may not
+            // be present at the time of check. These elements (zone-file-input and zones-table-body)
+            // are guaranteed to exist in zone-files.php and are present early in DOM.
+            const urlLooksLikeZones = /\/zone-files(?:\.php)?(?:$|[/?#])/i.test(window.location.pathname);
+            // Require multiple zone-specific elements to be present to reduce false positives
+            const zoneFileInput = !!document.getElementById('zone-file-input');
+            const zonesTableBody = !!document.getElementById('zones-table-body');
+            const domLooksLikeZones = zoneFileInput && zonesTableBody;
+            if (urlLooksLikeZones || domLooksLikeZones) {
+                console.debug('[initZonesWhenReady] shouldInitZonesPage returned false but URL/DOM indicate Zones page — forcing init');
+                shouldInit = true;
+            } else {
+                console.debug('[initZonesWhenReady] shouldInitZonesPage false and URL/DOM do not indicate Zones page — skipping init');
+            }
+        }
+        
+        if (!shouldInit) {
+            // preserve prior behavior
             // Always call setupNameFilenameAutofill as it may be needed for other functionality
             callSetupAutofill();
             // Don't mark as run - this allows function to be called again if page context changes
