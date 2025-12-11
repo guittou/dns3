@@ -2376,21 +2376,17 @@ async function renderZonesTable() {
  * Handle zone row click - select parent domain and zone file
  */
 async function handleZoneRowClick(zoneId, parentId) {
-    // Check if this zone has a parent (is an include)
-    // parentId can be a number, null, or the string 'null' from onclick attribute
     const hasParent = parentId && parentId !== null && parentId !== 'null' && parentId !== '';
-    
+
     if (hasParent) {
-        // This is an include - select its parent domain first
         const parentIdNum = typeof parentId === 'number' ? parentId : parseInt(parentId, 10);
         if (!isNaN(parentIdNum)) {
-            onZoneDomainSelected(parentIdNum);
+            try { await onZoneDomainSelected(parentIdNum); } catch (e) { console.warn('[handleZoneRowClick] onZoneDomainSelected failed:', e); }
         }
     }
-    
-    // Also select the zone file itself
+
     if (zoneId) {
-        onZoneFileSelected(zoneId);
+        try { await onZoneFileSelected(zoneId); } catch (e) { console.warn('[handleZoneRowClick] onZoneFileSelected failed:', e); }
     }
 }
 
