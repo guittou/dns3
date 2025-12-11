@@ -1172,7 +1172,7 @@ async function initZonesWhenReady() {
             try {
                 shouldInit = !!shouldInitZonesPage();
             } catch (e) {
-                console.debug('[zone-files] shouldInitZonesPage threw:', e);
+                console.debug('[initZonesWhenReady] shouldInitZonesPage threw:', e);
                 shouldInit = false;
             }
         }
