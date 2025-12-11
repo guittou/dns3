@@ -1014,21 +1014,74 @@
 
     /**
      * Set domain for a given zone (auto-complete domain based on zone)
-     * Now reads from zone_files.domain field directly
-     * For include zones, uses parent_domain from get_zone response
-     * Falls back to get_domain_for_zone if parent_domain is empty
+     * Robust version that handles both master and include zones correctly
+     * 
+     * Key improvements:
+     * - Awaits cache initialization (ensureZonesCache/ensureZoneFilesInit)
+     * - Normalizes ALL_ZONES and CURRENT_ZONE_LIST to arrays before access
+     * - For include zones: uses master_id or parent_zone_id or looks up master in ALL_ZONES
+     * - Calls populateZoneComboboxForDomain with correct master ID
+     * - Multiple fallback strategies if population fails
+     * - Protects all .length accesses with Array.isArray checks
+     * - Adds current zone to CURRENT_ZONE_LIST if missing
+     * - Comprehensive logging for debugging
      */
     async function setDomainForZone(zoneId) {
         try {
+            console.info('[setDomainForZone] Called with zoneId:', zoneId);
+            
+            // Step 1: Ensure caches are initialized
+            if (typeof window.ensureZonesCache === 'function') {
+                try {
+                    await window.ensureZonesCache();
+                    console.debug('[setDomainForZone] Zones cache initialized');
+                } catch (cacheError) {
+                    console.warn('[setDomainForZone] Failed to initialize zones cache:', cacheError);
+                }
+            }
+            
+            if (typeof window.ensureZoneFilesInit === 'function') {
+                try {
+                    window.ensureZoneFilesInit();
+                    console.debug('[setDomainForZone] Zone files initialized');
+                } catch (initError) {
+                    console.warn('[setDomainForZone] Failed to initialize zone files:', initError);
+                }
+            }
+            
+            // Step 2: Normalize global arrays to ensure they're valid
+            if (!Array.isArray(window.ALL_ZONES)) {
+                console.warn('[setDomainForZone] window.ALL_ZONES not an array, initializing to []');
+                window.ALL_ZONES = [];
+            }
+            if (!Array.isArray(window.CURRENT_ZONE_LIST)) {
+                console.warn('[setDomainForZone] window.CURRENT_ZONE_LIST not an array, initializing to []');
+                window.CURRENT_ZONE_LIST = [];
+            }
+            if (!Array.isArray(ALL_ZONES)) {
+                ALL_ZONES = [];
+            }
+            if (!Array.isArray(CURRENT_ZONE_LIST)) {
+                CURRENT_ZONE_LIST = [];
+            }
+            
+            // Step 3: Fetch zone object from API
             const res = await zoneApiCall('get_zone', { id: zoneId });
             const zone = res && res.data ? res.data : null;
+            
             if (!zone) {
-                // clear defensively
-                const input = document.getElementById('dns-domain-input'); if (input) input.value = '';
-                const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); if (zoneHidden) zoneHidden.value = '';
-                const legacy = document.getElementById('dns-domain-id'); if (legacy) legacy.value = '';
-                const zoneInput = document.getElementById('dns-zone-input'); if (zoneInput) zoneInput.value = '';
-                const recordZoneFile = document.getElementById('record-zone-file'); if (recordZoneFile) recordZoneFile.value = '';
+                console.warn('[setDomainForZone] Zone not found for id:', zoneId);
+                // Clear all fields defensively
+                const input = document.getElementById('dns-domain-input'); 
+                if (input) input.value = '';
+                const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); 
+                if (zoneHidden) zoneHidden.value = '';
+                const legacy = document.getElementById('dns-domain-id'); 
+                if (legacy) legacy.value = '';
+                const zoneInput = document.getElementById('dns-zone-input'); 
+                if (zoneInput) zoneInput.value = '';
+                const recordZoneFile = document.getElementById('record-zone-file'); 
+                if (recordZoneFile) recordZoneFile.value = '';
                 
                 // Disable DNS zone combobox
                 if (typeof setDnsZoneComboboxEnabled === 'function') {
@@ -1036,41 +1089,115 @@
                 }
                 return;
             }
-
-            // Calculate domain based on zone type:
-            // - For master zones: use zone.domain (no fallback to zone.name)
-            // - For include zones: use zone.parent_domain, with fallback to get_domain_for_zone API
+            
+            console.debug('[setDomainForZone] Zone fetched:', zone.name, 'type:', zone.file_type);
+            
+            // Step 4: Calculate master ID for populateZoneComboboxForDomain
+            let masterId = null;
             let domainName = '';
+            
             if (zone.file_type === 'master') {
-                // Master zone: use domain field directly (can be empty)
+                // For master zones, use zone.id directly
+                masterId = zone.id;
                 domainName = zone.domain || '';
+                console.debug('[setDomainForZone] Master zone, using zone.id as masterId:', masterId);
             } else {
-                // Include zone: use parent_domain if available
+                // For include zones, find the master
+                console.debug('[setDomainForZone] Include zone, looking for master...');
+                
+                // Try zone.master_id first
+                if (zone.master_id && parseInt(zone.master_id, 10) > 0) {
+                    masterId = parseInt(zone.master_id, 10);
+                    console.info('[setDomainForZone] Using zone.master_id:', masterId);
+                }
+                // Try zone.parent_zone_id next
+                else if (zone.parent_zone_id && parseInt(zone.parent_zone_id, 10) > 0) {
+                    masterId = parseInt(zone.parent_zone_id, 10);
+                    console.info('[setDomainForZone] Using zone.parent_zone_id:', masterId);
+                }
+                // Try to find master by parent_id chain in ALL_ZONES
+                else if (zone.parent_id && parseInt(zone.parent_id, 10) > 0) {
+                    const parentId = parseInt(zone.parent_id, 10);
+                    console.debug('[setDomainForZone] Trying parent_id chain, starting with:', parentId);
+                    
+                    // Walk up the parent chain to find the master
+                    let currentId = parentId;
+                    let iterations = 0;
+                    const maxIterations = 10;
+                    
+                    while (currentId && iterations < maxIterations) {
+                        iterations++;
+                        const parentZone = (window.ALL_ZONES || []).find(z => parseInt(z.id, 10) === currentId);
+                        
+                        if (!parentZone) {
+                            console.warn('[setDomainForZone] Parent zone not found in ALL_ZONES for id:', currentId);
+                            break;
+                        }
+                        
+                        if (parentZone.file_type === 'master') {
+                            masterId = parseInt(parentZone.id, 10);
+                            console.info('[setDomainForZone] Found master via parent chain:', masterId);
+                            break;
+                        }
+                        
+                        currentId = parentZone.parent_id ? parseInt(parentZone.parent_id, 10) : null;
+                    }
+                }
+                // Try to find master by matching parent_domain in ALL_ZONES
+                else if (zone.parent_domain && zone.parent_domain.trim()) {
+                    const parentDomain = zone.parent_domain.trim();
+                    console.debug('[setDomainForZone] Looking for master by parent_domain:', parentDomain);
+                    
+                    const masterZone = (window.ALL_ZONES || []).find(z => 
+                        z.file_type === 'master' && 
+                        (z.domain || '').trim() === parentDomain
+                    );
+                    
+                    if (masterZone) {
+                        masterId = parseInt(masterZone.id, 10);
+                        console.info('[setDomainForZone] Found master by parent_domain:', masterId);
+                    } else {
+                        console.warn('[setDomainForZone] No master found for parent_domain:', parentDomain);
+                    }
+                }
+                
+                // Get domain name for include
                 domainName = zone.parent_domain || '';
                 
-                // Fallback: if parent_domain is empty, call get_domain_for_zone endpoint
+                // Fallback: if no domainName, try get_domain_for_zone API
                 if (!domainName) {
                     try {
                         const fallbackRes = await apiCall('get_domain_for_zone', { zone_id: zoneId });
                         if (fallbackRes && fallbackRes.success && fallbackRes.data && fallbackRes.data.domain) {
                             domainName = fallbackRes.data.domain;
+                            console.info('[setDomainForZone] Got domain from API fallback:', domainName);
                         }
                     } catch (fallbackError) {
-                        console.warn('Fallback get_domain_for_zone failed:', fallbackError);
+                        console.warn('[setDomainForZone] Fallback get_domain_for_zone failed:', fallbackError);
                     }
                 }
             }
-
-            const domainInput = document.getElementById('dns-domain-input'); if (domainInput) domainInput.value = domainName;
-            const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); if (zoneHidden) zoneHidden.value = zone.id || '';
-            const legacyDomainId = document.getElementById('dns-domain-id'); if (legacyDomainId) legacyDomainId.value = zone.id || '';
-
+            
+            // Step 5: Update UI fields
+            const domainInput = document.getElementById('dns-domain-input'); 
+            if (domainInput) domainInput.value = domainName;
+            
+            const zoneHidden = document.getElementById('dns-zone-file-id') || document.getElementById('dns-zone-id'); 
+            if (zoneHidden) zoneHidden.value = zone.id || '';
+            
+            const legacyDomainId = document.getElementById('dns-domain-id'); 
+            if (legacyDomainId) legacyDomainId.value = zone.id || '';
+            
+            // Update global variables
+            selectedDomainId = masterId || zone.id;
+            selectedZoneId = zone.id;
+            
             // Update #dns-zone-input text display
             const zoneInput = document.getElementById('dns-zone-input');
             if (zoneInput) {
                 zoneInput.value = `${zone.name} (${zone.file_type})`;
             }
-
+            
             // Update #record-zone-file select - populate and select the zone
             const recordZoneFile = document.getElementById('record-zone-file');
             if (recordZoneFile) {
@@ -1092,34 +1219,110 @@
                 
                 recordZoneFile.value = zone.id;
             }
-
-            // ALWAYS call populateZoneComboboxForDomain even if domainName is empty
-            // This ensures CURRENT_ZONE_LIST is populated so the zone select shows the zone
-            if (typeof populateZoneComboboxForDomain === 'function') {
-                try { 
-                    await populateZoneComboboxForDomain(zone.id); 
-                } catch (e) {
-                    console.warn('populateZoneComboboxForDomain failed:', e);
-                    // Fallback: filter ALL_ZONES by domain if available
-                    if (Array.isArray(window.ALL_ZONES)) {
-                        if (domainName) {
-                            window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
-                        } else {
-                            // If no domain, at least include the current zone in the list
-                            window.CURRENT_ZONE_LIST = window.ALL_ZONES.filter(z => z.id === zone.id);
-                        }
+            
+            // Step 6: Try to populate zone combobox with correct master ID
+            let currentZoneListPopulated = false;
+            
+            if (typeof populateZoneComboboxForDomain === 'function' && masterId) {
+                try {
+                    console.info('[setDomainForZone] Calling populateZoneComboboxForDomain with masterId:', masterId);
+                    await populateZoneComboboxForDomain(masterId);
+                    
+                    // Check if CURRENT_ZONE_LIST was populated
+                    const currentList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST;
+                    if (Array.isArray(currentList) && currentList.length > 0) {
+                        currentZoneListPopulated = true;
+                        console.debug('[setDomainForZone] CURRENT_ZONE_LIST populated, length:', currentList.length);
+                    } else {
+                        console.warn('[setDomainForZone] populateZoneComboboxForDomain did not populate CURRENT_ZONE_LIST');
                     }
+                } catch (e) {
+                    console.warn('[setDomainForZone] populateZoneComboboxForDomain failed:', e);
                 }
             }
             
-            // Enable DNS zone combobox after population
+            // Step 7: Fallback 1 - Try list_zone_files by domain name
+            if (!currentZoneListPopulated && domainName) {
+                console.info('[setDomainForZone] Fallback: trying list_zone_files by domain:', domainName);
+                try {
+                    const result = await zoneApiCall('list_zone_files', { domain: domainName });
+                    const zones = result.data || [];
+                    
+                    if (Array.isArray(zones) && zones.length > 0) {
+                        // Use makeOrderedZoneList if available for consistent ordering
+                        if (typeof window.makeOrderedZoneList === 'function') {
+                            window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(zones, masterId);
+                            CURRENT_ZONE_LIST = window.CURRENT_ZONE_LIST;
+                        } else {
+                            window.CURRENT_ZONE_LIST = zones;
+                            CURRENT_ZONE_LIST = zones;
+                        }
+                        currentZoneListPopulated = true;
+                        console.info('[setDomainForZone] Fallback successful, populated', zones.length, 'zones');
+                    }
+                } catch (e) {
+                    console.warn('[setDomainForZone] Fallback list_zone_files by domain failed:', e);
+                }
+            }
+            
+            // Step 8: Fallback 2 - Try list_zone_files by domain_id (some installations accept this)
+            if (!currentZoneListPopulated && masterId) {
+                console.info('[setDomainForZone] Fallback 2: trying list_zone_files by domain_id:', masterId);
+                try {
+                    const result = await zoneApiCall('list_zone_files', { domain_id: masterId });
+                    const zones = result.data || [];
+                    
+                    if (Array.isArray(zones) && zones.length > 0) {
+                        // Use makeOrderedZoneList if available for consistent ordering
+                        if (typeof window.makeOrderedZoneList === 'function') {
+                            window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(zones, masterId);
+                            CURRENT_ZONE_LIST = window.CURRENT_ZONE_LIST;
+                        } else {
+                            window.CURRENT_ZONE_LIST = zones;
+                            CURRENT_ZONE_LIST = zones;
+                        }
+                        currentZoneListPopulated = true;
+                        console.info('[setDomainForZone] Fallback 2 successful, populated', zones.length, 'zones');
+                    }
+                } catch (e) {
+                    console.warn('[setDomainForZone] Fallback 2 list_zone_files by domain_id failed:', e);
+                }
+            }
+            
+            // Step 9: Ensure current zone is in CURRENT_ZONE_LIST
+            const currentList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST;
+            if (Array.isArray(currentList)) {
+                const zoneExists = currentList.some(z => parseInt(z.id, 10) === parseInt(zone.id, 10));
+                if (!zoneExists) {
+                    console.info('[setDomainForZone] Adding current zone to CURRENT_ZONE_LIST');
+                    currentList.push(zone);
+                    window.CURRENT_ZONE_LIST = currentList;
+                    CURRENT_ZONE_LIST = currentList;
+                }
+            }
+            
+            // Step 10: Show DNS zone input and enable combobox
+            const dnsZoneInputEl = document.getElementById('dns-zone-input');
+            if (dnsZoneInputEl) {
+                dnsZoneInputEl.style.display = '';
+            }
+            
             if (typeof setDnsZoneComboboxEnabled === 'function') {
                 setDnsZoneComboboxEnabled(true);
             }
-
-            if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
+            
+            if (typeof updateCreateBtnState === 'function') {
+                updateCreateBtnState();
+            }
+            
+            console.info('[setDomainForZone] Completed successfully');
         } catch (e) {
-            console.error('setDomainForZone error', e);
+            console.error('[setDomainForZone] Critical error:', e);
+            
+            // Try to disable combobox on error
+            if (typeof setDnsZoneComboboxEnabled === 'function') {
+                setDnsZoneComboboxEnabled(false);
+            }
         }
     }
 
