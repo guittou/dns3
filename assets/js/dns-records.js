@@ -1189,6 +1189,22 @@
                 }
             }
             
+            // NEW: If masterId is still falsy after all attempts, try getMasterIdFromZoneId API
+            if (!masterId && typeof window.getMasterIdFromZoneId === 'function') {
+                console.info('[setDomainForZone] masterId is falsy, attempting getMasterIdFromZoneId API call');
+                try {
+                    const resolvedMasterId = await window.getMasterIdFromZoneId(zone.id);
+                    if (resolvedMasterId && parseInt(resolvedMasterId, 10) > 0) {
+                        masterId = parseInt(resolvedMasterId, 10);
+                        console.info('[setDomainForZone] getMasterIdFromZoneId resolved masterId:', masterId);
+                    } else {
+                        console.warn('[setDomainForZone] getMasterIdFromZoneId did not resolve a valid masterId');
+                    }
+                } catch (apiError) {
+                    console.warn('[setDomainForZone] getMasterIdFromZoneId API call failed:', apiError);
+                }
+            }
+            
             // Step 5: Update UI fields
             const domainInput = document.getElementById('dns-domain-input'); 
             if (domainInput) domainInput.value = domainName;
@@ -1280,6 +1296,17 @@
                             window.CURRENT_ZONE_LIST = zones;
                             CURRENT_ZONE_LIST = zones;
                         }
+                        
+                        // Sync combobox instance after updating CURRENT_ZONE_LIST
+                        if (typeof window.syncZoneFileComboboxInstance === 'function') {
+                            try {
+                                window.syncZoneFileComboboxInstance();
+                                console.debug('[setDomainForZone] Fallback 1: synced combobox instance');
+                            } catch (syncError) {
+                                console.warn('[setDomainForZone] Fallback 1: syncZoneFileComboboxInstance failed:', syncError);
+                            }
+                        }
+                        
                         currentZoneListPopulated = true;
                         console.info('[setDomainForZone] Fallback 1 successful, populated', zones.length, 'zones');
                     }
@@ -1315,6 +1342,17 @@
                             window.CURRENT_ZONE_LIST = zones;
                             CURRENT_ZONE_LIST = zones;
                         }
+                        
+                        // Sync combobox instance after updating CURRENT_ZONE_LIST
+                        if (typeof window.syncZoneFileComboboxInstance === 'function') {
+                            try {
+                                window.syncZoneFileComboboxInstance();
+                                console.debug('[setDomainForZone] Fallback 2: synced combobox instance');
+                            } catch (syncError) {
+                                console.warn('[setDomainForZone] Fallback 2: syncZoneFileComboboxInstance failed:', syncError);
+                            }
+                        }
+                        
                         currentZoneListPopulated = true;
                         console.info('[setDomainForZone] Fallback 2 successful, populated', zones.length, 'zones');
                     }
