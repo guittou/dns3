@@ -1166,7 +1166,7 @@ async function initZonesWhenReady() {
             console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with fallback');
         }
         
-        // Détection améliorée de la page Zones (fallback URL/DOM si shouldInitZonesPage donne false)
+        // Enhanced Zones page detection (fallback URL/DOM if shouldInitZonesPage returns false)
         let shouldInit = true;
         if (typeof shouldInitZonesPage === 'function') {
             try {
@@ -1178,8 +1178,11 @@ async function initZonesWhenReady() {
         }
         
         if (!shouldInit) {
-            // Fallback heuristics: URL contains zone-files OR DOM markers present
-            const urlLooksLikeZones = /zone-files(?:\.php)?/i.test(window.location.pathname + window.location.search + window.location.hash);
+            // Fallback heuristics: URL pathname contains zone-files OR DOM markers present
+            // Note: Using different DOM elements than shouldInitZonesPage because those may not
+            // be present at the time of check. These elements (zone-file-input, zones-table-body,
+            // searchInput) are guaranteed to exist in zone-files.php and are present early in DOM.
+            const urlLooksLikeZones = /zone-files(?:\.php)?/i.test(window.location.pathname);
             const domLooksLikeZones = !!document.getElementById('zone-file-input') || !!document.getElementById('zones-table-body') || !!document.getElementById('searchInput');
             if (urlLooksLikeZones || domLooksLikeZones) {
                 console.debug('[zone-files] shouldInitZonesPage returned false but URL/DOM indicate Zones page — forcing init');
