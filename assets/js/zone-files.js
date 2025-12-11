@@ -1182,7 +1182,7 @@ async function initZonesWhenReady() {
             // Note: Using different DOM elements than shouldInitZonesPage because those may not
             // be present at the time of check. These elements (zone-file-input and zones-table-body)
             // are guaranteed to exist in zone-files.php and are present early in DOM.
-            const urlLooksLikeZones = /\/zone-files(?:\.php)?(?:\/|$)/i.test(window.location.pathname);
+            const urlLooksLikeZones = /\/zone-files(?:\.php)?(?:[/?#]|$)/i.test(window.location.pathname);
             // Require multiple zone-specific elements to be present to reduce false positives
             const zoneFileInput = !!document.getElementById('zone-file-input');
             const zonesTableBody = !!document.getElementById('zones-table-body');
