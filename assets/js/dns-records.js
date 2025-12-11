@@ -734,11 +734,18 @@
      */
     async function waitForGlobal(name, timeout = 1200, interval = 50) {
         const startTime = Date.now();
+        let completed = false;
         
         return new Promise((resolve, reject) => {
             const checkInterval = setInterval(() => {
+                // Prevent race condition - ensure only one completion path
+                if (completed) {
+                    return;
+                }
+                
                 // Check if global variable exists
                 if (typeof window[name] !== 'undefined') {
+                    completed = true;
                     clearInterval(checkInterval);
                     resolve(window[name]);
                     return;
@@ -747,6 +754,7 @@
                 // Check if timeout expired
                 const elapsed = Date.now() - startTime;
                 if (elapsed >= timeout) {
+                    completed = true;
                     clearInterval(checkInterval);
                     reject(new Error(`Timeout waiting for global variable: ${name}`));
                 }
@@ -783,7 +791,7 @@
             // This prevents race conditions when scripts load asynchronously
             try {
                 console.debug('[DNS initZoneCombobox] Waiting for initServerSearchCombobox helper...');
-                await waitForGlobal('initServerSearchCombobox', 1200);
+                await waitForGlobal('initServerSearchCombobox');
                 console.log('[DNS initZoneCombobox] initServerSearchCombobox found after wait, using unified helper');
                 
                 window.initServerSearchCombobox({
@@ -803,9 +811,9 @@
                 
                 console.debug('[DNS initZoneCombobox] Initialized using unified helper');
                 return;
-            } catch (waitError) {
+            } catch (err) {
                 // Timeout expired - initServerSearchCombobox not available
-                console.warn('[DNS initZoneCombobox] initServerSearchCombobox not found after wait, using fallback implementation');
+                console.warn('[DNS initZoneCombobox] initServerSearchCombobox not found after wait, using fallback implementation', err.message);
             }
             
             // Fallback: if unified helper not available, use inline implementation (backward compatibility)
