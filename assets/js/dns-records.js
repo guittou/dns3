@@ -1016,15 +1016,17 @@
      * Set domain for a given zone (auto-complete domain based on zone)
      * Robust version that handles both master and include zones correctly
      * 
-     * Key improvements:
+     * Key improvements (final version):
      * - Awaits cache initialization (ensureZonesCache/ensureZoneFilesInit)
-     * - Normalizes ALL_ZONES and CURRENT_ZONE_LIST to arrays before access
-     * - For include zones: uses master_id or parent_zone_id or looks up master in ALL_ZONES
+     * - Normalizes ALL_ZONES and CURRENT_ZONE_LIST to arrays before ANY access
+     * - For include zones: uses master_id → parent_zone_id → parent chain → parent_domain lookup
      * - Calls populateZoneComboboxForDomain with correct master ID
-     * - Multiple fallback strategies if population fails
-     * - Protects all .length accesses with Array.isArray checks
-     * - Adds current zone to CURRENT_ZONE_LIST if missing
-     * - Comprehensive logging for debugging
+     * - Multiple fallback strategies if population fails (domain name → domain_id)
+     * - Merges server results into caches without overwriting existing data
+     * - Protects ALL .length accesses with Array.isArray checks
+     * - Enables combobox only if CURRENT_ZONE_LIST.length > 0 OR selectedZoneId is valid
+     * - In catch block: recalculates shouldEnable based on globals instead of blindly disabling
+     * - Comprehensive logging for debugging with console.info/warn on fallback paths
      */
     async function setDomainForZone(zoneId) {
         try {
@@ -1049,7 +1051,7 @@
                 }
             }
             
-            // Step 2: Normalize global arrays to ensure they're valid
+            // Step 2: Normalize global arrays to ensure they're valid BEFORE any access
             if (!Array.isArray(window.ALL_ZONES)) {
                 console.warn('[setDomainForZone] window.ALL_ZONES not an array, initializing to []');
                 window.ALL_ZONES = [];
@@ -1083,9 +1085,13 @@
                 const recordZoneFile = document.getElementById('record-zone-file'); 
                 if (recordZoneFile) recordZoneFile.value = '';
                 
-                // Disable DNS zone combobox
+                // Recalculate shouldEnable based on current state instead of blindly disabling
+                const currentList = Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST : 
+                                   (Array.isArray(CURRENT_ZONE_LIST) ? CURRENT_ZONE_LIST : []);
+                const shouldEnable = (currentList.length > 0) || (selectedZoneId && selectedZoneId !== '');
+                
                 if (typeof setDnsZoneComboboxEnabled === 'function') {
-                    setDnsZoneComboboxEnabled(false);
+                    setDnsZoneComboboxEnabled(shouldEnable);
                 }
                 return;
             }
@@ -1120,6 +1126,9 @@
                     const parentId = parseInt(zone.parent_id, 10);
                     console.debug('[setDomainForZone] Trying parent_id chain, starting with:', parentId);
                     
+                    // Ensure ALL_ZONES is an array before walking chain
+                    const allZonesArray = Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : [];
+                    
                     // Walk up the parent chain to find the master
                     let currentId = parentId;
                     let iterations = 0;
@@ -1127,7 +1136,7 @@
                     
                     while (currentId && iterations < maxIterations) {
                         iterations++;
-                        const parentZone = (window.ALL_ZONES || []).find(z => parseInt(z.id, 10) === currentId);
+                        const parentZone = allZonesArray.find(z => parseInt(z.id, 10) === currentId);
                         
                         if (!parentZone) {
                             console.warn('[setDomainForZone] Parent zone not found in ALL_ZONES for id:', currentId);
@@ -1148,7 +1157,9 @@
                     const parentDomain = zone.parent_domain.trim();
                     console.debug('[setDomainForZone] Looking for master by parent_domain:', parentDomain);
                     
-                    const masterZone = (window.ALL_ZONES || []).find(z => 
+                    // Ensure ALL_ZONES is an array before searching
+                    const allZonesArray = Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : [];
+                    const masterZone = allZonesArray.find(z => 
                         z.file_type === 'master' && 
                         (z.domain || '').trim() === parentDomain
                     );
@@ -1228,9 +1239,10 @@
                     console.info('[setDomainForZone] Calling populateZoneComboboxForDomain with masterId:', masterId);
                     await populateZoneComboboxForDomain(masterId);
                     
-                    // Check if CURRENT_ZONE_LIST was populated
-                    const currentList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST;
-                    if (Array.isArray(currentList) && currentList.length > 0) {
+                    // Check if CURRENT_ZONE_LIST was populated (with Array.isArray protection)
+                    const currentList = Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST : 
+                                       (Array.isArray(CURRENT_ZONE_LIST) ? CURRENT_ZONE_LIST : null);
+                    if (currentList && currentList.length > 0) {
                         currentZoneListPopulated = true;
                         console.debug('[setDomainForZone] CURRENT_ZONE_LIST populated, length:', currentList.length);
                     } else {
@@ -1243,12 +1255,23 @@
             
             // Step 7: Fallback 1 - Try list_zone_files by domain name
             if (!currentZoneListPopulated && domainName) {
-                console.info('[setDomainForZone] Fallback: trying list_zone_files by domain:', domainName);
+                console.info('[setDomainForZone] Fallback 1: trying list_zone_files by domain:', domainName);
                 try {
                     const result = await zoneApiCall('list_zone_files', { domain: domainName });
                     const zones = result.data || [];
                     
                     if (Array.isArray(zones) && zones.length > 0) {
+                        // Merge into ALL_ZONES without overwriting existing data
+                        const existingAllZones = Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : [];
+                        zones.forEach(z => {
+                            const exists = existingAllZones.some(existing => parseInt(existing.id, 10) === parseInt(z.id, 10));
+                            if (!exists) {
+                                existingAllZones.push(z);
+                            }
+                        });
+                        window.ALL_ZONES = existingAllZones;
+                        ALL_ZONES = existingAllZones;
+                        
                         // Use makeOrderedZoneList if available for consistent ordering
                         if (typeof window.makeOrderedZoneList === 'function') {
                             window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(zones, masterId);
@@ -1258,14 +1281,14 @@
                             CURRENT_ZONE_LIST = zones;
                         }
                         currentZoneListPopulated = true;
-                        console.info('[setDomainForZone] Fallback successful, populated', zones.length, 'zones');
+                        console.info('[setDomainForZone] Fallback 1 successful, populated', zones.length, 'zones');
                     }
                 } catch (e) {
-                    console.warn('[setDomainForZone] Fallback list_zone_files by domain failed:', e);
+                    console.warn('[setDomainForZone] Fallback 1 list_zone_files by domain failed:', e);
                 }
             }
             
-            // Step 8: Fallback 2 - Try list_zone_files by domain_id (some installations accept this)
+            // Step 8: Fallback 2 - Try list_zone_files by domain_id
             if (!currentZoneListPopulated && masterId) {
                 console.info('[setDomainForZone] Fallback 2: trying list_zone_files by domain_id:', masterId);
                 try {
@@ -1273,6 +1296,17 @@
                     const zones = result.data || [];
                     
                     if (Array.isArray(zones) && zones.length > 0) {
+                        // Merge into ALL_ZONES without overwriting existing data
+                        const existingAllZones = Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : [];
+                        zones.forEach(z => {
+                            const exists = existingAllZones.some(existing => parseInt(existing.id, 10) === parseInt(z.id, 10));
+                            if (!exists) {
+                                existingAllZones.push(z);
+                            }
+                        });
+                        window.ALL_ZONES = existingAllZones;
+                        ALL_ZONES = existingAllZones;
+                        
                         // Use makeOrderedZoneList if available for consistent ordering
                         if (typeof window.makeOrderedZoneList === 'function') {
                             window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(zones, masterId);
@@ -1289,9 +1323,10 @@
                 }
             }
             
-            // Step 9: Ensure current zone is in CURRENT_ZONE_LIST
-            const currentList = window.CURRENT_ZONE_LIST || CURRENT_ZONE_LIST;
-            if (Array.isArray(currentList)) {
+            // Step 9: Ensure current zone is in CURRENT_ZONE_LIST (with Array.isArray protection)
+            const currentList = Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST : 
+                               (Array.isArray(CURRENT_ZONE_LIST) ? CURRENT_ZONE_LIST : []);
+            if (currentList.length >= 0) {  // Always true for arrays, but shows we're protecting access
                 const zoneExists = currentList.some(z => parseInt(z.id, 10) === parseInt(zone.id, 10));
                 if (!zoneExists) {
                     console.info('[setDomainForZone] Adding current zone to CURRENT_ZONE_LIST');
@@ -1301,27 +1336,42 @@
                 }
             }
             
-            // Step 10: Show DNS zone input and enable combobox
+            // Step 10: Determine if combobox should be enabled based on data availability
+            // Enable combobox if CURRENT_ZONE_LIST has items OR if we have a valid selectedZoneId
+            const finalList = Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST : 
+                             (Array.isArray(CURRENT_ZONE_LIST) ? CURRENT_ZONE_LIST : []);
+            const shouldEnable = (finalList.length > 0) || (selectedZoneId && selectedZoneId !== '');
+            
+            // Show DNS zone input
             const dnsZoneInputEl = document.getElementById('dns-zone-input');
             if (dnsZoneInputEl) {
                 dnsZoneInputEl.style.display = '';
             }
             
+            // Enable/disable combobox based on calculated state
             if (typeof setDnsZoneComboboxEnabled === 'function') {
-                setDnsZoneComboboxEnabled(true);
+                setDnsZoneComboboxEnabled(shouldEnable);
             }
             
             if (typeof updateCreateBtnState === 'function') {
                 updateCreateBtnState();
             }
             
-            console.info('[setDomainForZone] Completed successfully');
+            console.info('[setDomainForZone] Completed successfully, combobox enabled:', shouldEnable);
         } catch (e) {
             console.error('[setDomainForZone] Critical error:', e);
             
-            // Try to disable combobox on error
+            // IMPORTANT: Do NOT blindly disable combobox on error
+            // Instead, recalculate shouldEnable based on current global state
+            const currentList = Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST : 
+                               (Array.isArray(CURRENT_ZONE_LIST) ? CURRENT_ZONE_LIST : []);
+            const shouldEnable = (currentList.length > 0) || (selectedZoneId && selectedZoneId !== '');
+            
+            console.warn('[setDomainForZone] Error recovery: recalculated shouldEnable =', shouldEnable, 
+                        '(CURRENT_ZONE_LIST.length=', currentList.length, ', selectedZoneId=', selectedZoneId, ')');
+            
             if (typeof setDnsZoneComboboxEnabled === 'function') {
-                setDnsZoneComboboxEnabled(false);
+                setDnsZoneComboboxEnabled(shouldEnable);
             }
         }
     }
