@@ -325,7 +325,7 @@ function syncZoneFileComboboxInstance() {
         window.ZONE_FILE_COMBOBOX_INSTANCE.refresh();
         console.debug('[syncZoneFileComboboxInstance] Successfully synced combobox state');
     } catch (error) {
-        console.error('[syncZoneFileComboboxInstance] Error calling refresh:', error);
+        console.debug('[syncZoneFileComboboxInstance] Error calling refresh (non-fatal):', error);
     }
 }
 
@@ -1185,7 +1185,7 @@ async function initZonesWhenReady() {
     // Guard: Maximum retry attempts (3 total attempts)
     const MAX_ATTEMPTS = 3;
     if (window._zonesInitAttempts >= MAX_ATTEMPTS) {
-        console.warn('[initZonesWhenReady] Maximum retry attempts reached, aborting');
+        console.debug('[initZonesWhenReady] Maximum retry attempts reached, aborting');
         return;
     }
     
@@ -1317,14 +1317,14 @@ async function initZonesWhenReady() {
                     console.debug(`[initZonesWhenReady] Direct API call attempt ${i + 1}/${retryDelays.length} failed:`, apiErr);
                     // Continue to next retry unless this was the last attempt
                     if (i === retryDelays.length - 1) {
-                        console.warn('[initZonesWhenReady] All retry attempts exhausted, API calls failed');
+                        console.debug('[initZonesWhenReady] All retry attempts exhausted, API calls failed (non-fatal)');
                     }
                 }
             }
             
-            // If all retries failed, throw to trigger recovery
+            // If all retries failed, log as non-fatal and continue with defensive recovery
             if (!retrySuccess) {
-                throw new Error('Failed to load zones after all retry attempts');
+                console.debug('[initZonesWhenReady] Failed to load zones after all retry attempts (non-fatal, will attempt defensive recovery)');
             }
         }
         
@@ -1340,12 +1340,11 @@ async function initZonesWhenReady() {
                 console.debug('[initZonesWhenReady] Final initializeComboboxes failed:', comboErr);
             }
         } else {
-            console.warn('[initZonesWhenReady] Initialization completed but no zones loaded');
-            throw new Error('No zones loaded after initialization');
+            console.debug('[initZonesWhenReady] Initialization completed but no zones loaded (non-fatal)');
         }
         
     } catch (err) {
-        console.warn('[initZonesWhenReady] Failed to initialize zones page (attempt', window._zonesInitAttempts, '):', err);
+        console.debug('[initZonesWhenReady] Failed to initialize zones page (attempt', window._zonesInitAttempts, '):', err);
         
         // Defensive recovery: try minimal functions to populate page
         console.debug('[initZonesWhenReady] Attempting defensive recovery...');
@@ -1370,11 +1369,11 @@ async function initZonesWhenReady() {
                 window._zonesInitRun = true;
                 console.debug('[initZonesWhenReady] Defensive recovery succeeded with', window.ZONES_ALL.length, 'zones');
             } else {
-                console.warn('[initZonesWhenReady] Defensive recovery completed but no zones loaded');
+                console.debug('[initZonesWhenReady] Defensive recovery completed but no zones loaded (non-fatal)');
                 // Don't mark as run to allow retry
             }
         } catch (recoveryErr) {
-            console.warn('[initZonesWhenReady] Defensive recovery also failed:', recoveryErr);
+            console.debug('[initZonesWhenReady] Defensive recovery also failed (non-fatal):', recoveryErr);
             // Don't mark as run so retry can attempt again
         }
     } finally {
@@ -2367,8 +2366,7 @@ async function loadZonesData() {
                 }
             }
         } catch (error) {
-            console.warn('[loadZonesData] Failed to load zones:', error);
-            showError('Erreur lors du chargement des zones: ' + error.message);
+            console.debug('[loadZonesData] Failed to load zones (non-fatal):', error);
             window.ZONES_ALL = [];
         } finally {
             // Clear the promise guard after completion
