@@ -1166,9 +1166,31 @@ async function initZonesWhenReady() {
             console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with fallback');
         }
         
-        // Check if we should initialize zones page
-        if (!shouldInitZonesPage()) {
-            console.debug('[initZonesWhenReady] Not on zones page, skipping initialization');
+        // Détection améliorée de la page Zones (fallback URL/DOM si shouldInitZonesPage donne false)
+        let shouldInit = true;
+        if (typeof shouldInitZonesPage === 'function') {
+            try {
+                shouldInit = !!shouldInitZonesPage();
+            } catch (e) {
+                console.debug('[zone-files] shouldInitZonesPage threw:', e);
+                shouldInit = false;
+            }
+        }
+        
+        if (!shouldInit) {
+            // Fallback heuristics: URL contains zone-files OR DOM markers present
+            const urlLooksLikeZones = /zone-files(?:\.php)?/i.test(window.location.pathname + window.location.search + window.location.hash);
+            const domLooksLikeZones = !!document.getElementById('zone-file-input') || !!document.getElementById('zones-table-body') || !!document.getElementById('searchInput');
+            if (urlLooksLikeZones || domLooksLikeZones) {
+                console.debug('[zone-files] shouldInitZonesPage returned false but URL/DOM indicate Zones page — forcing init');
+                shouldInit = true;
+            } else {
+                console.debug('[zone-files] shouldInitZonesPage false and URL/DOM do not indicate Zones page — skipping init');
+            }
+        }
+        
+        if (!shouldInit) {
+            // preserve prior behavior
             // Always call setupNameFilenameAutofill as it may be needed for other functionality
             callSetupAutofill();
             // Don't mark as run - this allows function to be called again if page context changes
