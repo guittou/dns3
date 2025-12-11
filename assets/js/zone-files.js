@@ -2107,7 +2107,9 @@ async function loadZonesData() {
             window.ZONES_ALL = response.data || [];
             totalCount = window.ZONES_ALL.length;
             // Re-render table after successful data load to ensure UI updates
-            // Use flag to prevent recursion when called from renderZonesTable
+            // Use flag to prevent recursion: when renderZonesTable calls loadZonesData
+            // (because data is empty), we don't want that loadZonesData to call
+            // renderZonesTable again, which would create an infinite loop.
             if (typeof renderZonesTable === 'function' && !window.__LOADING_ZONES_DATA) {
                 try {
                     window.__LOADING_ZONES_DATA = true;
