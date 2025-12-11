@@ -723,6 +723,13 @@
     window.serverSearchZones = serverSearchZones;
     window.initServerSearchCombobox = initServerSearchCombobox;
     
-    console.debug('[zone-combobox-shared.js] Shared helpers loaded');
+    console.debug('[zone-combobox-shared.js] Shared helpers loaded and exported:', {
+        zoneApiCallShared: typeof window.zoneApiCallShared,
+        initZoneComboboxShared: typeof window.initZoneComboboxShared,
+        setZoneComboboxEnabledShared: typeof window.setZoneComboboxEnabledShared,
+        isZoneInMasterTree: typeof window.isZoneInMasterTree,
+        serverSearchZones: typeof window.serverSearchZones,
+        initServerSearchCombobox: typeof window.initServerSearchCombobox
+    });
 
 })(window);
