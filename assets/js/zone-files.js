@@ -1178,12 +1178,15 @@ async function initZonesWhenReady() {
         }
         
         if (!shouldInit) {
-            // Fallback heuristics: URL pathname contains zone-files OR DOM markers present
+            // Fallback heuristics: URL pathname matches zone-files page OR multiple zone-specific DOM markers present
             // Note: Using different DOM elements than shouldInitZonesPage because those may not
             // be present at the time of check. These elements (zone-file-input, zones-table-body,
             // searchInput) are guaranteed to exist in zone-files.php and are present early in DOM.
-            const urlLooksLikeZones = /zone-files(?:\.php)?/i.test(window.location.pathname);
-            const domLooksLikeZones = !!document.getElementById('zone-file-input') || !!document.getElementById('zones-table-body') || !!document.getElementById('searchInput');
+            const urlLooksLikeZones = /\/zone-files(?:\.php)?(?:\/|$)/i.test(window.location.pathname);
+            // Require multiple zone-specific elements to be present to reduce false positives
+            const zoneFileInput = !!document.getElementById('zone-file-input');
+            const zonesTableBody = !!document.getElementById('zones-table-body');
+            const domLooksLikeZones = zoneFileInput && zonesTableBody;
             if (urlLooksLikeZones || domLooksLikeZones) {
                 console.debug('[zone-files] shouldInitZonesPage returned false but URL/DOM indicate Zones page — forcing init');
                 shouldInit = true;
