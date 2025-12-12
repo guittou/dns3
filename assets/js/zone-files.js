@@ -273,12 +273,18 @@ function getDefaultDomainId() {
 }
 
 // Flag to track if UI components have been initialized (for idempotency)
+// This flag is set once during page lifecycle and prevents redundant initialization
+// from multiple code paths (fallback timers, recovery, etc.)
+// After initial setup, individual functions (populateZoneDomainSelect, etc.) can still be called directly
 let _uiComponentsInitialized = false;
 
 /**
  * Defensive combobox initialization to ensure UI components are populated
  * Calls initialization functions with error handling to prevent cascading failures
  * This is idempotent and safe to call multiple times - uses a flag to prevent redundant work
+ * 
+ * Note: This is for initial page setup. After initialization, individual functions like
+ * populateZoneDomainSelect() can still be called directly for updates (e.g., after saving).
  */
 async function initializeComboboxes() {
     // Early exit if already initialized in this page lifecycle
