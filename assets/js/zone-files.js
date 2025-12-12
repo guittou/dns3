@@ -2678,8 +2678,8 @@ async function openZoneModal(zoneId) {
             if (parentGroup) parentGroup.style.display = 'none';
         }
         
-        // Load includes list
-        loadIncludesList(res.includes || []);
+        // Load includes list - DISABLED: Includes tab removed from UI
+        // loadIncludesList(res.includes || []);
         
         // Load ACL entries if user can manage ACL
         if (window.CAN_MANAGE_ACL && typeof loadAclForZone === 'function') {
@@ -2736,6 +2736,12 @@ function closeZoneModal() {
  * Switch between tabs
  */
 function switchTab(tabName) {
+    // Skip if trying to switch to removed includes tab
+    if (tabName === 'includes') {
+        console.warn('[switchTab] Includes tab has been removed, ignoring switch request');
+        return;
+    }
+    
     currentTab = tabName;
     
     // Update tab buttons - more robust using data-zone-tab attribute
