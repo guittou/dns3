@@ -2678,9 +2678,6 @@ async function openZoneModal(zoneId) {
             if (parentGroup) parentGroup.style.display = 'none';
         }
         
-        // Load includes list - DISABLED: Includes tab removed from UI
-        // loadIncludesList(res.includes || []);
-        
         // Load ACL entries if user can manage ACL
         if (window.CAN_MANAGE_ACL && typeof loadAclForZone === 'function') {
             await loadAclForZone(zoneId);
