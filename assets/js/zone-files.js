@@ -589,9 +589,10 @@ async function fetchZonesForMaster(masterId) {
     }
     
     // Check if there's already an in-flight request for this master_id
-    if (_fetchZonesForMasterCache.has(masterIdNum)) {
+    const cachedPromise = _fetchZonesForMasterCache.get(masterIdNum);
+    if (cachedPromise) {
         console.debug('[fetchZonesForMaster] Request already in flight for master', masterIdNum, '- returning existing promise');
-        return _fetchZonesForMasterCache.get(masterIdNum);
+        return cachedPromise;
     }
     
     // Create and store the request promise
