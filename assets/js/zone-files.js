@@ -6,6 +6,9 @@
 // Global in-flight promise guard to prevent duplicate loadZonesData calls
 window._loadZonesDataPromise = null;
 
+// Global in-flight promise guard to prevent duplicate initZonesWhenReady calls
+window._initZonesWhenReadyPromise = null;
+
 /**
  * Wait for a global variable to be defined (async polling)
  * Used to wait for shared helpers that may load asynchronously
@@ -1163,6 +1166,7 @@ async function initZonesPage() {
  * Falls back gracefully if helper is not found within timeout period.
  * 
  * This function is idempotent and can be called multiple times safely.
+ * Uses a shared promise to deduplicate concurrent initialization calls.
  */
 async function initZonesWhenReady() {
     // Initialize attempt tracking flags if not present
@@ -1176,10 +1180,10 @@ async function initZonesWhenReady() {
         return;
     }
     
-    // Prevent concurrent initialization attempts
-    if (window._zonesInitStarted) {
-        console.debug('[initZonesWhenReady] Initialization already in progress, skipping');
-        return;
+    // Deduplication guard: return existing promise if initialization is in progress
+    if (window._initZonesWhenReadyPromise) {
+        console.debug('[initZonesWhenReady] Initialization already in progress, returning existing promise');
+        return window._initZonesWhenReadyPromise;
     }
     
     // Guard: Maximum retry attempts (3 total attempts)
@@ -1189,200 +1193,165 @@ async function initZonesWhenReady() {
         return;
     }
     
-    // Mark as started and increment attempt counter
-    window._zonesInitStarted = true;
-    window._zonesInitAttempts++;
-    console.debug(`[initZonesWhenReady] Starting initialization attempt ${window._zonesInitAttempts}/${MAX_ATTEMPTS}`);
-    
-    // Helper to safely call setupNameFilenameAutofill
-    const callSetupAutofill = () => {
+    // Create and store the initialization promise
+    window._initZonesWhenReadyPromise = (async () => {
+        // Increment attempt counter
+        window._zonesInitAttempts++;
+        console.debug(`[initZonesWhenReady] Starting initialization attempt ${window._zonesInitAttempts}/${MAX_ATTEMPTS}`);
+        
+        // Helper to safely call setupNameFilenameAutofill
+        const callSetupAutofill = () => {
+            try {
+                setupNameFilenameAutofill();
+            } catch (err) {
+                console.debug('[initZonesWhenReady] setupNameFilenameAutofill not available or failed:', err);
+            }
+        };
+        
         try {
-            setupNameFilenameAutofill();
-        } catch (err) {
-            console.debug('[initZonesWhenReady] setupNameFilenameAutofill not available or failed:', err);
-        }
-    };
-    
-    try {
-        // Wait for shared helper to be available (with timeout)
-        try {
-            await waitForGlobal('initServerSearchCombobox', 1200, 80);
-            console.debug('[initZonesWhenReady] initServerSearchCombobox found — continuing init');
-        } catch (err) {
-            console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with fallback');
-        }
-        
-        // Enhanced Zones page detection (fallback URL/DOM if shouldInitZonesPage returns false)
-        let shouldInit = true;
-        if (typeof shouldInitZonesPage === 'function') {
+            // Wait for shared helper to be available (with timeout)
             try {
-                shouldInit = !!shouldInitZonesPage();
-            } catch (e) {
-                console.debug('[initZonesWhenReady] shouldInitZonesPage threw:', e);
-                shouldInit = false;
+                await waitForGlobal('initServerSearchCombobox', 1200, 80);
+                console.debug('[initZonesWhenReady] initServerSearchCombobox found — continuing init');
+            } catch (err) {
+                console.debug('[initZonesWhenReady] initServerSearchCombobox not found after wait — continuing with fallback');
             }
-        }
-        
-        if (!shouldInit) {
-            // Fallback heuristics: URL pathname matches zone-files page OR multiple zone-specific DOM markers present
-            // Note: Using different DOM elements than shouldInitZonesPage because those may not
-            // be present at the time of check. These elements (zone-file-input and zones-table-body)
-            // are guaranteed to exist in zone-files.php and are present early in DOM.
-            const urlLooksLikeZones = /\/zone-files(?:\.php)?(?:$|[/?#])/i.test(window.location.pathname);
-            // Require multiple zone-specific elements to be present to reduce false positives
-            const zoneFileInput = !!document.getElementById('zone-file-input');
-            const zonesTableBody = !!document.getElementById('zones-table-body');
-            const domLooksLikeZones = zoneFileInput && zonesTableBody;
-            if (urlLooksLikeZones || domLooksLikeZones) {
-                console.debug('[initZonesWhenReady] shouldInitZonesPage returned false but URL/DOM indicate Zones page — forcing init');
-                shouldInit = true;
-            } else {
-                console.debug('[initZonesWhenReady] shouldInitZonesPage false and URL/DOM do not indicate Zones page — skipping init');
-            }
-        }
-        
-        if (!shouldInit) {
-            // preserve prior behavior
-            // Always call setupNameFilenameAutofill as it may be needed for other functionality
-            callSetupAutofill();
-            // Don't mark as run - this allows function to be called again if page context changes
-            window._zonesInitStarted = false;
-            return;
-        }
-        
-        // Ensure cache is initialized before any operations
-        initZonesCache();
-        
-        // Initialize zones page
-        await initZonesPage();
-        
-        // Defensive rendering: ensure UI is updated after initialization
-        if (typeof renderZonesTable === 'function') {
-            try {
-                renderZonesTable();
-            } catch (renderErr) {
-                console.debug('[initZonesWhenReady] renderZonesTable failed after init:', renderErr);
-            }
-        }
-        
-        // Sync combobox state if available
-        if (typeof syncZoneFileComboboxInstance === 'function') {
-            try {
-                syncZoneFileComboboxInstance();
-            } catch (syncErr) {
-                console.debug('[initZonesWhenReady] syncZoneFileComboboxInstance failed:', syncErr);
-            }
-        }
-        
-        // Verify that data was actually loaded
-        if (!window.ZONES_ALL || window.ZONES_ALL.length === 0) {
-            console.debug('[initZonesWhenReady] ZONES_ALL is empty after init, attempting direct API call with retry');
             
-            // Retry with exponential backoff (3 attempts: immediate, 300ms, 1000ms)
-            const retryDelays = [0, 300, 1000];
-            let retrySuccess = false;
-            
-            for (let i = 0; i < retryDelays.length; i++) {
+            // Enhanced Zones page detection (fallback URL/DOM if shouldInitZonesPage returns false)
+            let shouldInit = true;
+            if (typeof shouldInitZonesPage === 'function') {
                 try {
-                    if (retryDelays[i] > 0) {
-                        console.debug(`[initZonesWhenReady] Retry attempt ${i + 1}/${retryDelays.length} after ${retryDelays[i]}ms`);
-                        await new Promise(resolve => setTimeout(resolve, retryDelays[i]));
-                    }
-                    
-                    const response = await zoneApiCall('list_zones', { params: { file_type: 'include', per_page: 1000 } });
-                    if (response.success && response.data && response.data.length > 0) {
-                        window.ZONES_ALL = response.data;
-                        console.debug('[initZonesWhenReady] Direct API call succeeded, loaded', response.data.length, 'zones');
-                        retrySuccess = true;
-                        
-                        // Re-render with new data
-                        try {
-                            if (typeof renderZonesTable === 'function') {
-                                renderZonesTable();
-                            }
-                        } catch (renderErr) {
-                            console.debug('[initZonesWhenReady] renderZonesTable failed after retry:', renderErr);
-                        }
-                        
-                        // Sync comboboxes after successful retry
-                        try {
-                            await initializeComboboxes();
-                        } catch (comboErr) {
-                            console.debug('[initZonesWhenReady] initializeComboboxes failed after retry:', comboErr);
-                        }
-                        
-                        break; // Success, exit retry loop
-                    }
-                } catch (apiErr) {
-                    console.debug(`[initZonesWhenReady] Direct API call attempt ${i + 1}/${retryDelays.length} failed:`, apiErr);
-                    // Continue to next retry unless this was the last attempt
-                    if (i === retryDelays.length - 1) {
-                        console.debug('[initZonesWhenReady] All retry attempts exhausted, API calls failed (non-fatal)');
-                    }
+                    shouldInit = !!shouldInitZonesPage();
+                } catch (e) {
+                    console.debug('[initZonesWhenReady] shouldInitZonesPage threw:', e);
+                    shouldInit = false;
                 }
             }
             
-            // If all retries failed, log as non-fatal and continue with defensive recovery
-            if (!retrySuccess) {
-                console.debug('[initZonesWhenReady] Failed to load zones after all retry attempts (non-fatal, will attempt defensive recovery)');
-            }
-        }
-        
-        // Mark successful initialization only if we have data and rendered
-        if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
-            window._zonesInitRun = true;
-            console.debug('[initZonesWhenReady] Zones page initialized successfully with', window.ZONES_ALL.length, 'zones');
-            
-            // Defensive combobox initialization to ensure UI components are populated
-            try {
-                await initializeComboboxes();
-            } catch (comboErr) {
-                console.debug('[initZonesWhenReady] Final initializeComboboxes failed:', comboErr);
-            }
-        } else {
-            console.debug('[initZonesWhenReady] Initialization completed but no zones loaded (non-fatal)');
-        }
-        
-    } catch (err) {
-        console.debug('[initZonesWhenReady] Failed to initialize zones page (attempt', window._zonesInitAttempts, '):', err);
-        
-        // Defensive recovery: try minimal functions to populate page
-        console.debug('[initZonesWhenReady] Attempting defensive recovery...');
-        try {
-            await ensureZonesCache();
-            
-            // If cache is still empty after ensureZonesCache, force loadZonesData
-            if (!window.ZONES_ALL || window.ZONES_ALL.length === 0) {
-                await loadZonesData();
+            if (!shouldInit) {
+                // Fallback heuristics: URL pathname matches zone-files page OR multiple zone-specific DOM markers present
+                const urlLooksLikeZones = /\/zone-files(?:\.php)?(?:$|[/?#])/i.test(window.location.pathname);
+                const zoneFileInput = !!document.getElementById('zone-file-input');
+                const zonesTableBody = !!document.getElementById('zones-table-body');
+                const domLooksLikeZones = zoneFileInput && zonesTableBody;
+                if (urlLooksLikeZones || domLooksLikeZones) {
+                    console.debug('[initZonesWhenReady] shouldInitZonesPage returned false but URL/DOM indicate Zones page — forcing init');
+                    shouldInit = true;
+                } else {
+                    console.debug('[initZonesWhenReady] shouldInitZonesPage false and URL/DOM do not indicate Zones page — skipping init');
+                }
             }
             
-            await populateZoneDomainSelect();
-            await initZoneFileCombobox();
+            if (!shouldInit) {
+                // preserve prior behavior
+                callSetupAutofill();
+                return;
+            }
             
-            // Defensive render
+            // Ensure cache is initialized before any operations
+            initZonesCache();
+            
+            // Initialize zones page
+            await initZonesPage();
+            
+            // Defensive rendering: ensure UI is updated after initialization
             if (typeof renderZonesTable === 'function') {
-                renderZonesTable();
+                try {
+                    renderZonesTable();
+                } catch (renderErr) {
+                    console.debug('[initZonesWhenReady] renderZonesTable failed after init:', renderErr);
+                }
             }
             
-            // Check if recovery succeeded
+            // Sync combobox state if available
+            if (typeof syncZoneFileComboboxInstance === 'function') {
+                try {
+                    syncZoneFileComboboxInstance();
+                } catch (syncErr) {
+                    console.debug('[initZonesWhenReady] syncZoneFileComboboxInstance failed:', syncErr);
+                }
+            }
+            
+            // Verify that data was actually loaded
+            if (!window.ZONES_ALL || window.ZONES_ALL.length === 0) {
+                console.debug('[initZonesWhenReady] ZONES_ALL is empty after init, will use loadZonesData for recovery');
+                
+                // Use loadZonesData which already has deduplication
+                await loadZonesData();
+                
+                // Re-render with new data
+                try {
+                    if (typeof renderZonesTable === 'function') {
+                        renderZonesTable();
+                    }
+                } catch (renderErr) {
+                    console.debug('[initZonesWhenReady] renderZonesTable failed after loadZonesData:', renderErr);
+                }
+                
+                // Sync comboboxes after successful recovery
+                try {
+                    await initializeComboboxes();
+                } catch (comboErr) {
+                    console.debug('[initZonesWhenReady] initializeComboboxes failed after recovery:', comboErr);
+                }
+            }
+            
+            // Mark successful initialization only if we have data and rendered
             if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
                 window._zonesInitRun = true;
-                console.debug('[initZonesWhenReady] Defensive recovery succeeded with', window.ZONES_ALL.length, 'zones');
+                console.debug('[initZonesWhenReady] Zones page initialized successfully with', window.ZONES_ALL.length, 'zones');
+                
+                // Defensive combobox initialization to ensure UI components are populated
+                try {
+                    await initializeComboboxes();
+                } catch (comboErr) {
+                    console.debug('[initZonesWhenReady] Final initializeComboboxes failed:', comboErr);
+                }
             } else {
-                console.debug('[initZonesWhenReady] Defensive recovery completed but no zones loaded (non-fatal)');
-                // Don't mark as run to allow retry
+                console.debug('[initZonesWhenReady] Initialization completed but no zones loaded (non-fatal)');
             }
-        } catch (recoveryErr) {
-            console.debug('[initZonesWhenReady] Defensive recovery also failed (non-fatal):', recoveryErr);
-            // Don't mark as run so retry can attempt again
+            
+        } catch (err) {
+            console.debug('[initZonesWhenReady] Failed to initialize zones page (attempt', window._zonesInitAttempts, '):', err);
+            
+            // Defensive recovery: try minimal functions to populate page
+            console.debug('[initZonesWhenReady] Attempting defensive recovery...');
+            try {
+                await ensureZonesCache();
+                
+                // If cache is still empty after ensureZonesCache, force loadZonesData
+                if (!window.ZONES_ALL || window.ZONES_ALL.length === 0) {
+                    await loadZonesData();
+                }
+                
+                await populateZoneDomainSelect();
+                await initZoneFileCombobox();
+                
+                // Defensive render
+                if (typeof renderZonesTable === 'function') {
+                    renderZonesTable();
+                }
+                
+                // Check if recovery succeeded
+                if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
+                    window._zonesInitRun = true;
+                    console.debug('[initZonesWhenReady] Defensive recovery succeeded with', window.ZONES_ALL.length, 'zones');
+                } else {
+                    console.debug('[initZonesWhenReady] Defensive recovery completed but no zones loaded (non-fatal)');
+                }
+            } catch (recoveryErr) {
+                console.debug('[initZonesWhenReady] Defensive recovery also failed (non-fatal):', recoveryErr);
+            }
+        } finally {
+            // Always try to setup autofill (safe even if not on zones page)
+            callSetupAutofill();
+            
+            // Clear the promise guard after completion
+            window._initZonesWhenReadyPromise = null;
         }
-    } finally {
-        // Always try to setup autofill (safe even if not on zones page)
-        callSetupAutofill();
-        
-        // Reset started flag to allow future retries
-        window._zonesInitStarted = false;
-    }
+    })();
+    
+    return window._initZonesWhenReadyPromise;
 }
 
 /**

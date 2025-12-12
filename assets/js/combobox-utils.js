@@ -11,6 +11,9 @@
      */
     const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
 
+    // Global in-flight promise guard to prevent duplicate ensureZonesCache calls
+    let _ensureZonesCachePromise = null;
+
     /**
      * Populate a combobox list with items
      * Generic function used by both DNS and ZONES pages for consistent behavior
@@ -55,6 +58,7 @@
      * Ensure zones cache is populated
      * Checks window.ZONES_ALL first, falls back to window.ALL_ZONES, then fetches from API if needed
      * Populates both ZONES_ALL and ALL_ZONES for compatibility
+     * Deduplicates concurrent calls using a shared promise
      * 
      * @returns {Promise<Array>} - Array of zones
      */
@@ -69,36 +73,52 @@
                 return window.ZONES_ALL;
             }
             
-            // Fetch from API if not cached
-            let zones = [];
-            if (typeof window.zoneApiCall === 'function') {
-                const res = await window.zoneApiCall('list_zones', { params: { status: 'active', per_page: 1000 } });
-                zones = (res && res.data) ? res.data : [];
-            } else {
-                // Fallback to fetch if zoneApiCall not available
-                const apiBase = window.API_BASE || '/api/';
-                const url = new URL(apiBase + 'zone_api.php', window.location.origin);
-                url.searchParams.append('action', 'list_zones');
-                url.searchParams.append('status', 'active');
-                url.searchParams.append('per_page', '1000');
-                
-                const response = await fetch(url.toString(), {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' },
-                    credentials: 'same-origin'
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    zones = data.data || [];
-                }
+            // If a fetch is already in progress, return the existing promise
+            if (_ensureZonesCachePromise) {
+                console.debug('[ensureZonesCache] Fetch already in progress, returning existing promise');
+                return _ensureZonesCachePromise;
             }
             
-            // Populate both caches for compatibility
-            window.ZONES_ALL = zones;
-            window.ALL_ZONES = zones;
+            // Create and store the fetch promise
+            _ensureZonesCachePromise = (async () => {
+                try {
+                    // Fetch from API if not cached
+                    let zones = [];
+                    if (typeof window.zoneApiCall === 'function') {
+                        const res = await window.zoneApiCall('list_zones', { params: { status: 'active', per_page: 1000 } });
+                        zones = (res && res.data) ? res.data : [];
+                    } else {
+                        // Fallback to fetch if zoneApiCall not available
+                        const apiBase = window.API_BASE || '/api/';
+                        const url = new URL(apiBase + 'zone_api.php', window.location.origin);
+                        url.searchParams.append('action', 'list_zones');
+                        url.searchParams.append('status', 'active');
+                        url.searchParams.append('per_page', '1000');
+                        
+                        const response = await fetch(url.toString(), {
+                            method: 'GET',
+                            headers: { 'Accept': 'application/json' },
+                            credentials: 'same-origin'
+                        });
+                        
+                        const data = await response.json();
+                        if (data.success) {
+                            zones = data.data || [];
+                        }
+                    }
+                    
+                    // Populate both caches for compatibility
+                    window.ZONES_ALL = zones;
+                    window.ALL_ZONES = zones;
+                    
+                    return zones;
+                } finally {
+                    // Clear the promise guard after completion
+                    _ensureZonesCachePromise = null;
+                }
+            })();
             
-            return zones;
+            return _ensureZonesCachePromise;
         } catch (e) {
             console.warn('[ensureZonesCache] Failed to load zones:', e);
             // Initialize as empty array if not already set

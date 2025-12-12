@@ -12,6 +12,10 @@
 (function(window) {
     'use strict';
 
+    // Map to track in-flight list_zone_files requests by domain_id
+    // Key: domain_id, Value: Promise
+    const _zoneFileRequestsInFlight = new Map();
+
     /**
      * Sort zones alphabetically by name (or filename fallback), case-insensitive
      * @param {Array} zones - Array of zone objects to sort
@@ -271,6 +275,7 @@
     /**
      * Populate zone list for a specific domain (master zone)
      * Fetches zones from API and returns ordered list
+     * Deduplicates concurrent calls using a Map of in-flight requests by domain_id
      * 
      * @param {number} domainId - Master zone ID (domain)
      * @returns {Promise<Array>} - Ordered array of zones (master first, then includes sorted A-Z)
@@ -291,57 +296,74 @@
             return [];
         }
         
-        try {
-            let result;
-            
-            // Try zoneApiCall if available (preferred)
-            if (typeof window.zoneApiCall === 'function') {
-                try {
-                    // Note: zone-files.js zoneApiCall expects { params: {...} }
-                    // dns-records.js zoneApiCall expects params directly as second argument
-                    // Try both patterns for compatibility
-                    result = await window.zoneApiCall('list_zone_files', { params: { domain_id: domainIdNum } });
-                } catch (e) {
-                    console.warn('[populateZoneListForDomain] list_zone_files failed, trying fallback:', e);
-                    // Fallback to list_zones_by_domain API
+        // Check if there's already an in-flight request for this domain_id
+        if (_zoneFileRequestsInFlight.has(domainIdNum)) {
+            console.debug('[populateZoneListForDomain] Request already in flight for domain', domainIdNum, '- returning existing promise');
+            return _zoneFileRequestsInFlight.get(domainIdNum);
+        }
+        
+        // Create and store the request promise
+        const requestPromise = (async () => {
+            try {
+                let result;
+                
+                // Try zoneApiCall if available (preferred)
+                if (typeof window.zoneApiCall === 'function') {
+                    try {
+                        // Note: zone-files.js zoneApiCall expects { params: {...} }
+                        // dns-records.js zoneApiCall expects params directly as second argument
+                        // Try both patterns for compatibility
+                        result = await window.zoneApiCall('list_zone_files', { params: { domain_id: domainIdNum } });
+                    } catch (e) {
+                        console.warn('[populateZoneListForDomain] list_zone_files failed, trying fallback:', e);
+                        // Fallback to list_zones_by_domain API
+                        // Note: Different API versions use different parameter names (zone_id vs domain_id)
+                        // We try both for backward compatibility
+                        if (typeof window.apiCall === 'function') {
+                            try {
+                                result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
+                            } catch (e2) {
+                                result = await window.apiCall('list_zones_by_domain', { domain_id: domainIdNum });
+                            }
+                        } else {
+                            throw new Error('No API call function available');
+                        }
+                    }
+                } else if (typeof window.apiCall === 'function') {
+                    // Use apiCall as fallback when zoneApiCall not available
                     // Note: Different API versions use different parameter names (zone_id vs domain_id)
                     // We try both for backward compatibility
-                    if (typeof window.apiCall === 'function') {
-                        try {
-                            result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
-                        } catch (e2) {
-                            result = await window.apiCall('list_zones_by_domain', { domain_id: domainIdNum });
-                        }
-                    } else {
-                        throw new Error('No API call function available');
+                    try {
+                        result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
+                    } catch (e) {
+                        result = await window.apiCall('list_zones_by_domain', { domain_id: domainIdNum });
                     }
+                } else {
+                    throw new Error('No API call function available (zoneApiCall or apiCall)');
                 }
-            } else if (typeof window.apiCall === 'function') {
-                // Use apiCall as fallback when zoneApiCall not available
-                // Note: Different API versions use different parameter names (zone_id vs domain_id)
-                // We try both for backward compatibility
-                try {
-                    result = await window.apiCall('list_zones_by_domain', { zone_id: domainIdNum });
-                } catch (e) {
-                    result = await window.apiCall('list_zones_by_domain', { domain_id: domainIdNum });
-                }
-            } else {
-                throw new Error('No API call function available (zoneApiCall or apiCall)');
+                
+                const zones = result.data || [];
+                
+                // Use makeOrderedZoneList for consistent ordering
+                const orderedZones = makeOrderedZoneList(zones, domainIdNum);
+                
+                console.debug('[populateZoneListForDomain] Fetched and ordered', orderedZones.length, 'zones for domain', domainIdNum);
+                
+                return orderedZones;
+                
+            } catch (error) {
+                console.error('[populateZoneListForDomain] Failed to populate zones for domain:', domainIdNum, error);
+                return [];
+            } finally {
+                // Remove from in-flight map after completion
+                _zoneFileRequestsInFlight.delete(domainIdNum);
             }
-            
-            const zones = result.data || [];
-            
-            // Use makeOrderedZoneList for consistent ordering
-            const orderedZones = makeOrderedZoneList(zones, domainIdNum);
-            
-            console.debug('[populateZoneListForDomain] Fetched and ordered', orderedZones.length, 'zones for domain', domainIdNum);
-            
-            return orderedZones;
-            
-        } catch (error) {
-            console.error('[populateZoneListForDomain] Failed to populate zones for domain:', domainIdNum, error);
-            return [];
-        }
+        })();
+        
+        // Store the promise in the map
+        _zoneFileRequestsInFlight.set(domainIdNum, requestPromise);
+        
+        return requestPromise;
     }
 
     // Export functions to window for global access
