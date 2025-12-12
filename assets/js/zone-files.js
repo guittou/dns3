@@ -9,6 +9,10 @@ window._loadZonesDataPromise = null;
 // Global in-flight promise guard to prevent duplicate initZonesWhenReady calls
 window._initZonesWhenReadyPromise = null;
 
+// Map to track in-flight fetchZonesForMaster requests by master_id
+// Key: master_id (number), Value: Promise
+const _fetchZonesForMasterCache = new Map();
+
 /**
  * Wait for a global variable to be defined (async polling)
  * Used to wait for shared helpers that may load asynchronously
@@ -268,12 +272,23 @@ function getDefaultDomainId() {
            (Array.isArray(allMasters) && allMasters.length ? allMasters[0].id : null);
 }
 
+// Flag to track if UI components have been initialized (for idempotency)
+let _uiComponentsInitialized = false;
+
 /**
  * Defensive combobox initialization to ensure UI components are populated
  * Calls initialization functions with error handling to prevent cascading failures
- * This is idempotent and safe to call multiple times
+ * This is idempotent and safe to call multiple times - uses a flag to prevent redundant work
  */
 async function initializeComboboxes() {
+    // Early exit if already initialized in this page lifecycle
+    if (_uiComponentsInitialized) {
+        console.debug('[initializeComboboxes] UI components already initialized, skipping');
+        return;
+    }
+    
+    console.debug('[initializeComboboxes] Initializing UI components...');
+    
     try {
         if (typeof ensureZoneFilesInit === 'function') await ensureZoneFilesInit();
     } catch (e) { console.warn('[zone-files] ensureZoneFilesInit failed during post-init:', e); }
@@ -298,6 +313,10 @@ async function initializeComboboxes() {
     try {
         if (typeof syncZoneFileComboboxInstance === 'function') syncZoneFileComboboxInstance();
     } catch (e) { console.debug('[zone-files] syncZoneFileComboboxInstance failed:', e); }
+    
+    // Mark as initialized to prevent redundant calls
+    _uiComponentsInitialized = true;
+    console.debug('[initializeComboboxes] UI components initialization complete');
 }
 
 /**
@@ -563,21 +582,38 @@ async function fetchZonesForMaster(masterId) {
         return [];
     }
     
-    try {
-        const result = await zoneApiCall('list_zones', { 
-            params: {
-                master_id: masterIdNum, 
-                recursive: 1,
-                per_page: 5000  // Increased to 5000 to support masters with many includes (up to ~5000)
-            }
-        });
-        
-        const zones = result && result.data ? result.data : [];
-        return zones;
-    } catch (e) {
-        console.error('[fetchZonesForMaster] Failed to fetch zones for master:', masterIdNum, e);
-        return [];
+    // Check if there's already an in-flight request for this master_id
+    if (_fetchZonesForMasterCache.has(masterIdNum)) {
+        console.debug('[fetchZonesForMaster] Request already in flight for master', masterIdNum, '- returning existing promise');
+        return _fetchZonesForMasterCache.get(masterIdNum);
     }
+    
+    // Create and store the request promise
+    const requestPromise = (async () => {
+        try {
+            const result = await zoneApiCall('list_zones', { 
+                params: {
+                    master_id: masterIdNum, 
+                    recursive: 1,
+                    per_page: 5000  // Increased to 5000 to support masters with many includes (up to ~5000)
+                }
+            });
+            
+            const zones = result && result.data ? result.data : [];
+            return zones;
+        } catch (e) {
+            console.error('[fetchZonesForMaster] Failed to fetch zones for master:', masterIdNum, e);
+            return [];
+        } finally {
+            // Remove from cache after completion to allow future requests
+            _fetchZonesForMasterCache.delete(masterIdNum);
+        }
+    })();
+    
+    // Store the promise in the cache
+    _fetchZonesForMasterCache.set(masterIdNum, requestPromise);
+    
+    return requestPromise;
 }
 
 /**
@@ -2288,35 +2324,11 @@ async function loadZonesData() {
                 
                 // Defensive combobox initialization to ensure UI components are populated
                 // This covers cases where loadZonesData is called outside initZonesWhenReady (e.g., manual refresh)
+                // Note: initializeComboboxes is now idempotent and will skip if already initialized
                 try {
                     await initializeComboboxes();
                 } catch (e) {
                     console.debug('[loadZonesData] initializeComboboxes failed:', e);
-                }
-                
-                // Additional defensive UI population
-                try {
-                    if (typeof populateZoneDomainSelect === 'function') {
-                        await populateZoneDomainSelect();
-                    }
-                } catch (e) {
-                    console.debug('[loadZonesData] populateZoneDomainSelect failed:', e);
-                }
-                
-                try {
-                    if (typeof initZoneFileCombobox === 'function') {
-                        await initZoneFileCombobox();
-                    }
-                } catch (e) {
-                    console.debug('[loadZonesData] initZoneFileCombobox failed:', e);
-                }
-                
-                try {
-                    if (typeof syncZoneFileComboboxInstance === 'function') {
-                        syncZoneFileComboboxInstance();
-                    }
-                } catch (e) {
-                    console.debug('[loadZonesData] syncZoneFileComboboxInstance failed:', e);
                 }
                 
                 // Re-render table after successful data load to ensure UI updates
@@ -4782,7 +4794,8 @@ if (document.readyState === 'loading') {
 
 // Attempt 1: Quick async call (30ms delay)
 setTimeout(() => {
-    if (!window._zonesInitRun && shouldInitZonesPage()) {
+    // Skip if already initialized or if an initialization is currently in progress
+    if (!window._zonesInitRun && !window._initZonesWhenReadyPromise && shouldInitZonesPage()) {
         console.debug('[Fallback 30ms] Attempting initialization (retry available)');
         initZonesWhenReady().catch(err => {
             console.debug('[Fallback 30ms] Init attempt failed or incomplete:', err);
@@ -4792,7 +4805,8 @@ setTimeout(() => {
 
 // Attempt 2: Medium delay retry (800ms)
 setTimeout(() => {
-    if (!window._zonesInitRun && shouldInitZonesPage()) {
+    // Skip if already initialized or if an initialization is currently in progress
+    if (!window._zonesInitRun && !window._initZonesWhenReadyPromise && shouldInitZonesPage()) {
         console.debug('[Fallback 800ms] Zones not initialized, retrying...');
         initZonesWhenReady().catch(err => {
             console.error('[Fallback 800ms] Init attempt failed:', err);
@@ -4802,7 +4816,8 @@ setTimeout(() => {
 
 // Attempt 3: Extended delay final retry (2500ms)
 setTimeout(() => {
-    if (!window._zonesInitRun && shouldInitZonesPage()) {
+    // Skip if already initialized or if an initialization is currently in progress
+    if (!window._zonesInitRun && !window._initZonesWhenReadyPromise && shouldInitZonesPage()) {
         console.debug('[Fallback 2500ms] Final initialization retry...');
         initZonesWhenReady().catch(err => {
             console.error('[Fallback 2500ms] Final retry failed:', err);
@@ -4815,7 +4830,8 @@ setTimeout(() => {
 // This ensures initZonesWhenReady is called when window.load event fires
 // Safe due to attempt counter and idempotency guards
 window.addEventListener('load', () => {
-    if (!window._zonesInitRun && shouldInitZonesPage()) {
+    // Skip if already initialized or if an initialization is currently in progress
+    if (!window._zonesInitRun && !window._initZonesWhenReadyPromise && shouldInitZonesPage()) {
         console.debug('[window.load] Triggering initialization fallback');
         try {
             window.initZonesWhenReady();
