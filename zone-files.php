@@ -267,7 +267,6 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
             <div class="tabs">
                 <button type="button" class="tab-btn active" data-zone-tab="details" onclick="switchTab('details')">Détails</button>
                 <button type="button" class="tab-btn" data-zone-tab="editor" onclick="switchTab('editor')">Éditeur</button>
-                <button type="button" class="tab-btn" data-zone-tab="includes" onclick="switchTab('includes')">Includes</button>
                 <?php if ($canManageAcl): ?>
                 <button type="button" class="tab-btn" data-zone-tab="acl" onclick="switchTab('acl')">ACL</button>
                 <?php endif; ?>
@@ -383,40 +382,6 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                         <small class="form-text text-muted" style="display: inline-block; margin-left: 1rem;">
                             Génère le contenu complet avec les directives $INCLUDE et les enregistrements DNS
                         </small>
-                    </div>
-                </div>
-                
-                <!-- Includes Tab -->
-                <div id="includesTab" class="tab-pane zone-tab-content">
-                    <div class="includes-header">
-                        <h3>Fichiers inclus dans cette zone</h3>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="openCreateIncludeForm()">
-                            <i class="fas fa-plus"></i> Créer un include
-                        </button>
-                    </div>
-                    <div id="includesList">
-                        <div class="loading">Chargement...</div>
-                    </div>
-                    
-                    <!-- Create Include Form (hidden by default) -->
-                    <div id="createIncludeForm" style="display: none; margin-top: 1rem; padding: 1rem; border: 1px solid #ddd; border-radius: 4px;">
-                        <h4>Créer un nouvel include</h4>
-                        <div class="form-group">
-                            <label for="includeNameInput">Nom *</label>
-                            <input type="text" id="includeNameInput" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="includeFilenameInput">Nom de fichier *</label>
-                            <input type="text" id="includeFilenameInput" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="includeContentInput">Contenu</label>
-                            <textarea id="includeContentInput" class="form-control" rows="6"></textarea>
-                        </div>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button type="button" class="btn btn-secondary" onclick="cancelCreateInclude()">Annuler</button>
-                            <button type="button" class="btn btn-primary" onclick="submitCreateInclude()">Créer et assigner</button>
-                        </div>
                     </div>
                 </div>
                 
