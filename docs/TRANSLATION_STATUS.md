@@ -73,10 +73,10 @@ Ces fichiers sont critiques pour les utilisateurs et devraient être traduits :
    - 561 lignes
    - **Priorité** : Haute (fonctionnalité clé)
 
-### 3. **docs/DNS_MANAGEMENT_GUIDE.md** - 🔴 Anglais
+### 3. ✅ **docs/DNS_MANAGEMENT_GUIDE.md** - Français (traduit)
    - Guide de gestion DNS
    - Installation et tests
-   - **Priorité** : Haute (documentation utilisateur)
+   - **Backup** : `docs/backup/DNS_MANAGEMENT_GUIDE.en.md`
 
 ### 4. **docs/TESTING_GUIDE.md** - 🔴 Anglais
    - Guide de test principal
@@ -103,13 +103,13 @@ Documentation technique et d'implémentation :
    - Aperçu de l'UI admin
    - **Backup** : `docs/backup/ADMIN_UI_OVERVIEW.en.md`
 
-3. **docs/ADMIN_QUICK_REFERENCE.md** - 🟡 Anglais
+3. ✅ **docs/ADMIN_QUICK_REFERENCE.md** - Français (traduit)
    - Référence rapide admin
-   - **Priorité** : Moyenne
+   - **Backup** : `docs/backup/ADMIN_QUICK_REFERENCE.en.md`
 
-4. **docs/ADMIN_RELEASE_NOTES.md** - 🟡 Anglais
+4. ✅ **docs/ADMIN_RELEASE_NOTES.md** - Français (traduit)
    - Notes de version
-   - **Priorité** : Basse
+   - **Backup** : `docs/backup/ADMIN_RELEASE_NOTES.en.md`
 
 5. ✅ **docs/ADMIN_AUTH_CHANGES.md** - Français (traduit)
    - Changements d'authentification
@@ -288,12 +288,12 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 
 ### Progression Globale (Mise à jour : 2025-12-13)
 
-- **Documents traduits** : 12/52 (23%)
-- **Documents prioritaires traduits** : 2/6 (33%)
-- **Backups créés** : 10
+- **Documents traduits** : 15/52 (29%)
+- **Documents prioritaires traduits** : 3/6 (50%)
+- **Backups créés** : 13
 - **Nouveau contenu créé** : 2 (SUMMARY.md, CONTRIBUTING_DOCS.md)
 - **README homogénéisé** : ✅ Complété
-- **Dernière PR** : Traduction de 7 fichiers + homogénéisation README
+- **Dernière PR** : Traduction de 3 fichiers supplémentaires (ADMIN_QUICK_REFERENCE, ADMIN_RELEASE_NOTES, DNS_MANAGEMENT_GUIDE)
 
 ### Estimation de Travail Restant
 
@@ -313,10 +313,12 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 2. ✅ Traduire GETTING_STARTED_API_TOKENS.md
 3. ✅ Créer ce document de suivi (TRANSLATION_STATUS.md)
 4. ✅ Homogénéiser README.md entièrement en français
-5. ✅ Traduire fichiers ADMIN_* principaux (3/5 complétés)
+5. ✅ Traduire fichiers ADMIN_* principaux (5/5 complétés)
 6. ✅ Traduire API_VALIDATION_IMPLEMENTATION.md
 7. ✅ Traduire MODAL_CENTERING_IMPLEMENTATION.md
-8. ⏳ Continuer traduction des fichiers restants (~30 fichiers)
+8. ✅ Traduire DNS_MANAGEMENT_GUIDE.md
+9. ✅ Mettre à jour SUMMARY.md avec fichiers traduits
+10. ⏳ Continuer traduction des fichiers restants (~25 fichiers)
 
 ### Moyen Terme (PRs Futures)
 
