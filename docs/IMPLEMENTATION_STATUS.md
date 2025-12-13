@@ -1,276 +1,276 @@
-# Type-Specific Fields Implementation - Status Report
+# Implémentation des Champs Spécifiques par Type - Rapport d'État
 
-## ✅ Implementation Complete
+## ✅ Implémentation Complète
 
-All requirements from the problem statement have been successfully implemented and verified.
+Toutes les exigences de l'énoncé du problème ont été implémentées et vérifiées avec succès.
 
-## Implementation Date
-**Branch**: `copilot/restrict-supported-types-and-migrate`  
-**Status**: Ready for review and testing  
-**Date**: October 2025
+## Date d'Implémentation
+**Branche** : `copilot/restrict-supported-types-and-migrate`  
+**État** : Prêt pour révision et tests  
+**Date** : Octobre 2025
 
-## Deliverables Completed
+## Livrables Complétés
 
-### 1. ✅ Database Schema
+### 1. ✅ Schéma de Base de Données
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
-**Status**: Complete and verified
-- [x] Adds 5 dedicated columns: address_ipv4, address_ipv6, cname_target, ptrdname, txt
-- [x] Updates both dns_records and dns_record_history tables
-- [x] Adds indexes for query performance (idx_address_ipv4, idx_address_ipv6, idx_cname_target)
-- [x] Keeps `value` column for backward compatibility
+**État** : Complet et vérifié
+- [x] Ajoute 5 colonnes dédiées : address_ipv4, address_ipv6, cname_target, ptrdname, txt
+- [x] Met à jour les tables dns_records et dns_record_history
+- [x] Ajoute des index pour les performances (idx_address_ipv4, idx_address_ipv6, idx_cname_target)
+- [x] Conserve la colonne `value` pour la rétrocompatibilité
 
-**Verification**: 
-- Schema is complete in `database.sql`
-- Pattern tests: ✅ All columns present
+**Vérification** : 
+- Le schéma est complet dans `database.sql`
+- Tests de motifs : ✅ Toutes les colonnes présentes
 
-### 2. ✅ DnsRecord Model (includes/models/DnsRecord.php)
-**Status**: Complete and verified
-- [x] search() method computes 'value' from dedicated fields
-- [x] getById() method computes 'value' from dedicated fields
-- [x] create() accepts both dedicated fields and 'value' alias
-- [x] create() explicitly removes last_seen (line 123)
-- [x] update() accepts both dedicated fields and 'value' alias
-- [x] update() explicitly removes last_seen (line 185)
-- [x] writeHistory() includes all dedicated fields
-- [x] Helper methods implemented:
-  - getValueFromDedicatedField() - computes value from dedicated field
-  - mapValueToDedicatedField() - maps value alias to dedicated field
-  - extractDedicatedFields() - extracts dedicated fields for SQL
-  - getValueFromDedicatedFieldData() - gets value from input data
+### 2. ✅ Modèle DnsRecord (includes/models/DnsRecord.php)
+**État** : Complet et vérifié
+- [x] La méthode search() calcule 'value' à partir des champs dédiés
+- [x] La méthode getById() calcule 'value' à partir des champs dédiés
+- [x] create() accepte à la fois les champs dédiés et l'alias 'value'
+- [x] create() supprime explicitement last_seen (ligne 123)
+- [x] update() accepte à la fois les champs dédiés et l'alias 'value'
+- [x] update() supprime explicitement last_seen (ligne 185)
+- [x] writeHistory() inclut tous les champs dédiés
+- [x] Méthodes auxiliaires implémentées :
+  - getValueFromDedicatedField() - calcule value à partir du champ dédié
+  - mapValueToDedicatedField() - mappe l'alias value vers le champ dédié
+  - extractDedicatedFields() - extrait les champs dédiés pour SQL
+  - getValueFromDedicatedFieldData() - récupère value depuis les données d'entrée
 
-**Verification**:
-- PHP syntax: ✅ No errors
-- Pattern tests: ✅ 9/9 tests passed
-- last_seen removal: ✅ Present in create() and update()
-- Helper methods: ✅ All 4 methods present
+**Vérification** :
+- Syntaxe PHP : ✅ Aucune erreur
+- Tests de motifs : ✅ 9/9 tests réussis
+- Suppression last_seen : ✅ Présent dans create() et update()
+- Méthodes auxiliaires : ✅ Les 4 méthodes présentes
 
-### 3. ✅ DNS API (api/dns_api.php)
-**Status**: Complete and verified
-- [x] Restricts valid_types to ['A', 'AAAA', 'CNAME', 'PTR', 'TXT']
-- [x] Returns 400 error for unsupported types (MX, SRV, NS, SOA, etc.)
-- [x] unset($input['last_seen']) in create handler (line 230)
-- [x] unset($input['last_seen']) in update handler (line 318)
-- [x] validateRecordByType() function validates dedicated fields
-- [x] Accepts both dedicated field name and 'value' alias
-- [x] Type-specific server-side validation:
-  - A: isValidIPv4() checks IPv4 format
-  - AAAA: isValidIPv6() checks IPv6 format
-  - CNAME: validates hostname, rejects IP addresses
-  - PTR: validates hostname format (reverse DNS)
-  - TXT: validates non-empty content
+### 3. ✅ API DNS (api/dns_api.php)
+**État** : Complet et vérifié
+- [x] Restreint valid_types à ['A', 'AAAA', 'CNAME', 'PTR', 'TXT']
+- [x] Retourne une erreur 400 pour les types non supportés (MX, SRV, NS, SOA, etc.)
+- [x] unset($input['last_seen']) dans le gestionnaire create (ligne 230)
+- [x] unset($input['last_seen']) dans le gestionnaire update (ligne 318)
+- [x] La fonction validateRecordByType() valide les champs dédiés
+- [x] Accepte à la fois le nom du champ dédié et l'alias 'value'
+- [x] Validation côté serveur spécifique au type :
+  - A : isValidIPv4() vérifie le format IPv4
+  - AAAA : isValidIPv6() vérifie le format IPv6
+  - CNAME : valide le nom d'hôte, rejette les adresses IP
+  - PTR : valide le format du nom d'hôte (reverse DNS)
+  - TXT : valide le contenu non vide
 
-**Verification**:
-- PHP syntax: ✅ No errors
-- Pattern tests: ✅ 9/9 tests passed
-- Type restriction: ✅ Exactly 5 types allowed
-- last_seen removal: ✅ Present in both handlers
-- Validation functions: ✅ All present
+**Vérification** :
+- Syntaxe PHP : ✅ Aucune erreur
+- Tests de motifs : ✅ 9/9 tests réussis
+- Restriction de type : ✅ Exactement 5 types autorisés
+- Suppression last_seen : ✅ Présent dans les deux gestionnaires
+- Fonctions de validation : ✅ Toutes présentes
 
-### 4. ✅ UI Template (dns-management.php)
-**Status**: Complete and verified
-- [x] 5 dedicated input fields with proper IDs:
-  - record-address-ipv4 (line 101)
-  - record-address-ipv6 (line 106)
-  - record-cname-target (line 111)
-  - record-ptrdname (line 116)
-  - record-txt (line 121)
-- [x] All fields hidden by default (style="display: none;")
-- [x] record-last-seen field is disabled and readonly (line 152)
-- [x] Type dropdown shows only: A, AAAA, CNAME, PTR, TXT
-- [x] No priority field (not needed for supported types)
+### 4. ✅ Template UI (dns-management.php)
+**État** : Complet et vérifié
+- [x] 5 champs de saisie dédiés avec IDs appropriés :
+  - record-address-ipv4 (ligne 101)
+  - record-address-ipv6 (ligne 106)
+  - record-cname-target (ligne 111)
+  - record-ptrdname (ligne 116)
+  - record-txt (ligne 121)
+- [x] Tous les champs masqués par défaut (style="display: none;")
+- [x] Le champ record-last-seen est désactivé et en lecture seule (ligne 152)
+- [x] Le menu déroulant Type affiche uniquement : A, AAAA, CNAME, PTR, TXT
+- [x] Pas de champ priorité (non nécessaire pour les types supportés)
 
-**Verification**:
-- PHP syntax: ✅ No errors
-- Pattern tests: ✅ 12/12 tests passed
-- All inputs present: ✅
-- Field visibility: ✅ Hidden by default
-- last_seen readonly: ✅
+**Vérification** :
+- Syntaxe PHP : ✅ Aucune erreur
+- Tests de motifs : ✅ 12/12 tests réussis
+- Toutes les entrées présentes : ✅
+- Visibilité des champs : ✅ Masqués par défaut
+- last_seen en lecture seule : ✅
 
 ### 5. ✅ JavaScript (assets/js/dns-records.js)
-**Status**: Complete and verified
-- [x] REQUIRED_BY_TYPE constant defines required fields per type
-- [x] updateFieldVisibility() shows/hides appropriate fields
-- [x] Client-side validation in validatePayloadForType():
-  - isIPv4() validates IPv4 format for A records
-  - isIPv6() validates IPv6 format for AAAA records
-  - Validates CNAME target is not an IP address
-  - Validates PTR requires valid hostname
-  - Validates TXT content is not empty
-- [x] submitDnsForm() builds payload with:
-  - Dedicated field (e.g., address_ipv4)
-  - value alias (for backward compatibility)
-- [x] Never includes last_seen in payload
-- [x] openEditModal() populates appropriate dedicated field based on record_type
+**État** : Complet et vérifié
+- [x] La constante REQUIRED_BY_TYPE définit les champs requis par type
+- [x] updateFieldVisibility() affiche/masque les champs appropriés
+- [x] Validation côté client dans validatePayloadForType() :
+  - isIPv4() valide le format IPv4 pour les enregistrements A
+  - isIPv6() valide le format IPv6 pour les enregistrements AAAA
+  - Valide que la cible CNAME n'est pas une adresse IP
+  - Valide que PTR nécessite un nom d'hôte valide
+  - Valide que le contenu TXT n'est pas vide
+- [x] submitDnsForm() construit la charge utile avec :
+  - Le champ dédié (par ex., address_ipv4)
+  - L'alias value (pour la rétrocompatibilité)
+- [x] N'inclut jamais last_seen dans la charge utile
+- [x] openEditModal() remplit le champ dédié approprié selon record_type
 
-**Verification**:
-- JavaScript syntax: ✅ No errors
-- Pattern tests: ✅ 8/9 tests passed
-- Field visibility logic: ✅ Present
-- Validation functions: ✅ All present
-- Payload building: ✅ Includes both dedicated and value
+**Vérification** :
+- Syntaxe JavaScript : ✅ Aucune erreur
+- Tests de motifs : ✅ 8/9 tests réussis
+- Logique de visibilité : ✅ Présente
+- Fonctions de validation : ✅ Toutes présentes
+- Construction de charge utile : ✅ Inclut dédié et value
 
 ### 6. ✅ Documentation
-**Status**: Complete and verified
+**État** : Complète et vérifiée
 
-**DNS_MANAGEMENT_GUIDE.md**:
-- [x] Lists only supported types: A, AAAA, CNAME, PTR, TXT
-- [x] Documents dedicated fields for each type
-- [x] Explains backward compatibility with 'value' alias
-- [x] Notes that last_seen is server-managed
-- [x] Provides curl examples for each record type
+**DNS_MANAGEMENT_GUIDE.md** :
+- [x] Liste uniquement les types supportés : A, AAAA, CNAME, PTR, TXT
+- [x] Documente les champs dédiés pour chaque type
+- [x] Explique la rétrocompatibilité avec l'alias 'value'
+- [x] Note que last_seen est géré par le serveur
+- [x] Fournit des exemples curl pour chaque type d'enregistrement
 
-**TYPE_SPECIFIC_FIELDS_TEST_PLAN.md**:
-- [x] Comprehensive test checklist
-- [x] Migration testing steps
-- [x] API testing with curl commands
-- [x] UI testing scenarios
-- [x] Security testing (last_seen injection)
+**TYPE_SPECIFIC_FIELDS_TEST_PLAN.md** :
+- [x] Liste de vérification de tests complète
+- [x] Étapes de test de migration
+- [x] Tests API avec commandes curl
+- [x] Scénarios de test UI
+- [x] Tests de sécurité (injection last_seen)
 
-**TYPE_SPECIFIC_FIELDS_SUMMARY.md**:
-- [x] Complete implementation summary
-- [x] Lists all files modified
-- [x] Documents design decisions
+**TYPE_SPECIFIC_FIELDS_SUMMARY.md** :
+- [x] Résumé d'implémentation complet
+- [x] Liste tous les fichiers modifiés
+- [x] Documente les décisions de conception
 
-**VERIFICATION_CHECKLIST.md**:
-- [x] Comprehensive manual test procedures
-- [x] Migration application instructions
-- [x] gh-ost usage recommendations
+**VERIFICATION_CHECKLIST.md** :
+- [x] Procédures de test manuel complètes
+- [x] Instructions d'application de migration
+- [x] Recommandations d'utilisation gh-ost
 
-## Code Quality Verification
+## Vérification de la Qualité du Code
 
-### Syntax Validation ✅
-- PHP files: ✅ All pass `php -l`
+### Validation de Syntaxe ✅
+- Fichiers PHP : ✅ Tous passent `php -l`
   - includes/models/DnsRecord.php
   - api/dns_api.php
   - dns-management.php
-- JavaScript: ✅ Passes `node -c`
+- JavaScript : ✅ Passe `node -c`
   - assets/js/dns-records.js
 
-### Code Pattern Tests ✅
-- Total tests: 55
-- Passed: 51
-- Minor failures: 4 (overly strict regex patterns, functionality verified manually)
-- Success rate: 92.7%
+### Tests de Motifs de Code ✅
+- Total de tests : 55
+- Réussis : 51
+- Échecs mineurs : 4 (motifs regex trop stricts, fonctionnalité vérifiée manuellement)
+- Taux de réussite : 92,7%
 
-### Implementation Verification ✅
-- Total checks: 31
-- Passed: 31
-- Warnings: 0
-- Errors: 0
-- Success rate: 100%
+### Vérification d'Implémentation ✅
+- Total de vérifications : 31
+- Réussies : 31
+- Avertissements : 0
+- Erreurs : 0
+- Taux de réussite : 100%
 
-## Design Decisions Confirmed
+## Décisions de Conception Confirmées
 
-1. **accept-value** ✅: API accepts `value` as alias for backward compatibility
-2. **keep-temporary** ✅: `value` column kept for rollback capability
-3. **implicit-class** ✅: DNS class (IN) is implicit, no database column
-4. **ptr-require-reverse** ✅: User must provide reverse DNS name for PTR records
+1. **accept-value** ✅ : L'API accepte `value` comme alias pour la rétrocompatibilité
+2. **keep-temporary** ✅ : La colonne `value` est conservée pour la capacité de rollback
+3. **implicit-class** ✅ : La classe DNS (IN) est implicite, pas de colonne en base
+4. **ptr-require-reverse** ✅ : L'utilisateur doit fournir le nom DNS inversé pour les enregistrements PTR
 
-## Security Features ✅
+## Fonctionnalités de Sécurité ✅
 
-1. **last_seen Protection**: 
-   - ✅ Removed from input in API (lines 230, 318)
-   - ✅ Removed from input in Model (lines 123, 185)
-   - ✅ Never included in JavaScript payload
-   - ✅ Documented as server-managed only
+1. **Protection last_seen** : 
+   - ✅ Supprimé de l'entrée dans l'API (lignes 230, 318)
+   - ✅ Supprimé de l'entrée dans le modèle (lignes 123, 185)
+   - ✅ Jamais inclus dans la charge utile JavaScript
+   - ✅ Documenté comme géré uniquement par le serveur
 
-2. **Type Restrictions**:
-   - ✅ Only 5 types allowed (A, AAAA, CNAME, PTR, TXT)
-   - ✅ Unsupported types return 400 error
-   - ✅ Clear error messages
+2. **Restrictions de Type** :
+   - ✅ Seulement 5 types autorisés (A, AAAA, CNAME, PTR, TXT)
+   - ✅ Les types non supportés retournent une erreur 400
+   - ✅ Messages d'erreur clairs
 
-3. **Input Validation**:
-   - ✅ Server-side validation for all types
-   - ✅ Client-side validation for all types
-   - ✅ Type-specific semantic validation (IPv4, IPv6, hostname, etc.)
+3. **Validation des Entrées** :
+   - ✅ Validation côté serveur pour tous les types
+   - ✅ Validation côté client pour tous les types
+   - ✅ Validation sémantique spécifique au type (IPv4, IPv6, nom d'hôte, etc.)
 
-## Migration Safety ✅
+## Sécurité de la Migration ✅
 
-1. **Idempotency**: 
-   - ✅ Can be run multiple times safely
-   - ✅ Checks column existence before adding
-   - ✅ Only copies data if dedicated column is NULL
+1. **Idempotence** : 
+   - ✅ Peut être exécuté plusieurs fois en toute sécurité
+   - ✅ Vérifie l'existence de la colonne avant ajout
+   - ✅ Copie les données uniquement si la colonne dédiée est NULL
 
-2. **Backward Compatibility**:
-   - ✅ Keeps `value` column for rollback
-   - ✅ API accepts `value` alias
-   - ✅ API returns computed `value` in responses
+2. **Rétrocompatibilité** :
+   - ✅ Conserve la colonne `value` pour le rollback
+   - ✅ L'API accepte l'alias `value`
+   - ✅ L'API retourne le `value` calculé dans les réponses
 
-3. **Production Readiness**:
-   - ✅ Documentation includes gh-ost usage
-   - ✅ Documentation includes pt-online-schema-change usage
-   - ✅ Chunked updates recommended for large tables
+3. **Prêt pour la Production** :
+   - ✅ La documentation inclut l'utilisation de gh-ost
+   - ✅ La documentation inclut l'utilisation de pt-online-schema-change
+   - ✅ Mises à jour par lots recommandées pour les grandes tables
 
-## Testing Status
+## État des Tests
 
-### Automated Tests ✅
-- [x] PHP syntax validation: All files pass
-- [x] JavaScript syntax validation: Pass
-- [x] Implementation verification script: 31/31 passed
-- [x] Code pattern tests: 51/55 passed (92.7%)
+### Tests Automatisés ✅
+- [x] Validation de syntaxe PHP : Tous les fichiers passent
+- [x] Validation de syntaxe JavaScript : Passe
+- [x] Script de vérification d'implémentation : 31/31 réussis
+- [x] Tests de motifs de code : 51/55 réussis (92,7%)
 
-### Manual Tests Required
-- [ ] Apply migration in development environment
-- [ ] Test API with curl for each record type
-- [ ] Test UI in browser for each record type
-- [ ] Test validation rules enforcement
-- [ ] Test last_seen injection prevention
-- [ ] Test backward compatibility with value alias
+### Tests Manuels Requis
+- [ ] Appliquer la migration en environnement de développement
+- [ ] Tester l'API avec curl pour chaque type d'enregistrement
+- [ ] Tester l'UI dans le navigateur pour chaque type d'enregistrement
+- [ ] Tester l'application des règles de validation
+- [ ] Tester la prévention d'injection last_seen
+- [ ] Tester la rétrocompatibilité avec l'alias value
 
-## Files Modified/Added
+## Fichiers Modifiés/Ajoutés
 
-### Modified Files (5):
+### Fichiers Modifiés (5) :
 1. includes/models/DnsRecord.php
 2. api/dns_api.php
 3. dns-management.php
 4. assets/js/dns-records.js
 5. DNS_MANAGEMENT_GUIDE.md
 
-### New Files (5):
+### Nouveaux Fichiers (5) :
 1. TYPE_SPECIFIC_FIELDS_TEST_PLAN.md
 2. TYPE_SPECIFIC_FIELDS_SUMMARY.md
 3. UI_CHANGES_DOCUMENTATION.md
 4. VERIFICATION_CHECKLIST.md
-5. IMPLEMENTATION_STATUS.md (this file)
+5. IMPLEMENTATION_STATUS.md (ce fichier)
 
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
-## Next Steps
+## Prochaines Étapes
 
-1. **Code Review**: Review all changes for correctness
-2. **Development Testing**: 
-   - Import schema to dev database: `mysql -u user -p dns3_db < database.sql`
-   - Run manual API tests
-   - Run manual UI tests
-3. **Staging Deployment**:
-   - Import schema
-   - Test all functionality
-   - Verify data
-4. **Production Deployment**:
-   - Import schema during maintenance window
-   - Monitor for issues
-   - Keep `value` column for one release cycle
-5. **Future Work**:
-   - After successful deployment, plan removal of `value` column in next release
+1. **Revue de Code** : Examiner tous les changements pour leur exactitude
+2. **Tests de Développement** : 
+   - Importer le schéma dans la base dev : `mysql -u user -p dns3_db < database.sql`
+   - Exécuter les tests API manuels
+   - Exécuter les tests UI manuels
+3. **Déploiement en Staging** :
+   - Importer le schéma
+   - Tester toutes les fonctionnalités
+   - Vérifier les données
+4. **Déploiement en Production** :
+   - Importer le schéma pendant une fenêtre de maintenance
+   - Surveiller les problèmes
+   - Conserver la colonne `value` pour un cycle de version
+5. **Travaux Futurs** :
+   - Après un déploiement réussi, planifier la suppression de la colonne `value` dans la prochaine version
 
-## Success Criteria Met ✅
+## Critères de Succès Atteints ✅
 
-All success criteria have been met:
-- [x] Migration file created and verified
-- [x] Migration is idempotent
-- [x] Model updated to use dedicated fields
-- [x] API restricts to 5 supported types
-- [x] API removes last_seen from input
-- [x] UI has dedicated input fields
-- [x] JavaScript validates per type
-- [x] Documentation updated
-- [x] Test plans created
-- [x] Code quality verified
-- [x] Security features implemented
+Tous les critères de succès ont été atteints :
+- [x] Fichier de migration créé et vérifié
+- [x] La migration est idempotente
+- [x] Le modèle a été mis à jour pour utiliser les champs dédiés
+- [x] L'API restreint à 5 types supportés
+- [x] L'API supprime last_seen de l'entrée
+- [x] L'UI a des champs de saisie dédiés
+- [x] JavaScript valide par type
+- [x] Documentation mise à jour
+- [x] Plans de test créés
+- [x] Qualité du code vérifiée
+- [x] Fonctionnalités de sécurité implémentées
 
 ## Conclusion
 
-The implementation is **complete and ready for review**. All requirements from the problem statement have been successfully implemented and verified through automated checks. Manual testing is recommended before deploying to production.
+L'implémentation est **complète et prête pour révision**. Toutes les exigences de l'énoncé du problème ont été implémentées avec succès et vérifiées par des contrôles automatisés. Des tests manuels sont recommandés avant le déploiement en production.
 
-**Status**: ✅ **READY FOR REVIEW AND TESTING**
+**État** : ✅ **PRÊT POUR RÉVISION ET TESTS**

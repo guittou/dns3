@@ -1,6 +1,6 @@
-# Zone Files Management - Visual Implementation Guide
+# Gestion des Fichiers de Zone - Guide Visuel d'Implémentation
 
-## UI Layout
+## Disposition de l'Interface
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -48,7 +48,7 @@
 └──────────────────┴──────────────────────────────────────────────┘
 ```
 
-## Editor Tab
+## Onglet Éditeur
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -78,7 +78,7 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## Includes Tab - Tree View
+## Onglet Includes - Vue Arborescente
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -98,7 +98,7 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## History Tab
+## Onglet Historique
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -130,7 +130,7 @@
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-## Modal: Create Zone
+## Modale : Créer une Zone
 
 ```
                     ┌────────────────────────┐
@@ -158,7 +158,7 @@
                     └────────────────────────┘
 ```
 
-## Modal: Add Include
+## Modale : Ajouter un Include
 
 ```
                     ┌────────────────────────┐
@@ -180,7 +180,7 @@
                     └────────────────────────┘
 ```
 
-## Modal: Resolved Content
+## Modale : Contenu Résolu
 
 ```
     ┌──────────────────────────────────────────────────────┐
@@ -218,9 +218,9 @@
     └──────────────────────────────────────────────────────┘
 ```
 
-## Cycle Detection - Error Display
+## Détection de Cycle - Affichage d'Erreur
 
-When attempting to create a cycle:
+Lors d'une tentative de création de cycle :
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -236,9 +236,9 @@ When attempting to create a cycle:
 └─────────────────────────────────────────────────────────┘
 ```
 
-## Flow Diagrams
+## Diagrammes de Flux
 
-### Creating a Zone with Includes
+### Création d'une Zone avec Includes
 
 ```
 ┌──────────┐
@@ -275,7 +275,7 @@ When attempting to create a cycle:
                        └──────────────┘
 ```
 
-### Adding an Include (with Cycle Detection)
+### Ajout d'un Include (avec Détection de Cycle)
 
 ```
 ┌──────────┐
@@ -325,7 +325,7 @@ When attempting to create a cycle:
                     └─────────────────┘
 ```
 
-### Viewing Resolved Content
+### Visualisation du Contenu Résolu
 
 ```
 ┌──────────┐
@@ -365,60 +365,60 @@ When attempting to create a cycle:
                        └────────────────┘
 ```
 
-## Color Scheme
+## Palette de Couleurs
 
-- **Active zones**: Green (#28a745)
-- **Inactive zones**: Yellow/Orange (#ffc107)  
-- **Deleted zones**: Red (#dc3545)
-- **Primary actions**: Blue (#007bff)
-- **Danger actions**: Red (#dc3545)
-- **Info actions**: Cyan (#17a2b8)
-- **Borders**: Light gray (#ddd)
-- **Background**: White / Light gray (#f5f5f5)
+- **Zones actives** : Vert (#28a745)
+- **Zones inactives** : Jaune/Orange (#ffc107)  
+- **Zones supprimées** : Rouge (#dc3545)
+- **Actions principales** : Bleu (#007bff)
+- **Actions dangereuses** : Rouge (#dc3545)
+- **Actions informatives** : Cyan (#17a2b8)
+- **Bordures** : Gris clair (#ddd)
+- **Arrière-plan** : Blanc / Gris clair (#f5f5f5)
 
-## Responsive Behavior
+## Comportement Responsive
 
-### Desktop (>768px)
-- Split pane side-by-side
-- Left: 350px fixed width
-- Right: Flexible width
-- All features visible
+### Bureau (>768px)
+- Panneau divisé côte à côte
+- Gauche : largeur fixe de 350px
+- Droite : largeur flexible
+- Toutes les fonctionnalités visibles
 
 ### Mobile (<768px)
-- Stacked layout (left above right)
-- Full width for both panes
-- Scrollable zones list
-- Touch-friendly buttons
-- Modals full-width with margins
+- Disposition empilée (gauche au-dessus de droite)
+- Largeur complète pour les deux panneaux
+- Liste de zones défilable
+- Boutons adaptés au tactile
+- Modales en pleine largeur avec marges
 
-## Key Interactions
+## Interactions Clés
 
-1. **Click zone in list** → Load details in right pane
-2. **Switch tabs** → Load tab-specific content
-3. **Edit metadata** → Save button active
-4. **Edit content** → Separate save button
-5. **Add include** → Modal → Select → Position → Add
-6. **Remove include** → Confirm → Remove from tree
-7. **View resolved** → Modal with flattened content
-8. **Create zone** → Modal → Form → Create
-9. **Search/filter** → Real-time list updates
+1. **Clic sur zone dans la liste** → Charger les détails dans le panneau droit
+2. **Changer d'onglet** → Charger le contenu spécifique à l'onglet
+3. **Modifier les métadonnées** → Bouton Enregistrer actif
+4. **Modifier le contenu** → Bouton d'enregistrement séparé
+5. **Ajouter un include** → Modale → Sélectionner → Position → Ajouter
+6. **Supprimer un include** → Confirmer → Retirer de l'arbre
+7. **Voir résolu** → Modale avec contenu aplati
+8. **Créer une zone** → Modale → Formulaire → Créer
+9. **Rechercher/filtrer** → Mises à jour de liste en temps réel
 
-## Error Handling
+## Gestion des Erreurs
 
-- **API errors**: Alert with error message
-- **Validation errors**: HTTP 400 with description
-- **Cycle detection**: Clear message about circular dependency
-- **Not found**: HTTP 404 with error
-- **Unauthorized**: HTTP 403 with error
-- **Server errors**: HTTP 500 with generic message
+- **Erreurs API** : Alerte avec message d'erreur
+- **Erreurs de validation** : HTTP 400 avec description
+- **Détection de cycle** : Message clair sur la dépendance circulaire
+- **Non trouvé** : HTTP 404 avec erreur
+- **Non autorisé** : HTTP 403 avec erreur
+- **Erreurs serveur** : HTTP 500 avec message générique
 
-## Performance Considerations
+## Considérations de Performance
 
-- **Lazy loading**: Tree only loaded when Includes tab opened
-- **Pagination**: Zone list limited to 1000 (configurable)
-- **Caching**: Current zone cached in window.currentZoneId
-- **Debouncing**: Search input debounced for filtering
-- **Efficient queries**: Uses indexes on parent_id, include_id
-- **Transaction safety**: All writes in transactions
+- **Chargement paresseux** : L'arbre n'est chargé que lorsque l'onglet Includes est ouvert
+- **Pagination** : Liste de zones limitée à 1000 (configurable)
+- **Mise en cache** : Zone courante mise en cache dans window.currentZoneId
+- **Temporisation** : Entrée de recherche temporisée pour le filtrage
+- **Requêtes efficaces** : Utilise des index sur parent_id, include_id
+- **Sécurité transactionnelle** : Toutes les écritures en transactions
 
-This visual guide complements the technical documentation and provides a clear picture of the user interface and data flows.
+Ce guide visuel complète la documentation technique et fournit une image claire de l'interface utilisateur et des flux de données.
