@@ -1,127 +1,127 @@
-# Zone File Generation Implementation
+# Implémentation de la Génération de Fichiers de Zone
 
-## Overview
-This implementation adds zone file generation capability with support for:
-- Directory field for zone files (exposed in modal/popup only)
-- Generation of complete zone files with $INCLUDE directives
-- DNS records formatted in BIND syntax
-- Removed "# Includes" column from the zone list table
+## Vue d'ensemble
+Cette implémentation ajoute la capacité de génération de fichiers de zone avec support pour :
+- Champ répertoire pour les fichiers de zone (exposé uniquement dans le modal)
+- Génération de fichiers de zone complets avec directives $INCLUDE
+- Enregistrements DNS formatés en syntaxe BIND
+- Suppression de la colonne "# Includes" du tableau de liste des zones
 
-## Changes Made
+## Modifications Effectuées
 
-### 1. Database Schema
+### 1. Schéma de Base de Données
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
 
-- Added `directory` VARCHAR(255) NULL column to `zone_files` table
-- Added index on `directory` for performance
+- Ajout de la colonne `directory` VARCHAR(255) NULL à la table `zone_files`
+- Ajout d'un index sur `directory` pour la performance
 
-### 2. Backend Model Changes
-**File**: `includes/models/ZoneFile.php`
+### 2. Modifications du Modèle Backend
+**Fichier** : `includes/models/ZoneFile.php`
 
-#### Modified Methods:
-- `create()`: Now accepts and stores `directory` field
-- `update()`: Now accepts and updates `directory` field
-- `getById()`: Ensures `directory` is included in results
+#### Méthodes Modifiées :
+- `create()` : Accepte et stocke maintenant le champ `directory`
+- `update()` : Accepte et met à jour maintenant le champ `directory`
+- `getById()` : S'assure que `directory` est inclus dans les résultats
 
-#### New Methods:
-- `generateZoneFile($zoneId)`: Generates complete zone file content with:
-  - Zone's own content (from `zone_files.content`)
-  - $INCLUDE directives for direct includes
-  - DNS records formatted in BIND syntax
+#### Nouvelles Méthodes :
+- `generateZoneFile($zoneId)` : Génère le contenu complet du fichier de zone avec :
+  - Contenu propre de la zone (depuis `zone_files.content`)
+  - Directives $INCLUDE pour les includes directs
+  - Enregistrements DNS formatés en syntaxe BIND
   
-- `getDnsRecordsByZone($zoneId)`: Retrieves all active DNS records for a zone
+- `getDnsRecordsByZone($zoneId)` : Récupère tous les enregistrements DNS actifs pour une zone
   
-- `formatDnsRecordBind($record)`: Formats a DNS record in BIND zone file syntax
+- `formatDnsRecordBind($record)` : Formate un enregistrement DNS en syntaxe de fichier de zone BIND
   
-- `getRecordValue($record)`: Extracts the correct value for each record type
+- `getRecordValue($record)` : Extrait la valeur correcte pour chaque type d'enregistrement
 
-#### $INCLUDE Directive Logic:
+#### Logique de la Directive $INCLUDE :
 ```
-If directory is set:
+Si directory est défini :
   $INCLUDE "directory/filename"
   
-If directory is NULL:
-  $INCLUDE "filename"  (or "name" if filename is empty)
+Si directory est NULL :
+  $INCLUDE "filename"  (ou "name" si filename est vide)
 ```
 
-### 3. API Changes
-**File**: `api/zone_api.php`
+### 3. Modifications de l'API
+**Fichier** : `api/zone_api.php`
 
-#### New Endpoint:
+#### Nouveau Point de Terminaison :
 ```
 GET /api/zone_api.php?action=generate_zone_file&id={zone_id}
 ```
 
-**Response**:
+**Réponse** :
 ```json
 {
   "success": true,
-  "content": "... generated zone file content ...",
+  "content": "... contenu du fichier de zone généré ...",
   "filename": "example.com.zone"
 }
 ```
 
-### 4. Frontend UI Changes
-**File**: `zone-files.php`
+### 4. Modifications de l'Interface Frontend
+**Fichier** : `zone-files.php`
 
-#### Table View Changes:
-- Removed "# Includes" column from the zone list table
-- Updated colspan from 8 to 7 in loading/error states
+#### Modifications de la Vue Tableau :
+- Suppression de la colonne "# Includes" du tableau de liste des zones
+- Mise à jour du colspan de 8 à 7 dans les états de chargement/erreur
 
-#### Modal Changes:
-- Added "Répertoire" (Directory) field in the Details tab:
+#### Modifications du Modal :
+- Ajout du champ "Répertoire" dans l'onglet Détails :
   ```html
   <input type="text" id="zoneDirectory" class="form-control" placeholder="Exemple: /etc/bind/zones">
   ```
-- Added "Générer le fichier de zone" button in the Editor tab
-- Directory field is only visible in the edit modal, NOT in the table list view
+- Ajout du bouton "Générer le fichier de zone" dans l'onglet Éditeur
+- Le champ répertoire est uniquement visible dans le modal d'édition, PAS dans la vue liste du tableau
 
-### 5. Frontend JavaScript Changes
-**File**: `assets/js/zone-files.js`
+### 5. Modifications JavaScript Frontend
+**Fichier** : `assets/js/zone-files.js`
 
-#### Modified Functions:
-- `renderZonesTable()`: Removed includes_count column display
-- `renderErrorState()`: Updated colspan from 8 to 7
-- `openZoneModal()`: Now loads and populates `zoneDirectory` field
-- `setupChangeDetection()`: Added `zoneDirectory` to change tracking
-- `saveZone()`: Now saves `directory` field value
+#### Fonctions Modifiées :
+- `renderZonesTable()` : Suppression de l'affichage de la colonne includes_count
+- `renderErrorState()` : Mise à jour du colspan de 8 à 7
+- `openZoneModal()` : Charge et remplit maintenant le champ `zoneDirectory`
+- `setupChangeDetection()` : Ajout de `zoneDirectory` au suivi des modifications
+- `saveZone()` : Sauvegarde maintenant la valeur du champ `directory`
 
-#### New Function:
-- `generateZoneFileContent()`: Calls the API to generate zone file and:
-  - Offers to download the generated file
-  - Or displays it in the editor for preview
+#### Nouvelle Fonction :
+- `generateZoneFileContent()` : Appelle l'API pour générer le fichier de zone et :
+  - Propose de télécharger le fichier généré
+  - Ou l'affiche dans l'éditeur pour prévisualisation
 
-## Usage
+## Utilisation
 
-### Setting the Directory Field
-1. Open a zone by clicking on it in the table
-2. In the modal, go to the "Détails" tab
-3. Enter the directory path in the "Répertoire" field (e.g., `/etc/bind/zones`)
-4. Click "Enregistrer" to save
+### Définir le Champ Répertoire
+1. Ouvrir une zone en cliquant dessus dans le tableau
+2. Dans le modal, aller à l'onglet "Détails"
+3. Entrer le chemin du répertoire dans le champ "Répertoire" (ex : `/etc/bind/zones`)
+4. Cliquer sur "Enregistrer" pour sauvegarder
 
-### Generating a Zone File
-1. Open a zone by clicking on it in the table
-2. Go to the "Éditeur" tab
-3. Click the "Générer le fichier de zone" button
-4. Choose to either:
-   - Download the file
-   - Preview it in the editor
+### Générer un Fichier de Zone
+1. Ouvrir une zone en cliquant dessus dans le tableau
+2. Aller à l'onglet "Éditeur"
+3. Cliquer sur le bouton "Générer le fichier de zone"
+4. Choisir soit :
+   - Télécharger le fichier
+   - Le prévisualiser dans l'éditeur
 
-### Generated Zone File Format
+### Format du Fichier de Zone Généré
 
-The generated zone file contains (in order):
+Le fichier de zone généré contient (dans l'ordre) :
 
-1. **$TTL directive** (if `default_ttl` is set for the master zone):
+1. **Directive $TTL** (si `default_ttl` est défini pour la zone maître) :
    ```
    $TTL 86400
    ```
-2. **Zone's own content** (from `zone_files.content` field)
-3. **$INCLUDE directives** for each direct include:
+2. **Contenu propre de la zone** (depuis le champ `zone_files.content`)
+3. **Directives $INCLUDE** pour chaque include direct :
    ```
    $INCLUDE "/etc/bind/zones/common.conf"
    $INCLUDE "special-records.conf"
    ```
-4. **DNS Records** in BIND syntax:
+4. **Enregistrements DNS** en syntaxe BIND :
    ```
    ; DNS Records
    www.example.com        3600 IN A      192.168.1.10
@@ -130,133 +130,133 @@ The generated zone file contains (in order):
    _service._tcp          3600 IN SRV    10 5060 sip.example.com
    ```
 
-## SOA and TTL Configuration
+## Configuration SOA et TTL
 
-When creating or editing a master zone, you can configure SOA timers and default TTL:
+Lors de la création ou de l'édition d'une zone maître, vous pouvez configurer les timers SOA et le TTL par défaut :
 
-| Field | Default | Description |
+| Champ | Défaut | Description |
 |-------|---------|-------------|
-| `default_ttl` | 86400 | Default TTL in seconds (used for $TTL directive) |
-| `soa_rname` | (none) | Contact email for the zone (e.g., hostmaster@example.com) |
-| `soa_refresh` | 10800 | How often secondary nameservers should check for updates (3 hours) |
-| `soa_retry` | 900 | Retry interval if refresh fails (15 minutes) |
-| `soa_expire` | 604800 | Time after which zone data is no longer authoritative (7 days) |
-| `soa_minimum` | 3600 | Negative caching TTL (1 hour) |
+| `default_ttl` | 86400 | TTL par défaut en secondes (utilisé pour la directive $TTL) |
+| `soa_rname` | (aucun) | Email de contact pour la zone (ex : hostmaster@example.com) |
+| `soa_refresh` | 10800 | Fréquence à laquelle les serveurs secondaires doivent vérifier les mises à jour (3 heures) |
+| `soa_retry` | 900 | Intervalle de réessai si le refresh échoue (15 minutes) |
+| `soa_expire` | 604800 | Temps après lequel les données de zone ne sont plus autoritaires (7 jours) |
+| `soa_minimum` | 3600 | TTL de mise en cache négative (1 heure) |
 
-### SOA Serial Behavior
+### Comportement du Numéro de Série SOA
 
-The SOA serial is auto-generated by the application in YYYYMMDDnn format. When the zone is modified, the serial is automatically incremented. The UI displays the current serial but does not allow direct editing to prevent conflicts.
+Le numéro de série SOA est auto-généré par l'application au format YYYYMMDDnn. Lorsque la zone est modifiée, le numéro de série est automatiquement incrémenté. L'interface affiche le numéro de série actuel mais ne permet pas l'édition directe pour éviter les conflits.
 
-### RNAME Formatting
+### Formatage du RNAME
 
-When generating the zone file, the RNAME (contact) field is normalized:
-- `@` is replaced with `.` (DNS format)
-- A trailing dot is added for FQDN
+Lors de la génération du fichier de zone, le champ RNAME (contact) est normalisé :
+- `@` est remplacé par `.` (format DNS)
+- Un point final est ajouté pour le FQDN
 
-Example: `admin@example.com` becomes `admin.example.com.`
+Exemple : `admin@example.com` devient `admin.example.com.`
 
-## BIND Record Format Examples
+## Exemples de Format d'Enregistrements BIND
 
-- **A Record**: `name TTL IN A ipv4_address`
-- **AAAA Record**: `name TTL IN AAAA ipv6_address`
-- **CNAME Record**: `name TTL IN CNAME target`
-- **MX Record**: `name TTL IN MX priority target`
-- **TXT Record**: `name TTL IN TXT "text content"`
-- **NS Record**: `name TTL IN NS nameserver`
-- **PTR Record**: `name TTL IN PTR hostname`
-- **SRV Record**: `name TTL IN SRV priority weight port target`
-- **SOA Record**: `name TTL IN SOA mname rname (serial refresh retry expire minimum)`
+- **Enregistrement A** : `name TTL IN A ipv4_address`
+- **Enregistrement AAAA** : `name TTL IN AAAA ipv6_address`
+- **Enregistrement CNAME** : `name TTL IN CNAME target`
+- **Enregistrement MX** : `name TTL IN MX priority target`
+- **Enregistrement TXT** : `name TTL IN TXT "text content"`
+- **Enregistrement NS** : `name TTL IN NS nameserver`
+- **Enregistrement PTR** : `name TTL IN PTR hostname`
+- **Enregistrement SRV** : `name TTL IN SRV priority weight port target`
+- **Enregistrement SOA** : `name TTL IN SOA mname rname (serial refresh retry expire minimum)`
 
-## Compatibility
+## Compatibilité
 
-- PHP 7.4+ compatible
-- Uses standard BIND zone file syntax
-- Includes are NOT inlined (uses $INCLUDE directives)
-- Active DNS records only (status = 'active')
+- Compatible PHP 7.4+
+- Utilise la syntaxe standard des fichiers de zone BIND
+- Les includes ne sont PAS inlinés (utilise les directives $INCLUDE)
+- Enregistrements DNS actifs uniquement (status = 'active')
 
-## Testing Checklist
+## Checklist de Test
 
-- [ ] Run migration to add SOA/TTL columns: `migrations/20251205_add_soa_fields_to_zone_files.sql`
-- [ ] Create/update zones with directory field
-- [ ] Verify directory field shows in modal but not in table
-- [ ] Create new master with custom TTL and SOA timers
-- [ ] Verify SOA configuration fieldset is visible only for master zones
-- [ ] Create includes and assign them to a parent zone
-- [ ] Add DNS records to a zone
-- [ ] Click "Générer le fichier de zone" button
-- [ ] Verify generated file contains:
-  - [ ] $TTL directive with configured default_ttl
-  - [ ] Zone content
-  - [ ] $INCLUDE directives with correct paths
-  - [ ] DNS records in BIND format
-- [ ] Test with zones that have no directory set
-- [ ] Test with zones that have directory set
-- [ ] Verify download functionality works
-- [ ] Verify preview in editor works
-- [ ] Test "Modifier domaine" button (enabled only when domain is selected)
-- [ ] Run `named-checkzone` on generated file to validate SOA timers
+- [ ] Exécuter la migration pour ajouter les colonnes SOA/TTL : `migrations/20251205_add_soa_fields_to_zone_files.sql`
+- [ ] Créer/mettre à jour des zones avec le champ répertoire
+- [ ] Vérifier que le champ répertoire s'affiche dans le modal mais pas dans le tableau
+- [ ] Créer un nouveau maître avec TTL et timers SOA personnalisés
+- [ ] Vérifier que le fieldset de configuration SOA est visible uniquement pour les zones maîtres
+- [ ] Créer des includes et les assigner à une zone parente
+- [ ] Ajouter des enregistrements DNS à une zone
+- [ ] Cliquer sur le bouton "Générer le fichier de zone"
+- [ ] Vérifier que le fichier généré contient :
+  - [ ] Directive $TTL avec le default_ttl configuré
+  - [ ] Contenu de la zone
+  - [ ] Directives $INCLUDE avec les chemins corrects
+  - [ ] Enregistrements DNS en format BIND
+- [ ] Tester avec des zones sans répertoire défini
+- [ ] Tester avec des zones avec répertoire défini
+- [ ] Vérifier que la fonctionnalité de téléchargement fonctionne
+- [ ] Vérifier que la prévisualisation dans l'éditeur fonctionne
+- [ ] Tester le bouton "Modifier domaine" (activé uniquement quand un domaine est sélectionné)
+- [ ] Exécuter `named-checkzone` sur le fichier généré pour valider les timers SOA
 
 ## Notes
 
-- The includes are referenced by their path (not inlined)
-- Only active DNS records are included in the generated file
-- The directory field is optional (NULL is allowed)
-- The "# Includes" column has been removed from the table view as requested
-- All changes maintain backward compatibility with existing data
+- Les includes sont référencés par leur chemin (non inlinés)
+- Seuls les enregistrements DNS actifs sont inclus dans le fichier généré
+- Le champ répertoire est optionnel (NULL est autorisé)
+- La colonne "# Includes" a été supprimée de la vue tableau comme demandé
+- Toutes les modifications maintiennent la rétrocompatibilité avec les données existantes
 
-## Zone Name Validation
+## Validation des Noms de Zone
 
-The application uses different validation rules for zone names depending on the zone type:
+L'application utilise des règles de validation différentes pour les noms de zone selon le type de zone :
 
-### Master Zones (FQDN Format)
+### Zones Maîtres (Format FQDN)
 
-Master zones accept valid Fully Qualified Domain Names (FQDN):
+Les zones maîtres acceptent des noms de domaine pleinement qualifiés (FQDN) valides :
 
-| Rule | Description |
+| Règle | Description |
 |------|-------------|
-| Format | `label.label.label` (e.g., `example.com`, `sub.example.com`) |
-| Trailing dot | Optional (e.g., `example.com.` is also valid) |
-| Total length | Maximum 253 characters (excluding trailing dot) |
-| Label length | Maximum 63 characters per label |
-| Allowed characters | Lowercase letters (a-z), digits (0-9), hyphens (-) |
-| Label restrictions | Cannot start or end with a hyphen |
-| Case | Automatically normalized to lowercase |
+| Format | `label.label.label` (ex : `example.com`, `sub.example.com`) |
+| Point final | Optionnel (ex : `example.com.` est également valide) |
+| Longueur totale | Maximum 253 caractères (point final exclu) |
+| Longueur de label | Maximum 63 caractères par label |
+| Caractères autorisés | Lettres minuscules (a-z), chiffres (0-9), traits d'union (-) |
+| Restrictions de label | Ne peut pas commencer ou finir par un trait d'union |
+| Casse | Automatiquement normalisé en minuscules |
 
-**Examples of valid master zone names:**
+**Exemples de noms de zones maîtres valides :**
 - `example.com`
 - `sub.domain.example.org`
 - `test-domain.net`
-- `example.com.` (trailing dot)
+- `example.com.` (avec point final)
 
-**Examples of invalid master zone names:**
-- `-example.com` (starts with hyphen)
-- `example-.com` (ends with hyphen)
-- `test_domain.com` (underscore not allowed)
-- `example..com` (empty label)
+**Exemples de noms de zones maîtres invalides :**
+- `-example.com` (commence par un trait d'union)
+- `example-.com` (finit par un trait d'union)
+- `test_domain.com` (underscore non autorisé)
+- `example..com` (label vide)
 
-### Include Zones (Simple Identifier Format)
+### Zones Include (Format Identifiant Simple)
 
-Include zones use a stricter validation that only allows simple identifiers:
+Les zones include utilisent une validation plus stricte qui n'autorise que des identifiants simples :
 
-| Rule | Description |
+| Règle | Description |
 |------|-------------|
-| Format | Simple alphanumeric string (e.g., `incm1`, `common1`) |
-| Allowed characters | Lowercase letters (a-z), digits (0-9) |
-| Special characters | Not allowed (no dots, hyphens, underscores, or uppercase letters) |
+| Format | Chaîne alphanumérique simple (ex : `incm1`, `common1`) |
+| Caractères autorisés | Lettres minuscules (a-z), chiffres (0-9) |
+| Caractères spéciaux | Non autorisés (pas de points, traits d'union, underscores ou majuscules) |
 
-**Examples of valid include zone names:**
+**Exemples de noms de zones include valides :**
 - `inc1`
 - `common`
 - `zone123`
 
-**Examples of invalid include zone names:**
-- `Inc1` (uppercase not allowed)
-- `inc-1` (hyphen not allowed)
-- `common.records` (dot not allowed)
-- `zone_include` (underscore not allowed)
+**Exemples de noms de zones include invalides :**
+- `Inc1` (majuscules non autorisées)
+- `inc-1` (trait d'union non autorisé)
+- `common.records` (point non autorisé)
+- `zone_include` (underscore non autorisé)
 
-### Validation Implementation
+### Implémentation de la Validation
 
-- **Frontend**: Uses `validateMasterZoneName()` for master zones and `validateZoneName()` for includes
-- **Backend**: Uses `DnsValidator::validateName()` for master zones and regex pattern for includes
-- Both frontend and backend validations are applied to ensure consistency
+- **Frontend** : Utilise `validateMasterZoneName()` pour les zones maîtres et `validateZoneName()` pour les includes
+- **Backend** : Utilise `DnsValidator::validateName()` pour les zones maîtres et un pattern regex pour les includes
+- Les validations frontend et backend sont appliquées pour assurer la cohérence
