@@ -1,17 +1,17 @@
-# Zone File Combobox Implementation Verification
+# Vérification de l'Implémentation du Combobox de Fichier de Zone
 
-## Summary
-This document verifies that the centered "Fichier de zone" combobox in the DNS record modal is fully implemented and meets all requirements.
+## Résumé
+Ce document vérifie que le combobox centré "Fichier de zone" dans le modal d'enregistrement DNS est entièrement implémenté et répond à toutes les exigences.
 
-## Implementation Date
-- **PR**: #163 - "Add centered zone-file combobox to DNS record modal"
-- **Status**: ✅ Merged to main branch
-- **Branch**: copilot/add-zone-file-combobox-modal
+## Date d'Implémentation
+- **PR** : #163 - "Add centered zone-file combobox to DNS record modal"
+- **Statut** : ✅ Fusionné dans la branche main
+- **Branche** : copilot/add-zone-file-combobox-modal
 
-## Requirements Verification
+## Vérification des Exigences
 
-### 1. HTML Template ✅
-**File**: `dns-management.php` (lines 121-126)
+### 1. Modèle HTML ✅
+**Fichier** : `dns-management.php` (lignes 121-126)
 
 ```html
 <div id="zonefile-combobox-row" class="modal-subtitle-zonefile" style="display:block; margin:8px 24px 16px;">
@@ -22,25 +22,25 @@ This document verifies that the centered "Fichier de zone" combobox in the DNS r
 </div>
 ```
 
-**Verified**:
-- ✅ Positioned between modal title and form body
-- ✅ Label "Fichier de zone :" with proper formatting
-- ✅ Select element `#modal-zonefile-select` with ARIA label
-- ✅ Accessible markup (label + select)
-- ✅ Centered container with proper CSS classes
+**Vérifié** :
+- ✅ Positionné entre le titre du modal et le corps du formulaire
+- ✅ Label "Fichier de zone :" avec formatage approprié
+- ✅ Élément select `#modal-zonefile-select` avec label ARIA
+- ✅ Markup accessible (label + select)
+- ✅ Conteneur centré avec classes CSS appropriées
 
-**Hidden Field** (line 144):
+**Champ Caché** (ligne 144) :
 ```html
 <input type="hidden" id="record-zone-file" name="zone_file_id">
 ```
-- ✅ Hidden field for form submission
-- ✅ Correct ID: `record-zone-file` (used in modal)
-- ✅ Correct name: `zone_file_id` (sent in payload)
+- ✅ Champ caché pour la soumission du formulaire
+- ✅ ID correct : `record-zone-file` (utilisé dans le modal)
+- ✅ Nom correct : `zone_file_id` (envoyé dans le payload)
 
-### 2. CSS Styling ✅
-**File**: `assets/css/dns-records-add.css` (lines 6-77)
+### 2. Style CSS ✅
+**Fichier** : `assets/css/dns-records-add.css` (lignes 6-77)
 
-**Desktop Layout** (Centered):
+**Disposition Bureau** (Centré) :
 ```css
 .modal-subtitle-zonefile .zonefile-combobox-inner {
     display: flex;
@@ -57,7 +57,7 @@ This document verifies that the centered "Fichier de zone" combobox in the DNS r
 }
 ```
 
-**Mobile Layout** (Stacked):
+**Disposition Mobile** (Empiléé) :
 ```css
 @media (max-width: 520px) {
     .modal-subtitle-zonefile .zonefile-combobox-inner {
@@ -72,31 +72,31 @@ This document verifies that the centered "Fichier de zone" combobox in the DNS r
 }
 ```
 
-**Verified**:
-- ✅ Centered flexbox layout on desktop
-- ✅ Label and select on same line (desktop)
-- ✅ Responsive: stacks vertically on mobile (< 520px)
-- ✅ Consistent styling with existing form elements
-- ✅ Focus states and transitions
-- ✅ Disabled state styling
+**Vérifié** :
+- ✅ Disposition flexbox centrée sur bureau
+- ✅ Label et select sur la même ligne (bureau)
+- ✅ Responsive : empilement vertical sur mobile (< 520px)
+- ✅ Style cohérent avec les éléments de formulaire existants
+- ✅ États de focus et transitions
+- ✅ Style d'état désactivé
 
-### 3. JavaScript Implementation ✅
-**File**: `assets/js/dns-records.js`
+### 3. Implémentation JavaScript ✅
+**Fichier** : `assets/js/dns-records.js`
 
-#### Function: `initModalZonefileSelect()` (lines 856-918)
-**Purpose**: Initialize and populate the modal zone file select combobox
+#### Fonction : `initModalZonefileSelect()` (lignes 856-918)
+**Objectif** : Initialiser et peupler le combobox de sélection de fichier de zone du modal
 
-**Parameters**:
-- `preselectedZoneFileId` - Zone file ID to preselect (can be null)
-- `domainIdOrName` - Domain ID or name to filter zones (can be null)
+**Paramètres** :
+- `preselectedZoneFileId` - ID du fichier de zone à présélectionner (peut être null)
+- `domainIdOrName` - ID ou nom de domaine pour filtrer les zones (peut être null)
 
-**Logic**:
-1. Fetches zones by domain if `domainIdOrName` provided
-2. Uses `CURRENT_ZONE_LIST` if available (performance optimization)
-3. Falls back to all zones via `zoneApiCall('list_zones')`
-4. Filters to only master and include types
-5. If preselected zone not in list, fetches it specifically
-6. Calls `fillModalZonefileSelect()` to populate select
+**Logique** :
+1. Récupère les zones par domaine si `domainIdOrName` fourni
+2. Utilise `CURRENT_ZONE_LIST` si disponible (optimisation des performances)
+3. Se replie sur toutes les zones via `zoneApiCall('list_zones')`
+4. Filtre sur les types master et include uniquement
+5. Si la zone présélectionnée n'est pas dans la liste, la récupère spécifiquement
+6. Appelle `fillModalZonefileSelect()` pour peupler le select
 
 **Verified**: ✅ All logic paths work correctly
 
