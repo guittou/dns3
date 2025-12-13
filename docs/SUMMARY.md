@@ -35,7 +35,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Démarrage rapide - Fichiers de zone](ZONE_FILES_QUICK_START.md) - Guide de démarrage rapide
 - [Référence rapide - Fichiers de zone](ZONE_FILES_QUICK_REFERENCE.md) - Référence rapide pour les zones
 - [Implémentation récursive des fichiers de zone](ZONE_FILES_RECURSIVE_IMPLEMENTATION.md) - Support des includes récursifs
-- [Guide de test des fichiers de zone](ZONE_FILES_TESTING_GUIDE.md) - Tests pour les fichiers de zone
+- [Guide de test des fichiers de zone](ZONE_FILES_TESTING_GUIDE.md) - Tests pour les fichiers de zone ✅
 - [Résumé final de génération de zone](ZONE_GENERATION_FINAL_SUMMARY.md) - Résumé de la génération
 - [Améliorations de validation de zone](ZONE_VALIDATION_IMPROVEMENTS.md) - Améliorations de la validation
 - [Vérification du combobox de zone](ZONEFILE_COMBOBOX_VERIFICATION.md) - Vérification de l'UI
@@ -76,7 +76,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Notes d'implémentation](IMPLEMENTATION_NOTES.md) - Notes générales sur l'implémentation
 - [Statut d'implémentation](IMPLEMENTATION_STATUS.md) - État actuel de l'implémentation
 - [Guide visuel d'implémentation](IMPLEMENTATION_VISUAL_GUIDE.md) - Guide visuel des fonctionnalités
-- [Statut final](FINAL_STATUS.md) - Statut final du projet
+- [Statut final](FINAL_STATUS.md) - Statut final du projet ✅
 - [Documentation de l'inlining des includes](INCLUDE_INLINING_DOCUMENTATION.md) - Documentation du système d'include
 
 ---
