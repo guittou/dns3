@@ -1,95 +1,95 @@
-# Zone File Generation Feature - Final Summary
+# Fonctionnalité de génération de fichiers de zone - Résumé final
 
-## ✅ Implementation Complete
+## ✅ Implémentation terminée
 
-All requirements from the problem statement have been successfully implemented and tested.
+Toutes les exigences de l'énoncé du problème ont été implémentées et testées avec succès.
 
-## 📋 Requirements Met
+## 📋 Exigences satisfaites
 
-### 1. ✅ Database Schema
+### 1. ✅ Schéma de base de données
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
-- Added `directory` VARCHAR(255) NULL column to `zone_files` table
-- Indexed for performance
+- Ajout de la colonne `directory` VARCHAR(255) NULL à la table `zone_files`
+- Indexé pour les performances
 
-### 2. ✅ Backend Model (ZoneFile.php)
-- Updated `create()`, `update()`, `getById()` to handle `directory` field
-- Added `generateZoneFile($zoneId)` method that generates:
-  - Zone's own content from `zone_files.content`
-  - $INCLUDE directives for direct includes
-  - DNS records in BIND syntax
-- Added helper methods for DNS record formatting
+### 2. ✅ Modèle backend (ZoneFile.php)
+- Mise à jour de `create()`, `update()`, `getById()` pour gérer le champ `directory`
+- Ajout de la méthode `generateZoneFile($zoneId)` qui génère :
+  - Le contenu propre de la zone depuis `zone_files.content`
+  - Les directives $INCLUDE pour les includes directs
+  - Les enregistrements DNS en syntaxe BIND
+- Ajout de méthodes auxiliaires pour le formatage des enregistrements DNS
 
-### 3. ✅ API Endpoint
-- **Endpoint**: `GET /api/zone_api.php?action=generate_zone_file&id={zone_id}`
-- Returns generated zone file content with filename
+### 3. ✅ Point de terminaison API
+- **Point de terminaison** : `GET /api/zone_api.php?action=generate_zone_file&id={zone_id}`
+- Retourne le contenu du fichier de zone généré avec le nom de fichier
 
-### 4. ✅ UI Changes (zone-files.php)
-- ❌ **Removed**: "# Includes" column from zone list table
-- ✅ **Added**: "Répertoire" (directory) field in modal's Details tab
-- ✅ **Added**: "Générer le fichier de zone" button in modal's Editor tab
-- ✅ Directory field is **only in modal**, NOT in table view (as required)
+### 4. ✅ Modifications UI (zone-files.php)
+- ❌ **Supprimé** : Colonne "# Includes" du tableau de liste des zones
+- ✅ **Ajouté** : Champ "Répertoire" (directory) dans l'onglet Détails du modal
+- ✅ **Ajouté** : Bouton "Générer le fichier de zone" dans l'onglet Éditeur du modal
+- ✅ Le champ Répertoire est **uniquement dans le modal**, PAS dans la vue tableau (comme requis)
 
 ### 5. ✅ JavaScript (zone-files.js)
-- Updated table rendering to remove includes_count column
-- Added directory field handling in modal
-- Added `generateZoneFileContent()` function for zone generation
-- Offers to download or preview generated content
+- Mise à jour du rendu du tableau pour supprimer la colonne includes_count
+- Ajout de la gestion du champ répertoire dans le modal
+- Ajout de la fonction `generateZoneFileContent()` pour la génération de zone
+- Propose de télécharger ou de prévisualiser le contenu généré
 
-## 🎯 Key Features
+## 🎯 Fonctionnalités clés
 
-### $INCLUDE Directive Logic
+### Logique de directive $INCLUDE
 ```
-WITH directory:    $INCLUDE "directory/filename"
-WITHOUT directory: $INCLUDE "filename"
+AVEC répertoire :    $INCLUDE "répertoire/nomfichier"
+SANS répertoire :    $INCLUDE "nomfichier"
 ```
 
-### Generated Zone File Structure
-1. Zone's own content (from `zone_files.content`)
-2. $INCLUDE directives (NOT inlined)
-3. DNS records in BIND format
+### Structure du fichier de zone généré
+1. Contenu propre de la zone (depuis `zone_files.content`)
+2. Directives $INCLUDE (NON inlinées)
+3. Enregistrements DNS au format BIND
 
-### BIND Record Format Support
-- A, AAAA, CNAME, PTR, NS, SOA records
-- MX records with priority
-- TXT records with proper quoting
-- SRV records with priority
+### Support du format d'enregistrement BIND
+- Enregistrements A, AAAA, CNAME, PTR, NS, SOA
+- Enregistrements MX avec priorité
+- Enregistrements TXT avec guillemets appropriés
+- Enregistrements SRV avec priorité
 
-## 📊 Statistics
+## 📊 Statistiques
 
-- **Files Modified**: 5
-- **Files Created**: 3
-- **Lines Added**: 608
-- **Lines Removed**: 11
-- **PHP Syntax**: ✅ Valid (PHP 7.4+ compatible)
-- **Validation Tests**: ✅ All Passed
+- **Fichiers modifiés** : 5
+- **Fichiers créés** : 3
+- **Lignes ajoutées** : 608
+- **Lignes supprimées** : 11
+- **Syntaxe PHP** : ✅ Valide (compatible PHP 7.4+)
+- **Tests de validation** : ✅ Tous réussis
 
-## 🧪 Testing
+## 🧪 Tests
 
-### Automated Tests
-Run: `./test-zone-generation.sh`
+### Tests automatisés
+Exécuter : `./test-zone-generation.sh`
 
-All validation tests passed:
-- ✅ Migration file exists
-- ✅ PHP syntax valid
-- ✅ Required methods present
-- ✅ API endpoint exists
-- ✅ UI changes correct
-- ✅ JavaScript changes correct
-- ✅ Table rendering updated
+Tous les tests de validation réussis :
+- ✅ Fichier de migration existe
+- ✅ Syntaxe PHP valide
+- ✅ Méthodes requises présentes
+- ✅ Point de terminaison API existe
+- ✅ Modifications UI correctes
+- ✅ Modifications JavaScript correctes
+- ✅ Rendu du tableau mis à jour
 
-### Manual Testing Checklist
-- [ ] Run migration on database
-- [ ] Open zone modal and verify directory field appears
-- [ ] Verify "# Includes" column not shown in table
-- [ ] Set directory value and save
-- [ ] Create includes and DNS records for a zone
-- [ ] Click "Générer le fichier de zone" button
-- [ ] Verify generated content includes all parts
-- [ ] Test download functionality
-- [ ] Test preview in editor
+### Liste de vérification des tests manuels
+- [ ] Exécuter la migration sur la base de données
+- [ ] Ouvrir le modal de zone et vérifier que le champ répertoire apparaît
+- [ ] Vérifier que la colonne "# Includes" n'est pas affichée dans le tableau
+- [ ] Définir la valeur du répertoire et enregistrer
+- [ ] Créer des includes et des enregistrements DNS pour une zone
+- [ ] Cliquer sur le bouton "Générer le fichier de zone"
+- [ ] Vérifier que le contenu généré inclut toutes les parties
+- [ ] Tester la fonctionnalité de téléchargement
+- [ ] Tester la prévisualisation dans l'éditeur
 
-## 📂 Files Changed
+## 📂 Fichiers modifiés
 
 1. `includes/models/ZoneFile.php` (MODIFIED)
 2. `api/zone_api.php` (MODIFIED)
@@ -100,49 +100,49 @@ All validation tests passed:
 
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
-## 🔍 Code Quality
+## 🔍 Qualité du code
 
-- ✅ Follows existing code patterns
-- ✅ Maintains backward compatibility
-- ✅ PHP 7.4+ compatible
-- ✅ Proper error handling
-- ✅ Comprehensive comments
-- ✅ No syntax errors
+- ✅ Suit les modèles de code existants
+- ✅ Maintient la rétrocompatibilité
+- ✅ Compatible PHP 7.4+
+- ✅ Gestion des erreurs appropriée
+- ✅ Commentaires complets
+- ✅ Aucune erreur de syntaxe
 
-## 🚀 Deployment
+## 🚀 Déploiement
 
-### Step 1: Import Database Schema
+### Étape 1 : Importer le schéma de base de données
 ```bash
 mysql -u dns3_user -p dns3_db < database.sql
 ```
 
-### Step 2: Deploy Files
-All modified files are already in place. Just ensure:
-- Browser cache is cleared for JavaScript changes
-- PHP opcache is cleared (if enabled)
+### Étape 2 : Déployer les fichiers
+Tous les fichiers modifiés sont déjà en place. Assurez-vous simplement que :
+- Le cache du navigateur est vidé pour les modifications JavaScript
+- Le cache PHP opcache est vidé (s'il est activé)
 
-### Step 3: Test
-1. Login to the application
-2. Navigate to Zone Files
-3. Open any zone
-4. Verify directory field is visible in modal
-5. Test zone generation functionality
+### Étape 3 : Tester
+1. Se connecter à l'application
+2. Naviguer vers Fichiers de zone
+3. Ouvrir n'importe quelle zone
+4. Vérifier que le champ répertoire est visible dans le modal
+5. Tester la fonctionnalité de génération de zone
 
-## 📝 Usage Example
+## 📝 Exemple d'utilisation
 
-### Setting Directory
-1. Click on a zone to open the modal
-2. Go to "Détails" tab
-3. Enter directory: `/etc/bind/zones`
-4. Click "Enregistrer"
+### Définir le répertoire
+1. Cliquer sur une zone pour ouvrir le modal
+2. Aller dans l'onglet "Détails"
+3. Saisir le répertoire : `/etc/bind/zones`
+4. Cliquer sur "Enregistrer"
 
-### Generating Zone File
-1. Open the zone modal
-2. Go to "Éditeur" tab
-3. Click "Générer le fichier de zone"
-4. Choose download or preview
+### Générer le fichier de zone
+1. Ouvrir le modal de zone
+2. Aller dans l'onglet "Éditeur"
+3. Cliquer sur "Générer le fichier de zone"
+4. Choisir télécharger ou prévisualiser
 
-### Expected Output
+### Sortie attendue
 ```
 ; Zone content from database
 $ORIGIN example.com.
@@ -158,24 +158,24 @@ mail.example.com       3600 IN A      192.168.1.20
 example.com            3600 IN MX     10 mail.example.com
 ```
 
-## ✨ Highlights
+## ✨ Points forts
 
-1. **Minimal Changes**: Only modified what was necessary
-2. **Clean Code**: Follows existing patterns and style
-3. **Well Tested**: Automated validation suite included
-4. **Documented**: Comprehensive documentation provided
-5. **Compatible**: Works with PHP 7.4+ and existing database
-6. **User Friendly**: Intuitive UI with helpful tooltips
+1. **Modifications minimales** : Seules les modifications nécessaires ont été apportées
+2. **Code propre** : Suit les modèles et le style existants
+3. **Bien testé** : Suite de validation automatisée incluse
+4. **Documenté** : Documentation complète fournie
+5. **Compatible** : Fonctionne avec PHP 7.4+ et la base de données existante
+6. **Convivial** : UI intuitive avec des infobulles utiles
 
-## 🎉 Ready for Review
+## 🎉 Prêt pour révision
 
-All requirements have been implemented, tested, and documented. The feature is ready for:
-- Code review
-- Manual testing
-- Integration into production
+Toutes les exigences ont été implémentées, testées et documentées. La fonctionnalité est prête pour :
+- Revue de code
+- Tests manuels
+- Intégration en production
 
 ---
 
-**Implementation Date**: October 21, 2025
-**PHP Version**: 7.4+
-**Database**: MariaDB/MySQL
+**Date d'implémentation** : 21 octobre 2025
+**Version PHP** : 7.4+
+**Base de données** : MariaDB/MySQL

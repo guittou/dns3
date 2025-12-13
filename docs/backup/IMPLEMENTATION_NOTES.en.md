@@ -1,19 +1,19 @@
-# Correction de l'affichage du domaine DNS - Notes d'implémentation
+# DNS Domain Display Fix - Implementation Notes
 
-## Vue d'ensemble
-Correction de l'affichage du domaine DNS pour montrer le domaine maître pour les zones include au lieu du nom de fichier include (par exemple, "test.fr" au lieu de "include1").
+## Overview
+Fixed DNS domain display to show master domain for include zones instead of the include filename (e.g., "test.fr" instead of "include1").
 
-## Énoncé du problème
-Après la migration de `domaine_list.domain` vers `zone_files.domain`, la page de gestion DNS affichait :
-- ❌ Nom de fichier de zone include (par exemple, "include1") dans la colonne "Domaine" et le combobox
-- ✅ Attendu : Domaine du parent maître (par exemple, "test.fr")
+## Problem Statement
+After migration from `domaine_list.domain` to `zone_files.domain`, the DNS management page was displaying:
+- ❌ Include zone filename (e.g., "include1") in the "Domaine" column and combobox
+- ✅ Expected: Parent master's domain (e.g., "test.fr")
 
-## Analyse de la cause racine
-Le combobox de domaine était en lecture seule et ne chargeait pas les domaines disponibles depuis les zones maîtres. Les utilisateurs ne pouvaient pas filtrer par domaine, et le système n'affichait pas correctement les informations de domaine pour les zones include.
+## Root Cause Analysis
+The domain combobox was set to read-only and wasn't loading the available domains from master zones. Users couldn't filter by domain, and the system wasn't properly displaying domain information for include zones.
 
-## Architecture de la solution
+## Solution Architecture
 
-### Backend (Déjà correct - Aucune modification requise)
+### Backend (Already Correct - No Changes Required)
 
 #### 1. Database Schema
 ```sql
@@ -30,7 +30,7 @@ CREATE TABLE zone_file_includes (
 
 #### 2. DnsRecord Model (includes/models/DnsRecord.php)
 
-**Requête SQL avec JOINs appropriés :**
+**SQL Query with Proper JOINs:**
 ```php
 $sql = "SELECT dr.*, 
                zf.domain as zone_domain,
@@ -42,7 +42,7 @@ $sql = "SELECT dr.*,
         LEFT JOIN zone_files p ON zfi.parent_id = p.id";
 ```
 
-**Logique de calcul de domain_name :**
+**domain_name Computation Logic:**
 ```php
 $fileType = $record['zone_file_type'] ?? 'master';
 if ($fileType === 'master') {
@@ -58,9 +58,9 @@ if ($fileType === 'master') {
 
 #### 3. DNS API (api/dns_api.php)
 
-**Point de terminaison list_domains :**
+**list_domains Endpoint:**
 ```php
-// Retourne seulement les zones maîtres avec le champ domain défini
+// Returns only master zones with domain field set
 SELECT zf.id, zf.domain, zf.name as zone_name
 FROM zone_files zf
 WHERE zf.domain IS NOT NULL 
@@ -70,11 +70,11 @@ WHERE zf.domain IS NOT NULL
 ORDER BY zf.domain ASC
 ```
 
-### Modifications du frontend
+### Frontend Changes
 
-#### 1. Combobox de domaine (assets/js/dns-records.js)
+#### 1. Domain Combobox (assets/js/dns-records.js)
 
-**Avant (Incorrect) :**
+**Before (Incorrect):**
 ```javascript
 async function initDomainCombobox() {
     const input = document.getElementById('dns-domain-input');
@@ -85,7 +85,7 @@ async function initDomainCombobox() {
 }
 ```
 
-**Après (Correct) :**
+**After (Correct):**
 ```javascript
 async function initDomainCombobox() {
     // Load all domains from master zones
@@ -117,7 +117,7 @@ async function initDomainCombobox() {
 }
 ```
 
-#### 2. Rendu du tableau (Déjà correct)
+#### 2. Table Rendering (Already Correct)
 ```javascript
 // Table already uses domain_name field
 const domainDisplay = escapeHtml(record.domain_name || '-');
@@ -127,7 +127,7 @@ row.innerHTML = `
 `;
 ```
 
-#### 3. Modal de zone (zone-files.js - Déjà correct)
+#### 3. Zone Modal (zone-files.js - Already Correct)
 ```javascript
 // Domain field shown only for masters
 const group = document.getElementById('zoneDomainGroup');
@@ -137,27 +137,27 @@ if (group) {
 }
 ```
 
-## Flux de données
+## Data Flow
 
-### Scénario 1 : Chargement du tableau des enregistrements DNS
+### Scenario 1: Loading DNS Records Table
 
 ```
-L'utilisateur charge la page
+User loads page
     ↓
-initDomainCombobox() appelé
+initDomainCombobox() called
     ↓
 apiCall('list_domains')
     ↓
 dns_api.php?action=list_domains
     ↓
-Retourne : [
+Returns: [
     {id: 260, domain: "test.fr"},
     {id: 261, domain: "example.com"}
 ]
     ↓
-Combobox de domaine rempli
+Domain combobox populated
     ↓
-loadDnsTable() appelé
+loadDnsTable() called
     ↓
 apiCall('list')
     ↓
@@ -165,18 +165,18 @@ dns_api.php?action=list
     ↓
 $dnsRecord->search()
     ↓
-SQL avec JOINs exécuté
+SQL with JOINs executes
     ↓
-domain_name calculé pour chaque enregistrement
+domain_name computed for each record
     ↓
-Retourne : [
+Returns: [
     {
         id: 123,
         name: "www",
         zone_name: "test.fr",
         zone_file_type: "master",
         zone_domain: "test.fr",
-        domain_name: "test.fr"  // ✅ Maître
+        domain_name: "test.fr"  // ✅ Master
     },
     {
         id: 456,
@@ -188,15 +188,15 @@ Retourne : [
     }
 ]
     ↓
-Tableau rendu avec domain_name
+Table rendered with domain_name
 ```
 
-### Scénario 2 : Clic sur un enregistrement include
+### Scenario 2: Clicking an Include Record
 
 ```
-L'utilisateur clique sur une ligne d'enregistrement
+User clicks record row
     ↓
-Gestionnaire de clic de ligne
+Row click handler
     ↓
 zoneFileId = record.zone_file_id
     ↓
@@ -208,9 +208,9 @@ zone_api.php?action=get_zone&id=260
     ↓
 ZoneFile->getById(260)
     ↓
-SQL avec JOIN parent_domain
+SQL with parent_domain JOIN
     ↓
-Retourne : {
+Returns: {
     id: 260,
     name: "include1",
     file_type: "include",
@@ -218,51 +218,51 @@ Retourne : {
     parent_domain: "test.fr"
 }
     ↓
-Logique setDomainForZone :
+setDomainForZone logic:
     if (zone.file_type === 'master') {
         domainName = zone.domain || '';
     } else {
         domainName = zone.parent_domain || '';  // ✅
     }
     ↓
-L'entrée de domaine affiche "test.fr"
+Domain input displays "test.fr"
 ```
 
-## Vérification des tests
+## Testing Verification
 
-### Étapes de test manuel
+### Manual Testing Steps
 
-1. **Chargement du combobox de domaine :**
-   - Ouvrir la page de gestion DNS
-   - Cliquer sur l'entrée de domaine
-   - Vérifier que le menu déroulant affiche tous les domaines maîtres
-   - Taper pour filtrer les domaines
-   - Sélectionner un domaine et vérifier le filtrage des zones
+1. **Domain Combobox Loads:**
+   - Open DNS management page
+   - Click domain input
+   - Verify dropdown shows all master domains
+   - Type to filter domains
+   - Select a domain and verify zones filter
 
-2. **Le tableau affiche le bon domaine :**
-   - Pour les enregistrements de zone maître : Affiche zone_files.domain
-   - Pour les enregistrements de zone include : Affiche le domaine du parent maître
-   - Pour les maîtres sans domaine : Affiche "-"
+2. **Table Displays Correct Domain:**
+   - For master zone records: Shows zone_files.domain
+   - For include zone records: Shows parent master's domain
+   - For masters without domain: Shows "-"
 
-3. **Clic sur un enregistrement include :**
-   - Cliquer sur un enregistrement appartenant à une zone include
-   - Vérifier que l'entrée de domaine affiche le domaine du parent (par exemple, "test.fr")
-   - Pas le nom de fichier include (par exemple, "include1")
+3. **Include Record Click:**
+   - Click a record belonging to an include zone
+   - Verify domain input shows parent's domain (e.g., "test.fr")
+   - Not the include filename (e.g., "include1")
 
-4. **Modal de zone :**
-   - Ouvrir le modal de zone maître : Champ de domaine visible et modifiable
-   - Ouvrir le modal de zone include : Champ de domaine masqué
+4. **Zone Modal:**
+   - Open master zone modal: Domain field visible and editable
+   - Open include zone modal: Domain field hidden
 
-### Tests API
+### API Testing
 
-**Test 1 : list_domains**
+**Test 1: list_domains**
 ```bash
 curl -X GET "http://localhost/api/dns_api.php?action=list_domains" \
      -H "Cookie: PHPSESSID=..." \
      -H "Accept: application/json"
 ```
 
-Réponse attendue :
+Expected Response:
 ```json
 {
   "success": true,
@@ -273,14 +273,14 @@ Réponse attendue :
 }
 ```
 
-**Test 2 : list (avec enregistrements include)**
+**Test 2: list (with include records)**
 ```bash
 curl -X GET "http://localhost/api/dns_api.php?action=list" \
      -H "Cookie: PHPSESSID=..." \
      -H "Accept: application/json"
 ```
 
-Réponse attendue :
+Expected Response:
 ```json
 {
   "success": true,
@@ -307,14 +307,14 @@ Réponse attendue :
 }
 ```
 
-**Test 3 : get_zone (include)**
+**Test 3: get_zone (include)**
 ```bash
 curl -X GET "http://localhost/api/zone_api.php?action=get_zone&id=260" \
      -H "Cookie: PHPSESSID=..." \
      -H "Accept: application/json"
 ```
 
-Réponse attendue :
+Expected Response:
 ```json
 {
   "success": true,
@@ -331,29 +331,29 @@ Réponse attendue :
 }
 ```
 
-## Fichiers modifiés
+## Files Modified
 
-- `assets/js/dns-records.js` : Fonction initDomainCombobox() mise à jour
+- `assets/js/dns-records.js`: Updated initDomainCombobox() function
 
-## Fichiers vérifiés (Aucune modification requise)
+## Files Verified (No Changes Required)
 
-- `includes/models/DnsRecord.php` : Calcule déjà domain_name correctement
-- `api/dns_api.php` : Utilise déjà le modèle DnsRecord avec les JOINs corrects
-- `includes/models/ZoneFile.php` : Retourne déjà parent_domain
-- `api/zone_api.php` : Expose déjà les informations du parent
-- `assets/js/zone-files.js` : Affiche déjà le champ de domaine uniquement pour les maîtres
+- `includes/models/DnsRecord.php`: Already computes domain_name correctly
+- `api/dns_api.php`: Already uses DnsRecord model with correct JOINs
+- `includes/models/ZoneFile.php`: Already returns parent_domain
+- `api/zone_api.php`: Already exposes parent info
+- `assets/js/zone-files.js`: Already shows domain field only for masters
 
-## Plan de rollback
+## Rollback Plan
 
-Si des problèmes sont découverts après le déploiement :
+If issues are discovered after deployment:
 
 ```bash
-# Option 1 : Annuler le commit
+# Option 1: Revert the commit
 git revert <commit-hash>
 git push origin <branch>
 
-# Option 2 : Correction rapide - remettre l'entrée de domaine en lecture seule
-# Éditer assets/js/dns-records.js :
+# Option 2: Quick fix - make domain input read-only again
+# Edit assets/js/dns-records.js:
 async function initDomainCombobox() {
     const input = document.getElementById('dns-domain-input');
     if (input) {
@@ -363,53 +363,53 @@ async function initDomainCombobox() {
 }
 ```
 
-Le changement est minimal et réversible. La logique backend est inchangée, ce qui réduit les risques.
+The change is minimal and reversible. Backend logic is unchanged, reducing risk.
 
-## Considérations de sécurité
+## Security Considerations
 
-- ✅ Pas de risques d'injection SQL (utilise des requêtes préparées PDO)
-- ✅ Pas de risques XSS (utilise escapeHtml() pour toutes les données utilisateur)
-- ✅ Authentification requise pour tous les points de terminaison API
-- ✅ Aucun nouveau point de terminaison créé
-- ✅ Analyse CodeQL réussie avec 0 vulnérabilité
+- ✅ No SQL injection risks (uses PDO prepared statements)
+- ✅ No XSS risks (uses escapeHtml() for all user data)
+- ✅ Authentication required for all API endpoints
+- ✅ No new endpoints created
+- ✅ CodeQL scan passed with 0 vulnerabilities
 
-## Impact sur les performances
+## Performance Impact
 
-- **Minimal** : Un appel API supplémentaire au chargement de la page (list_domains)
-- **Optimisé** : list_domains filtre uniquement les maîtres
-- **Mis en cache** : Liste de domaines chargée une fois et mise en cache en mémoire
-- **Pas de N+1** : SQL utilise des JOINs appropriés, pas de requêtes multiples
+- **Minimal**: One additional API call on page load (list_domains)
+- **Optimized**: list_domains filters for masters only
+- **Cached**: Domain list loaded once and cached in memory
+- **No N+1**: SQL uses proper JOINs, not multiple queries
 
-## Compatibilité des navigateurs
+## Browser Compatibility
 
-- ✅ Navigateurs modernes (Chrome, Firefox, Safari, Edge)
-- ✅ ES6 async/await (supporté dans tous les navigateurs modernes)
-- ✅ Aucun polyfill requis
-- ✅ Dégradation gracieuse si JavaScript désactivé (mode lecture seule)
+- ✅ Modern browsers (Chrome, Firefox, Safari, Edge)
+- ✅ ES6 async/await (supported in all modern browsers)
+- ✅ No polyfills required
+- ✅ Graceful degradation if JavaScript disabled (read-only mode)
 
-## Limitations connues
+## Known Limitations
 
-1. **Le champ de domaine est optionnel** : Les maîtres sans domaine afficheront "-" dans le tableau
-2. **Chaînes d'include** : Seul le domaine du parent direct est affiché (pas le grand-parent)
-3. **Références circulaires** : Protégé par la constante MAX_ZONE_TRAVERSAL_DEPTH
+1. **Domain field is optional**: Masters without domain will show "-" in the table
+2. **Include chains**: Only direct parent's domain is shown (not grandparent)
+3. **Circular references**: Protected by MAX_ZONE_TRAVERSAL_DEPTH constant
 
-## Améliorations futures
+## Future Enhancements
 
-1. Ajouter la validation du champ de domaine dans le modal de création/édition de zone
-2. Afficher la chaîne de parents complète pour les includes imbriqués
-3. Ajouter le champ de domaine aux zones include (pour les scénarios de remplacement)
-4. Ajouter un outil d'attribution de domaine en masse pour les maîtres existants
+1. Add domain field validation in zone creation/edit modal
+2. Show full parent chain for nested includes
+3. Add domain field to include zones (for override scenarios)
+4. Add bulk domain assignment tool for existing masters
 
-## Références
+## References
 
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
-- Problème d'origine : GitHub Issue #XXX (le cas échéant)
-- PR associée : #137 (migration de domaine précédente)
+- Original Issue: GitHub Issue #XXX (if applicable)
+- Related PR: #137 (previous domain migration)
 
 ---
 
-**Auteur** : Copilot Agent  
-**Date** : 2025-11-09  
-**Statut** : ✅ Implémentation terminée  
-**Analyse de sécurité** : ✅ Réussie (0 vulnérabilité)
+**Author**: Copilot Agent  
+**Date**: 2025-11-09  
+**Status**: ✅ Implementation Complete  
+**Security Scan**: ✅ Passed (0 vulnerabilities)

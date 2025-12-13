@@ -1,8 +1,8 @@
-# Zone File Generation - UI Changes Visual Guide
+# Génération de fichiers de zone - Guide visuel des modifications UI
 
-## 📱 User Interface Changes
+## 📱 Modifications de l'interface utilisateur
 
-### 1. Zone List Table - BEFORE
+### 1. Tableau de la liste des zones - AVANT
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ Zone      │ Type   │ Filename  │ Parent │ # Includes │ Owner │ Status │ ... │
@@ -12,7 +12,7 @@
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1. Zone List Table - AFTER ✅
+### 1. Tableau de la liste des zones - APRÈS ✅
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Zone      │ Type   │ Filename  │ Parent │ Owner │ Status │ Modified │
@@ -21,11 +21,11 @@
 │ common.conf│ Include│ common.cf │ ex.com │ admin │ Active │ 10/20   │
 └──────────────────────────────────────────────────────────────────────┘
 ```
-**Change**: Removed "# Includes" column ✓
+**Modification** : Colonne "# Includes" supprimée ✓
 
 ---
 
-### 2. Zone Edit Modal - Details Tab - BEFORE
+### 2. Modal d'édition de zone - Onglet Détails - AVANT
 ```
 ┌────────────────────────────────────────┐
 │  Zone: example.com              [X]    │
@@ -44,7 +44,7 @@
 └────────────────────────────────────────┘
 ```
 
-### 2. Zone Edit Modal - Details Tab - AFTER ✅
+### 2. Modal d'édition de zone - Onglet Détails - APRÈS ✅
 ```
 ┌────────────────────────────────────────┐
 │  Zone: example.com              [X]    │
@@ -66,11 +66,11 @@
 │                                        │
 └────────────────────────────────────────┘
 ```
-**Change**: Added "Répertoire" field (only in modal, not in table) ✓
+**Modification** : Champ "Répertoire" ajouté (uniquement dans le modal, pas dans le tableau) ✓
 
 ---
 
-### 3. Zone Edit Modal - Editor Tab - BEFORE
+### 3. Modal d'édition de zone - Onglet Éditeur - AVANT
 ```
 ┌────────────────────────────────────────┐
 │  Zone: example.com              [X]    │
@@ -91,7 +91,7 @@
    [Annuler]            [Enregistrer]
 ```
 
-### 3. Zone Edit Modal - Editor Tab - AFTER ✅
+### 3. Modal d'édition de zone - Onglet Éditeur - APRÈS ✅
 ```
 ┌────────────────────────────────────────┐
 │  Zone: example.com              [X]    │
@@ -114,44 +114,44 @@
 └────────────────────────────────────────┘
    [Annuler]            [Enregistrer]
 ```
-**Change**: Added "Générer le fichier de zone" button ✓
+**Modification** : Bouton "Générer le fichier de zone" ajouté ✓
 
 ---
 
-## 🎬 User Flow for Zone Generation
+## 🎬 Flux utilisateur pour la génération de zone
 
-### Step 1: Open Zone
+### Étape 1 : Ouvrir la zone
 ```
-User clicks on zone row in table
+L'utilisateur clique sur une ligne de zone dans le tableau
     ↓
-Modal opens showing zone details
-```
-
-### Step 2: Set Directory (Optional)
-```
-User goes to "Détails" tab
-    ↓
-Enters directory: /etc/bind/zones
-    ↓
-Clicks "Enregistrer"
+Le modal s'ouvre et affiche les détails de la zone
 ```
 
-### Step 3: Generate Zone File
+### Étape 2 : Définir le répertoire (optionnel)
 ```
-User goes to "Éditeur" tab
+L'utilisateur va dans l'onglet "Détails"
     ↓
-Clicks "Générer le fichier de zone" button
+Saisit le répertoire : /etc/bind/zones
     ↓
-Prompt: "Voulez-vous télécharger le fichier?"
-    ├─ OUI → File downloads as "example.com.zone"
-    └─ NON → Content shown in editor for preview
+Clique sur "Enregistrer"
+```
+
+### Étape 3 : Générer le fichier de zone
+```
+L'utilisateur va dans l'onglet "Éditeur"
+    ↓
+Clique sur le bouton "Générer le fichier de zone"
+    ↓
+Message : "Voulez-vous télécharger le fichier ?"
+    ├─ OUI → Le fichier est téléchargé sous le nom "example.com.zone"
+    └─ NON → Le contenu est affiché dans l'éditeur pour prévisualisation
 ```
 
 ---
 
-## 📄 Generated Zone File Example
+## 📄 Exemple de fichier de zone généré
 
-### Input Configuration
+### Configuration d'entrée
 - **Zone Content**: 
   ```
   $ORIGIN example.com.
@@ -181,18 +181,19 @@ example.com            3600 IN MX     10 mail.example.com
 
 ---
 
-## 🔄 Data Flow
+## 🔄 Flux de données
 
 ```
 ┌─────────────────┐
-│   User clicks   │
+│ L'utilisateur   │
+│ clique sur      │
 │  "Générer..."   │
 └────────┬────────┘
          ↓
 ┌─────────────────┐
 │   JavaScript    │
-│ generates API   │
-│      call       │
+│   génère un     │
+│   appel API     │
 └────────┬────────┘
          ↓
 ┌─────────────────────────────────────┐
@@ -203,68 +204,72 @@ example.com            3600 IN MX     10 mail.example.com
 ┌─────────────────────────────────────┐
 │   ZoneFile::generateZoneFile($id)   │
 ├─────────────────────────────────────┤
-│  1. Get zone content                │
-│  2. Get includes (with directory)   │
-│  3. Get DNS records                 │
-│  4. Format as BIND syntax           │
+│  1. Récupérer le contenu de zone    │
+│  2. Récupérer les includes          │
+│     (avec répertoire)               │
+│  3. Récupérer les enregistrements   │
+│     DNS                             │
+│  4. Formater en syntaxe BIND        │
 └────────┬────────────────────────────┘
          ↓
 ┌─────────────────┐
-│   Return JSON   │
-│   with content  │
+│  Retourner un   │
+│  JSON avec le   │
+│    contenu      │
 └────────┬────────┘
          ↓
 ┌─────────────────┐
 │   JavaScript    │
-│  shows prompt   │
+│  affiche une    │
+│   invite        │
 └────────┬────────┘
          ↓
     ┌────┴────┐
     ↓         ↓
-[Download]  [Preview]
+[Télécharger] [Prévisualiser]
 ```
 
 ---
 
-## ✅ Requirements Verification
+## ✅ Vérification des exigences
 
-| Requirement | Status | Notes |
-|------------|--------|-------|
-| Add directory column | ✅ | Via migration 010 |
-| Directory in modal only | ✅ | Not in table view |
-| Remove "# Includes" column | ✅ | From table view |
-| Generate button | ✅ | In Editor tab |
-| $INCLUDE directives | ✅ | Uses directory/filename |
-| DNS records in BIND | ✅ | All types supported |
-| Includes NOT inlined | ✅ | Uses $INCLUDE |
-| Download/preview | ✅ | User choice |
-
----
-
-## 🎨 Visual Elements Added
-
-### New Field in Modal
-- **Label**: "Répertoire"
-- **Type**: Text input
-- **Placeholder**: "Exemple: /etc/bind/zones"
-- **Help text**: "Répertoire pour les directives $INCLUDE (optionnel)"
-
-### New Button in Modal
-- **Icon**: 📄 (file-code)
-- **Text**: "Générer le fichier de zone"
-- **Style**: btn btn-secondary
-- **Help text**: "Génère le contenu complet avec les directives $INCLUDE et les enregistrements DNS"
+| Exigence | Statut | Notes |
+|----------|--------|-------|
+| Ajouter colonne directory | ✅ | Via migration 010 |
+| Directory uniquement dans modal | ✅ | Pas dans la vue tableau |
+| Supprimer colonne "# Includes" | ✅ | De la vue tableau |
+| Bouton Générer | ✅ | Dans l'onglet Éditeur |
+| Directives $INCLUDE | ✅ | Utilise répertoire/nom de fichier |
+| Enregistrements DNS en BIND | ✅ | Tous types supportés |
+| Includes NON inlinés | ✅ | Utilise $INCLUDE |
+| Télécharger/prévisualiser | ✅ | Choix utilisateur |
 
 ---
 
-## 📱 Responsive Design
+## 🎨 Éléments visuels ajoutés
 
-All changes maintain the existing responsive design:
-- Modal remains centered and scrollable
-- Form fields stack properly on mobile
-- Button is full-width on small screens
-- Table columns adjust as before (minus one column)
+### Nouveau champ dans le modal
+- **Label** : "Répertoire"
+- **Type** : Saisie de texte
+- **Placeholder** : "Exemple: /etc/bind/zones"
+- **Texte d'aide** : "Répertoire pour les directives $INCLUDE (optionnel)"
+
+### Nouveau bouton dans le modal
+- **Icône** : 📄 (file-code)
+- **Texte** : "Générer le fichier de zone"
+- **Style** : btn btn-secondary
+- **Texte d'aide** : "Génère le contenu complet avec les directives $INCLUDE et les enregistrements DNS"
 
 ---
 
-**End of Visual Guide**
+## 📱 Design responsive
+
+Toutes les modifications conservent le design responsive existant :
+- Le modal reste centré et défilable
+- Les champs de formulaire s'empilent correctement sur mobile
+- Le bouton est en pleine largeur sur les petits écrans
+- Les colonnes du tableau s'ajustent comme auparavant (moins une colonne)
+
+---
+
+**Fin du guide visuel**

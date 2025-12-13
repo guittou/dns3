@@ -1,22 +1,22 @@
-# Zone Files Quick Start Guide
+# Guide de démarrage rapide - Fichiers de zone
 
-## Initial Setup
+## Configuration initiale
 
-### 1. Database Setup
+### 1. Configuration de la base de données
 
 > **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 
 ```bash
-# Import complete schema
+# Importer le schéma complet
 mysql -u dns3_user -p dns3_db < database.sql
 ```
 
-### 2. Create Your First Zone File
+### 2. Créer votre premier fichier de zone
 
-Using the Zone API (requires admin login):
+En utilisant l'API Zone (nécessite une connexion administrateur) :
 
 ```bash
-# Create a master zone
+# Créer une zone maître
 curl -X POST "http://localhost/api/zone_api.php?action=create_zone" \
   -H "Content-Type: application/json" \
   -H "Cookie: PHPSESSID=your_session_id" \
@@ -28,7 +28,7 @@ curl -X POST "http://localhost/api/zone_api.php?action=create_zone" \
   }'
 ```
 
-Or insert directly into the database (easier for initial setup):
+Ou insérer directement dans la base de données (plus facile pour la configuration initiale) :
 
 ```sql
 INSERT INTO zone_files (name, filename, file_type, status, created_by, created_at) 
@@ -38,137 +38,137 @@ VALUES
   ('common.include', 'common.include', 'include', 'active', 1, NOW());
 ```
 
-## Using the UI
+## Utilisation de l'interface utilisateur
 
-### Creating a DNS Record
+### Créer un enregistrement DNS
 
-1. Navigate to **DNS Management** page
-2. Click **"+ Créer un enregistrement"**
-3. **First**, select a zone from the "Fichier de zone" dropdown
-4. Fill in the other fields:
-   - Name (e.g., `www.example.com`)
-   - TTL (default: 3600)
-   - Type (A, AAAA, CNAME, PTR, or TXT)
-   - Value (IP address, hostname, or text depending on type)
-5. Click **"Enregistrer"**
+1. Naviguer vers la page **Gestion DNS**
+2. Cliquer sur **"+ Créer un enregistrement"**
+3. **D'abord**, sélectionner une zone dans le menu déroulant "Fichier de zone"
+4. Remplir les autres champs :
+   - Nom (par exemple, `www.example.com`)
+   - TTL (par défaut : 3600)
+   - Type (A, AAAA, CNAME, PTR ou TXT)
+   - Valeur (adresse IP, nom d'hôte ou texte selon le type)
+5. Cliquer sur **"Enregistrer"**
 
-### Editing a DNS Record
+### Modifier un enregistrement DNS
 
-1. Click **"Modifier"** on any record in the table
-2. You can change the zone file by selecting a different value in the dropdown
-3. Update other fields as needed
-4. Click **"Enregistrer"**
+1. Cliquer sur **"Modifier"** sur n'importe quel enregistrement du tableau
+2. Vous pouvez changer le fichier de zone en sélectionnant une valeur différente dans le menu déroulant
+3. Mettre à jour les autres champs si nécessaire
+4. Cliquer sur **"Enregistrer"**
 
-### Viewing Zone Information
+### Afficher les informations de zone
 
-The DNS records table now shows the zone name in the first column for each record.
+Le tableau des enregistrements DNS affiche maintenant le nom de la zone dans la première colonne pour chaque enregistrement.
 
-## Common Workflows
+## Flux de travail courants
 
-### Workflow 1: Add a New Website
+### Flux de travail 1 : Ajouter un nouveau site Web
 
 ```bash
-# 1. Create zone file for the domain
+# 1. Créer un fichier de zone pour le domaine
 curl -X POST ".../zone_api.php?action=create_zone" -d '{"name": "newsite.com", "filename": "db.newsite.com", "file_type": "master"}'
 
-# 2. Add DNS records via UI
-# - Select "newsite.com (master)" from zone dropdown
-# - Add A record: www.newsite.com -> 192.168.1.100
-# - Add CNAME: mail.newsite.com -> mail.provider.com
+# 2. Ajouter des enregistrements DNS via l'interface
+# - Sélectionner "newsite.com (master)" dans le menu déroulant de zone
+# - Ajouter un enregistrement A : www.newsite.com -> 192.168.1.100
+# - Ajouter un CNAME : mail.newsite.com -> mail.provider.com
 ```
 
-### Workflow 2: Migrate Existing Records to Zones
+### Flux de travail 2 : Migrer les enregistrements existants vers des zones
 
-For existing DNS records without a zone:
+Pour les enregistrements DNS existants sans zone :
 
 ```sql
--- Find records without zones
+-- Trouver les enregistrements sans zones
 SELECT id, name, record_type FROM dns_records WHERE zone_file_id IS NULL;
 
--- Update them to use a zone (e.g., zone_file_id = 1)
+-- Les mettre à jour pour utiliser une zone (par exemple, zone_file_id = 1)
 UPDATE dns_records 
 SET zone_file_id = 1 
 WHERE name LIKE '%example.com%' AND zone_file_id IS NULL;
 ```
 
-Or update via UI by editing each record and selecting a zone.
+Ou mettre à jour via l'interface en modifiant chaque enregistrement et en sélectionnant une zone.
 
-### Workflow 3: Create Include File for Common Records
+### Flux de travail 3 : Créer un fichier include pour les enregistrements communs
 
 ```bash
-# 1. Create an include zone
+# 1. Créer une zone include
 curl -X POST ".../zone_api.php?action=create_zone" \
   -d '{"name": "common-mx", "filename": "common-mx.include", "file_type": "include"}'
 
-# 2. Assign it to master zones
+# 2. L'assigner aux zones maîtres
 curl -X POST ".../zone_api.php?action=assign_include&master_id=1&include_id=3"
 curl -X POST ".../zone_api.php?action=assign_include&master_id=2&include_id=3"
 
-# 3. Add DNS records to the include zone via UI
-# Select "common-mx (include)" and add MX records
+# 3. Ajouter des enregistrements DNS à la zone include via l'interface
+# Sélectionner "common-mx (include)" et ajouter des enregistrements MX
 ```
 
-## Best Practices
+## Bonnes pratiques
 
-### Zone Organization
+### Organisation des zones
 
-1. **Master Zones**: One per domain or subdomain
+1. **Zones maîtres** : Une par domaine ou sous-domaine
    - example.com
    - internal.example.com
    - api.example.com
 
-2. **Include Zones**: For common record sets
-   - common-mx (shared MX records)
-   - common-ns (shared nameservers)
-   - monitoring-hosts (standard monitoring IPs)
+2. **Zones include** : Pour les ensembles d'enregistrements communs
+   - common-mx (enregistrements MX partagés)
+   - common-ns (serveurs de noms partagés)
+   - monitoring-hosts (IPs de surveillance standard)
 
-### Naming Conventions
+### Conventions de nommage
 
-- **Zone names**: Use domain format (example.com, subdomain.example.com)
-- **Filenames**: Use db.* for master, *.include for includes
+- **Noms de zone** : Utiliser le format de domaine (example.com, subdomain.example.com)
+- **Noms de fichiers** : Utiliser db.* pour les maîtres, *.include pour les includes
 
-### Status Management
+### Gestion des statuts
 
-- **active**: Zone is in use
-- **inactive**: Temporarily disabled, can be reactivated
-- **deleted**: Soft-deleted, hidden from normal views
+- **active** : Zone en cours d'utilisation
+- **inactive** : Désactivée temporairement, peut être réactivée
+- **deleted** : Suppression douce, cachée des vues normales
 
-## Troubleshooting
+## Dépannage
 
 ### "Missing required field: zone_file_id"
 
-**Problem**: Trying to create a DNS record without selecting a zone.
+**Problème** : Tentative de créer un enregistrement DNS sans sélectionner de zone.
 
-**Solution**: Select a zone from the "Fichier de zone" dropdown before submitting.
+**Solution** : Sélectionner une zone dans le menu déroulant "Fichier de zone" avant de soumettre.
 
 ### "Invalid or inactive zone_file_id"
 
-**Problem**: The selected zone doesn't exist or isn't active.
+**Problème** : La zone sélectionnée n'existe pas ou n'est pas active.
 
-**Solutions**:
-1. Check zone exists: `SELECT * FROM zone_files WHERE id = X;`
-2. Check zone is active: `UPDATE zone_files SET status = 'active' WHERE id = X;`
-3. Select a different zone from the dropdown
+**Solutions** :
+1. Vérifier que la zone existe : `SELECT * FROM zone_files WHERE id = X;`
+2. Vérifier que la zone est active : `UPDATE zone_files SET status = 'active' WHERE id = X;`
+3. Sélectionner une zone différente dans le menu déroulant
 
-### Zone dropdown is empty
+### Le menu déroulant des zones est vide
 
-**Problem**: No active master or include zones available.
+**Problème** : Aucune zone maître ou include active disponible.
 
-**Solutions**:
-1. Create at least one zone (see "Create Your First Zone File" above)
-2. Ensure zone has status='active'
-3. Check browser console for API errors
-4. Verify admin is logged in
+**Solutions** :
+1. Créer au moins une zone (voir "Créer votre premier fichier de zone" ci-dessus)
+2. S'assurer que la zone a status='active'
+3. Vérifier la console du navigateur pour les erreurs API
+4. Vérifier que l'administrateur est connecté
 
-### Can't change zone for existing record
+### Impossible de changer la zone d'un enregistrement existant
 
-**Problem**: Not seeing the zone dropdown or it's disabled.
+**Problème** : Le menu déroulant des zones n'est pas visible ou est désactivé.
 
-**Solution**: The zone dropdown is always enabled in edit mode. Make sure you're using the latest version of the code and refresh your browser.
+**Solution** : Le menu déroulant des zones est toujours activé en mode édition. Assurez-vous d'utiliser la dernière version du code et actualisez votre navigateur.
 
-## API Reference Summary
+## Résumé de référence API
 
-### Zone Files
+### Fichiers de zone
 - `GET /api/zone_api.php?action=list_zones[&file_type=master][&status=active]`
 - `GET /api/zone_api.php?action=get_zone&id=X`
 - `POST /api/zone_api.php?action=create_zone` (admin)
@@ -176,15 +176,15 @@ curl -X POST ".../zone_api.php?action=assign_include&master_id=2&include_id=3"
 - `POST /api/zone_api.php?action=assign_include&master_id=X&include_id=Y` (admin)
 - `GET /api/zone_api.php?action=download_zone&id=X`
 
-### DNS Records (Enhanced)
-- `POST /api/dns_api.php?action=create` - Now requires `zone_file_id`
-- `GET /api/dns_api.php?action=list` - Now includes `zone_name`
-- `POST /api/dns_api.php?action=update&id=X` - Can update `zone_file_id`
+### Enregistrements DNS (Améliorés)
+- `POST /api/dns_api.php?action=create` - Nécessite maintenant `zone_file_id`
+- `GET /api/dns_api.php?action=list` - Inclut maintenant `zone_name`
+- `POST /api/dns_api.php?action=update&id=X` - Peut mettre à jour `zone_file_id`
 
 ## Support
 
-For issues or questions:
-1. Check the ZONE_FILES_TESTING_GUIDE.md
-2. Check the ZONE_FILES_IMPLEMENTATION_SUMMARY.md
-3. Review API error messages in browser console
-4. Check server error logs
+Pour les problèmes ou questions :
+1. Consulter ZONE_FILES_TESTING_GUIDE.md
+2. Consulter ZONE_FILES_IMPLEMENTATION_SUMMARY.md
+3. Examiner les messages d'erreur API dans la console du navigateur
+4. Vérifier les journaux d'erreurs du serveur
