@@ -1,8 +1,8 @@
 # Notes de Version de l'Interface d'Administration
 
-## Version: 1.0.0
-## Date: 2025-10-20
-## Branche: feature/admin-ui → main
+## Version : 1.0.0
+## Date : 2025-10-20
+## Branche : feature/admin-ui → main
 
 ---
 

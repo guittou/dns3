@@ -4,13 +4,13 @@
 
 ### Installation (3 étapes)
 ```bash
-# 1. Import database schema
+# 1. Importer le schéma de base de données
 mysql -u dns3_user -p dns3_db < database.sql
 
-# 2. Create admin user
+# 2. Créer un utilisateur admin
 php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
 
-# 3. Access
+# 3. Accéder
 http://your-domain/admin.php
 ```
 
