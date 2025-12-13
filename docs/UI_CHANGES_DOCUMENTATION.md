@@ -1,152 +1,152 @@
-# UI Changes Documentation - Type-Specific Fields
+# Documentation des Modifications UI - Champs Spécifiques par Type
 
-## Overview
-This document describes the visual and functional changes to the DNS management UI.
+## Vue d'ensemble
+Ce document décrit les modifications visuelles et fonctionnelles de l'interface de gestion DNS.
 
-## Before (Old Implementation)
-The old implementation used a single generic "value" field for all DNS record types:
+## Avant (Ancienne Implémentation)
+L'ancienne implémentation utilisait un seul champ générique "valeur" pour tous les types d'enregistrements DNS :
 
 ```
 [ Type d'enregistrement: A ▼ ]
 [ Nom: example.com ]
-[ Valeur: 192.168.1.1 ]  ← Single field for all types
+[ Valeur: 192.168.1.1 ]  ← Champ unique pour tous les types
 [ TTL: 3600 ]
-[ Priorité: 10 ]  ← Used only for MX/SRV
+[ Priorité: 10 ]  ← Utilisé uniquement pour MX/SRV
 ```
 
-**Problems:**
-- Same field used for IP addresses, hostnames, and text
-- No type-specific validation hints
-- Priority field shown for all types (confusing)
-- Supported 9 different record types (MX, SRV, NS, SOA not fully functional)
+**Problèmes :**
+- Même champ utilisé pour les adresses IP, noms d'hôte et texte
+- Pas d'indices de validation spécifiques au type
+- Champ priorité affiché pour tous les types (confus)
+- Support de 9 types d'enregistrements différents (MX, SRV, NS, SOA non entièrement fonctionnels)
 
-## After (New Implementation)
-The new implementation uses dedicated fields that show/hide based on record type:
+## Après (Nouvelle Implémentation)
+La nouvelle implémentation utilise des champs dédiés qui s'affichent/se masquent selon le type d'enregistrement :
 
-### A Record (IPv4)
+### Enregistrement A (IPv4)
 ```
 [ Type d'enregistrement: A ▼ ]
 [ Nom: example.com ]
-[ Adresse IPv4: 192.168.1.1 ]  ← Dedicated field with validation
-  Example: 192.168.1.1
+[ Adresse IPv4: 192.168.1.1 ]  ← Champ dédié avec validation
+  Exemple: 192.168.1.1
 [ TTL: 3600 ]
 ```
 
-### AAAA Record (IPv6)
+### Enregistrement AAAA (IPv6)
 ```
 [ Type d'enregistrement: AAAA ▼ ]
 [ Nom: example.com ]
-[ Adresse IPv6: 2001:db8::1 ]  ← Dedicated field with validation
-  Example: 2001:db8::1
+[ Adresse IPv6: 2001:db8::1 ]  ← Champ dédié avec validation
+  Exemple: 2001:db8::1
 [ TTL: 3600 ]
 ```
 
-### CNAME Record
+### Enregistrement CNAME
 ```
 [ Type d'enregistrement: CNAME ▼ ]
 [ Nom: www.example.com ]
-[ Cible CNAME: example.com ]  ← Dedicated field, no IP allowed
+[ Cible CNAME: example.com ]  ← Champ dédié, pas d'IP autorisée
   Nom d'hôte cible (pas d'adresse IP)
 [ TTL: 3600 ]
 ```
 
-### PTR Record
+### Enregistrement PTR
 ```
 [ Type d'enregistrement: PTR ▼ ]
 [ Nom: example.com ]
-[ Nom PTR (inversé): 1.1.168.192.in-addr.arpa ]  ← Requires reverse DNS name
+[ Nom PTR (inversé): 1.1.168.192.in-addr.arpa ]  ← Nécessite le nom DNS inversé
   Nom DNS inversé requis
 [ TTL: 3600 ]
 ```
 
-### TXT Record
+### Enregistrement TXT
 ```
 [ Type d'enregistrement: TXT ▼ ]
 [ Nom: example.com ]
-[ Texte: v=spf1 include:_spf.example.com ~all ]  ← Multi-line text area
-  Example: v=spf1 include:_spf.example.com ~all
+[ Texte: v=spf1 include:_spf.example.com ~all ]  ← Zone de texte multiligne
+  Exemple: v=spf1 include:_spf.example.com ~all
 [ TTL: 3600 ]
 ```
 
-## Key Changes
+## Modifications Clés
 
-### 1. Type Selection
-**Before:** 9 types (A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, SRV)
-**After:** 5 types (A, AAAA, CNAME, PTR, TXT)
+### 1. Sélection de Type
+**Avant :** 9 types (A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, SRV)
+**Après :** 5 types (A, AAAA, CNAME, PTR, TXT)
 
-The type dropdown now shows only supported types.
+Le menu déroulant des types n'affiche maintenant que les types supportés.
 
-### 2. Dynamic Field Visibility
-- Only ONE dedicated field is visible at a time
-- Field automatically shows/hides when changing record type
-- Each field has appropriate placeholder text and validation hints
-- Required indicator (*) shown on active field
+### 2. Visibilité Dynamique des Champs
+- Un SEUL champ dédié est visible à la fois
+- Le champ s'affiche/se masque automatiquement lors du changement de type d'enregistrement
+- Chaque champ a un texte d'espace réservé approprié et des indices de validation
+- L'indicateur requis (*) est affiché sur le champ actif
 
-### 3. Field-Specific Validation
-- **A Record**: Validates IPv4 format (e.g., 192.168.1.1)
-- **AAAA Record**: Validates IPv6 format (e.g., 2001:db8::1)
-- **CNAME Record**: Validates hostname format, rejects IP addresses
-- **PTR Record**: Validates hostname format, expects reverse DNS name
-- **TXT Record**: Accepts any non-empty text
+### 3. Validation Spécifique aux Champs
+- **Enregistrement A** : Valide le format IPv4 (ex : 192.168.1.1)
+- **Enregistrement AAAA** : Valide le format IPv6 (ex : 2001:db8::1)
+- **Enregistrement CNAME** : Valide le format nom d'hôte, rejette les adresses IP
+- **Enregistrement PTR** : Valide le format nom d'hôte, attend un nom DNS inversé
+- **Enregistrement TXT** : Accepte tout texte non vide
 
-### 4. Removed Fields
-- **Priority field**: Removed (was only used for MX/SRV which are no longer supported)
-- **Value field**: Replaced by type-specific fields
+### 4. Champs Supprimés
+- **Champ priorité** : Supprimé (n'était utilisé que pour MX/SRV qui ne sont plus supportés)
+- **Champ valeur** : Remplacé par des champs spécifiques au type
 
-### 5. Enhanced User Experience
-- Clear labeling with type-specific names
-- Inline examples and hints below each field
-- Visual highlighting of active field (green border)
-- Better form validation with specific error messages
+### 5. Expérience Utilisateur Améliorée
+- Étiquetage clair avec des noms spécifiques au type
+- Exemples et indices intégrés sous chaque champ
+- Mise en évidence visuelle du champ actif (bordure verte)
+- Meilleure validation de formulaire avec messages d'erreur spécifiques
 
-## Form Field Mapping
+## Correspondance des Champs de Formulaire
 
-| Record Type | Field Name | Database Column | HTML Element | Validation |
-|-------------|-----------|-----------------|--------------|------------|
-| A | Adresse IPv4 | `address_ipv4` | `<input type="text">` | IPv4 format |
-| AAAA | Adresse IPv6 | `address_ipv6` | `<input type="text">` | IPv6 format |
-| CNAME | Cible CNAME | `cname_target` | `<input type="text">` | Hostname (no IP) |
-| PTR | Nom PTR | `ptrdname` | `<input type="text">` | Hostname |
-| TXT | Texte | `txt` | `<textarea>` | Non-empty |
+| Type d'Enreg. | Nom du Champ | Colonne DB | Élément HTML | Validation |
+|---------------|-------------|------------|--------------|------------|
+| A | Adresse IPv4 | `address_ipv4` | `<input type="text">` | Format IPv4 |
+| AAAA | Adresse IPv6 | `address_ipv6` | `<input type="text">` | Format IPv6 |
+| CNAME | Cible CNAME | `cname_target` | `<input type="text">` | Nom d'hôte (pas d'IP) |
+| PTR | Nom PTR | `ptrdname` | `<input type="text">` | Nom d'hôte |
+| TXT | Texte | `txt` | `<textarea>` | Non vide |
 
-## JavaScript Behavior
+## Comportement JavaScript
 
-### Field Visibility Logic
+### Logique de Visibilité des Champs
 ```javascript
 function updateFieldVisibility() {
-    // Hide all dedicated field groups
+    // Masquer tous les groupes de champs dédiés
     ipv4Group.style.display = 'none';
     ipv6Group.style.display = 'none';
     cnameGroup.style.display = 'none';
     ptrGroup.style.display = 'none';
     txtGroup.style.display = 'none';
     
-    // Show only the relevant field based on selected type
+    // Afficher uniquement le champ pertinent selon le type sélectionné
     switch(recordType) {
         case 'A':
             ipv4Group.style.display = 'block';
             ipv4Input.setAttribute('required', 'required');
             break;
-        // ... other types
+        // ... autres types
     }
 }
 ```
 
-### Payload Construction
+### Construction de la Charge Utile
 ```javascript
-// Build payload with both dedicated field AND value alias
+// Construire la charge utile avec à la fois le champ dédié ET l'alias value
 const data = {
     record_type: 'A',
     name: 'example.com',
-    address_ipv4: '192.168.1.1',  // Dedicated field
-    value: '192.168.1.1',         // Alias for backward compatibility
+    address_ipv4: '192.168.1.1',  // Champ dédié
+    value: '192.168.1.1',         // Alias pour rétrocompatibilité
     ttl: 3600
 };
 ```
 
-## Table Display
+## Affichage Table
 
-The records table continues to display a "Valeur" column, which is now computed from the dedicated fields by the backend:
+La table des enregistrements continue d'afficher une colonne "Valeur", qui est maintenant calculée à partir des champs dédiés par le backend :
 
 ```
 | ID | Type  | Nom           | Valeur        | TTL  | ... |
@@ -156,44 +156,44 @@ The records table continues to display a "Valeur" column, which is now computed 
 | 3  | CNAME | www.ex...com  | example.com   | 3600 | ... |
 ```
 
-The `value` field in the API response is automatically computed from the appropriate dedicated column, ensuring backward compatibility with existing table rendering code.
+Le champ `value` dans la réponse API est automatiquement calculé à partir de la colonne dédiée appropriée, assurant la rétrocompatibilité avec le code de rendu de table existant.
 
-## Error Messages
+## Messages d'Erreur
 
-### Client-Side Validation
+### Validation Côté Client
 - "L'adresse doit être une adresse IPv4 valide pour le type A"
 - "L'adresse doit être une adresse IPv6 valide pour le type AAAA"
 - "La cible CNAME ne peut pas être une adresse IP (doit être un nom d'hôte)"
 - "Le nom PTR doit être un nom d'hôte valide (nom DNS inversé requis)"
 - "Le contenu du champ TXT ne peut pas être vide"
 
-### Server-Side Validation
-- "Invalid record type. Only A, AAAA, CNAME, PTR, and TXT are supported"
-- "Address must be a valid IPv4 address for type A"
-- "CNAME target cannot be an IP address (must be a hostname)"
-- "Missing required field: address_ipv4 (or value) for type A"
+### Validation Côté Serveur
+- "Type d'enregistrement invalide. Seuls A, AAAA, CNAME, PTR et TXT sont supportés"
+- "L'adresse doit être une adresse IPv4 valide pour le type A"
+- "La cible CNAME ne peut pas être une adresse IP (doit être un nom d'hôte)"
+- "Champ requis manquant : address_ipv4 (ou value) pour le type A"
 
-## Accessibility Improvements
+## Améliorations d'Accessibilité
 
-1. **Clear Labels**: Each field has a descriptive label specific to the record type
-2. **Required Indicators**: Asterisks (*) indicate required fields
-3. **Placeholder Text**: Examples show expected format
-4. **Helper Text**: Small text below fields provides additional guidance
-5. **Visual Feedback**: Active field is highlighted with green border
+1. **Étiquettes Claires** : Chaque champ a une étiquette descriptive spécifique au type d'enregistrement
+2. **Indicateurs Requis** : Les astérisques (*) indiquent les champs requis
+3. **Texte d'Espace Réservé** : Les exemples montrent le format attendu
+4. **Texte d'Aide** : Petit texte sous les champs fournit des conseils supplémentaires
+5. **Retour Visuel** : Le champ actif est mis en évidence avec une bordure verte
 
-## Backward Compatibility
+## Rétrocompatibilité
 
-The implementation maintains backward compatibility in several ways:
+L'implémentation maintient la rétrocompatibilité de plusieurs façons :
 
-1. **API accepts `value` as alias**: Old code can still send `value` instead of dedicated field
-2. **API returns `value` field**: Response includes computed `value` for old clients
-3. **Database keeps `value` column**: Can rollback if needed
-4. **Gradual migration**: Existing records continue to work
+1. **L'API accepte `value` comme alias** : L'ancien code peut toujours envoyer `value` au lieu du champ dédié
+2. **L'API retourne le champ `value`** : La réponse inclut la `value` calculée pour les anciens clients
+3. **La base de données garde la colonne `value`** : Possibilité de rollback si nécessaire
+4. **Migration graduelle** : Les enregistrements existants continuent de fonctionner
 
-## Migration Impact
+## Impact de la Migration
 
-When upgrading:
-1. Existing records are automatically migrated (value → dedicated column)
-2. UI immediately shows dedicated fields for new/edited records
-3. API continues to accept both formats
-4. No breaking changes for existing integrations
+Lors de la mise à niveau :
+1. Les enregistrements existants sont automatiquement migrés (value → colonne dédiée)
+2. L'UI affiche immédiatement les champs dédiés pour les nouveaux/enregistrements modifiés
+3. L'API continue d'accepter les deux formats
+4. Aucun changement cassant pour les intégrations existantes
