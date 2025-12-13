@@ -1,54 +1,54 @@
-# Testing Guide - Zone Preview with Validation Display
+# Guide de Test - Prévisualisation de Zone avec Affichage de la Validation
 
-## Overview
-This guide provides step-by-step instructions for testing the new zone preview with validation display feature.
+## Vue d'ensemble
+Ce guide fournit des instructions pas à pas pour tester la nouvelle fonctionnalité de prévisualisation de zone avec affichage de la validation.
 
-## Prerequisites
-- Access to the DNS3 application
-- Admin account credentials
-- At least one zone file in the system
-- `named-checkzone` command available on the server (for validation)
+## Prérequis
+- Accès à l'application DNS3
+- Identifiants de compte administrateur
+- Au moins un fichier de zone dans le système
+- Commande `named-checkzone` disponible sur le serveur (pour la validation)
 
-## Test Scenarios
+## Scénarios de Test
 
-### Test 1: Basic Zone Generation and Preview
+### Test 1 : Génération et Prévisualisation de Zone Basique
 
-**Steps:**
-1. Log in to DNS3 as an admin
-2. Navigate to "Gestion des fichiers de zone"
-3. Click on any zone from the list to open the editor modal
-4. Switch to the "Éditeur" tab
-5. Click the "Générer le fichier de zone" button
+**Étapes :**
+1. Se connecter à DNS3 en tant qu'administrateur
+2. Naviguer vers "Gestion des fichiers de zone"
+3. Cliquer sur n'importe quelle zone de la liste pour ouvrir le modal d'édition
+4. Basculer vers l'onglet "Éditeur"
+5. Cliquer sur le bouton "Générer le fichier de zone"
 
-**Expected Results:**
-- ✅ Preview modal opens immediately
-- ✅ Initial state shows "Chargement…" in the textarea
-- ✅ After 1-2 seconds, generated zone file content appears
-- ✅ Content includes zone data, $INCLUDE directives, and DNS records
-- ✅ Download button becomes active
+**Résultats Attendus :**
+- ✅ Le modal de prévisualisation s'ouvre immédiatement
+- ✅ L'état initial affiche "Chargement…" dans la zone de texte
+- ✅ Après 1-2 secondes, le contenu du fichier de zone généré apparaît
+- ✅ Le contenu inclut les données de zone, les directives $INCLUDE et les enregistrements DNS
+- ✅ Le bouton de téléchargement devient actif
 
-**Screenshot Points:**
-- Modal opening with loading state
-- Generated content displayed
-- Download button ready
+**Points de Capture d'Écran :**
+- Ouverture du modal avec état de chargement
+- Contenu généré affiché
+- Bouton de téléchargement prêt
 
 ---
 
-### Test 2: Validation Display - Successful Validation
+### Test 2 : Affichage de la Validation - Validation Réussie
 
-**Steps:**
-1. Follow Test 1 steps 1-5
-2. Wait for the generated content to appear
-3. Look below the textarea for validation results
+**Étapes :**
+1. Suivre les étapes 1-5 du Test 1
+2. Attendre l'apparition du contenu généré
+3. Regarder sous la zone de texte pour les résultats de validation
 
-**Expected Results:**
-- ✅ Validation section appears automatically (after content loads)
-- ✅ Section header reads "Résultat de la validation (named-checkzone)"
-- ✅ Status badge shows "✅ Validation réussie" in green
-- ✅ Validation output shows named-checkzone command output
-- ✅ Output includes text like "zone example.com/IN: loaded serial..."
+**Résultats Attendus :**
+- ✅ La section de validation apparaît automatiquement (après le chargement du contenu)
+- ✅ L'en-tête de section indique "Résultat de la validation (named-checkzone)"
+- ✅ Le badge de statut affiche "✅ Validation réussie" en vert
+- ✅ La sortie de validation affiche le résultat de la commande named-checkzone
+- ✅ La sortie inclut du texte comme "zone example.com/IN: loaded serial..."
 
-**What to Look For:**
+**Ce Qu'il Faut Vérifier :**
 ```
 ┌─────────────────────────────────────────────┐
 │ Résultat de la validation (named-checkzone) │
@@ -66,20 +66,20 @@ This guide provides step-by-step instructions for testing the new zone preview w
 
 ---
 
-### Test 3: Validation Display - Failed Validation
+### Test 3 : Affichage de la Validation - Validation Échouée
 
-**Steps:**
-1. Create or edit a zone with intentionally invalid DNS syntax
-2. Save the zone
-3. Click "Générer le fichier de zone"
-4. Wait for validation results
+**Étapes :**
+1. Créer ou éditer une zone avec une syntaxe DNS intentionnellement invalide
+2. Sauvegarder la zone
+3. Cliquer sur "Générer le fichier de zone"
+4. Attendre les résultats de validation
 
-**Expected Results:**
-- ✅ Status badge shows "❌ Validation échouée" in red
-- ✅ Validation output shows specific error messages
-- ✅ Error messages indicate what's wrong with the zone file
+**Résultats Attendus :**
+- ✅ Le badge de statut affiche "❌ Validation échouée" en rouge
+- ✅ La sortie de validation affiche des messages d'erreur spécifiques
+- ✅ Les messages d'erreur indiquent ce qui ne va pas avec le fichier de zone
 
-**What to Look For:**
+**Ce Qu'il Faut Vérifier :**
 ```
 ┌─────────────────────────────────────────────┐
 │ Résultat de la validation (named-checkzone) │
@@ -97,41 +97,41 @@ This guide provides step-by-step instructions for testing the new zone preview w
 
 ---
 
-### Test 4: Download Functionality
+### Test 4 : Fonctionnalité de Téléchargement
 
-**Steps:**
-1. Complete Test 1 or Test 2
-2. Click the "Télécharger" button in the modal footer
+**Étapes :**
+1. Compléter le Test 1 ou Test 2
+2. Cliquer sur le bouton "Télécharger" dans le pied de page du modal
 
-**Expected Results:**
-- ✅ Browser downloads a file
-- ✅ Filename matches the zone's filename (e.g., "example.com.zone")
-- ✅ File content matches what's displayed in the textarea
-- ✅ Success message appears: "Fichier de zone téléchargé avec succès"
+**Résultats Attendus :**
+- ✅ Le navigateur télécharge un fichier
+- ✅ Le nom de fichier correspond au nom du fichier de zone (ex : "example.com.zone")
+- ✅ Le contenu du fichier correspond à ce qui est affiché dans la zone de texte
+- ✅ Un message de succès apparaît : "Fichier de zone téléchargé avec succès"
 
-**Verification:**
-- Open the downloaded file in a text editor
-- Compare with the content shown in the preview modal
-- Both should be identical
+**Vérification :**
+- Ouvrir le fichier téléchargé dans un éditeur de texte
+- Comparer avec le contenu affiché dans le modal de prévisualisation
+- Les deux doivent être identiques
 
 ---
 
-### Test 5: Modal Overlay and z-index
+### Test 5 : Superposition de Modal et z-index
 
-**Steps:**
-1. Open a zone editor modal
-2. Click "Générer le fichier de zone" to open preview
-3. Click outside the preview modal (on the dark overlay)
-4. Observe modal behavior
+**Étapes :**
+1. Ouvrir un modal d'édition de zone
+2. Cliquer sur "Générer le fichier de zone" pour ouvrir la prévisualisation
+3. Cliquer à l'extérieur du modal de prévisualisation (sur le fond sombre)
+4. Observer le comportement du modal
 
-**Expected Results:**
-- ✅ Preview modal appears on top of editor modal
-- ✅ Editor modal is still visible in the background
-- ✅ Clicking outside preview modal closes only the preview
-- ✅ Editor modal remains open
-- ✅ No z-index issues (preview always on top)
+**Résultats Attendus :**
+- ✅ Le modal de prévisualisation apparaît au-dessus du modal d'édition
+- ✅ Le modal d'édition est toujours visible en arrière-plan
+- ✅ Cliquer à l'extérieur du modal de prévisualisation ne ferme que la prévisualisation
+- ✅ Le modal d'édition reste ouvert
+- ✅ Aucun problème de z-index (la prévisualisation est toujours au-dessus)
 
-**Visual Check:**
+**Vérification Visuelle :**
 ```
 ┌────────────────────────────────────────┐
 │ Editor Modal (z-index: 1000)          │
@@ -144,175 +144,175 @@ This guide provides step-by-step instructions for testing the new zone preview w
 
 ---
 
-### Test 6: Error Handling - Generation Failure
+### Test 6 : Gestion des Erreurs - Échec de Génération
 
-**Steps:**
-1. Use browser dev tools to simulate network failure
-2. Click "Générer le fichier de zone"
-3. Observe error handling
+**Étapes :**
+1. Utiliser les outils de développement du navigateur pour simuler un échec réseau
+2. Cliquer sur "Générer le fichier de zone"
+3. Observer la gestion des erreurs
 
-**Expected Results:**
-- ✅ Error message appears in the textarea
-- ✅ Message in French: "Erreur lors de la génération du fichier de zone"
-- ✅ Error details included
-- ✅ Validation section is hidden
-- ✅ Console shows error details for debugging
+**Résultats Attendus :**
+- ✅ Un message d'erreur apparaît dans la zone de texte
+- ✅ Message en français : "Erreur lors de la génération du fichier de zone"
+- ✅ Détails de l'erreur inclus
+- ✅ La section de validation est masquée
+- ✅ La console affiche les détails de l'erreur pour le débogage
 
-**Alternative Test:**
-- Temporarily break the API endpoint
-- Try to generate a zone file
-- Verify error is handled gracefully
-
----
-
-### Test 7: Error Handling - Validation Failure
-
-**Steps:**
-1. Successfully generate a zone file
-2. Simulate validation API failure (or if named-checkzone is not available)
-3. Observe error handling in validation section
-
-**Expected Results:**
-- ✅ Generated content still displays correctly
-- ✅ Validation section shows error
-- ✅ Error message: "❌ Erreur lors de la récupération de la validation"
-- ✅ Details explain the validation couldn't be performed
-- ✅ Console shows error for debugging
+**Test Alternatif :**
+- Interrompre temporairement le point de terminaison API
+- Essayer de générer un fichier de zone
+- Vérifier que l'erreur est gérée de manière appropriée
 
 ---
 
-### Test 8: Close Modal Behavior
+### Test 7 : Gestion des Erreurs - Échec de Validation
 
-**Steps:**
-1. Open preview modal
-2. Try each close method:
-   a. Click the X button in the header
-   b. Click the "Fermer" button in the footer
-   c. Click on the dark overlay outside the modal
+**Étapes :**
+1. Générer avec succès un fichier de zone
+2. Simuler un échec de l'API de validation (ou si named-checkzone n'est pas disponible)
+3. Observer la gestion des erreurs dans la section de validation
 
-**Expected Results:**
-- ✅ All three methods close the preview modal
-- ✅ Editor modal remains open in all cases
-- ✅ No JavaScript errors in console
-- ✅ Modal can be re-opened without issues
-
----
-
-### Test 9: Responsive Behavior
-
-**Steps:**
-1. Open preview modal on desktop view
-2. Resize browser to tablet size (768px wide)
-3. Resize to mobile size (375px wide)
-4. Test all functionality at each size
-
-**Expected Results:**
-- ✅ Modal scales appropriately
-- ✅ All elements remain readable
-- ✅ Buttons remain accessible
-- ✅ No horizontal scrolling required
-- ✅ Validation section remains visible
+**Résultats Attendus :**
+- ✅ Le contenu généré s'affiche toujours correctement
+- ✅ La section de validation affiche une erreur
+- ✅ Message d'erreur : "❌ Erreur lors de la récupération de la validation"
+- ✅ Les détails expliquent que la validation n'a pas pu être effectuée
+- ✅ La console affiche l'erreur pour le débogage
 
 ---
 
-### Test 10: Multiple Zones
+### Test 8 : Comportement de Fermeture du Modal
 
-**Steps:**
-1. Open and generate preview for zone A
-2. Close preview and editor modals
-3. Open and generate preview for zone B
-4. Compare results
+**Étapes :**
+1. Ouvrir le modal de prévisualisation
+2. Essayer chaque méthode de fermeture :
+   a. Cliquer sur le bouton X dans l'en-tête
+   b. Cliquer sur le bouton "Fermer" dans le pied de page
+   c. Cliquer sur le fond sombre à l'extérieur du modal
 
-**Expected Results:**
-- ✅ Each zone shows its own content
-- ✅ Validation results are specific to each zone
-- ✅ No data contamination between previews
-- ✅ Download button downloads correct file for each zone
+**Résultats Attendus :**
+- ✅ Les trois méthodes ferment le modal de prévisualisation
+- ✅ Le modal d'édition reste ouvert dans tous les cas
+- ✅ Aucune erreur JavaScript dans la console
+- ✅ Le modal peut être rouvert sans problème
 
 ---
 
-## Browser Compatibility Testing
+### Test 9 : Comportement Responsive
 
-Test the feature in:
+**Étapes :**
+1. Ouvrir le modal de prévisualisation en vue bureau
+2. Redimensionner le navigateur à la taille tablette (768px de large)
+3. Redimensionner à la taille mobile (375px de large)
+4. Tester toutes les fonctionnalités à chaque taille
+
+**Résultats Attendus :**
+- ✅ Le modal s'adapte correctement
+- ✅ Tous les éléments restent lisibles
+- ✅ Les boutons restent accessibles
+- ✅ Aucun défilement horizontal requis
+- ✅ La section de validation reste visible
+
+---
+
+### Test 10 : Zones Multiples
+
+**Étapes :**
+1. Ouvrir et générer la prévisualisation pour la zone A
+2. Fermer les modaux de prévisualisation et d'édition
+3. Ouvrir et générer la prévisualisation pour la zone B
+4. Comparer les résultats
+
+**Résultats Attendus :**
+- ✅ Chaque zone affiche son propre contenu
+- ✅ Les résultats de validation sont spécifiques à chaque zone
+- ✅ Aucune contamination de données entre les prévisualisations
+- ✅ Le bouton de téléchargement télécharge le fichier correct pour chaque zone
+
+---
+
+## Test de Compatibilité Navigateur
+
+Tester la fonctionnalité dans :
 - ✅ Chrome/Edge (Chromium)
 - ✅ Firefox
-- ✅ Safari (if available)
+- ✅ Safari (si disponible)
 
-## Performance Testing
+## Test de Performance
 
-**Metrics to Check:**
-1. Time from button click to modal open: Should be < 100ms
-2. Time to fetch and display content: Should be < 2 seconds
-3. Time to display validation: Should be < 3 seconds total
-4. No memory leaks after opening/closing multiple times
+**Métriques à Vérifier :**
+1. Temps entre le clic du bouton et l'ouverture du modal : Devrait être < 100ms
+2. Temps pour récupérer et afficher le contenu : Devrait être < 2 secondes
+3. Temps pour afficher la validation : Devrait être < 3 secondes au total
+4. Pas de fuite mémoire après plusieurs ouvertures/fermetures
 
-## Console Checks
+## Vérifications Console
 
-Open browser Developer Tools → Console and verify:
-- ✅ No JavaScript errors
-- ✅ All fetch requests succeed (200 OK)
-- ✅ Validation messages logged for debugging
-- ✅ Error messages (if any) are descriptive
+Ouvrir les Outils de Développement du navigateur → Console et vérifier :
+- ✅ Aucune erreur JavaScript
+- ✅ Toutes les requêtes fetch réussissent (200 OK)
+- ✅ Messages de validation enregistrés pour le débogage
+- ✅ Messages d'erreur (le cas échéant) sont descriptifs
 
-## Common Issues and Solutions
+## Problèmes Courants et Solutions
 
-### Issue: Modal doesn't open
-**Check:**
-- JavaScript console for errors
-- Button click handler is attached
-- Modal element exists in DOM
+### Problème : Le modal ne s'ouvre pas
+**Vérifier :**
+- La console JavaScript pour les erreurs
+- Le gestionnaire de clic du bouton est attaché
+- L'élément modal existe dans le DOM
 
-### Issue: Content shows "Chargement…" forever
-**Check:**
-- API endpoint is accessible
-- Network tab shows request succeeded
-- Response is valid JSON
-- Authentication is working
+### Problème : Le contenu affiche "Chargement…" indéfiniment
+**Vérifier :**
+- Le point de terminaison API est accessible
+- L'onglet réseau montre que la requête a réussi
+- La réponse est un JSON valide
+- L'authentification fonctionne
 
-### Issue: Validation doesn't appear
-**Check:**
-- Validation API endpoint is accessible
-- named-checkzone is installed on server
-- Validation results are returned in correct format
-- No JavaScript errors in console
+### Problème : La validation n'apparaît pas
+**Vérifier :**
+- Le point de terminaison API de validation est accessible
+- named-checkzone est installé sur le serveur
+- Les résultats de validation sont retournés dans le format correct
+- Aucune erreur JavaScript dans la console
 
-### Issue: Download doesn't work
-**Check:**
-- Preview data is populated
-- Blob creation succeeds
-- Browser allows downloads
-- No popup blocker interfering
+### Problème : Le téléchargement ne fonctionne pas
+**Vérifier :**
+- Les données de prévisualisation sont remplies
+- La création de Blob réussit
+- Le navigateur autorise les téléchargements
+- Aucun bloqueur de popup n'interfère
 
-### Issue: Wrong z-index (modals overlap incorrectly)
-**Check:**
-- Preview modal has z-index: 9999 applied
-- CSS is loaded correctly
-- No conflicting styles
+### Problème : Mauvais z-index (les modaux se superposent incorrectement)
+**Vérifier :**
+- Le modal de prévisualisation a z-index: 9999 appliqué
+- Le CSS est chargé correctement
+- Aucun style en conflit
 
-## Testing Sign-off
+## Validation des Tests
 
-After completing all tests, document results:
+Après avoir complété tous les tests, documenter les résultats :
 
-| Test | Status | Notes | Tester | Date |
-|------|--------|-------|--------|------|
-| Test 1 - Basic Generation | ⏳ | | | |
-| Test 2 - Successful Validation | ⏳ | | | |
-| Test 3 - Failed Validation | ⏳ | | | |
-| Test 4 - Download | ⏳ | | | |
-| Test 5 - Modal Overlay | ⏳ | | | |
-| Test 6 - Generation Error | ⏳ | | | |
-| Test 7 - Validation Error | ⏳ | | | |
-| Test 8 - Close Behavior | ⏳ | | | |
+| Test | Statut | Notes | Testeur | Date |
+|------|--------|-------|---------|------|
+| Test 1 - Génération Basique | ⏳ | | | |
+| Test 2 - Validation Réussie | ⏳ | | | |
+| Test 3 - Validation Échouée | ⏳ | | | |
+| Test 4 - Téléchargement | ⏳ | | | |
+| Test 5 - Superposition Modal | ⏳ | | | |
+| Test 6 - Erreur Génération | ⏳ | | | |
+| Test 7 - Erreur Validation | ⏳ | | | |
+| Test 8 - Comportement Fermeture | ⏳ | | | |
 | Test 9 - Responsive | ⏳ | | | |
-| Test 10 - Multiple Zones | ⏳ | | | |
+| Test 10 - Zones Multiples | ⏳ | | | |
 
-## Final Approval
+## Approbation Finale
 
-- [ ] All critical tests passed
-- [ ] No blocking issues found
-- [ ] Performance is acceptable
-- [ ] UI/UX is satisfactory
-- [ ] Documentation is complete
-- [ ] Ready for production deployment
+- [ ] Tous les tests critiques sont passés
+- [ ] Aucun problème bloquant trouvé
+- [ ] Les performances sont acceptables
+- [ ] L'UI/UX est satisfaisante
+- [ ] La documentation est complète
+- [ ] Prêt pour le déploiement en production
 
-**Approved by:** ________________  **Date:** __________
+**Approuvé par :** ________________  **Date :** __________
