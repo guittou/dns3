@@ -1,166 +1,166 @@
-# Type-Specific Fields Implementation - Complete Summary
+# Implémentation des Champs Spécifiques par Type - Résumé Complet
 
-## Overview
-This implementation adds dedicated database columns for each DNS record type (A, AAAA, CNAME, PTR, TXT) instead of using a generic `value` field. The system is now limited to managing only these 5 basic record types.
+## Vue d'ensemble
+Cette implémentation ajoute des colonnes de base de données dédiées pour chaque type d'enregistrement DNS (A, AAAA, CNAME, PTR, TXT) au lieu d'utiliser un champ générique `value`. Le système est maintenant limité à la gestion de ces 5 types d'enregistrements de base uniquement.
 
-## What Changed
+## Ce qui a Changé
 
-### 1. Database Schema
-**New Columns in `dns_records` table:**
-- `address_ipv4` VARCHAR(15) - for A records
-- `address_ipv6` VARCHAR(45) - for AAAA records
-- `cname_target` VARCHAR(255) - for CNAME records
-- `ptrdname` VARCHAR(255) - for PTR records
-- `txt` TEXT - for TXT records
+### 1. Schéma de Base de Données
+**Nouvelles Colonnes dans la table `dns_records` :**
+- `address_ipv4` VARCHAR(15) - pour les enregistrements A
+- `address_ipv6` VARCHAR(45) - pour les enregistrements AAAA
+- `cname_target` VARCHAR(255) - pour les enregistrements CNAME
+- `ptrdname` VARCHAR(255) - pour les enregistrements PTR
+- `txt` TEXT - pour les enregistrements TXT
 
-**New Columns in `dns_record_history` table:**
-Same 5 columns added for complete history tracking.
+**Nouvelles Colonnes dans la table `dns_record_history` :**
+Les mêmes 5 colonnes ajoutées pour un suivi complet de l'historique.
 
-**Indexes Added:**
+**Index Ajoutés :**
 - `idx_address_ipv4`
 - `idx_address_ipv6`
 - `idx_cname_target`
 
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
 
-### 2. Backend Model (`includes/models/DnsRecord.php`)
+### 2. Modèle Backend (`includes/models/DnsRecord.php`)
 
-**New Helper Methods:**
-- `getValueFromDedicatedField()` - Computes value from dedicated columns
-- `getValueFromDedicatedFieldData()` - Gets value from input data
-- `mapValueToDedicatedField()` - Maps value alias to dedicated field
-- `extractDedicatedFields()` - Extracts dedicated fields from input
+**Nouvelles Méthodes Helper :**
+- `getValueFromDedicatedField()` - Calcule la valeur à partir des colonnes dédiées
+- `getValueFromDedicatedFieldData()` - Obtient la valeur des données d'entrée
+- `mapValueToDedicatedField()` - Mappe l'alias value vers le champ dédié
+- `extractDedicatedFields()` - Extrait les champs dédiés de l'entrée
 
-**Modified Methods:**
-- `search()` - Now computes `value` field from dedicated columns
-- `getById()` - Now computes `value` field from dedicated columns
-- `create()` - Writes to dedicated columns, accepts value alias
-- `update()` - Writes to dedicated columns, accepts value alias
-- `writeHistory()` - Includes dedicated fields in history
+**Méthodes Modifiées :**
+- `search()` - Calcule maintenant le champ `value` à partir des colonnes dédiées
+- `getById()` - Calcule maintenant le champ `value` à partir des colonnes dédiées
+- `create()` - Écrit dans les colonnes dédiées, accepte l'alias value
+- `update()` - Écrit dans les colonnes dédiées, accepte l'alias value
+- `writeHistory()` - Inclut les champs dédiés dans l'historique
 
 ### 3. API (`api/dns_api.php`)
 
-**Type Restrictions:**
-- Only A, AAAA, CNAME, PTR, TXT are allowed
-- MX, SRV, NS, SOA return 400 error
+**Restrictions de Type :**
+- Seuls A, AAAA, CNAME, PTR, TXT sont autorisés
+- MX, SRV, NS, SOA retournent une erreur 400
 
-**Validation Updates:**
-- `validateRecordByType()` now validates dedicated fields
-- Accepts both dedicated field names and `value` alias
-- Type-specific semantic validation (IPv4/IPv6 format, hostname validation, etc.)
+**Mises à Jour de Validation :**
+- `validateRecordByType()` valide maintenant les champs dédiés
+- Accepte à la fois les noms de champs dédiés et l'alias `value`
+- Validation sémantique spécifique au type (format IPv4/IPv6, validation de nom d'hôte, etc.)
 
-**Security:**
-- `last_seen` is always removed from input (unset)
-- Server-managed fields cannot be set by clients
+**Sécurité :**
+- `last_seen` est toujours supprimé de l'entrée (unset)
+- Les champs gérés par le serveur ne peuvent pas être définis par les clients
 
 ### 4. Frontend (`dns-management.php`)
 
-**Form Changes:**
-- Removed: Single `record-value` field
-- Removed: `record-priority-group` field
-- Added: 5 dedicated field groups (one for each type)
+**Modifications de Formulaire :**
+- Supprimé : Champ unique `record-value`
+- Supprimé : Champ `record-priority-group`
+- Ajouté : 5 groupes de champs dédiés (un pour chaque type)
   - `record-address-ipv4-group`
   - `record-address-ipv6-group`
   - `record-cname-target-group`
   - `record-ptrdname-group`
   - `record-txt-group`
 
-**Type Filter:**
-Updated dropdown to show only 5 supported types.
+**Filtre de Type :**
+Menu déroulant mis à jour pour afficher uniquement les 5 types supportés.
 
 ### 5. JavaScript (`assets/js/dns-records.js`)
 
-**Field Visibility:**
-- `updateFieldVisibility()` - Shows/hides fields based on record type
-- Only one dedicated field visible at a time
+**Visibilité des Champs :**
+- `updateFieldVisibility()` - Affiche/masque les champs en fonction du type d'enregistrement
+- Un seul champ dédié visible à la fois
 
-**Validation:**
-- Updated `REQUIRED_BY_TYPE` for dedicated fields
-- Updated `validatePayloadForType()` for semantic validation
-- Type-specific validation (IPv4, IPv6, hostname, text)
+**Validation :**
+- Mise à jour de `REQUIRED_BY_TYPE` pour les champs dédiés
+- Mise à jour de `validatePayloadForType()` pour la validation sémantique
+- Validation spécifique au type (IPv4, IPv6, nom d'hôte, texte)
 
-**Payload Building:**
-- `submitDnsForm()` builds payload with both dedicated field AND value alias
-- Never includes `last_seen` in payload
+**Construction de la Charge Utile :**
+- `submitDnsForm()` construit la charge utile avec à la fois le champ dédié ET l'alias value
+- N'inclut jamais `last_seen` dans la charge utile
 
-**Edit Modal:**
-- `openEditModal()` populates dedicated fields from record data
-- Handles fallback to `value` field for backward compatibility
+**Modal d'Édition :**
+- `openEditModal()` remplit les champs dédiés à partir des données d'enregistrement
+- Gère le repli sur le champ `value` pour la rétrocompatibilité
 
 ### 6. Documentation
 
-**Updated Files:**
-- `DNS_MANAGEMENT_GUIDE.md` - Updated examples and field descriptions
-- `TYPE_SPECIFIC_FIELDS_TEST_PLAN.md` - Comprehensive test plan (new)
-- `UI_CHANGES_DOCUMENTATION.md` - Visual UI changes documentation (new)
+**Fichiers Mis à Jour :**
+- `DNS_MANAGEMENT_GUIDE.md` - Exemples et descriptions de champs mis à jour
+- `TYPE_SPECIFIC_FIELDS_TEST_PLAN.md` - Plan de test complet (nouveau)
+- `UI_CHANGES_DOCUMENTATION.md` - Documentation des changements visuels de l'UI (nouveau)
 
-## Design Decisions
+## Décisions de Conception
 
-### Option: accept-value ✅
-API accepts `value` as an alias for backward compatibility.
+### Option : accept-value ✅
+L'API accepte `value` comme alias pour la rétrocompatibilité.
 ```json
-// Both formats work
+// Les deux formats fonctionnent
 {"record_type": "A", "address_ipv4": "192.168.1.1"}
 {"record_type": "A", "value": "192.168.1.1"}
 ```
 
-### Option: keep-temporary ✅
-`value` column kept in database for one release to allow rollback.
+### Option : keep-temporary ✅
+La colonne `value` est conservée dans la base de données pour une version pour permettre le rollback.
 
-### Option: implicit-class ✅
-No `class` column added to database (implicitly "IN").
+### Option : implicit-class ✅
+Aucune colonne `class` ajoutée à la base de données (implicitement "IN").
 
-### Option: ptr-require-reverse ✅
-PTR records require user to provide the reverse DNS name.
+### Option : ptr-require-reverse ✅
+Les enregistrements PTR nécessitent que l'utilisateur fournisse le nom DNS inversé.
 
-## Validation Rules
+## Règles de Validation
 
-### A Records
-- Field: `address_ipv4`
-- Format: Valid IPv4 address
-- Example: "192.168.1.1"
+### Enregistrements A
+- Champ : `address_ipv4`
+- Format : Adresse IPv4 valide
+- Exemple : "192.168.1.1"
 
-### AAAA Records
-- Field: `address_ipv6`
-- Format: Valid IPv6 address
-- Example: "2001:db8::1"
+### Enregistrements AAAA
+- Champ : `address_ipv6`
+- Format : Adresse IPv6 valide
+- Exemple : "2001:db8::1"
 
-### CNAME Records
-- Field: `cname_target`
-- Format: Valid hostname (no IP addresses)
-- Example: "target.example.com"
+### Enregistrements CNAME
+- Champ : `cname_target`
+- Format : Nom d'hôte valide (pas d'adresses IP)
+- Exemple : "target.example.com"
 
-### PTR Records
-- Field: `ptrdname`
-- Format: Valid hostname (reverse DNS name)
-- Example: "1.1.168.192.in-addr.arpa"
+### Enregistrements PTR
+- Champ : `ptrdname`
+- Format : Nom d'hôte valide (nom DNS inversé)
+- Exemple : "1.1.168.192.in-addr.arpa"
 
-### TXT Records
-- Field: `txt`
-- Format: Any non-empty text
-- Example: "v=spf1 include:_spf.example.com ~all"
+### Enregistrements TXT
+- Champ : `txt`
+- Format : Tout texte non vide
+- Exemple : "v=spf1 include:_spf.example.com ~all"
 
-## Testing
+## Tests
 
-### Automated Tests
-- PHP syntax validation: ✅ All files pass
-- Helper function unit tests: ✅ All 8 tests pass
+### Tests Automatisés
+- Validation de syntaxe PHP : ✅ Tous les fichiers passent
+- Tests unitaires des fonctions helper : ✅ Tous les 8 tests passent
 
-### Manual Testing Required
-See `TYPE_SPECIFIC_FIELDS_TEST_PLAN.md` for comprehensive test plan.
+### Tests Manuels Requis
+Voir `TYPE_SPECIFIC_FIELDS_TEST_PLAN.md` pour le plan de test complet.
 
-## Files Modified
+## Fichiers Modifiés
 
-1. **includes/models/DnsRecord.php** (modified)
-2. **api/dns_api.php** (modified)
-3. **dns-management.php** (modified)
-4. **assets/js/dns-records.js** (modified)
-5. **DNS_MANAGEMENT_GUIDE.md** (modified)
-6. **TYPE_SPECIFIC_FIELDS_TEST_PLAN.md** (new)
-7. **UI_CHANGES_DOCUMENTATION.md** (new)
+1. **includes/models/DnsRecord.php** (modifié)
+2. **api/dns_api.php** (modifié)
+3. **dns-management.php** (modifié)
+4. **assets/js/dns-records.js** (modifié)
+5. **DNS_MANAGEMENT_GUIDE.md** (modifié)
+6. **TYPE_SPECIFIC_FIELDS_TEST_PLAN.md** (nouveau)
+7. **UI_CHANGES_DOCUMENTATION.md** (nouveau)
 
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ## Conclusion
 
-This implementation successfully adds type-specific fields for DNS records while maintaining backward compatibility. The migration is idempotent and safe, with the ability to rollback if needed.
+Cette implémentation ajoute avec succès des champs spécifiques au type pour les enregistrements DNS tout en maintenant la rétrocompatibilité. La migration est idempotente et sûre, avec la possibilité de rollback si nécessaire.
