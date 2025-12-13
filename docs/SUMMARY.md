@@ -83,13 +83,13 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 
 ### 🎨 Interface Utilisateur
 
-- [Documentation des changements UI](UI_CHANGES_DOCUMENTATION.md) - Aperçu des modifications d'interface
+- [Documentation des modifications UI - Champs spécifiques](UI_CHANGES_DOCUMENTATION.md) - Modifications visuelles et fonctionnelles ✅
 - [Guide visuel des changements UI](UI_CHANGES_VISUAL_GUIDE.md) - Guide visuel des changements
 - [Guide visuel de l'interface](UI_VISUAL_GUIDE.md) - Guide général de l'interface
 - [Guide des changements visuels](VISUAL_CHANGES_GUIDE.md) - Documentation des modifications visuelles
-- [Implémentation des champs Created/Updated](CREATED_UPDATED_UI_IMPLEMENTATION.md) - Affichage des dates de création/modification
+- [Implémentation Created At / Updated At](CREATED_UPDATED_UI_IMPLEMENTATION.md) - Affichage des horodatages ✅
 - [Implémentation des tables responsives](RESPONSIVE_TABLE_IMPLEMENTATION.md) - Tables adaptatives
-- [Résumé des champs spécifiques aux types](TYPE_SPECIFIC_FIELDS_SUMMARY.md) - Champs par type d'enregistrement
+- [Résumé des champs spécifiques par type](TYPE_SPECIFIC_FIELDS_SUMMARY.md) - Champs dédiés par type d'enregistrement ✅
 
 #### Modals
 
@@ -101,8 +101,8 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 
 ### 🧪 Tests et Validation
 
-- [Guide de test](TESTING_GUIDE.md) - Guide principal de test
-- [Plan de test](TEST_PLAN.md) - Plan de test complet
+- [Guide de test - Prévisualisation de zone](TESTING_GUIDE.md) - Guide pour tester la prévisualisation avec validation ✅
+- [Plan de test - DNS last_seen et formulaires dynamiques](TEST_PLAN.md) - Plan de test complet ✅
 - [Plan de test des champs spécifiques](TYPE_SPECIFIC_FIELDS_TEST_PLAN.md) - Tests par type d'enregistrement
 - [Checklist de vérification](VERIFICATION_CHECKLIST.md) - Checklist pour validation manuelle
 - [Vérification complétée](VERIFICATION_COMPLETE.md) - Rapport de vérification
