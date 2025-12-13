@@ -1,8 +1,8 @@
-# Guide visuel de l'interface utilisateur : Gestion des fichiers de zone
+# Visual UI Guide: Zone Files Management
 
-## Avant vs Après
+## Before vs After
 
-### AVANT (Ancienne UI)
+### BEFORE (Old UI)
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Gestion des fichiers de zone            [+ Nouvelle zone]           │
@@ -15,13 +15,13 @@
 │ │ inc1    │ Inc  │ i1.conf │   0  │  admin  │ Actif  │ 👁 ✏️   │  │
 │ └────────────────────────────────────────────────────────────────┘  │
 │                                                                       │
-│ • Cliquer sur 👁 ou ✏️ redirige vers une page séparée                 │
-│ • Aucune information sur le parent affichée                          │
-│ • Plusieurs étapes de navigation requises                            │
+│ • Clicking 👁 or ✏️ navigates to separate page                       │
+│ • No parent information shown                                        │
+│ • Multiple navigation steps required                                 │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### APRÈS (Nouvelle UI modale)
+### AFTER (New Modal UI)
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Gestion des fichiers de zone            [+ Nouvelle zone]           │
@@ -30,19 +30,19 @@
 │ ┌────────────────────────────────────────────────────────────────┐  │
 │ │ Zone    │ Type │ Fichier │ Parent  │ #Inc │ Proprio │ Statut │  │
 │ ├────────────────────────────────────────────────────────────────┤  │
-│ │ example │ Mast │ ex.zone │    -    │   2  │  admin  │ Actif  │←─┼─ Cliquable !
-│ │ inc1    │ Inc  │ i1.conf │ example │   0  │  admin  │ Actif  │←─┼─ Cliquable !
+│ │ example │ Mast │ ex.zone │    -    │   2  │  admin  │ Actif  │←─┼─ Clickable!
+│ │ inc1    │ Inc  │ i1.conf │ example │   0  │  admin  │ Actif  │←─┼─ Clickable!
 │ └────────────────────────────────────────────────────────────────┘  │
 │                                                                       │
-│ • Cliquer sur n'importe quelle ligne pour ouvrir le modal            │
-│ • La colonne Parent montre la hiérarchie                             │
-│ • Pas de boutons d'action par ligne                                  │
+│ • Click any row to open modal                                        │
+│ • Parent column shows hierarchy                                      │
+│ • No per-row action buttons                                          │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Nouvelle interface modale
+## New Modal Interface
 
-### 1. Modal de création de zone maître (depuis le bouton "Nouveau domaine")
+### 1. Create Master Zone Modal (from "Nouveau domaine" button)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -88,7 +88,7 @@
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Barre d'en-tête avec le bouton "Modifier domaine"
+### 2. Header Bar with "Modifier domaine" Button
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -97,12 +97,12 @@
 │                                                                       │
 │ Domaine: [example.com ▼]     Zone: [          ▼]                     │
 │                                                                       │
-│ Note : Le bouton "Modifier domaine" est activé quand un domaine est │
-│        sélectionné dans le combobox, caché sinon.                   │
+│ Note: "Modifier domaine" button is enabled when a domain is         │
+│       selected in the combobox, hidden otherwise.                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3. Modal d'édition de zone - Onglet Détails
+### 3. Zone Edit Modal - Details Tab
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -121,14 +121,14 @@
 │  │ example.com.zone    │  │  │ Actif      ▼    │        │
 │  └─────────────────────┘  │  └──────────────────┘        │
 │                                                            │
-│  [Uniquement pour les includes :]                          │
+│  [Only for includes:]                                      │
 │  Parent                                                    │
 │  ┌──────────────────────────────────────────────┐         │
 │  │ other-master (master)              ▼        │         │
 │  └──────────────────────────────────────────────┘         │
 │  ℹ️ Vous pouvez réassigner cet include à un autre parent │
 │                                                            │
-│  [Uniquement pour les zones maîtres - Configuration SOA/TTL :] │
+│  [Only for master zones - SOA/TTL Configuration:]          │
 │  ┌──────────────────────────────────────────────────────┐ │
 │  │ Configuration SOA / TTL                              │ │
 │  ├──────────────────────────────────────────────────────┤ │
@@ -148,7 +148,7 @@
 └────────────────────────────────────────────────────────────┘
 ```
 
-### 4. Modal d'édition de zone - Onglet Éditeur
+### 4. Zone Edit Modal - Editor Tab
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -177,7 +177,7 @@
 └────────────────────────────────────────────────────────────┘
 ```
 
-### 5. Modal d'édition de zone - Onglet Includes
+### 4. Zone Edit Modal - Includes Tab
 
 ```
 ┌────────────────────────────────────────────────────────────┐
@@ -198,7 +198,7 @@
 │  │ additional-mx.conf                                 ✕  │ │
 │  └──────────────────────────────────────────────────────┘ │
 │                                                            │
-│  [Quand "Créer un include" est cliqué :]                  │
+│  [When "Créer un include" is clicked:]                    │
 │  ┌────────────────────────────────────────────────────┐   │
 │  │ Créer un nouvel include                            │   │
 │  │                                                    │   │
@@ -225,117 +225,117 @@
 └────────────────────────────────────────────────────────────┘
 ```
 
-## Flux utilisateur
+## User Flows
 
-### Flux 1 : Créer une nouvelle zone maître
+### Flow 1: Create New Master Zone
 ```
-1. Cliquer sur le bouton "Nouvelle zone"
+1. Click "Nouvelle zone" button
    ↓
-2. Le modal s'ouvre avec Type=Master (désactivé)
+2. Modal opens with Type=Master (disabled)
    ↓
-3. Remplir le nom et le nom de fichier
+3. Fill in Name and Filename
    ↓
-4. Cliquer sur "Créer"
+4. Click "Créer"
    ↓
-5. Zone créée et le modal bascule en mode édition
-```
-
-### Flux 2 : Modifier une zone existante
-```
-1. Cliquer sur n'importe quelle ligne du tableau
-   ↓
-2. Le modal s'ouvre avec les données de la zone
-   ↓
-3. Basculer entre les onglets pour modifier
-   ↓
-4. Cliquer sur "Enregistrer" pour sauvegarder
-   ↓
-5. Le modal se ferme, le tableau se rafraîchit
+5. Zone created and modal switches to edit view
 ```
 
-### Flux 3 : Créer un include depuis le parent
+### Flow 2: Edit Existing Zone
 ```
-1. Ouvrir la zone parente (cliquer sur la ligne)
+1. Click any row in table
    ↓
-2. Basculer sur l'onglet "Includes"
+2. Modal opens with zone data
    ↓
-3. Cliquer sur "Créer un include"
+3. Switch between tabs to edit
    ↓
-4. Le formulaire apparaît en ligne
+4. Click "Enregistrer" to save
    ↓
-5. Remplir les détails et cliquer sur "Créer et assigner"
-   ↓
-6. Include créé et assigné au parent
-   ↓
-7. La liste des includes se rafraîchit
+5. Modal closes, table refreshes
 ```
 
-### Flux 4 : Réassigner un include
+### Flow 3: Create Include from Parent
 ```
-1. Ouvrir la zone include (cliquer sur la ligne)
+1. Open parent zone (click row)
    ↓
-2. L'onglet Détails affiche le menu déroulant Parent
+2. Switch to "Includes" tab
    ↓
-3. Sélectionner un parent différent dans le menu déroulant
+3. Click "Créer un include"
    ↓
-4. Cliquer sur "Enregistrer"
+4. Form appears inline
    ↓
-5. Include réassigné, historique créé
+5. Fill in details and click "Créer et assigner"
    ↓
-6. Le modal se ferme, le tableau se rafraîchit
-```
-
-### Flux 5 : Supprimer une zone (suppression douce)
-```
-1. Ouvrir la zone (cliquer sur la ligne)
+6. Include created and assigned to parent
    ↓
-2. Cliquer sur "Supprimer" (bouton rouge)
-   ↓
-3. Une boîte de dialogue de confirmation apparaît
-   ↓
-4. Cliquer sur "OK"
-   ↓
-5. Le statut est changé en "deleted"
-   ↓
-6. La zone est retirée de la liste, l'historique est créé
+7. Includes list refreshes
 ```
 
-## Améliorations clés de l'interface utilisateur
-
-### ✅ Meilleure expérience utilisateur
-- **Pas de navigation entre pages** - tout dans des modals
-- **Interactions plus rapides** - ouverture instantanée des modals
-- **Hiérarchie claire** - La colonne Parent montre les relations
-- **Accès en un clic** - cliquer sur une ligne pour modifier
-- **Actions contextuelles** - seules les options pertinentes sont affichées
-
-### ✅ Interface plus propre
-- **Pas de boutons par ligne** - tableau plus propre
-- **Actions groupées** - toutes les actions dans le pied du modal
-- **Meilleure organisation** - les onglets séparent les préoccupations
-- **Formulaires en ligne** - créer des includes sans nouveau modal
-
-### ✅ Fonctionnalités améliorées
-- **Réassignation du parent** - facile de changer les relations
-- **Prévention des cycles** - validation automatique
-- **Modifications non sauvegardées** - empêche la perte de données
-- **Suivi de l'historique** - piste d'audit complète
-- **Application du parent unique** - intégrité des données
-
-## Palette de couleurs
-
+### Flow 4: Reassign Include
 ```
-Primaire :   #007bff (Bleu) - Boutons Enregistrer, Créer
-Secondaire : #6c757d (Gris) - Boutons Annuler  
-Danger :     #dc3545 (Rouge) - Bouton Supprimer
-Succès :     #28a745 (Vert) - Statut Actif
-Avertissement : #ffc107 (Jaune) - Statut Inactif
-Info :       #17a2b8 (Cyan) - Badge Include
+1. Open include zone (click row)
+   ↓
+2. Details tab shows Parent dropdown
+   ↓
+3. Select different parent from dropdown
+   ↓
+4. Click "Enregistrer"
+   ↓
+5. Include reassigned, history created
+   ↓
+6. Modal closes, table refreshes
 ```
 
-## Design responsive
+### Flow 5: Delete Zone (Soft)
+```
+1. Open zone (click row)
+   ↓
+2. Click "Supprimer" (red button)
+   ↓
+3. Confirmation dialog appears
+   ↓
+4. Click "OK"
+   ↓
+5. Status changed to "deleted"
+   ↓
+6. Zone removed from list, history created
+```
 
-Le modal et le tableau sont entièrement responsifs :
-- Bureau : Modal en pleine largeur
-- Tablette : Modal légèrement plus étroit
-- Mobile : Modal en pleine largeur, champs de formulaire empilés
+## Key UI Improvements
+
+### ✅ Better UX
+- **No page navigation** - everything in modals
+- **Faster interactions** - instant modal opening
+- **Clear hierarchy** - Parent column shows relationships
+- **One-click access** - click row to edit
+- **Contextual actions** - only relevant options shown
+
+### ✅ Cleaner Interface
+- **No per-row buttons** - cleaner table
+- **Grouped actions** - all actions in modal footer
+- **Better organization** - tabs separate concerns
+- **Inline forms** - create includes without new modal
+
+### ✅ Enhanced Functionality
+- **Parent reassignment** - easy to change relationships
+- **Cycle prevention** - automatic validation
+- **Unsaved changes** - prevents data loss
+- **History tracking** - full audit trail
+- **Single-parent enforcement** - data integrity
+
+## Color Scheme
+
+```
+Primary:   #007bff (Blue) - Save, Create buttons
+Secondary: #6c757d (Gray) - Cancel buttons  
+Danger:    #dc3545 (Red)  - Delete button
+Success:   #28a745 (Green) - Active status
+Warning:   #ffc107 (Yellow) - Inactive status
+Info:      #17a2b8 (Cyan) - Include badge
+```
+
+## Responsive Design
+
+The modal and table are fully responsive:
+- Desktop: Full modal width
+- Tablet: Slightly narrower modal
+- Mobile: Full-width modal, stacked form fields
