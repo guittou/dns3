@@ -60,7 +60,7 @@ if ($fileType === 'master') {
 
 **Point de terminaison list_domains :**
 ```php
-// Returns only master zones with domain field set
+// Retourne seulement les zones maîtres avec le champ domain défini
 SELECT zf.id, zf.domain, zf.name as zone_name
 FROM zone_files zf
 WHERE zf.domain IS NOT NULL 
