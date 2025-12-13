@@ -1,8 +1,8 @@
-# Admin Interface - Quick Reference Card
+# Interface d'Administration - Carte de Référence Rapide
 
-## 🚀 Quick Start
+## 🚀 Démarrage Rapide
 
-### Installation (3 steps)
+### Installation (3 étapes)
 ```bash
 # 1. Import database schema
 mysql -u dns3_user -p dns3_db < database.sql
@@ -71,41 +71,41 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_user' \
 
 ---
 
-## 👥 User Management
+## 👥 Gestion des Utilisateurs
 
-### Create User (Database Auth)
+### Créer un Utilisateur (Auth Base de données)
 ```
 Navigation: Admin → Utilisateurs → Créer un utilisateur
-Fields:
-  - Username: required, unique
-  - Email: required, unique
-  - Auth method: database
-  - Password: required (hashed with bcrypt)
-  - Status: active/inactive
-  - Roles: select one or more
+Champs:
+  - Username: requis, unique
+  - Email: requis, unique
+  - Méthode d'auth: database
+  - Mot de passe: requis (hashé avec bcrypt)
+  - Statut: actif/inactif
+  - Rôles: sélectionner un ou plusieurs
 ```
 
-### Create User (AD/LDAP Auth)
+### Créer un Utilisateur (Auth AD/LDAP)
 ```
 Navigation: Admin → Utilisateurs → Créer un utilisateur
-Fields:
-  - Username: required, unique
-  - Email: required, unique
-  - Auth method: ad OR ldap
-  - Password: NOT required
-  - Status: active/inactive
-  - Roles: select one or more
+Champs:
+  - Username: requis, unique
+  - Email: requis, unique
+  - Méthode d'auth: ad OU ldap
+  - Mot de passe: NON requis
+  - Statut: actif/inactif
+  - Rôles: sélectionner un ou plusieurs
 ```
 
-### Edit User
+### Modifier un Utilisateur
 ```
-Navigation: Admin → Utilisateurs → Click "Modifier"
-Can change:
+Navigation: Admin → Utilisateurs → Cliquer sur "Modifier"
+Peut modifier:
   - Email
-  - Password (optional, leave blank to keep current)
-  - Auth method
-  - Status
-  - Roles
+  - Mot de passe (optionnel, laisser vide pour conserver l'actuel)
+  - Méthode d'auth
+  - Statut
+  - Rôles
 ```
 
 ### Désactiver un utilisateur (Supprimer)
@@ -126,61 +126,61 @@ Confirmation:
   - Une popup de confirmation s'affiche avant la désactivation
 ```
 
-### Filter Users
+### Filtrer les Utilisateurs
 ```
-Available filters:
-  - Username (text search)
-  - Auth method (database/ad/ldap)
-  - Status (active/inactive)
+Filtres disponibles:
+  - Username (recherche texte)
+  - Méthode d'auth (database/ad/ldap)
+  - Statut (actif/inactif)
 ```
 
 ---
 
-## 🔐 Role Management
+## 🔐 Gestion des Rôles
 
-### Available Roles
-| Role        | Description                                                | Badge Color |
-|-------------|-----------------------------------------------------------|-------------|
-| admin       | Full access to all features                                | Red         |
-| user        | Read-only access                                           | Blue        |
-| zone_editor | Can view/edit zones with ACL permissions (no admin access) | Green       |
+### Rôles Disponibles
+| Rôle        | Description                                                        | Couleur Badge |
+|-------------|-------------------------------------------------------------------|---------------|
+| admin       | Accès complet à toutes les fonctionnalités                        | Rouge         |
+| user        | Accès en lecture seule                                             | Bleu          |
+| zone_editor | Peut voir/éditer les zones avec permissions ACL (pas d'accès admin) | Vert          |
 
-### View Roles
+### Visualiser les Rôles
 ```
 Navigation: Admin → Rôles
-Shows: ID, Name, Description, Created date
+Affiche: ID, Nom, Description, Date de création
 ```
 
 ---
 
-## 🌐 AD/LDAP Mappings
+## 🌐 Mappings AD/LDAP
 
-### Create AD Mapping
+### Créer un Mapping AD
 ```
 Navigation: Admin → Mappings AD/LDAP → Créer un mapping
 
-Example:
+Exemple:
   Source: Active Directory
   DN/Group: CN=DNSAdmins,OU=Groups,DC=example,DC=com
-  Role: admin
-  Notes: DNS Administrators group - auto-assign admin role
+  Rôle: admin
+  Notes: Groupe administrateurs DNS - attribution automatique du rôle admin
 ```
 
-### Create LDAP Mapping
+### Créer un Mapping LDAP
 ```
 Navigation: Admin → Mappings AD/LDAP → Créer un mapping
 
-Example:
+Exemple:
   Source: LDAP
   DN/Group: ou=IT,dc=example,dc=com
-  Role: user
-  Notes: IT department - auto-assign user role
+  Rôle: user
+  Notes: Département IT - attribution automatique du rôle user
 ```
 
-### Delete Mapping
+### Supprimer un Mapping
 ```
-Navigation: Admin → Mappings AD/LDAP → Click "Supprimer"
-Requires: Confirmation
+Navigation: Admin → Mappings AD/LDAP → Cliquer sur "Supprimer"
+Requiert: Confirmation
 ```
 
 ---
@@ -250,22 +250,22 @@ ldapsearch -x -H ldap://ldap.example.com -D "cn=admin,dc=example,dc=com" -W \
 
 ---
 
-## 🔧 API Usage
+## 🔧 Utilisation de l'API
 
-### Authentication
-All API calls require:
-- Active session (logged in)
-- Admin role
+### Authentification
+Tous les appels API requièrent:
+- Session active (connecté)
+- Rôle admin
 
-### Common Endpoints
+### Points de Terminaison Courants
 
-#### List Users
+#### Lister les Utilisateurs
 ```bash
 curl 'http://domain/api/admin_api.php?action=list_users' \
   --cookie "PHPSESSID=your_session_id"
 ```
 
-#### Create User
+#### Créer un Utilisateur
 ```bash
 curl -X POST 'http://domain/api/admin_api.php?action=create_user' \
   -H 'Content-Type: application/json' \
@@ -279,7 +279,7 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_user' \
   --cookie "PHPSESSID=your_session_id"
 ```
 
-#### Create Mapping
+#### Créer un Mapping
 ```bash
 curl -X POST 'http://domain/api/admin_api.php?action=create_mapping' \
   -H 'Content-Type: application/json' \
@@ -324,7 +324,7 @@ Si aucune condition n'est remplie : connexion refusée + compte désactivé.
 
 ### Interface
 ```
-Navigation: Zone Files → Modifier une zone → Onglet ACL
+Navigation: Fichiers de Zone → Modifier une zone → Onglet ACL
 
 Actions disponibles:
 - Visualiser les ACL existantes
@@ -384,98 +384,98 @@ mysql -u dns3_user -p dns3_db < database.sql
 
 ---
 
-## 🎨 UI Elements
+## 🎨 Éléments d'Interface
 
-### Badge Colors
-| Type        | Color  | Example        |
-|-------------|--------|----------------|
-| admin role  | Red    | [admin]        |
-| user role   | Blue   | [user]         |
-| zone_editor | Green  | [zone_editor]  |
-| Active      | Green  | [Actif]        |
-| Inactive    | Gray   | [Inactif]      |
-| Database    | Teal   | [DB]           |
-| AD          | Purple | [AD]           |
-| LDAP        | Orange | [LDAP]         |
+### Couleurs des Badges
+| Type        | Couleur | Exemple        |
+|-------------|---------|----------------|
+| admin role  | Rouge   | [admin]        |
+| user role   | Bleu    | [user]         |
+| zone_editor | Vert    | [zone_editor]  |
+| Active      | Vert    | [Actif]        |
+| Inactive    | Gris    | [Inactif]      |
+| Database    | Teal    | [DB]           |
+| AD          | Violet  | [AD]           |
+| LDAP        | Orange  | [LDAP]         |
 
-### Tabs
-- **Utilisateurs** - Manage users
-- **Rôles** - View roles
-- **Mappings AD/LDAP** - Configure auth mappings
+### Onglets
+- **Utilisateurs** - Gestion des utilisateurs
+- **Rôles** - Visualisation des rôles
+- **Mappings AD/LDAP** - Configuration des mappings d'authentification
 
-### Zone Edit Modal Tabs
-- **Détails** - Zone properties
-- **Éditeur** - Zone content editor
-- **Includes** - Included zone files
-- **ACL** - Access control lists (admin only)
+### Onglets du Modal d'Édition de Zone
+- **Détails** - Propriétés de la zone
+- **Éditeur** - Éditeur de contenu de zone
+- **Includes** - Fichiers de zone inclus
+- **ACL** - Listes de contrôle d'accès (admin uniquement)
 
 ---
 
-## ⚠️ Common Issues
+## ⚠️ Problèmes Courants
 
-### "Admin tab not visible"
+### "L'onglet Admin n'est pas visible"
 **Solution:**
 ```sql
--- Check if user has admin role
+-- Vérifier si l'utilisateur a le rôle admin
 SELECT u.username, r.name 
 FROM users u
 JOIN user_roles ur ON u.id = ur.user_id
 JOIN roles r ON ur.role_id = r.id
 WHERE u.username = 'your_username';
 
--- If missing, assign admin role
+-- Si manquant, assigner le rôle admin
 INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id FROM users u, roles r
 WHERE u.username = 'your_username' AND r.name = 'admin';
 ```
 
-### "Cannot create user - username exists"
+### "Impossible de créer l'utilisateur - username existe"
 **Solution:**
-- Choose different username
-- Or edit existing user
+- Choisir un username différent
+- Ou modifier l'utilisateur existant
 
-### "Password required for database auth"
+### "Mot de passe requis pour l'auth database"
 **Solution:**
-- For auth_method='database', password is required
-- For AD/LDAP, password should be empty
+- Pour auth_method='database', le mot de passe est requis
+- Pour AD/LDAP, le mot de passe doit être vide
 
-### "Mapping creation fails"
+### "La création du mapping échoue"
 **Solution:**
-- Check for duplicate (same source+dn_or_group+role)
-- Verify role_id exists
-- Ensure DN format is correct
+- Vérifier les doublons (même source+dn_or_group+rôle)
+- Vérifier que le role_id existe
+- S'assurer que le format du DN est correct
 
 ---
 
-## 📊 Database Tables
+## 📊 Tables de Base de Données
 
 ### users
 ```
-Columns: id, username, email, password, auth_method, created_at, 
-         last_login, is_active
+Colonnes: id, username, email, password, auth_method, created_at, 
+          last_login, is_active
 ```
 
 ### roles
 ```
-Columns: id, name, description, created_at
+Colonnes: id, name, description, created_at
 ```
 
 ### user_roles
 ```
-Columns: user_id, role_id, assigned_at
+Colonnes: user_id, role_id, assigned_at
 ```
 
 ### auth_mappings
 ```
-Columns: id, source, dn_or_group, role_id, created_by, 
-         created_at, notes
+Colonnes: id, source, dn_or_group, role_id, created_by, 
+          created_at, notes
 ```
 
 ---
 
-## 🔍 Useful Queries
+## 🔍 Requêtes Utiles
 
-### List all admins
+### Lister tous les administrateurs
 ```sql
 SELECT u.username, u.email 
 FROM users u
@@ -484,14 +484,14 @@ JOIN roles r ON ur.role_id = r.id
 WHERE r.name = 'admin' AND u.is_active = 1;
 ```
 
-### Count users by auth method
+### Compter les utilisateurs par méthode d'auth
 ```sql
 SELECT auth_method, COUNT(*) as count
 FROM users
 GROUP BY auth_method;
 ```
 
-### List all mappings
+### Lister tous les mappings
 ```sql
 SELECT am.source, am.dn_or_group, r.name as role_name, am.notes
 FROM auth_mappings am
@@ -499,7 +499,7 @@ JOIN roles r ON am.role_id = r.id
 ORDER BY am.source, r.name;
 ```
 
-### Find users without roles
+### Trouver les utilisateurs sans rôles
 ```sql
 SELECT u.id, u.username, u.email
 FROM users u
@@ -509,45 +509,45 @@ WHERE ur.role_id IS NULL;
 
 ---
 
-## 📝 Best Practices
+## 📝 Bonnes Pratiques
 
-### Password Policy
-- Minimum 8 characters
-- Mix of letters, numbers, special chars
-- Never share passwords
-- Change default admin password immediately
+### Politique de Mot de Passe
+- Minimum 8 caractères
+- Mélange de lettres, chiffres, caractères spéciaux
+- Ne jamais partager les mots de passe
+- Changer le mot de passe admin par défaut immédiatement
 
-### User Creation
-- Use descriptive usernames (firstname.lastname)
-- Assign minimal required roles
-- Set inactive for temporary users
-- Document AD/LDAP users in notes
+### Création d'Utilisateur
+- Utiliser des usernames descriptifs (prenom.nom)
+- Assigner les rôles minimaux requis
+- Définir comme inactif pour les utilisateurs temporaires
+- Documenter les utilisateurs AD/LDAP dans les notes
 
-### Mapping Strategy
-- One mapping per AD group
-- Document purpose in notes field
-- Review mappings quarterly
-- Test before production deployment
+### Stratégie de Mapping
+- Un mapping par groupe AD
+- Documenter l'objectif dans le champ notes
+- Réviser les mappings trimestriellement
+- Tester avant le déploiement en production
 
-### Security
-- Regular password rotation
-- Monitor user activity
-- Review admin users monthly
-- Backup before bulk changes
+### Sécurité
+- Rotation régulière des mots de passe
+- Surveiller l'activité des utilisateurs
+- Réviser les utilisateurs admin mensuellement
+- Sauvegarder avant les modifications en masse
 
 ---
 
-## 🆘 Emergency Procedures
+## 🆘 Procédures d'Urgence
 
-### Reset Admin Password
+### Réinitialiser le Mot de Passe Admin
 ```bash
 php scripts/create_admin.php --username admin --password 'NewSecurePass123'
 ```
 
-### Manually Create Admin User
+### Créer Manuellement un Utilisateur Admin
 ```sql
--- Generate hash in PHP first:
--- php -r "echo password_hash('YourPassword', PASSWORD_DEFAULT);"
+-- Générer le hash en PHP d'abord:
+-- php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT);"
 
 INSERT INTO users (username, email, password, auth_method, is_active)
 VALUES ('admin', 'admin@example.local', '$2y$10$...hash...', 'database', 1);
@@ -557,12 +557,12 @@ SELECT u.id, r.id FROM users u, roles r
 WHERE u.username = 'admin' AND r.name = 'admin';
 ```
 
-### Disable User Access
+### Désactiver l'Accès d'un Utilisateur
 ```sql
 UPDATE users SET is_active = 0 WHERE username = 'username';
 ```
 
-### Remove Admin Rights
+### Retirer les Droits Admin
 ```sql
 DELETE FROM user_roles 
 WHERE user_id = (SELECT id FROM users WHERE username = 'username')
@@ -571,49 +571,49 @@ AND role_id = (SELECT id FROM roles WHERE name = 'admin');
 
 ---
 
-## 📞 Support Checklist
+## 📞 Checklist de Support
 
-Before asking for help:
-- [ ] Check error logs: `/var/log/php/error.log`
-- [ ] Verify database connection
-- [ ] Confirm `database.sql` was imported correctly
-- [ ] Check user has admin role
-- [ ] Clear browser cache/cookies
-- [ ] Try different browser
-- [ ] Review documentation
-
----
-
-## 🔗 Related Documentation
-
-- **Full Guide:** `ADMIN_INTERFACE_GUIDE.md`
-- **Technical Details:** `ADMIN_IMPLEMENTATION.md`
-- **UI Overview:** `ADMIN_UI_OVERVIEW.md`
-- **Release Notes:** `ADMIN_RELEASE_NOTES.md`
+Avant de demander de l'aide:
+- [ ] Vérifier les logs d'erreur: `/var/log/php/error.log`
+- [ ] Vérifier la connexion à la base de données
+- [ ] Confirmer que `database.sql` a été importé correctement
+- [ ] Vérifier que l'utilisateur a le rôle admin
+- [ ] Vider le cache/cookies du navigateur
+- [ ] Essayer un navigateur différent
+- [ ] Consulter la documentation
 
 ---
 
-## 💡 Tips & Tricks
+## 🔗 Documentation Associée
 
-### Keyboard Shortcuts
-- `ESC` - Close modal
-- `Enter` - Submit form (when focused in input)
-- `Tab` - Navigate form fields
+- **Guide Complet:** `ADMIN_INTERFACE_GUIDE.md`
+- **Détails Techniques:** `ADMIN_IMPLEMENTATION.md`
+- **Aperçu de l'UI:** `ADMIN_UI_OVERVIEW.md`
+- **Notes de Version:** `ADMIN_RELEASE_NOTES.md`
+
+---
+
+## 💡 Astuces et Conseils
+
+### Raccourcis Clavier
+- `ESC` - Fermer le modal
+- `Entrée` - Soumettre le formulaire (quand focus dans un champ)
+- `Tab` - Naviguer entre les champs du formulaire
 
 ### Performance
-- Use filters to reduce result set
-- Clear cache after major changes
-- Monitor database size
+- Utiliser les filtres pour réduire l'ensemble de résultats
+- Vider le cache après des modifications majeures
+- Surveiller la taille de la base de données
 
 ### Workflow
-1. Create user
-2. Assign basic role (user)
-3. Test login
-4. Upgrade to admin if needed
-5. Document in notes
+1. Créer un utilisateur
+2. Assigner un rôle de base (user)
+3. Tester la connexion
+4. Promouvoir en admin si nécessaire
+5. Documenter dans les notes
 
 ---
 
 **Version:** 1.0.0  
-**Last Updated:** 2025-10-20  
-**Questions?** See full documentation files.
+**Dernière mise à jour:** 2025-10-20  
+**Des questions?** Consultez les fichiers de documentation complets.

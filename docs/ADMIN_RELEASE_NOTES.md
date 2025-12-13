@@ -1,90 +1,90 @@
-# Admin Interface Release Notes
+# Notes de Version de l'Interface d'Administration
 
 ## Version: 1.0.0
 ## Date: 2025-10-20
-## Branch: feature/admin-ui → main
+## Branche: feature/admin-ui → main
 
 ---
 
-## 🎉 New Features
+## 🎉 Nouvelles Fonctionnalités
 
-### Complete Admin Interface
-A comprehensive web-based administration interface has been added to DNS3, providing full user, role, and AD/LDAP mapping management capabilities.
+### Interface d'Administration Complète
+Une interface d'administration web complète a été ajoutée à DNS3, offrant une gestion complète des utilisateurs, des rôles et des mappings AD/LDAP.
 
-### User Management
-- **Create Users**: Add new users with database, Active Directory, or LDAP authentication
-- **Edit Users**: Modify user details, passwords, and status
-- **Role Assignment**: Assign multiple roles to users (admin, user, etc.)
-- **User Filtering**: Search and filter users by username, auth method, and status
-- **Password Security**: All passwords are hashed using bcrypt (password_hash)
+### Gestion des Utilisateurs
+- **Créer des Utilisateurs**: Ajouter de nouveaux utilisateurs avec authentification base de données, Active Directory ou LDAP
+- **Modifier des Utilisateurs**: Modifier les détails, mots de passe et statut des utilisateurs
+- **Attribution de Rôles**: Assigner plusieurs rôles aux utilisateurs (admin, user, etc.)
+- **Filtrage des Utilisateurs**: Rechercher et filtrer les utilisateurs par nom d'utilisateur, méthode d'auth et statut
+- **Sécurité des Mots de Passe**: Tous les mots de passe sont hashés avec bcrypt (password_hash)
 
-### Role Management
-- **View Roles**: Display all available application roles
-- **Role Information**: See role descriptions and metadata
+### Gestion des Rôles
+- **Visualiser les Rôles**: Afficher tous les rôles disponibles de l'application
+- **Informations sur les Rôles**: Voir les descriptions et métadonnées des rôles
 
-### AD/LDAP Mapping Management
-- **Create Mappings**: Define automatic role assignments based on AD groups or LDAP DNs
-- **Manage Mappings**: List and delete existing mappings
-- **Documentation**: Add notes to mappings for team collaboration
+### Gestion des Mappings AD/LDAP
+- **Créer des Mappings**: Définir l'attribution automatique de rôles basée sur les groupes AD ou DN LDAP
+- **Gérer les Mappings**: Lister et supprimer les mappings existants
+- **Documentation**: Ajouter des notes aux mappings pour la collaboration d'équipe
 
-### Secure API
-- **RESTful JSON API**: 10 endpoints for all admin operations
-- **Authentication**: Admin-only access enforced on all endpoints
-- **Validation**: Server-side input validation and sanitization
-- **Error Handling**: Proper HTTP status codes and error messages
+### API Sécurisée
+- **API RESTful JSON**: 10 endpoints pour toutes les opérations d'administration
+- **Authentification**: Accès réservé aux administrateurs sur tous les endpoints
+- **Validation**: Validation et assainissement des entrées côté serveur
+- **Gestion des Erreurs**: Codes de statut HTTP appropriés et messages d'erreur
 
 ---
 
-## 📦 Files Added
+## 📦 Fichiers Ajoutés
 
-### Database
+### Base de Données
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est dans `database.sql`.
 
 ### Backend
-- `includes/models/User.php` - User management model with CRUD operations
-- `api/admin_api.php` - Secure admin API with 10 endpoints
+- `includes/models/User.php` - Modèle de gestion des utilisateurs avec opérations CRUD
+- `api/admin_api.php` - API d'administration sécurisée avec 10 endpoints
 
 ### Frontend
-- `admin.php` - Main admin interface with tabbed layout
-- `assets/js/admin.js` - Client-side JavaScript for admin interface
+- `admin.php` - Interface d'administration principale avec disposition à onglets
+- `assets/js/admin.js` - JavaScript côté client pour l'interface d'administration
 
 ### Documentation
-- `ADMIN_INTERFACE_GUIDE.md` - Complete user guide for administrators
-- `ADMIN_IMPLEMENTATION.md` - Technical implementation details
-- `ADMIN_UI_OVERVIEW.md` - Visual UI layout and components guide
+- `ADMIN_INTERFACE_GUIDE.md` - Guide utilisateur complet pour les administrateurs
+- `ADMIN_IMPLEMENTATION.md` - Détails techniques d'implémentation
+- `ADMIN_UI_OVERVIEW.md` - Guide de disposition et composants de l'interface
 
 ---
 
-## 🔧 Files Modified
+## 🔧 Fichiers Modifiés
 
 ### Navigation
-- `includes/header.php` - Added "Administration" tab (visible only to admins)
+- `includes/header.php` - Ajout de l'onglet "Administration" (visible uniquement pour les admins)
 
 ---
 
-## 🔐 Security Features
+## 🔐 Fonctionnalités de Sécurité
 
-### Authentication & Authorization
-- ✅ Admin-only access to interface and API
-- ✅ Session-based authentication
-- ✅ Role-based access control (RBAC)
+### Authentification & Autorisation
+- ✅ Accès réservé aux admins pour l'interface et l'API
+- ✅ Authentification basée sur les sessions
+- ✅ Contrôle d'accès basé sur les rôles (RBAC)
 
-### Data Protection
-- ✅ Password hashing with bcrypt (password_hash)
-- ✅ SQL injection prevention (prepared statements)
-- ✅ XSS prevention (HTML escaping)
-- ✅ CSRF protection (same-origin policy)
+### Protection des Données
+- ✅ Hashage des mots de passe avec bcrypt (password_hash)
+- ✅ Prévention des injections SQL (requêtes préparées)
+- ✅ Prévention XSS (échappement HTML)
+- ✅ Protection CSRF (politique same-origin)
 
-### Input Validation
-- ✅ Client-side form validation
-- ✅ Server-side validation and sanitization
-- ✅ Proper error messages without sensitive data
+### Validation des Entrées
+- ✅ Validation des formulaires côté client
+- ✅ Validation et assainissement côté serveur
+- ✅ Messages d'erreur appropriés sans données sensibles
 
 ---
 
-## 📊 API Endpoints
+## 📊 Points de Terminaison de l'API
 
-### Users
+### Utilisateurs
 ```
 GET  /api/admin_api.php?action=list_users
 GET  /api/admin_api.php?action=get_user&id=X
@@ -94,7 +94,7 @@ POST /api/admin_api.php?action=assign_role&user_id=X&role_id=Y
 POST /api/admin_api.php?action=remove_role&user_id=X&role_id=Y
 ```
 
-### Roles
+### Rôles
 ```
 GET  /api/admin_api.php?action=list_roles
 ```
@@ -108,73 +108,73 @@ POST /api/admin_api.php?action=delete_mapping&id=X
 
 ---
 
-## 🚀 Installation Instructions
+## 🚀 Instructions d'Installation
 
-### Step 1: Import Database Schema
+### Étape 1: Importer le Schéma de Base de Données
 ```bash
 mysql -u dns3_user -p dns3_db < database.sql
 ```
 
 > **Note** : Les fichiers de migration ont été supprimés. Utilisez `database.sql` pour les nouvelles installations.
 
-### Step 2: Create Admin User
+### Étape 2: Créer un Utilisateur Admin
 ```bash
 php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
 ```
 
-Or interactively:
+Ou en mode interactif:
 ```bash
 php scripts/create_admin.php
 ```
 
-### Step 3: Access Admin Interface
-Navigate to: `http://your-domain/admin.php`
+### Étape 3: Accéder à l'Interface d'Administration
+Naviguer vers: `http://your-domain/admin.php`
 
 ---
 
-## 📖 Usage Examples
+## 📖 Exemples d'Utilisation
 
-### Creating a Database User
-1. Login as admin
-2. Navigate to Administration → Utilisateurs
-3. Click "Créer un utilisateur"
-4. Fill in username, email, password
-5. Select "database" as auth method
-6. Assign roles (e.g., "user")
-7. Click "Enregistrer"
+### Créer un Utilisateur avec Auth Base de Données
+1. Se connecter en tant qu'admin
+2. Naviguer vers Administration → Utilisateurs
+3. Cliquer sur "Créer un utilisateur"
+4. Remplir username, email, mot de passe
+5. Sélectionner "database" comme méthode d'auth
+6. Assigner des rôles (ex: "user")
+7. Cliquer sur "Enregistrer"
 
-### Creating an AD Mapping
-1. Navigate to Administration → Mappings AD/LDAP
-2. Click "Créer un mapping"
-3. Select "Active Directory" as source
-4. Enter AD group DN: `CN=DNSAdmins,OU=Groups,DC=example,DC=com`
-5. Select role: "admin"
-6. Add notes (optional)
-7. Click "Créer"
+### Créer un Mapping AD
+1. Naviguer vers Administration → Mappings AD/LDAP
+2. Cliquer sur "Créer un mapping"
+3. Sélectionner "Active Directory" comme source
+4. Entrer le DN du groupe AD: `CN=DNSAdmins,OU=Groups,DC=example,DC=com`
+5. Sélectionner le rôle: "admin"
+6. Ajouter des notes (optionnel)
+7. Cliquer sur "Créer"
 
-### Editing a User
-1. Navigate to Administration → Utilisateurs
-2. Click "Modifier" on the user row
-3. Update desired fields
-4. Change roles by checking/unchecking boxes
-5. Click "Enregistrer"
+### Modifier un Utilisateur
+1. Naviguer vers Administration → Utilisateurs
+2. Cliquer sur "Modifier" sur la ligne de l'utilisateur
+3. Mettre à jour les champs désirés
+4. Modifier les rôles en cochant/décochant les cases
+5. Cliquer sur "Enregistrer"
 
 ---
 
-## 🎨 User Interface
+## 🎨 Interface Utilisateur
 
 ### Design
-- **Tabbed Interface**: Four main sections (Users, Roles, Mappings, ACL)
-- **Modal Dialogs**: Create/edit forms in modals
-- **Responsive Design**: Works on desktop, tablet, and mobile
-- **Color-coded Badges**: Visual indicators for roles, status, auth methods
+- **Interface à Onglets**: Quatre sections principales (Utilisateurs, Rôles, Mappings, ACL)
+- **Dialogues Modaux**: Formulaires de création/édition en modales
+- **Design Responsive**: Fonctionne sur ordinateur, tablette et mobile
+- **Badges Colorés**: Indicateurs visuels pour les rôles, statuts, méthodes d'auth
 
-### Features
-- Real-time search and filtering
-- Status badges (active/inactive, admin/user, etc.)
-- Confirmation dialogs for destructive actions
-- Toast notifications for success/error messages
-- Loading states during API calls
+### Fonctionnalités
+- Recherche et filtrage en temps réel
+- Badges de statut (actif/inactif, admin/user, etc.)
+- Dialogues de confirmation pour les actions destructives
+- Notifications toast pour les messages de succès/erreur
+- États de chargement pendant les appels API
 
 ---
 
@@ -205,128 +205,128 @@ Voir `docs/ADMIN_IMPLEMENTATION.md` pour les détails techniques complets.
 
 ---
 
-## ✅ Testing
+## ✅ Tests
 
-### Automated Validation
-All 59 validation checks passed:
-- ✅ File existence (8/8)
-- ✅ PHP syntax (4/4)
-- ✅ SQL structure (4/4)
-- ✅ JavaScript syntax (1/1)
-- ✅ API endpoints (10/10)
-- ✅ Security measures (6/6)
-- ✅ Header updates (2/2)
-- ✅ Model methods (8/8)
-- ✅ UI components (7/7)
-- ✅ JavaScript functions (9/9)
+### Validation Automatisée
+Les 59 vérifications de validation ont réussi:
+- ✅ Existence des fichiers (8/8)
+- ✅ Syntaxe PHP (4/4)
+- ✅ Structure SQL (4/4)
+- ✅ Syntaxe JavaScript (1/1)
+- ✅ Endpoints API (10/10)
+- ✅ Mesures de sécurité (6/6)
+- ✅ Mises à jour de l'en-tête (2/2)
+- ✅ Méthodes du modèle (8/8)
+- ✅ Composants UI (7/7)
+- ✅ Fonctions JavaScript (9/9)
 
-### Manual Testing Checklist
-- [ ] Access admin.php without login (should redirect to login)
-- [ ] Access admin.php as non-admin user (should redirect to home)
-- [ ] Access admin.php as admin user (should show interface)
-- [ ] Create a new database user
-- [ ] Edit existing user
-- [ ] Assign/remove roles from user
-- [ ] Create AD mapping
-- [ ] Create LDAP mapping
-- [ ] Delete mapping
-- [ ] Filter users by various criteria
+### Checklist de Tests Manuels
+- [ ] Accéder à admin.php sans connexion (devrait rediriger vers login)
+- [ ] Accéder à admin.php en tant qu'utilisateur non-admin (devrait rediriger vers home)
+- [ ] Accéder à admin.php en tant qu'utilisateur admin (devrait afficher l'interface)
+- [ ] Créer un nouvel utilisateur database
+- [ ] Modifier un utilisateur existant
+- [ ] Assigner/retirer des rôles d'un utilisateur
+- [ ] Créer un mapping AD
+- [ ] Créer un mapping LDAP
+- [ ] Supprimer un mapping
+- [ ] Filtrer les utilisateurs selon divers critères
 
 ---
 
-## 📋 Requirements
+## 📋 Prérequis
 
-### Server Requirements
-- PHP 7.4 or higher
-- MySQL 5.7 or MariaDB 10.2 or higher
-- Apache/Nginx web server
-- PHP extensions: PDO, pdo_mysql, ldap (for AD/LDAP auth)
+### Prérequis Serveur
+- PHP 7.4 ou supérieur
+- MySQL 5.7 ou MariaDB 10.2 ou supérieur
+- Serveur web Apache/Nginx
+- Extensions PHP: PDO, pdo_mysql, ldap (pour l'auth AD/LDAP)
 
-### Browser Requirements
+### Prérequis Navigateur
 - Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
-- JavaScript enabled
-- Cookies enabled
+- JavaScript activé
+- Cookies activés
 
 ---
 
-## 🐛 Known Issues
+## 🐛 Problèmes Connus
 
-### None Currently
-All functionality has been tested and validated. No known issues at release time.
+### Aucun Actuellement
+Toutes les fonctionnalités ont été testées et validées. Aucun problème connu au moment de la release.
 
 ---
 
 ## 📚 Documentation
 
-Complete documentation available in:
-- `ADMIN_INTERFACE_GUIDE.md` - User guide and how-to
-- `ADMIN_IMPLEMENTATION.md` - Technical implementation details
-- `ADMIN_UI_OVERVIEW.md` - UI layout and design guide
+Documentation complète disponible dans:
+- `ADMIN_INTERFACE_GUIDE.md` - Guide utilisateur et instructions
+- `ADMIN_IMPLEMENTATION.md` - Détails techniques d'implémentation
+- `ADMIN_UI_OVERVIEW.md` - Guide de disposition et design de l'interface
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contribution
 
-To contribute to the admin interface:
-1. Follow existing code patterns and style
-2. Add appropriate error handling
-3. Update documentation for new features
-4. Test all changes thoroughly
-5. Ensure security best practices
+Pour contribuer à l'interface d'administration:
+1. Suivre les modèles et styles de code existants
+2. Ajouter la gestion d'erreurs appropriée
+3. Mettre à jour la documentation pour les nouvelles fonctionnalités
+4. Tester tous les changements en profondeur
+5. S'assurer de respecter les bonnes pratiques de sécurité
 
 ---
 
 ## 📞 Support
 
-For issues or questions:
-1. Check the documentation files
-2. Review the inline code comments
-3. Check PHP error logs
-4. Verify database permissions and migrations
-5. Ensure admin role is properly assigned
+Pour les problèmes ou questions:
+1. Consulter les fichiers de documentation
+2. Réviser les commentaires dans le code
+3. Vérifier les logs d'erreur PHP
+4. Vérifier les permissions de base de données et les migrations
+5. S'assurer que le rôle admin est correctement assigné
 
 ---
 
-## 🔖 Version History
+## 🔖 Historique des Versions
 
 ### v1.0.0 (2025-10-20)
-- Initial release
-- Complete admin interface
-- User, role, and mapping management
-- Secure API with 10 endpoints
-- Comprehensive documentation
+- Version initiale
+- Interface d'administration complète
+- Gestion des utilisateurs, rôles et mappings
+- API sécurisée avec 10 endpoints
+- Documentation complète
 
 ---
 
-## 📄 License
+## 📄 Licence
 
-This admin interface follows the same license as the DNS3 project.
+Cette interface d'administration suit la même licence que le projet DNS3.
 
 ---
 
-## ✨ Credits
+## ✨ Crédits
 
-Developed as part of the DNS3 project enhancement initiative.
+Développé dans le cadre de l'initiative d'amélioration du projet DNS3.
 
-**Key Features:**
-- User management with role-based access control
-- AD/LDAP integration preparation
-- Secure password handling
-- Modern responsive UI
-- RESTful API design
-- Comprehensive documentation
+**Fonctionnalités Clés:**
+- Gestion des utilisateurs avec contrôle d'accès basé sur les rôles
+- Préparation de l'intégration AD/LDAP
+- Gestion sécurisée des mots de passe
+- Interface utilisateur moderne et responsive
+- Design d'API RESTful
+- Documentation complète
 
-**Technologies Used:**
+**Technologies Utilisées:**
 - Backend: PHP 8.3, MySQL/MariaDB
 - Frontend: Vanilla JavaScript (ES6+), HTML5, CSS3
-- Security: bcrypt, prepared statements, session management
+- Sécurité: bcrypt, requêtes préparées, gestion de sessions
 - API: RESTful JSON
 
 ---
 
-## 🎯 Next Steps
+## 🎯 Prochaines Étapes
 
-1. **Deploy to Production**
+1. **Déployer en Production**
    - Importer le schéma `database.sql`
    - Créer un utilisateur admin
    - Configurer les mappings AD/LDAP
@@ -339,18 +339,18 @@ Developed as part of the DNS3 project enhancement initiative.
    - Retrait mapping : utilisateur perd accès après suppression du mapping
    - Synchronisation rôles : rôles ajoutés/retirés selon les mappings, rôles manuels conservés
 
-3. **Optional Enhancements**
-   - Implement ACL management interface
-   - Add user activity logs
-   - Add email notifications for user creation
-   - Add `admin_disabled` flag to prevent auto-reactivation of manually disabled accounts
+3. **Améliorations Optionnelles**
+   - Implémenter l'interface de gestion ACL
+   - Ajouter des logs d'activité utilisateur
+   - Ajouter des notifications email pour la création d'utilisateurs
+   - Ajouter un flag `admin_disabled` pour empêcher la réactivation automatique des comptes désactivés manuellement
 
 4. **Maintenance**
-   - Regular backups
-   - Monitor for security updates
-   - Review and update documentation
-   - Collect user feedback
+   - Sauvegardes régulières
+   - Surveiller les mises à jour de sécurité
+   - Réviser et mettre à jour la documentation
+   - Collecter les retours des utilisateurs
 
 ---
 
-**End of Release Notes**
+**Fin des Notes de Version**
