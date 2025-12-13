@@ -1,6 +1,6 @@
-# Flux de la modale d'aperçu de zone - Documentation visuelle
+# Zone Preview Modal Flow - Visual Documentation
 
-## Structure de la modale
+## Modal Structure
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -49,10 +49,10 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Flux d'exécution
+## Execution Flow
 
 ```
-Action utilisateur : Clic sur "Générer le fichier de zone"
+User Action: Click "Générer le fichier de zone"
                         ↓
     ┌──────────────────────────────────────────┐
     │ handleGenerateZoneFile()                 │
@@ -60,8 +60,8 @@ Action utilisateur : Clic sur "Générer le fichier de zone"
                         ↓
     ┌──────────────────────────────────────────┐
     │ openZonePreviewModalWithLoading()        │
-    │ - Affiche la modale avec "Chargement…"  │
-    │ - Définit z-index: 9999                  │
+    │ - Show modal with "Chargement…"         │
+    │ - Set z-index: 9999                      │
     └──────────────────────────────────────────┘
                         ↓
     ┌──────────────────────────────────────────┐
@@ -72,26 +72,26 @@ Action utilisateur : Clic sur "Générer le fichier de zone"
                         ↓
              ┌──────────┴──────────┐
              │                     │
-          SUCCÈS                ERREUR
+          SUCCESS                ERROR
              │                     │
              ↓                     ↓
     ┌────────────────┐    ┌──────────────────┐
-    │ Parse JSON     │    │ Affiche l'erreur │
-    │ response       │    │ dans textarea    │
-    └────────────────┘    │ Masque validation│
+    │ Parse JSON     │    │ Show error in    │
+    │ response       │    │ textarea         │
+    └────────────────┘    │ Hide validation  │
              ↓             └──────────────────┘
     ┌────────────────┐
-    │ Stocke les     │
-    │ données aperçu │
+    │ Store preview  │
+    │ data           │
     └────────────────┘
              ↓
     ┌────────────────┐
-    │ Met à jour     │
-    │ le contenu     │
+    │ Update preview │
+    │ content        │
     └────────────────┘
              ↓
     ┌────────────────┐
-    │ Attache le     │
+    │ Attach download│
     │ handler (Blob) │
     └────────────────┘
              ↓
