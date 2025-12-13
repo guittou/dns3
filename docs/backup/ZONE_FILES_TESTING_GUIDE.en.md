@@ -2,7 +2,7 @@
 
 ## Database Setup
 
-> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+> **Note**: Migration files have been removed. For new installations, use `database.sql` (or `structure_ok_dns3_db.sql`).
 
 To set up the database schema for testing:
 

@@ -22,7 +22,7 @@ For new installations, import the complete schema:
 mysql -u dns3_user -p dns3_db < database.sql
 ```
 
-> **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
+> **Note**: Migration files have been removed. For new installations, use `database.sql` (or `structure_ok_dns3_db.sql`).
 
 This will create the following tables:
 - `roles` - User roles (admin, user)
