@@ -222,7 +222,8 @@ Pour la documentation complète, consultez [docs/SUMMARY.md](docs/SUMMARY.md).
 - **[Authentification API par tokens](docs/api_token_authentication.md)** - Documentation de l'API et des tokens
 - **[Import de zones BIND](docs/import_bind_zones.md)** - Import de zones BIND existantes
 - **[Schéma de base de données](docs/DB_SCHEMA.md)** - Documentation du schéma DB
-- **[Guide de test](docs/TESTING_GUIDE.md)** - Procédures de test
+- **[Guide de test](docs/TESTING_GUIDE.md)** - Procédures et scénarios de test
+- **[Plan de test](docs/TEST_PLAN.md)** - Plan de test complet pour DNS et formulaires dynamiques
 
 ### Utilitaires / Scripts
 

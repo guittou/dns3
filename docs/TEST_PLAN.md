@@ -1,284 +1,284 @@
-# Test Plan for DNS last_seen and Dynamic Form Behavior
+# Plan de Test pour last_seen DNS et Comportement Dynamique des Formulaires
 
-## Summary of Changes
+## Résumé des Modifications
 
-This PR implements the following changes to the DNS management system:
+Cette PR implémente les changements suivants dans le système de gestion DNS :
 
-1. **Removed automatic last_seen updates from UI/API**: The `last_seen` field is no longer updated when viewing records via the web UI or API. The `markSeen()` method remains in the model for future external script use.
+1. **Suppression des mises à jour automatiques de last_seen depuis l'UI/API** : Le champ `last_seen` n'est plus mis à jour lors de la consultation des enregistrements via l'interface web ou l'API. La méthode `markSeen()` reste dans le modèle pour une utilisation future par des scripts externes.
 
-2. **Dynamic form field visibility**: The priority field is now only shown for MX and SRV record types, with fields dynamically showing/hiding based on the selected record type.
+2. **Visibilité dynamique des champs de formulaire** : Le champ priorité n'est maintenant affiché que pour les types d'enregistrements MX et SRV, avec des champs s'affichant/se masquant dynamiquement en fonction du type d'enregistrement sélectionné.
 
-3. **Security enhancement**: The API explicitly ignores any client-provided `last_seen` values in create/update operations.
+3. **Amélioration de la sécurité** : L'API ignore explicitement toute valeur `last_seen` fournie par le client lors des opérations de création/mise à jour.
 
-4. **Optimized payload**: The JavaScript only includes relevant fields in API requests (e.g., priority is only sent for MX/SRV records).
+4. **Charge utile optimisée** : Le JavaScript n'inclut que les champs pertinents dans les requêtes API (par exemple, la priorité n'est envoyée que pour les enregistrements MX/SRV).
 
-## Files Modified
+## Fichiers Modifiés
 
-- `api/dns_api.php` - Removed markSeen() call from GET action
-- `assets/js/dns-records.js` - Added dynamic form behavior and optimized payload construction
-- `dns-management.php` - Added id="record-priority-group" wrapper for priority field
+- `api/dns_api.php` - Suppression de l'appel markSeen() de l'action GET
+- `assets/js/dns-records.js` - Ajout du comportement dynamique des formulaires et optimisation de la construction de la charge utile
+- `dns-management.php` - Ajout du wrapper id="record-priority-group" pour le champ priorité
 
-## Test Cases
+## Cas de Test
 
-### 1. Create Record via UI - last_seen Remains NULL
+### 1. Créer un Enregistrement via l'UI - last_seen Reste NULL
 
-**Test Steps:**
-1. Log in as an admin user
-2. Navigate to DNS Management page
-3. Click "Create Record" button
-4. Fill in all required fields (record_type, name, value)
-5. Submit the form
-6. Query the database: `SELECT last_seen FROM dns_records WHERE id = [new_record_id]`
+**Étapes de Test :**
+1. Se connecter en tant qu'utilisateur administrateur
+2. Naviguer vers la page de Gestion DNS
+3. Cliquer sur le bouton "Créer un Enregistrement"
+4. Remplir tous les champs requis (record_type, name, value)
+5. Soumettre le formulaire
+6. Interroger la base de données : `SELECT last_seen FROM dns_records WHERE id = [new_record_id]`
 
-**Expected Result:**
-- Record is created successfully
-- `last_seen` field in database is NULL
+**Résultat Attendu :**
+- L'enregistrement est créé avec succès
+- Le champ `last_seen` dans la base de données est NULL
 
-**Verification:**
+**Vérification :**
 ```sql
 SELECT id, name, last_seen FROM dns_records WHERE id = [new_record_id];
--- last_seen should be NULL
+-- last_seen devrait être NULL
 ```
 
-### 2. View Record via UI - last_seen Remains Unchanged
+### 2. Voir un Enregistrement via l'UI - last_seen Reste Inchangé
 
-**Test Steps:**
-1. Note the current `last_seen` value for a record (or NULL if not set)
-2. Click "Edit" button for that record to view it
-3. Query the database again to check `last_seen`
+**Étapes de Test :**
+1. Noter la valeur actuelle de `last_seen` pour un enregistrement (ou NULL si non défini)
+2. Cliquer sur le bouton "Modifier" pour cet enregistrement afin de le voir
+3. Interroger à nouveau la base de données pour vérifier `last_seen`
 
-**Expected Result:**
-- Record details are displayed correctly
-- `last_seen` value in database remains unchanged (stays NULL or keeps original timestamp)
+**Résultat Attendu :**
+- Les détails de l'enregistrement sont affichés correctement
+- La valeur `last_seen` dans la base de données reste inchangée (reste NULL ou conserve l'horodatage original)
 
-**Verification:**
+**Vérification :**
 ```sql
--- Before viewing
+-- Avant la visualisation
 SELECT id, name, last_seen FROM dns_records WHERE id = [record_id];
--- [View the record in UI]
--- After viewing
+-- [Voir l'enregistrement dans l'UI]
+-- Après la visualisation
 SELECT id, name, last_seen FROM dns_records WHERE id = [record_id];
--- Values should be identical
+-- Les valeurs devraient être identiques
 ```
 
-### 3. Edit Record via UI - last_seen Remains Unchanged
+### 3. Modifier un Enregistrement via l'UI - last_seen Reste Inchangé
 
-**Test Steps:**
-1. Note the current `last_seen` value for a record
-2. Click "Edit" button
-3. Modify some fields (e.g., TTL or comment)
-4. Submit the form
-5. Query the database to verify `last_seen` hasn't changed
+**Étapes de Test :**
+1. Noter la valeur actuelle de `last_seen` pour un enregistrement
+2. Cliquer sur le bouton "Modifier"
+3. Modifier certains champs (par exemple, TTL ou commentaire)
+4. Soumettre le formulaire
+5. Interroger la base de données pour vérifier que `last_seen` n'a pas changé
 
-**Expected Result:**
-- Record is updated successfully with new values
-- `last_seen` field remains unchanged
-- `updated_at` field is updated (this is expected behavior)
+**Résultat Attendu :**
+- L'enregistrement est mis à jour avec succès avec les nouvelles valeurs
+- Le champ `last_seen` reste inchangé
+- Le champ `updated_at` est mis à jour (c'est le comportement attendu)
 
-**Verification:**
+**Vérification :**
 ```sql
 SELECT id, name, last_seen, updated_at FROM dns_records WHERE id = [record_id];
--- last_seen should remain unchanged, updated_at should be current timestamp
+-- last_seen devrait rester inchangé, updated_at devrait être l'horodatage actuel
 ```
 
-### 4. Create MX Record - Priority Visible and Persisted
+### 4. Créer un Enregistrement MX - Priorité Visible et Persistée
 
-**Test Steps:**
-1. Click "Create Record"
-2. Select "MX" from record type dropdown
-3. Verify priority field is visible
-4. Fill in required fields including priority (e.g., 10)
-5. Submit the form
-6. Query database to verify priority was saved
+**Étapes de Test :**
+1. Cliquer sur "Créer un Enregistrement"
+2. Sélectionner "MX" dans le menu déroulant du type d'enregistrement
+3. Vérifier que le champ priorité est visible
+4. Remplir les champs requis incluant la priorité (par exemple, 10)
+5. Soumettre le formulaire
+6. Interroger la base de données pour vérifier que la priorité a été sauvegardée
 
-**Expected Result:**
-- Priority field is visible when MX is selected
-- Priority value is saved to database
-- API request includes priority in payload
+**Résultat Attendu :**
+- Le champ priorité est visible lorsque MX est sélectionné
+- La valeur de priorité est sauvegardée dans la base de données
+- La requête API inclut la priorité dans la charge utile
 
-**Verification:**
+**Vérification :**
 ```sql
 SELECT id, record_type, priority FROM dns_records WHERE id = [new_mx_record_id];
--- priority should have the value entered (e.g., 10)
+-- priority devrait avoir la valeur saisie (par exemple, 10)
 ```
 
-### 5. Create SRV Record - Priority Visible and Persisted
+### 5. Créer un Enregistrement SRV - Priorité Visible et Persistée
 
-**Test Steps:**
-1. Click "Create Record"
-2. Select "SRV" from record type dropdown
-3. Verify priority field is visible
-4. Fill in required fields including priority
-5. Submit the form
+**Étapes de Test :**
+1. Cliquer sur "Créer un Enregistrement"
+2. Sélectionner "SRV" dans le menu déroulant du type d'enregistrement
+3. Vérifier que le champ priorité est visible
+4. Remplir les champs requis incluant la priorité
+5. Soumettre le formulaire
 
-**Expected Result:**
-- Priority field is visible when SRV is selected
-- Priority value is saved correctly
+**Résultat Attendu :**
+- Le champ priorité est visible lorsque SRV est sélectionné
+- La valeur de priorité est sauvegardée correctement
 
-### 6. Create A Record - Priority Hidden and Not Sent
+### 6. Créer un Enregistrement A - Priorité Masquée et Non Envoyée
 
-**Test Steps:**
-1. Click "Create Record"
-2. Select "A" from record type dropdown
-3. Verify priority field is hidden
-4. Fill in required fields
-5. Open browser developer tools, go to Network tab
-6. Submit the form
-7. Inspect the POST request payload
+**Étapes de Test :**
+1. Cliquer sur "Créer un Enregistrement"
+2. Sélectionner "A" dans le menu déroulant du type d'enregistrement
+3. Vérifier que le champ priorité est masqué
+4. Remplir les champs requis
+5. Ouvrir les outils de développement du navigateur, aller dans l'onglet Réseau
+6. Soumettre le formulaire
+7. Inspecter la charge utile de la requête POST
 
-**Expected Result:**
-- Priority field is not visible in the form
-- POST request payload does NOT include "priority" field
-- Record is created successfully without priority
+**Résultat Attendu :**
+- Le champ priorité n'est pas visible dans le formulaire
+- La charge utile de la requête POST n'inclut PAS le champ "priority"
+- L'enregistrement est créé avec succès sans priorité
 
-**Verification:**
-- Check Network tab: POST payload should not contain `priority` key
-- Database query: `SELECT id, record_type, priority FROM dns_records WHERE id = [new_a_record_id]`
-- priority should be NULL
+**Vérification :**
+- Vérifier l'onglet Réseau : la charge utile POST ne devrait pas contenir la clé `priority`
+- Requête base de données : `SELECT id, record_type, priority FROM dns_records WHERE id = [new_a_record_id]`
+- priority devrait être NULL
 
-### 7. Create CNAME Record - Priority Hidden and Not Sent
+### 7. Créer un Enregistrement CNAME - Priorité Masquée et Non Envoyée
 
-**Test Steps:**
-1. Click "Create Record"
-2. Select "CNAME" from record type dropdown
-3. Verify priority field is hidden
-4. Submit with required fields
+**Étapes de Test :**
+1. Cliquer sur "Créer un Enregistrement"
+2. Sélectionner "CNAME" dans le menu déroulant du type d'enregistrement
+3. Vérifier que le champ priorité est masqué
+4. Soumettre avec les champs requis
 
-**Expected Result:**
-- Priority field is hidden
-- Priority not included in payload
-- Record created successfully
+**Résultat Attendu :**
+- Le champ priorité est masqué
+- La priorité n'est pas incluse dans la charge utile
+- L'enregistrement est créé avec succès
 
-### 8. Dynamic Field Toggle - Change Record Type
+### 8. Basculement Dynamique des Champs - Changer le Type d'Enregistrement
 
-**Test Steps:**
-1. Click "Create Record"
-2. Select "A" - verify priority is hidden
-3. Change to "MX" - verify priority appears
-4. Change to "CNAME" - verify priority disappears
-5. Change to "SRV" - verify priority appears
-6. Change back to "A" - verify priority disappears
+**Étapes de Test :**
+1. Cliquer sur "Créer un Enregistrement"
+2. Sélectionner "A" - vérifier que la priorité est masquée
+3. Changer pour "MX" - vérifier que la priorité apparaît
+4. Changer pour "CNAME" - vérifier que la priorité disparaît
+5. Changer pour "SRV" - vérifier que la priorité apparaît
+6. Revenir à "A" - vérifier que la priorité disparaît
 
-**Expected Result:**
-- Priority field visibility toggles correctly based on record type
-- No JavaScript console errors
-- Smooth transition (no flickering)
+**Résultat Attendu :**
+- La visibilité du champ priorité bascule correctement selon le type d'enregistrement
+- Aucune erreur dans la console JavaScript
+- Transition fluide (pas de scintillement)
 
-### 9. Security Test - Attempt to Send last_seen from Client
+### 9. Test de Sécurité - Tentative d'Envoi de last_seen depuis le Client
 
-**Test Steps:**
-1. Open browser developer tools
-2. In Console tab, intercept the form submission or modify the request
-3. Try to include `last_seen` in the payload:
+**Étapes de Test :**
+1. Ouvrir les outils de développement du navigateur
+2. Dans l'onglet Console, intercepter la soumission du formulaire ou modifier la requête
+3. Essayer d'inclure `last_seen` dans la charge utile :
    ```javascript
-   // Modify the request to include last_seen
+   // Modifier la requête pour inclure last_seen
    const data = {
        record_type: 'A',
        name: 'test.example.com',
        value: '192.168.1.1',
        ttl: 3600,
-       last_seen: '2025-10-20 12:00:00'  // Malicious injection
+       last_seen: '2025-10-20 12:00:00'  // Injection malveillante
    };
    ```
-4. Submit the crafted request
-5. Check database to verify last_seen was NOT set
+4. Soumettre la requête modifiée
+5. Vérifier la base de données pour confirmer que last_seen n'a PAS été défini
 
-**Expected Result:**
-- Server ignores the client-provided `last_seen` value
-- `last_seen` in database remains NULL (for new records)
-- No server error
-- API returns success
+**Résultat Attendu :**
+- Le serveur ignore la valeur `last_seen` fournie par le client
+- `last_seen` dans la base de données reste NULL (pour les nouveaux enregistrements)
+- Aucune erreur serveur
+- L'API retourne un succès
 
-**Verification:**
+**Vérification :**
 ```sql
 SELECT id, name, last_seen FROM dns_records WHERE name = 'test.example.com';
--- last_seen should be NULL despite client attempting to set it
+-- last_seen devrait être NULL malgré la tentative du client de le définir
 ```
 
-### 10. Edit Form - Priority Visibility Based on Record Type
+### 10. Formulaire de Modification - Visibilité de la Priorité Basée sur le Type d'Enregistrement
 
-**Test Steps:**
-1. Create or select an existing MX record
-2. Click "Edit"
-3. Verify priority field is visible and shows current value
-4. Create or select an A record
-5. Click "Edit"
-6. Verify priority field is hidden
+**Étapes de Test :**
+1. Créer ou sélectionner un enregistrement MX existant
+2. Cliquer sur "Modifier"
+3. Vérifier que le champ priorité est visible et affiche la valeur actuelle
+4. Créer ou sélectionner un enregistrement A
+5. Cliquer sur "Modifier"
+6. Vérifier que le champ priorité est masqué
 
-**Expected Result:**
-- Priority field visibility in edit mode matches the record type
-- Existing priority values are displayed correctly for MX/SRV
+**Résultat Attendu :**
+- La visibilité du champ priorité en mode édition correspond au type d'enregistrement
+- Les valeurs de priorité existantes sont affichées correctement pour MX/SRV
 
-### 11. Verify No JavaScript Console Errors
+### 11. Vérifier l'Absence d'Erreurs dans la Console JavaScript
 
-**Test Steps:**
-1. Open browser developer tools, Console tab
-2. Navigate to DNS Management page
-3. Perform the following actions:
-   - View records list
-   - Click "Create Record"
-   - Change record types multiple times
-   - Submit a new record
-   - Edit an existing record
-   - Delete a record
-   - Restore a deleted record
+**Étapes de Test :**
+1. Ouvrir les outils de développement du navigateur, onglet Console
+2. Naviguer vers la page de Gestion DNS
+3. Effectuer les actions suivantes :
+   - Voir la liste des enregistrements
+   - Cliquer sur "Créer un Enregistrement"
+   - Changer les types d'enregistrements plusieurs fois
+   - Soumettre un nouvel enregistrement
+   - Modifier un enregistrement existant
+   - Supprimer un enregistrement
+   - Restaurer un enregistrement supprimé
 
-**Expected Result:**
-- No JavaScript errors in console
-- All actions complete successfully
-- UI is responsive
+**Résultat Attendu :**
+- Aucune erreur JavaScript dans la console
+- Toutes les actions se terminent avec succès
+- L'interface est réactive
 
-### 12. List Records - Verify All Flows Still Work
+### 12. Lister les Enregistrements - Vérifier que Tous les Flux Fonctionnent Toujours
 
-**Test Steps:**
-1. Navigate to DNS Management page
-2. Use search filter to find records
-3. Use type filter to filter by record type
-4. Use status filter to show deleted records
-5. Verify pagination works (if implemented)
+**Étapes de Test :**
+1. Naviguer vers la page de Gestion DNS
+2. Utiliser le filtre de recherche pour trouver des enregistrements
+3. Utiliser le filtre de type pour filtrer par type d'enregistrement
+4. Utiliser le filtre de statut pour afficher les enregistrements supprimés
+5. Vérifier que la pagination fonctionne (si implémentée)
 
-**Expected Result:**
-- All filters work correctly
-- Records are displayed properly
-- last_seen column shows existing values or "-" for NULL
-- No errors in console or UI
+**Résultat Attendu :**
+- Tous les filtres fonctionnent correctement
+- Les enregistrements sont affichés correctement
+- La colonne last_seen affiche les valeurs existantes ou "-" pour NULL
+- Aucune erreur dans la console ou l'UI
 
-### 13. Delete Record - last_seen Remains Unchanged
+### 13. Supprimer un Enregistrement - last_seen Reste Inchangé
 
-**Test Steps:**
-1. Note the `last_seen` value for a record
-2. Click "Delete" button
-3. Confirm deletion
-4. Query database to verify last_seen hasn't changed
+**Étapes de Test :**
+1. Noter la valeur `last_seen` pour un enregistrement
+2. Cliquer sur le bouton "Supprimer"
+3. Confirmer la suppression
+4. Interroger la base de données pour vérifier que last_seen n'a pas changé
 
-**Expected Result:**
-- Record status changes to "deleted"
-- `last_seen` value remains unchanged
-- `updated_at` is updated (expected)
+**Résultat Attendu :**
+- Le statut de l'enregistrement change à "deleted"
+- La valeur `last_seen` reste inchangée
+- `updated_at` est mis à jour (attendu)
 
-**Verification:**
+**Vérification :**
 ```sql
 SELECT id, status, last_seen, updated_at FROM dns_records WHERE id = [record_id];
--- status should be 'deleted', last_seen unchanged, updated_at current
+-- status devrait être 'deleted', last_seen inchangé, updated_at actuel
 ```
 
-### 14. Restore Record - last_seen Remains Unchanged
+### 14. Restaurer un Enregistrement - last_seen Reste Inchangé
 
-**Test Steps:**
-1. Filter to show deleted records
-2. Note the `last_seen` value for a deleted record
-3. Click "Restore" button
-4. Confirm restoration
-5. Query database to verify last_seen hasn't changed
+**Étapes de Test :**
+1. Filtrer pour afficher les enregistrements supprimés
+2. Noter la valeur `last_seen` pour un enregistrement supprimé
+3. Cliquer sur le bouton "Restaurer"
+4. Confirmer la restauration
+5. Interroger la base de données pour vérifier que last_seen n'a pas changé
 
-**Expected Result:**
-- Record status changes to "active"
-- `last_seen` value remains unchanged
+**Résultat Attendu :**
+- Le statut de l'enregistrement change à "active"
+- La valeur `last_seen` reste inchangée
 
-### 15. markSeen() Method Still Available for Scripts
+### 15. Méthode markSeen() Toujours Disponible pour les Scripts
 
-**Test Steps:**
-1. Create a test PHP script that calls the markSeen() method directly:
+**Étapes de Test :**
+1. Créer un script PHP de test qui appelle directement la méthode markSeen() :
    ```php
    <?php
    require_once 'includes/models/DnsRecord.php';
@@ -286,59 +286,59 @@ SELECT id, status, last_seen, updated_at FROM dns_records WHERE id = [record_id]
    $result = $dnsRecord->markSeen(1, 1); // record_id=1, user_id=1
    echo $result ? "Success" : "Failed";
    ```
-2. Run the script
-3. Query database to verify last_seen was updated
+2. Exécuter le script
+3. Interroger la base de données pour vérifier que last_seen a été mis à jour
 
-**Expected Result:**
-- markSeen() method executes successfully
-- `last_seen` timestamp is updated in database
-- This confirms the method is preserved for future external script use
+**Résultat Attendu :**
+- La méthode markSeen() s'exécute avec succès
+- L'horodatage `last_seen` est mis à jour dans la base de données
+- Cela confirme que la méthode est préservée pour une utilisation future par des scripts externes
 
-**Verification:**
+**Vérification :**
 ```sql
--- Before running script
+-- Avant l'exécution du script
 SELECT id, last_seen FROM dns_records WHERE id = 1;
--- [Run the test script]
--- After running script
+-- [Exécuter le script de test]
+-- Après l'exécution du script
 SELECT id, last_seen FROM dns_records WHERE id = 1;
--- last_seen should now be updated to current timestamp
+-- last_seen devrait maintenant être mis à jour avec l'horodatage actuel
 ```
 
-## Backward Compatibility Checks
+## Vérifications de Compatibilité Ascendante
 
-### User Management
-- Verify user creation, editing, and deletion still works
-- Verify authentication still works
+### Gestion des Utilisateurs
+- Vérifier que la création, l'édition et la suppression d'utilisateurs fonctionnent toujours
+- Vérifier que l'authentification fonctionne toujours
 
 ### ACL/Mappings
-- Verify ACL mappings interface still works (if present)
-- Verify role-based access control is not affected
+- Vérifier que l'interface des mappings ACL fonctionne toujours (si présente)
+- Vérifier que le contrôle d'accès basé sur les rôles n'est pas affecté
 
-### DNS Record History
-- Verify history tracking still works for all operations
-- Verify history is displayed correctly in UI
+### Historique des Enregistrements DNS
+- Vérifier que le suivi de l'historique fonctionne toujours pour toutes les opérations
+- Vérifier que l'historique est affiché correctement dans l'UI
 
-## Performance Considerations
+## Considérations de Performance
 
-- Form field toggling should be instant (< 50ms)
-- API requests should not be slower than before
-- Database queries should not be affected
+- Le basculement des champs de formulaire devrait être instantané (< 50ms)
+- Les requêtes API ne devraient pas être plus lentes qu'avant
+- Les requêtes de base de données ne devraient pas être affectées
 
-## Browser Compatibility
+## Compatibilité Navigateur
 
-Test in the following browsers:
-- Chrome/Edge (latest)
-- Firefox (latest)
-- Safari (latest, if possible)
+Tester dans les navigateurs suivants :
+- Chrome/Edge (dernière version)
+- Firefox (dernière version)
+- Safari (dernière version, si possible)
 
-## Notes for Reviewers
+## Notes pour les Relecteurs
 
-1. The `markSeen()` method in `includes/models/DnsRecord.php` has been preserved intentionally for future external script use.
+1. La méthode `markSeen()` dans `includes/models/DnsRecord.php` a été préservée intentionnellement pour une utilisation future par des scripts externes.
 
-2. The API already had security measures to unset client-provided `last_seen` values; this PR ensures the GET action doesn't update it either.
+2. L'API avait déjà des mesures de sécurité pour annuler les valeurs `last_seen` fournies par le client ; cette PR garantit que l'action GET ne la met pas non plus à jour.
 
-3. The dynamic form behavior only affects the UI; the server still validates all inputs.
+3. Le comportement dynamique du formulaire affecte uniquement l'UI ; le serveur valide toujours toutes les entrées.
 
-4. Priority field is conditionally sent in payload (only for MX/SRV), but the server handles NULL priority values gracefully for all record types.
+4. Le champ priorité est envoyé conditionnellement dans la charge utile (uniquement pour MX/SRV), mais le serveur gère les valeurs de priorité NULL de manière appropriée pour tous les types d'enregistrements.
 
-5. The `last_seen` field remains in the database schema and in the UI (read-only in edit mode) but is never updated by web UI actions.
+5. Le champ `last_seen` reste dans le schéma de base de données et dans l'UI (en lecture seule en mode édition) mais n'est jamais mis à jour par les actions de l'interface web.
