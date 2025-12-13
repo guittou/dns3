@@ -160,7 +160,8 @@ Documentation technique et d'implémentation :
     - **Backup** : `docs/backup/ZONE_GENERATION_FINAL_SUMMARY.en.md`
 24. 🟡 **docs/ZONE_VALIDATION_IMPROVEMENTS.md** - En cours de traduction (2025-12-13)
     - **Backup** : `docs/backup/ZONE_VALIDATION_IMPROVEMENTS.en.md`
-25. 🟡 **docs/ZONEFILE_COMBOBOX_VERIFICATION.md** - En cours de traduction (2025-12-13)
+    - **Note** : Section d'introduction traduite, reste à compléter
+25. ✅ **docs/ZONEFILE_COMBOBOX_VERIFICATION.md** - Français (traduit - 2025-12-13)
     - **Backup** : `docs/backup/ZONEFILE_COMBOBOX_VERIFICATION.en.md`
 
 ### Interface Utilisateur
@@ -322,9 +323,9 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 
 ### Progression Globale (Mise à jour : 2025-12-13)
 
-- **Documents traduits** : 37/52 (71%) ✅
+- **Documents traduits** : 38/52 (73%) ✅
 - **Documents prioritaires traduits** : 6/6 (100%) ✅
-- **Documents en cours de traduction** : 2 (ZONE_VALIDATION_IMPROVEMENTS, ZONEFILE_COMBOBOX_VERIFICATION)
+- **Documents en cours de traduction** : 1 (ZONE_VALIDATION_IMPROVEMENTS - intro traduite)
 - **Backups créés** : 48
 - **Nouveau contenu créé** : 2 (SUMMARY.md, CONTRIBUTING_DOCS.md)
 - **README homogénéisé** : ✅ Complété (vérifié - déjà 100% français)
@@ -336,10 +337,10 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 | Priorité | Fichiers | Lignes Estimées | Temps Estimé |
 |----------|----------|-----------------|--------------|
 | Haute | 0 | ~0 | ✅ Complété |
-| Moyenne | 9 | ~2400+ | 3-5 heures |
+| Moyenne | 8 | ~2150+ | 3-4 heures |
 | Archive | 57 | N/A | Non planifié |
 
-**Note** : 9 fichiers restants ont leurs backups anglais créés et sont prêts pour traduction. La plupart sont des documents d'implémentation technique. 2 fichiers supplémentaires sont en cours de traduction.
+**Note** : 8 fichiers restants ont leurs backups anglais créés et sont prêts pour traduction. La plupart sont des documents d'implémentation technique. 1 fichier (ZONE_VALIDATION_IMPROVEMENTS) est partiellement traduit (intro seulement).
 
 ---
 
@@ -378,9 +379,9 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 29. ✅ Mettre à jour TRANSLATION_STATUS.md (ce fichier)
 30. ✅ Traduire ZONE_FILE_GENERATION_IMPLEMENTATION.md (complété - 2025-12-13)
 31. ✅ Traduire ZONE_FILES_QUICK_REFERENCE.md (complété - 2025-12-13)
-32. 🔄 Traduire ZONE_VALIDATION_IMPROVEMENTS.md (en cours - 2025-12-13)
-33. 🔄 Traduire ZONEFILE_COMBOBOX_VERIFICATION.md (en cours - 2025-12-13)
-34. ⏳ Continuer traduction des 9 fichiers restants (moyenne priorité) - à faire dans les prochaines PR
+32. 🔄 Traduire ZONE_VALIDATION_IMPROVEMENTS.md (intro traduite - 2025-12-13)
+33. ✅ Traduire ZONEFILE_COMBOBOX_VERIFICATION.md (complété - 2025-12-13)
+34. ⏳ Continuer traduction des 8 fichiers restants (moyenne priorité) - à faire dans les prochaines PR
 
 ### Moyen Terme (PRs Futures)
 
