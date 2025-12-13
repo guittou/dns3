@@ -323,7 +323,7 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 
 ### Progression Globale (Mise à jour : 2025-12-13)
 
-- **Documents traduits** : 38/52 (73%) ✅
+- **Documents traduits** : 38/52 (73.1%) ✅
 - **Documents prioritaires traduits** : 6/6 (100%) ✅
 - **Documents en cours de traduction** : 1 (ZONE_VALIDATION_IMPROVEMENTS - intro traduite)
 - **Backups créés** : 48

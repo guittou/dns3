@@ -1,5 +1,7 @@
 # Améliorations de la Validation des Fichiers de Zone
 
+> **Note de Traduction** : Ce document est en cours de traduction. Seule l'introduction est actuellement en français. La traduction complète sera effectuée dans une PR future. La version anglaise complète est disponible dans `docs/backup/ZONE_VALIDATION_IMPROVEMENTS.en.md`.
+
 ## Vue d'ensemble
 
 Ce document décrit les améliorations apportées à la validation des fichiers de zone, spécifiquement pour la gestion des fichiers include faisant partie d'une chaîne d'inclusion.
@@ -11,6 +13,10 @@ L'implémentation précédente avait des limitations lors de la validation des f
 1. **Vérification du parent immédiat uniquement** : Si un fichier include avait un parent qui était également un include (pas un maître), la validation échouait ou se comportait incorrectement.
 2. **Propagation limitée** : Les résultats de validation n'étaient propagés qu'aux enfants directs, pas aux includes profondément imbriqués.
 3. **Pas de détection de cycles** : Aucune protection contre les dépendances circulaires dans les chaînes d'inclusion.
+
+---
+
+> **Translation Note**: This document is being translated. Only the introduction is currently in French. Complete translation will be done in a future PR. The complete English version is available at `docs/backup/ZONE_VALIDATION_IMPROVEMENTS.en.md`.
 
 ## Solution
 
