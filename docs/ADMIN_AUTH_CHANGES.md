@@ -1,83 +1,83 @@
-# Admin Authentication Changes
+# Modifications de l'authentification admin
 
-## Overview
-This document describes the changes made to enforce database-only user creation via the admin interface and implement AD/LDAP role mapping during authentication.
+## Vue d'ensemble
+Ce document décrit les modifications apportées pour imposer la création d'utilisateurs en base de données uniquement via l'interface d'administration et implémenter le mapping de rôles AD/LDAP lors de l'authentification.
 
-**Branch:** feature/fix-admin-db-only
+**Branche :** feature/fix-admin-db-only
 
-## Changes Made
+## Modifications effectuées
 
-### 1. Database-Only User Creation (Server-Side Enforcement)
+### 1. Création d'utilisateurs en base de données uniquement (application côté serveur)
 
 #### api/admin_api.php
-- `create_user` endpoint now **forces** `auth_method = 'database'` server-side
-- Any client-provided `auth_method` value is ignored
-- Password is required for all admin-created users
-- `update_user` endpoint **prevents** changing `auth_method` to 'ad' or 'ldap'
-- Returns HTTP 400 error with clear message if attempt is made to switch to AD/LDAP
+- Le point de terminaison `create_user` **impose** maintenant `auth_method = 'database'` côté serveur
+- Toute valeur `auth_method` fournie par le client est ignorée
+- Le mot de passe est requis pour tous les utilisateurs créés par l'admin
+- Le point de terminaison `update_user` **empêche** le changement de `auth_method` vers 'ad' ou 'ldap'
+- Retourne une erreur HTTP 400 avec un message clair si une tentative de basculement vers AD/LDAP est effectuée
 
 #### includes/models/User.php
-- `create()` method hardcodes `auth_method = 'database'`
-- Password hashing is enforced for all database users
-- `update()` method completely removes support for changing `auth_method`
-- Server-side validation ensures auth_method integrity
+- La méthode `create()` force `auth_method = 'database'`
+- Le hashage de mot de passe est imposé pour tous les utilisateurs de base de données
+- La méthode `update()` supprime complètement le support de changement de `auth_method`
+- La validation côté serveur assure l'intégrité de auth_method
 
 #### assets/js/admin.js
-- Client sets `auth_method: 'database'` for new users
-- Auth method field hidden when creating new users
-- Auth method field shown but disabled (read-only) when editing existing users
-- Password field shown/hidden based on user's auth_method
+- Le client définit `auth_method: 'database'` pour les nouveaux utilisateurs
+- Le champ de méthode d'authentification est masqué lors de la création de nouveaux utilisateurs
+- Le champ de méthode d'authentification est affiché mais désactivé (lecture seule) lors de l'édition d'utilisateurs existants
+- Le champ de mot de passe est affiché/masqué selon l'auth_method de l'utilisateur
 
 #### admin.php
-- Auth method field in modal marked as disabled
-- Helper text added explaining that admin-created users use database auth
-- AD/LDAP users are noted to be created automatically on first login
+- Le champ de méthode d'authentification dans le modal est marqué comme désactivé
+- Texte d'aide ajouté expliquant que les utilisateurs créés par l'admin utilisent l'authentification par base de données
+- Les utilisateurs AD/LDAP sont notés comme étant créés automatiquement lors de la première connexion
 
-### 2. ACL UI Removal
+### 2. Suppression de l'UI ACL
 
 #### admin.php
-- ACL tab button removed from navigation
-- ACL tab content section removed
-- Only 3 tabs remain: Utilisateurs, Rôles, Mappings AD/LDAP
+- Bouton d'onglet ACL retiré de la navigation
+- Section de contenu de l'onglet ACL supprimée
+- Seulement 3 onglets restent : Utilisateurs, Rôles, Mappings AD/LDAP
 
 #### includes/header.php
-- Verified: No ACL links present (none were there)
+- Vérifié : Aucun lien ACL présent (il n'y en avait pas)
 
-### 3. AD/LDAP Role Mapping Implementation
+### 3. Implémentation du mapping de rôles AD/LDAP
 
 #### includes/auth.php
-- `authenticateActiveDirectory()` now retrieves user's `memberOf` groups
-- `authenticateLDAP()` retrieves user's DN
-- New `createOrUpdateUserWithMappings()` method:
-  - Creates minimal user record if user doesn't exist
-  - Sets `auth_method` to 'ad' or 'ldap' appropriately
-  - Calls role mapping logic after user creation/update
-- New `applyRoleMappings()` method:
-  - Queries `auth_mappings` table for matching rules
-  - For AD: Matches group DN against user's `memberOf` attribute
-  - For LDAP: Checks if user DN contains the mapped DN/OU path
-  - Persists role assignments using `INSERT...ON DUPLICATE KEY UPDATE`
-  - Uses prepared statements for security
-  - Defensive: handles missing attributes gracefully
+- `authenticateActiveDirectory()` récupère maintenant les groupes `memberOf` de l'utilisateur
+- `authenticateLDAP()` récupère le DN de l'utilisateur
+- Nouvelle méthode `createOrUpdateUserWithMappings()` :
+  - Crée un enregistrement utilisateur minimal si l'utilisateur n'existe pas
+  - Définit `auth_method` à 'ad' ou 'ldap' de manière appropriée
+  - Appelle la logique de mapping de rôles après création/mise à jour de l'utilisateur
+- Nouvelle méthode `applyRoleMappings()` :
+  - Interroge la table `auth_mappings` pour trouver les règles correspondantes
+  - Pour AD : Fait correspondre le DN de groupe avec l'attribut `memberOf` de l'utilisateur
+  - Pour LDAP : Vérifie si le DN de l'utilisateur contient le chemin DN/OU mappé
+  - Persiste les attributions de rôles en utilisant `INSERT...ON DUPLICATE KEY UPDATE`
+  - Utilise des requêtes préparées pour la sécurité
+  - Défensif : gère les attributs manquants avec élégance
 
-#### Database Schema
-- `auth_mappings` table (from migration 002):
-  - Maps AD groups or LDAP DN/OU paths to application roles
-  - Supports both 'ad' and 'ldap' sources
-  - Unique constraint prevents duplicate mappings
+#### Schéma de base de données
+- Table `auth_mappings` (de la migration 002) :
+  - Mappe les groupes AD ou chemins DN/OU LDAP vers les rôles d'application
+  - Supporte les sources 'ad' et 'ldap'
+  - La contrainte unique empêche les mappings dupliqués
 
-## Testing Instructions
+## Instructions de test
 
-### Test 1: Database User Creation
-1. Navigate to admin panel (admin.php)
-2. Click "Créer un utilisateur"
-3. Fill in username, email, password
-4. Notice auth_method field is not shown
-5. Save user
-6. Verify in database: `SELECT username, auth_method FROM users WHERE username='testuser';`
-7. Expected: `auth_method = 'database'`
+### Test 1 : Création d'utilisateur en base de données
+1. Naviguer vers le panneau d'administration (admin.php)
+2. Cliquer sur "Créer un utilisateur"
+3. Remplir nom d'utilisateur, email, mot de passe
+4. Noter que le champ auth_method n'est pas affiché
+5. Enregistrer l'utilisateur
+6. Vérifier dans la base de données : `SELECT username, auth_method FROM users WHERE username='testuser';`
+7. Attendu : `auth_method = 'database'`
 
-### Test 2: Auth Method Enforcement (Crafted Request)
+### Test 2 : Application de la méthode d'authentification (requête craftée)
 ```bash
 curl -X POST 'http://localhost/api/admin_api.php?action=create_user' \
   -H 'Content-Type: application/json' \
@@ -88,9 +88,9 @@ curl -X POST 'http://localhost/api/admin_api.php?action=create_user' \
     "auth_method": "ad"
   }'
 ```
-Expected: User created with `auth_method='database'` (server ignores 'ad')
+Attendu : Utilisateur créé avec `auth_method='database'` (le serveur ignore 'ad')
 
-### Test 3: Prevent Auth Method Change
+### Test 3 : Empêcher le changement de méthode d'authentification
 ```bash
 curl -X POST 'http://localhost/api/admin_api.php?action=update_user&id=1' \
   -H 'Content-Type: application/json' \
@@ -98,24 +98,24 @@ curl -X POST 'http://localhost/api/admin_api.php?action=update_user&id=1' \
     "auth_method": "ldap"
   }'
 ```
-Expected: HTTP 400 error with message about not being able to change auth_method
+Attendu : Erreur HTTP 400 avec message concernant l'impossibilité de changer auth_method
 
-### Test 4: ACL Tab Removal
-1. Navigate to admin panel (admin.php)
-2. Verify only 3 tabs are visible:
+### Test 4 : Suppression de l'onglet ACL
+1. Naviguer vers le panneau d'administration (admin.php)
+2. Vérifier que seulement 3 onglets sont visibles :
    - Utilisateurs
    - Rôles
    - Mappings AD/LDAP
-3. Verify no ACL tab
+3. Vérifier qu'il n'y a pas d'onglet ACL
 
-### Test 5: AD/LDAP Role Mapping
-1. Navigate to "Mappings AD/LDAP" tab
-2. Create a mapping:
-   - Source: Active Directory (or LDAP)
-   - DN/Group: `CN=DNSAdmins,OU=Groups,DC=example,DC=com`
-   - Role: admin
-3. Login as AD user who is member of DNSAdmins group
-4. Verify in database:
+### Test 5 : Mapping de rôles AD/LDAP
+1. Naviguer vers l'onglet "Mappings AD/LDAP"
+2. Créer un mapping :
+   - Source : Active Directory (ou LDAP)
+   - DN/Groupe : `CN=DNSAdmins,OU=Groups,DC=example,DC=com`
+   - Rôle : admin
+3. Se connecter en tant qu'utilisateur AD membre du groupe DNSAdmins
+4. Vérifier dans la base de données :
    ```sql
    SELECT u.username, u.auth_method, r.name as role
    FROM users u
@@ -123,24 +123,24 @@ Expected: HTTP 400 error with message about not being able to change auth_method
    JOIN roles r ON ur.role_id = r.id
    WHERE u.username = 'aduser';
    ```
-5. Expected: User created with `auth_method='ad'` and role 'admin' assigned
+5. Attendu : Utilisateur créé avec `auth_method='ad'` et rôle 'admin' assigné
 
-## Security Considerations
+## Considérations de sécurité
 
-1. **Server-Side Authority**: All auth_method validation happens server-side. Client hints are secondary and cannot override server logic.
+1. **Autorité côté serveur** : Toute validation de auth_method se fait côté serveur. Les indices côté client sont secondaires et ne peuvent pas outrepasser la logique serveur.
 
-2. **Password Hashing**: All database users have passwords hashed using `PASSWORD_DEFAULT` (bcrypt).
+2. **Hashage de mot de passe** : Tous les utilisateurs de base de données ont leurs mots de passe hashés en utilisant `PASSWORD_DEFAULT` (bcrypt).
 
-3. **Prepared Statements**: All database queries use prepared statements to prevent SQL injection.
+3. **Requêtes préparées** : Toutes les requêtes de base de données utilisent des requêtes préparées pour prévenir l'injection SQL.
 
-4. **Separation of Concerns**: 
-   - Admin-created users are always database users
-   - AD/LDAP users are created automatically during authentication
-   - This prevents privilege escalation via auth_method manipulation
+4. **Séparation des préoccupations** : 
+   - Les utilisateurs créés par l'admin sont toujours des utilisateurs de base de données
+   - Les utilisateurs AD/LDAP sont créés automatiquement lors de l'authentification
+   - Cela empêche l'escalade de privilèges via la manipulation de auth_method
 
-## Backwards Compatibility
+## Compatibilité rétroactive
 
-- Existing database users are unaffected
-- Existing AD/LDAP users continue to work
-- Auth mappings are additive - they don't remove existing roles
-- No breaking changes to the API structure (endpoints remain the same)
+- Les utilisateurs de base de données existants ne sont pas affectés
+- Les utilisateurs AD/LDAP existants continuent de fonctionner
+- Les mappings d'authentification sont additifs - ils ne suppriment pas les rôles existants
+- Aucune modification cassante de la structure de l'API (les points de terminaison restent les mêmes)

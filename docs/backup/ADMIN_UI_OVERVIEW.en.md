@@ -1,8 +1,8 @@
-# Vue d'ensemble de l'interface d'administration
+# Admin UI Overview
 
-## Disposition de l'interface
+## Interface Layout
 
-L'interface d'administration (`admin.php`) fournit une interface à onglets avec quatre sections principales :
+The admin interface (`admin.php`) provides a tabbed interface with four main sections:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -21,9 +21,9 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Onglet 1 : Utilisateurs
+## Tab 1: Utilisateurs (Users)
 
-### Disposition
+### Layout
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Gestion des Utilisateurs                    [+ Créer un utilisateur]│
@@ -39,21 +39,21 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 └────┴──────────┴───────┴──────┴───────┴────────┴──────┴─────────┘
 ```
 
-### Fonctionnalités
-- **Filtrer par :**
-  - Nom d'utilisateur (recherche textuelle)
-  - Méthode d'authentification (base de données/AD/LDAP)
-  - Statut (actif/inactif)
-- **Couleurs de badge :**
-  - `[admin]` - Badge rouge
-  - `[user]` - Badge bleu
-  - `[Actif]` - Badge vert
-  - `[Inactif]` - Badge gris
-  - `[DB]` - Badge turquoise
-  - `[AD]` - Badge violet
-  - `[LDAP]` - Badge orange
+### Features
+- **Filter by:**
+  - Username (text search)
+  - Authentication method (database/AD/LDAP)
+  - Status (active/inactive)
+- **Badge colors:**
+  - `[admin]` - Red badge
+  - `[user]` - Blue badge
+  - `[Actif]` - Green badge
+  - `[Inactif]` - Gray badge
+  - `[DB]` - Teal badge
+  - `[AD]` - Purple badge
+  - `[LDAP]` - Orange badge
 
-### Modal de création/édition d'utilisateur
+### Create/Edit User Modal
 ```
 ┌────────────────────────────────────────┐
 │ Créer un utilisateur              [×]  │
@@ -84,11 +84,11 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 └────────────────────────────────────────┘
 ```
 
-**Note :** Le champ mot de passe est masqué pour les méthodes d'authentification AD/LDAP
+**Note:** Password field is hidden for AD/LDAP auth methods
 
-## Onglet 2 : Rôles
+## Tab 2: Rôles (Roles)
 
-### Disposition
+### Layout
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Rôles Disponibles                                           │
@@ -100,14 +100,14 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 └────┴─────────┴────────────────────────────────┴────────────┘
 ```
 
-### Fonctionnalités
-- Vue en lecture seule des rôles disponibles
-- Affiche le nom du rôle avec badge
-- Description et date de création
+### Features
+- Read-only view of available roles
+- Shows role name with badge
+- Description and creation date
 
-## Onglet 3 : Mappings AD/LDAP
+## Tab 3: Mappings AD/LDAP
 
-### Disposition
+### Layout
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Mappings AD/LDAP                          [+ Créer un mapping]  │
@@ -125,7 +125,7 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 └────┴────────┴────────────────────────┴─────────┴──────────┴──────┴────────┘
 ```
 
-### Modal de création de mapping
+### Create Mapping Modal
 ```
 ┌────────────────────────────────────────┐
 │ Créer un mapping AD/LDAP          [×]  │
@@ -152,15 +152,15 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 └────────────────────────────────────────┘
 ```
 
-### Fonctionnalités
-- Créer des mappings entre groupes AD/DN LDAP et rôles
-- Supprimer des mappings existants
-- Ajouter des notes optionnelles pour la documentation
-- La validation empêche les mappings dupliqués
+### Features
+- Create mappings between AD groups/LDAP DNs and roles
+- Delete existing mappings
+- Add optional notes for documentation
+- Validation prevents duplicate mappings
 
-## Onglet 4 : ACL
+## Tab 4: ACL
 
-### Disposition
+### Layout
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Liste de Contrôle d'Accès (ACL)                             │
@@ -172,118 +172,118 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Fonctionnalités
-- Espace réservé pour la gestion future des ACL
-- Réservé pour les permissions granulaires des ressources DNS
+### Features
+- Placeholder for future ACL management
+- Reserved for granular DNS resource permissions
 
-## Schéma de couleurs
+## Color Scheme
 
-L'interface utilise un schéma de couleurs cohérent :
+The interface uses a consistent color scheme:
 
 ```
-Primaire:    #3498db (Bleu)    - Boutons principaux, onglets actifs
-Secondaire:  #95a5a6 (Gris)    - Boutons secondaires
-Succès:      #27ae60 (Vert)    - Statut actif, messages de succès
-Danger:      #e74c3c (Rouge)   - Boutons supprimer, badges admin, erreurs
-Avertissement: #f39c12 (Orange) - Boutons modifier, badges LDAP
-Info:        #3498db (Bleu)    - Badges utilisateur, boîtes d'info
-Violet:      #9b59b6           - Badges AD
-Turquoise:   #16a085           - Badges base de données
+Primary:    #3498db (Blue)    - Primary buttons, active tabs
+Secondary:  #95a5a6 (Gray)    - Secondary buttons
+Success:    #27ae60 (Green)   - Active status, success messages
+Danger:     #e74c3c (Red)     - Delete buttons, admin badges, errors
+Warning:    #f39c12 (Orange)  - Edit buttons, LDAP badges
+Info:       #3498db (Blue)    - User badges, info boxes
+Purple:     #9b59b6           - AD badges
+Teal:       #16a085           - Database badges
 
-Texte:       #2c3e50 (Foncé)   - Texte principal
-Clair:       #ecf0f1           - Bordures de tableau, arrière-plans
+Text:       #2c3e50 (Dark)    - Primary text
+Light:      #ecf0f1           - Table borders, backgrounds
 ```
 
-## Design responsive
+## Responsive Design
 
-L'interface est responsive et s'adapte aux différentes tailles d'écran :
+The interface is responsive and adapts to different screen sizes:
 
-- **Bureau (> 1200px) :** Disposition complète avec toutes les colonnes visibles
-- **Tablette (768px - 1200px) :** Les tableaux défilent horizontalement si nécessaire
-- **Mobile (< 768px) :** Disposition empilée, formulaires en colonne unique
+- **Desktop (> 1200px):** Full layout with all columns visible
+- **Tablet (768px - 1200px):** Tables scroll horizontally if needed
+- **Mobile (< 768px):** Stacked layout, single column forms
 
-## Fonctionnalités d'expérience utilisateur
+## User Experience Features
 
 ### Notifications
 ```
 ┌────────────────────────────────────┐
-│ ✓ Utilisateur créé avec succès    │  (Vert, disparition automatique après 3s)
+│ ✓ Utilisateur créé avec succès    │  (Green, auto-dismiss after 3s)
 └────────────────────────────────────┘
 
 ┌────────────────────────────────────┐
-│ ✗ Erreur: Username déjà existant  │  (Rouge, disparition automatique après 3s)
+│ ✗ Erreur: Username déjà existant  │  (Red, auto-dismiss after 3s)
 └────────────────────────────────────┘
 ```
 
-### États de chargement
-- Les tableaux affichent "Chargement..." lors de la récupération des données
-- Boutons désactivés pendant la soumission du formulaire
+### Loading States
+- Tables show "Chargement..." while fetching data
+- Buttons disabled during form submission
 
 ### Validation
-- Champs requis marqués d'un astérisque (*)
-- Validation côté client avant soumission
-- Validation côté serveur avec messages d'erreur significatifs
-- Retour en temps réel pour les changements de méthode d'authentification
+- Required fields marked with asterisk (*)
+- Client-side validation before submission
+- Server-side validation with meaningful error messages
+- Real-time feedback for auth method changes
 
-### Accessibilité
-- Labels ARIA appropriés
-- Support de navigation au clavier
-- Gestion du focus dans les modales
-- Structure HTML sémantique
+### Accessibility
+- Proper ARIA labels
+- Keyboard navigation support
+- Focus management in modals
+- Semantic HTML structure
 
-## Raccourcis clavier
+## Keyboard Shortcuts
 
-- **Échap :** Fermer la modale active
-- **Entrée :** Soumettre le formulaire actif (dans un champ de saisie)
-- **Tab :** Naviguer entre les champs du formulaire
+- **Escape:** Close active modal
+- **Enter:** Submit active form (when in input field)
+- **Tab:** Navigate between form fields
 
-## Intégration API
+## API Integration
 
-Toutes les actions de l'interface appellent l'API sécurisée :
+All UI actions call the secure API:
 
 ```
-Action utilisateur            → Appel API
+User Action                  → API Call
 ────────────────────────────────────────────────────────
-Clic "Créer un utilisateur"  → Ouvrir modale (charger rôles)
-Soumettre formulaire utilis. → POST /api/admin_api.php?action=create_user
-Clic "Modifier"              → GET /api/admin_api.php?action=get_user&id=X
-                              → Ouvrir modale avec données utilisateur
-Clic "Filtrer"               → GET /api/admin_api.php?action=list_users&filters...
-Basculer vers onglet "Rôles" → GET /api/admin_api.php?action=list_roles
-Clic "Créer un mapping"      → Ouvrir modale (charger rôles)
-Soumettre formulaire mapping → POST /api/admin_api.php?action=create_mapping
-Clic "Supprimer" (mapping)   → Confirmer → POST /api/admin_api.php?action=delete_mapping&id=X
+Click "Créer un utilisateur" → Open modal (load roles)
+Submit user form             → POST /api/admin_api.php?action=create_user
+Click "Modifier"             → GET /api/admin_api.php?action=get_user&id=X
+                              → Open modal with user data
+Click "Filtrer"              → GET /api/admin_api.php?action=list_users&filters...
+Switch to "Rôles" tab        → GET /api/admin_api.php?action=list_roles
+Click "Créer un mapping"     → Open modal (load roles)
+Submit mapping form          → POST /api/admin_api.php?action=create_mapping
+Click "Supprimer" (mapping)  → Confirm → POST /api/admin_api.php?action=delete_mapping&id=X
 ```
 
-## Compatibilité des navigateurs
+## Browser Compatibility
 
-Testé et compatible avec :
+Tested and compatible with:
 - ✅ Chrome 90+
 - ✅ Firefox 88+
 - ✅ Safari 14+
 - ✅ Edge 90+
 
-Utilise des fonctionnalités JavaScript modernes (ES6+) :
-- Fonctions fléchées
+Uses modern JavaScript (ES6+) features:
+- Arrow functions
 - Async/await
 - Fetch API
-- Littéraux de gabarit
-- Déstructuration
+- Template literals
+- Destructuring
 
 ## Performance
 
-- Chargement différé des données (charge uniquement quand l'onglet est actif)
-- Mises à jour DOM efficaces
-- Requêtes HTTP minimales
-- Filtrage côté client pour recherche rapide
-- Données de rôle en cache pour éviter les appels API redondants
+- Lazy loading of data (only loads when tab is active)
+- Efficient DOM updates
+- Minimal HTTP requests
+- Client-side filtering for quick search
+- Cached role data to avoid redundant API calls
 
-## Indicateurs de sécurité
+## Security Indicators
 
-L'interface fournit des indicateurs visuels de sécurité :
+The interface provides visual security indicators:
 
-- 🔒 Accès réservé aux admins appliqué côté serveur
-- 🔑 Les champs de mot de passe utilisent type="password" (saisie masquée)
-- ⚠️ Dialogue de confirmation avant suppression
-- 📝 Piste d'audit affichée (créé par, créé le)
-- 🚫 Messages d'erreur clairs sans exposition de données sensibles
+- 🔒 Admin-only access enforced server-side
+- 🔑 Password fields use type="password" (masked input)
+- ⚠️ Confirmation dialog before deletion
+- 📝 Audit trail shown (created by, created at)
+- 🚫 Clear error messages without sensitive data exposure

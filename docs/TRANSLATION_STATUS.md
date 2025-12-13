@@ -1,6 +1,6 @@
 # État de la Traduction de la Documentation
 
-> **Date de mise à jour** : 2025-12-08  
+> **Date de mise à jour** : 2025-12-13  
 > **Objectif** : Documenter l'état actuel de la traduction de la documentation DNS3
 
 ---
@@ -95,13 +95,13 @@ Documentation technique et d'implémentation :
 
 ### Documentation Technique
 
-1. **docs/ADMIN_IMPLEMENTATION.md** - 🟡 Anglais
+1. ✅ **docs/ADMIN_IMPLEMENTATION.md** - Français (traduit)
    - Détails d'implémentation de l'admin
-   - **Priorité** : Basse (technique interne)
+   - **Backup** : `docs/backup/ADMIN_IMPLEMENTATION.en.md`
 
-2. **docs/ADMIN_UI_OVERVIEW.md** - 🟡 Anglais
+2. ✅ **docs/ADMIN_UI_OVERVIEW.md** - Français (traduit)
    - Aperçu de l'UI admin
-   - **Priorité** : Basse
+   - **Backup** : `docs/backup/ADMIN_UI_OVERVIEW.en.md`
 
 3. **docs/ADMIN_QUICK_REFERENCE.md** - 🟡 Anglais
    - Référence rapide admin
@@ -111,9 +111,9 @@ Documentation technique et d'implémentation :
    - Notes de version
    - **Priorité** : Basse
 
-5. **docs/ADMIN_AUTH_CHANGES.md** - 🟡 Anglais
+5. ✅ **docs/ADMIN_AUTH_CHANGES.md** - Français (traduit)
    - Changements d'authentification
-   - **Priorité** : Basse
+   - **Backup** : `docs/backup/ADMIN_AUTH_CHANGES.en.md`
 
 ### Architecture et Implémentation
 
@@ -125,7 +125,8 @@ Documentation technique et d'implémentation :
 
 ### API et Validation
 
-11. **docs/API_VALIDATION_IMPLEMENTATION.md** - 🟡 Anglais
+11. ✅ **docs/API_VALIDATION_IMPLEMENTATION.md** - Français (traduit)
+    - **Backup** : `docs/backup/API_VALIDATION_IMPLEMENTATION.en.md`
 12. **docs/PREVIEW_VALIDATION_IMPLEMENTATION.md** - 🟡 Anglais
 13. **docs/VALIDATION_FLOW_DIAGRAM.md** - 🟡 Anglais
 14. **docs/VALIDATION_FLATTENING_IMPLEMENTATION.md** - 🟡 Anglais
@@ -157,7 +158,8 @@ Documentation technique et d'implémentation :
 ### Modals
 
 33. **docs/MODAL_ERROR_BANNER_IMPLEMENTATION.md** - 🟡 Anglais
-34. **docs/MODAL_CENTERING_IMPLEMENTATION.md** - 🟡 Anglais
+34. ✅ **docs/MODAL_CENTERING_IMPLEMENTATION.md** - Français (traduit)
+    - **Backup** : `docs/backup/MODAL_CENTERING_IMPLEMENTATION.en.md`
 35. **docs/MODAL_STANDARDIZATION_IMPLEMENTATION.md** - 🟡 Anglais
 36. **docs/PREVIEW_MODAL_FLOW.md** - 🟡 Anglais
 
@@ -213,6 +215,7 @@ Documents critiques pour les utilisateurs finaux :
 3. ⏳ **docs/DNS_MANAGEMENT_GUIDE.md** - Gestion DNS
 4. ⏳ **docs/TESTING_GUIDE.md** - Guide de test
 5. ⏳ **docs/TEST_PLAN.md** - Plan de test
+6. ✅ **README.md** - Homogénéisé entièrement en français (complété)
 
 ### Phase 3 : Priorité Moyenne (Optionnel)
 
@@ -283,12 +286,14 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 
 ## Métriques
 
-### Progression Globale
+### Progression Globale (Mise à jour : 2025-12-13)
 
-- **Documents traduits** : 6/52 (11.5%)
-- **Documents prioritaires traduits** : 1/5 (20%)
-- **Backups créés** : 1
+- **Documents traduits** : 12/52 (23%)
+- **Documents prioritaires traduits** : 2/6 (33%)
+- **Backups créés** : 10
 - **Nouveau contenu créé** : 2 (SUMMARY.md, CONTRIBUTING_DOCS.md)
+- **README homogénéisé** : ✅ Complété
+- **Dernière PR** : Traduction de 7 fichiers + homogénéisation README
 
 ### Estimation de Travail Restant
 
@@ -306,14 +311,19 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 
 1. ✅ Créer structure d'index globale
 2. ✅ Traduire GETTING_STARTED_API_TOKENS.md
-3. ⏳ Créer ce document de suivi (TRANSLATION_STATUS.md)
-4. ⏳ Continuer traduction des fichiers prioritaires (2-3 de plus)
+3. ✅ Créer ce document de suivi (TRANSLATION_STATUS.md)
+4. ✅ Homogénéiser README.md entièrement en français
+5. ✅ Traduire fichiers ADMIN_* principaux (3/5 complétés)
+6. ✅ Traduire API_VALIDATION_IMPLEMENTATION.md
+7. ✅ Traduire MODAL_CENTERING_IMPLEMENTATION.md
+8. ⏳ Continuer traduction des fichiers restants (~30 fichiers)
 
 ### Moyen Terme (PRs Futures)
 
-1. Traduire le reste des documents prioritaires
+1. Traduire le reste des documents prioritaires (import_bind_zones.md, DNS_MANAGEMENT_GUIDE.md, etc.)
 2. Traduire progressivement les documents techniques
-3. Mettre à jour au fur et à mesure
+3. Mettre à jour SUMMARY.md avec les titres français
+4. Mettre à jour au fur et à mesure
 
 ### Long Terme
 

@@ -1,12 +1,12 @@
-# API Validation Implementation Summary
+# Résumé de l'implémentation de la validation API
 
-## Changes Made
+## Modifications effectuées
 
-### 1. Updated `api/zone_api.php`
-- **Added import**: `require_once __DIR__ . '/../includes/lib/DnsValidator.php';`
-- **Added validation** in the `create_zone` action (lines 221-230):
+### 1. Mise à jour de `api/zone_api.php`
+- **Import ajouté** : `require_once __DIR__ . '/../includes/lib/DnsValidator.php';`
+- **Validation ajoutée** dans l'action `create_zone` (lignes 221-230) :
   ```php
-  // Validate zone name using DnsValidator
+  // Valider le nom de zone en utilisant DnsValidator
   $nameValidation = DnsValidator::validateName(trim($input['name']));
   if (!$nameValidation['valid']) {
       http_response_code(422);
@@ -18,117 +18,117 @@
   }
   ```
 
-### 2. Created Test Suite
-- **New file**: `tests/unit/ZoneApiValidationTest.php`
-- **Test coverage**: 10 test cases covering various validation scenarios
-- **All tests pass**: ✓ 54 tests total (44 existing + 10 new)
+### 2. Suite de tests créée
+- **Nouveau fichier** : `tests/unit/ZoneApiValidationTest.php`
+- **Couverture de test** : 10 cas de test couvrant divers scénarios de validation
+- **Tous les tests passent** : ✓ 54 tests au total (44 existants + 10 nouveaux)
 
-## API Behavior
+## Comportement de l'API
 
-### Before Changes
-- **Missing validation**: Zone names were not validated before creation
-- **Generic errors**: Would fail later with database or zone file creation errors
-- **No structured errors**: Error responses were not consistent
+### Avant les modifications
+- **Validation manquante** : Les noms de zone n'étaient pas validés avant la création
+- **Erreurs génériques** : Échouait plus tard avec des erreurs de base de données ou de création de fichier de zone
+- **Pas d'erreurs structurées** : Les réponses d'erreur n'étaient pas cohérentes
 
-### After Changes
-- **Early validation**: Zone names are validated immediately using `DnsValidator::validateName()`
-- **HTTP 422 status**: Returns appropriate HTTP status for validation failures
-- **Structured JSON response**: Consistent error format:
+### Après les modifications
+- **Validation précoce** : Les noms de zone sont validés immédiatement en utilisant `DnsValidator::validateName()`
+- **Statut HTTP 422** : Retourne un statut HTTP approprié pour les échecs de validation
+- **Réponse JSON structurée** : Format d'erreur cohérent :
   ```json
   {
     "success": false,
-    "error": "<descriptive error message>"
+    "error": "<message d'erreur descriptif>"
   }
   ```
 
-## Example API Responses
+## Exemples de réponses API
 
-### Valid Zone Name
-**Request**: `POST /api/zone_api.php?action=create_zone`
+### Nom de zone valide
+**Requête** : `POST /api/zone_api.php?action=create_zone`
 ```json
 {
   "name": "example.com",
   "filename": "example.com.zone"
 }
 ```
-**Response**: HTTP 201
+**Réponse** : HTTP 201
 ```json
 {
   "success": true,
-  "message": "Zone file created successfully",
+  "message": "Fichier de zone créé avec succès",
   "id": 123
 }
 ```
 
-### Invalid Zone Name (Non-ASCII)
-**Request**: `POST /api/zone_api.php?action=create_zone`
+### Nom de zone invalide (non-ASCII)
+**Requête** : `POST /api/zone_api.php?action=create_zone`
 ```json
 {
   "name": "café.com",
   "filename": "cafe.com.zone"
 }
 ```
-**Response**: HTTP 422
+**Réponse** : HTTP 422
 ```json
 {
   "success": false,
-  "error": "Label contains non-ASCII characters (IDN not supported)"
+  "error": "Le label contient des caractères non-ASCII (IDN non supporté)"
 }
 ```
 
-### Invalid Zone Name (Starts with Hyphen)
-**Request**: `POST /api/zone_api.php?action=create_zone`
+### Nom de zone invalide (commence par un tiret)
+**Requête** : `POST /api/zone_api.php?action=create_zone`
 ```json
 {
   "name": "-example.com",
   "filename": "example.com.zone"
 }
 ```
-**Response**: HTTP 422
+**Réponse** : HTTP 422
 ```json
 {
   "success": false,
-  "error": "Label cannot start with a hyphen"
+  "error": "Le label ne peut pas commencer par un tiret"
 }
 ```
 
-### Invalid Zone Name (Contains Spaces)
-**Request**: `POST /api/zone_api.php?action=create_zone`
+### Nom de zone invalide (contient des espaces)
+**Requête** : `POST /api/zone_api.php?action=create_zone`
 ```json
 {
   "name": "my domain.com",
   "filename": "mydomain.com.zone"
 }
 ```
-**Response**: HTTP 422
+**Réponse** : HTTP 422
 ```json
 {
   "success": false,
-  "error": "Label cannot contain spaces"
+  "error": "Le label ne peut pas contenir d'espaces"
 }
 ```
 
-## Validation Rules Applied
+## Règles de validation appliquées
 
-The `DnsValidator::validateName()` method enforces strict DNS naming rules:
-- ✓ Only ASCII characters (a-z, A-Z, 0-9, hyphen, dot)
-- ✓ Labels cannot start or end with hyphen
-- ✓ Labels max 63 characters each
-- ✓ Total name max 253 characters
-- ✓ No spaces allowed
-- ✓ No special characters except hyphen
-- ✓ Supports FQDN with trailing dot (example.com.)
+La méthode `DnsValidator::validateName()` applique des règles strictes de nommage DNS :
+- ✓ Uniquement des caractères ASCII (a-z, A-Z, 0-9, tiret, point)
+- ✓ Les labels ne peuvent pas commencer ou finir par un tiret
+- ✓ Labels de maximum 63 caractères chacun
+- ✓ Nom total de maximum 253 caractères
+- ✓ Aucun espace autorisé
+- ✓ Aucun caractère spécial sauf le tiret
+- ✓ Support des FQDN avec point final (example.com.)
 
-## Testing
+## Tests
 
-Run the test suite with:
+Exécuter la suite de tests avec :
 ```bash
 vendor/bin/phpunit
 ```
 
-Run validation tests specifically:
+Exécuter spécifiquement les tests de validation :
 ```bash
 vendor/bin/phpunit tests/unit/ZoneApiValidationTest.php
 ```
 
-All 54 tests pass successfully.
+Tous les 54 tests passent avec succès.

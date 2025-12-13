@@ -1,137 +1,137 @@
-# Modal Error Banner Implementation
+# Implémentation de la bannière d'erreur modale
 
-## Overview
+## Vue d'ensemble
 
-This feature replaces browser-native validation popups with inline error banners in the zone creation and editing modals. Error messages are now displayed as red alert banners inside the modal dialog, providing better user experience and consistency.
+Cette fonctionnalité remplace les popups de validation natives du navigateur par des bannières d'erreur inline dans les modales de création et d'édition de zone. Les messages d'erreur sont maintenant affichés sous forme de bannières d'alerte rouges à l'intérieur de la boîte de dialogue modale, offrant une meilleure expérience utilisateur et cohérence.
 
-## Changes Made
+## Modifications effectuées
 
 ### 1. zone-files.php
 
-#### Create Zone Modal (createZoneModal)
-- Added error banner div: `<div id="createZoneErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>`
-- Changed submit button from `type="submit"` to `type="button"` with explicit `onclick="createZone()"`
-- This prevents native HTML5 form validation popups
+#### Modale de création de zone (createZoneModal)
+- Ajout d'une div de bannière d'erreur : `<div id="createZoneErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>`
+- Changement du bouton de soumission de `type="submit"` à `type="button"` avec `onclick="createZone()"` explicite
+- Cela empêche les popups de validation HTML5 natives
 
-#### Edit Zone Modal (zoneModal)
-- Added error banner div: `<div id="zoneModalErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>`
-- Banner is placed at the top of the modal body, before the tabs
+#### Modale d'édition de zone (zoneModal)
+- Ajout d'une div de bannière d'erreur : `<div id="zoneModalErrorBanner" class="alert alert-danger" role="alert" tabindex="-1" style="display:none; margin-bottom: 1rem;"></div>`
+- La bannière est placée en haut du corps de la modale, avant les onglets
 
 ### 2. assets/js/zone-files.js
 
-#### New Helper Functions
+#### Nouvelles fonctions d'aide
 
 ##### `showModalError(modalId, message)`
-- Displays an error message in the modal's error banner
-- Parameters:
-  - `modalId`: Modal ID prefix (e.g., 'createZone' or 'zoneModal')
-  - `message`: Error message to display
-- The banner element ID is constructed as `modalId + 'ErrorBanner'`
-- Automatically focuses the banner for accessibility
+- Affiche un message d'erreur dans la bannière d'erreur de la modale
+- Paramètres :
+  - `modalId` : Préfixe d'ID de modale (par ex., 'createZone' ou 'zoneModal')
+  - `message` : Message d'erreur à afficher
+- L'ID de l'élément bannière est construit comme `modalId + 'ErrorBanner'`
+- Met automatiquement le focus sur la bannière pour l'accessibilité
 
 ##### `clearModalError(modalId)`
-- Hides and clears the error banner content
-- Parameters:
-  - `modalId`: Modal ID prefix (e.g., 'createZone' or 'zoneModal')
+- Masque et efface le contenu de la bannière d'erreur
+- Paramètres :
+  - `modalId` : Préfixe d'ID de modale (par ex., 'createZone' ou 'zoneModal')
 
-#### Updated Functions
+#### Fonctions mises à jour
 
 ##### `createZone()`
-- Now calls `clearModalError('createZone')` at the start to clear any previous errors
-- On error, calls `showModalError('createZone', errorMessage)` instead of `showError()`
-- Modal stays open when validation errors occur
-- Error messages come directly from the API response
+- Appelle maintenant `clearModalError('createZone')` au début pour effacer les erreurs précédentes
+- En cas d'erreur, appelle `showModalError('createZone', errorMessage)` au lieu de `showError()`
+- La modale reste ouverte lorsque des erreurs de validation se produisent
+- Les messages d'erreur proviennent directement de la réponse API
 
 ##### `saveZone()`
-- Now calls `clearModalError('zoneModal')` at the start to clear any previous errors
-- On error, calls `showModalError('zoneModal', errorMessage)` instead of `showError()`
-- Modal stays open when validation errors occur
-- Error messages come directly from the API response
+- Appelle maintenant `clearModalError('zoneModal')` au début pour effacer les erreurs précédentes
+- En cas d'erreur, appelle `showModalError('zoneModal', errorMessage)` au lieu de `showError()`
+- La modale reste ouverte lorsque des erreurs de validation se produisent
+- Les messages d'erreur proviennent directement de la réponse API
 
 ##### `openCreateZoneModal()`
-- Calls `clearModalError('createZone')` when opening to ensure clean state
+- Appelle `clearModalError('createZone')` à l'ouverture pour assurer un état propre
 
 ##### `openZoneModal(zoneId)`
-- Calls `clearModalError('zoneModal')` when opening to ensure clean state
+- Appelle `clearModalError('zoneModal')` à l'ouverture pour assurer un état propre
 
-#### Removed Code
-- Removed form submit event listener since we now use `type="button"` instead of `type="submit"`
+#### Code supprimé
+- Suppression de l'écouteur d'événement de soumission de formulaire puisque nous utilisons maintenant `type="button"` au lieu de `type="submit"`
 
-## Accessibility Features
+## Fonctionnalités d'accessibilité
 
-All error banners include:
-- `role="alert"` - Announces the error to screen readers
-- `tabindex="-1"` - Allows programmatic focus
-- Automatic focus on error display via `banner.focus()`
+Toutes les bannières d'erreur incluent :
+- `role="alert"` - Annonce l'erreur aux lecteurs d'écran
+- `tabindex="-1"` - Permet le focus programmatique
+- Focus automatique lors de l'affichage d'erreur via `banner.focus()`
 
-## Error Handling Logic
+## Logique de gestion des erreurs
 
-### Form Validation Errors (HTTP 422)
-- Displayed in the modal error banner
-- Modal stays open
-- User can correct the error and retry
+### Erreurs de validation de formulaire (HTTP 422)
+- Affichées dans la bannière d'erreur de la modale
+- La modale reste ouverte
+- L'utilisateur peut corriger l'erreur et réessayer
 
-### Critical Errors (Authentication, Server Errors)
-- Still use the global `showError()` function
-- Displayed as browser alerts (can be enhanced later with toast notifications)
+### Erreurs critiques (Authentification, Erreurs serveur)
+- Utilisent toujours la fonction globale `showError()`
+- Affichées comme alertes du navigateur (peuvent être améliorées plus tard avec des notifications toast)
 
-## API Error Responses
+## Réponses d'erreur de l'API
 
-The API returns validation errors in this format:
+L'API retourne les erreurs de validation dans ce format :
 ```json
 {
-  "error": "Error message in French"
+  "error": "Message d'erreur en français"
 }
 ```
 
-Examples:
+Exemples :
 - "Le nom de la zone ne peut pas contenir d'espaces"
 - "Le nom de fichier est requis"
 - "Type de fichier invalide. Doit être : master ou include"
 
-## Testing
+## Tests
 
-### Manual Test Cases
+### Cas de test manuels
 
-#### Test 1: Create Zone with Invalid Name (space)
-1. Click "Nouvelle zone"
-2. Enter name: "test zone" (with space)
-3. Enter filename: "test.zone"
-4. Click "Créer"
-5. Expected: Red banner appears with message "Le nom de la zone ne peut pas contenir d'espaces"
-6. Modal stays open
-7. No browser popup appears
+#### Test 1 : Créer une zone avec un nom invalide (espace)
+1. Cliquer sur "Nouvelle zone"
+2. Entrer le nom : "test zone" (avec espace)
+3. Entrer le nom de fichier : "test.zone"
+4. Cliquer sur "Créer"
+5. Attendu : Une bannière rouge apparaît avec le message "Le nom de la zone ne peut pas contenir d'espaces"
+6. La modale reste ouverte
+7. Aucune popup du navigateur n'apparaît
 
-#### Test 2: Create Zone with Missing Fields
-1. Click "Nouvelle zone"
-2. Leave name empty
-3. Click "Créer"
-4. Expected: Red banner appears with validation error
-5. Modal stays open
+#### Test 2 : Créer une zone avec des champs manquants
+1. Cliquer sur "Nouvelle zone"
+2. Laisser le nom vide
+3. Cliquer sur "Créer"
+4. Attendu : Une bannière rouge apparaît avec une erreur de validation
+5. La modale reste ouverte
 
-#### Test 3: Edit Zone with Invalid Data
-1. Open existing zone
-2. Modify name to invalid value
-3. Click "Enregistrer"
-4. Expected: Red banner appears with error message
-5. Modal stays open
+#### Test 3 : Éditer une zone avec des données invalides
+1. Ouvrir une zone existante
+2. Modifier le nom avec une valeur invalide
+3. Cliquer sur "Enregistrer"
+4. Attendu : Une bannière rouge apparaît avec un message d'erreur
+5. La modale reste ouverte
 
-#### Test 4: Successful Creation
-1. Click "Nouvelle zone"
-2. Enter valid name: "testzone"
-3. Enter valid filename: "test.zone"
-4. Click "Créer"
-5. Expected: Success alert, modal closes, zone list refreshes
+#### Test 4 : Création réussie
+1. Cliquer sur "Nouvelle zone"
+2. Entrer un nom valide : "testzone"
+3. Entrer un nom de fichier valide : "test.zone"
+4. Cliquer sur "Créer"
+5. Attendu : Alerte de succès, la modale se ferme, la liste des zones se rafraîchit
 
-## Browser Compatibility
+## Compatibilité des navigateurs
 
-- Works in all modern browsers (Chrome, Firefox, Safari, Edge)
-- Gracefully degrades if JavaScript is disabled (form submission prevented)
-- Accessible to screen readers
+- Fonctionne dans tous les navigateurs modernes (Chrome, Firefox, Safari, Edge)
+- Dégradation gracieuse si JavaScript est désactivé (soumission de formulaire empêchée)
+- Accessible aux lecteurs d'écran
 
-## Future Enhancements
+## Améliorations futures
 
-- Replace global `showError()` and `showSuccess()` alerts with toast notifications
-- Add animation for banner appearance/disappearance
-- Add auto-dismiss for error banners after user corrects the issue
-- Support for multiple error messages in the banner
+- Remplacer les alertes globales `showError()` et `showSuccess()` par des notifications toast
+- Ajouter une animation pour l'apparition/disparition de la bannière
+- Ajouter une disparition automatique des bannières d'erreur après correction par l'utilisateur
+- Support de plusieurs messages d'erreur dans la bannière
