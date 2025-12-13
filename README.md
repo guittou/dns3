@@ -1,63 +1,63 @@
 # DNS3
 
-DNS3 is a PHP web application for managing DNS zone files and records. It supports `named-checkzone` validation, zone file generation with `$INCLUDE` directives, change history tracking, and multi-source authentication (database, Active Directory, OpenLDAP).
+DNS3 est une application web PHP pour la gestion de fichiers de zone DNS et d'enregistrements DNS. Elle prend en charge la validation `named-checkzone`, la génération de fichiers de zone avec les directives `$INCLUDE`, le suivi de l'historique des modifications et l'authentification multi-sources (base de données, Active Directory, OpenLDAP).
 
-## Features
+## Fonctionnalités
 
-- **Zone File Management**: Create and manage master zone files and include files
-- **DNS Record Management**: Full CRUD for A, AAAA, CNAME, MX, TXT, NS, SOA, PTR, and SRV records
-- **Zone Validation**: Integration with `named-checkzone` for syntax validation
-- **`$INCLUDE` Support**: Generate zone files with nested includes
-- **Change History**: Track all modifications to zones and records
-- **Multi-source Authentication**: Database, Active Directory, and OpenLDAP support
-- **Role-based Access Control**: Granular permissions via ACL entries
+- **Gestion des fichiers de zone** : Créer et gérer des fichiers de zone maîtres et des fichiers d'inclusion
+- **Gestion des enregistrements DNS** : CRUD complet pour les enregistrements A, AAAA, CNAME, MX, TXT, NS, SOA, PTR et SRV
+- **Validation de zone** : Intégration avec `named-checkzone` pour la validation de syntaxe
+- **Support `$INCLUDE`** : Générer des fichiers de zone avec des inclusions imbriquées
+- **Historique des modifications** : Suivre toutes les modifications apportées aux zones et enregistrements
+- **Authentification multi-sources** : Support de la base de données, Active Directory et OpenLDAP
+- **Contrôle d'accès basé sur les rôles** : Permissions granulaires via des entrées ACL
 
-> **Database Schema**: The canonical schema is in `database.sql` (exported 2025-12-04). For detailed documentation including table descriptions, foreign keys, and example queries, see [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
+> **Schéma de base de données** : Le schéma canonique se trouve dans `database.sql` (exporté le 2025-12-04). Pour une documentation détaillée incluant les descriptions des tables, les clés étrangères et des exemples de requêtes, consultez [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
 
-> **Note**: The Applications feature has been removed. Any migrations that previously created the `applications` table have been archived. The `domaine_list` table has also been removed; domains are now managed directly in the `zone_files` table via the `domain` field.
+> **Note** : La fonctionnalité Applications a été supprimée. Toutes les migrations qui créaient précédemment la table `applications` ont été archivées. La table `domaine_list` a également été supprimée ; les domaines sont maintenant gérés directement dans la table `zone_files` via le champ `domain`.
 
 ## Installation
 
-### Prerequisites
+### Prérequis
 
-- PHP 7.4 or higher
-- MariaDB 10.3+ or MySQL 5.7+
-- Apache with `mod_rewrite` enabled
-- PHP LDAP extension (optional, for AD/LDAP authentication)
+- PHP 7.4 ou supérieur
+- MariaDB 10.3+ ou MySQL 5.7+
+- Apache avec `mod_rewrite` activé
+- Extension PHP LDAP (optionnelle, pour l'authentification AD/LDAP)
 
-### Steps
+### Étapes
 
-1. **Clone the repository**
+1. **Cloner le dépôt**
    ```bash
    git clone https://github.com/guittou/dns3.git
    cd dns3
    ```
 
-2. **Create the database**
+2. **Créer la base de données**
    ```bash
    mysql -u root -p -e "CREATE DATABASE dns3_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
    ```
 
-3. **Import the schema**
+3. **Importer le schéma**
    ```bash
    mysql -u user -p dns3_db < database.sql
    ```
 
-4. **Configure the application**
+4. **Configurer l'application**
 
-   Edit `config.php` and set:
-   - Database connection: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`
-   - Base URL: `BASE_URL` (e.g., `/` or `/dns3/`)
-   - AD settings (optional): `AD_SERVER`, `AD_PORT`, `AD_BASE_DN`, `AD_DOMAIN`
-   - LDAP settings (optional): `LDAP_SERVER`, `LDAP_PORT`, `LDAP_BASE_DN`
+   Éditer `config.php` et définir :
+   - Connexion à la base de données : `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`
+   - URL de base : `BASE_URL` (par exemple, `/` ou `/dns3/`)
+   - Paramètres AD (optionnel) : `AD_SERVER`, `AD_PORT`, `AD_BASE_DN`, `AD_DOMAIN`
+   - Paramètres LDAP (optionnel) : `LDAP_SERVER`, `LDAP_PORT`, `LDAP_BASE_DN`
 
-5. **Set file permissions**
+5. **Définir les permissions de fichiers**
    ```bash
    sudo chown -R www-data:www-data /var/www/dns3
    sudo chmod -R 755 /var/www/dns3
    ```
 
-6. **Configure Apache**
+6. **Configurer Apache**
    ```apache
    <VirtualHost *:80>
        ServerName dns3.example.com
@@ -99,21 +99,21 @@ DNS3 is a PHP web application for managing DNS zone files and records. It suppor
 
 ## Configuration
 
-All settings are in `config.php`:
+Tous les paramètres sont dans `config.php` :
 
-| Setting | Description |
-|---------|-------------|
-| `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS` | Database connection |
-| `BASE_URL` | Application base path |
-| `AD_*` | Active Directory settings |
-| `LDAP_*` | OpenLDAP settings |
+| Paramètre | Description |
+|-----------|-------------|
+| `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS` | Connexion à la base de données |
+| `BASE_URL` | Chemin de base de l'application |
+| `AD_*` | Paramètres Active Directory |
+| `LDAP_*` | Paramètres OpenLDAP |
 
-## Operation Notes
+## Notes d'utilisation
 
-- **TTL Behavior**: If a record's TTL is NULL, the zone's default TTL is used during file generation.
-- **Backups**: Use `mysqldump -u user -p dns3_db > backup.sql` before major changes.
-- **Database Setup**: For new installations, import `database.sql` to initialize the database. The schema was last exported on **2025-12-04** from `structure_ok_dns3_db.sql`. For detailed schema documentation, see [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
-- **Zone Validation**: Runs `named-checkzone` and stores results in `zone_file_validation` table.
+- **Comportement du TTL** : Si le TTL d'un enregistrement est NULL, le TTL par défaut de la zone est utilisé lors de la génération du fichier.
+- **Sauvegardes** : Utilisez `mysqldump -u user -p dns3_db > backup.sql` avant les modifications importantes.
+- **Configuration de la base de données** : Pour les nouvelles installations, importez `database.sql` pour initialiser la base de données. Le schéma a été exporté pour la dernière fois le **2025-12-04** depuis `structure_ok_dns3_db.sql`. Pour une documentation détaillée du schéma, consultez [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
+- **Validation de zone** : Exécute `named-checkzone` et stocke les résultats dans la table `zone_file_validation`.
 
 ## Authentification AD/LDAP — Contrôle par Mappings
 
@@ -233,6 +233,6 @@ Pour la documentation complète, consultez [docs/SUMMARY.md](docs/SUMMARY.md).
 
 Pour ajouter ou modifier la documentation, consultez le [Guide de Contribution](docs/CONTRIBUTING_DOCS.md).
 
-## License
+## Licence
 
-This project is open source under the MIT License.
+Ce projet est open source sous licence MIT.
