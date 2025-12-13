@@ -73,10 +73,10 @@ Ces fichiers sont critiques pour les utilisateurs et devraient être traduits :
    - 561 lignes
    - **Priorité** : Haute (fonctionnalité clé)
 
-### 3. **docs/DNS_MANAGEMENT_GUIDE.md** - 🔴 Anglais
+### 3. ✅ **docs/DNS_MANAGEMENT_GUIDE.md** - Français (traduit)
    - Guide de gestion DNS
    - Installation et tests
-   - **Priorité** : Haute (documentation utilisateur)
+   - **Backup** : `docs/backup/DNS_MANAGEMENT_GUIDE.en.md`
 
 ### 4. **docs/TESTING_GUIDE.md** - 🔴 Anglais
    - Guide de test principal
@@ -103,13 +103,13 @@ Documentation technique et d'implémentation :
    - Aperçu de l'UI admin
    - **Backup** : `docs/backup/ADMIN_UI_OVERVIEW.en.md`
 
-3. **docs/ADMIN_QUICK_REFERENCE.md** - 🟡 Anglais
+3. ✅ **docs/ADMIN_QUICK_REFERENCE.md** - Français (traduit)
    - Référence rapide admin
-   - **Priorité** : Moyenne
+   - **Backup** : `docs/backup/ADMIN_QUICK_REFERENCE.en.md`
 
-4. **docs/ADMIN_RELEASE_NOTES.md** - 🟡 Anglais
+4. ✅ **docs/ADMIN_RELEASE_NOTES.md** - Français (traduit)
    - Notes de version
-   - **Priorité** : Basse
+   - **Backup** : `docs/backup/ADMIN_RELEASE_NOTES.en.md`
 
 5. ✅ **docs/ADMIN_AUTH_CHANGES.md** - Français (traduit)
    - Changements d'authentification
@@ -121,7 +121,8 @@ Documentation technique et d'implémentation :
 7. **docs/IMPLEMENTATION_NOTES.md** - 🟡 Anglais
 8. **docs/IMPLEMENTATION_STATUS.md** - 🟡 Anglais
 9. **docs/IMPLEMENTATION_VISUAL_GUIDE.md** - 🟡 Anglais
-10. **docs/FINAL_STATUS.md** - 🟡 Anglais
+10. ✅ **docs/FINAL_STATUS.md** - Français (traduit)
+    - **Backup** : `docs/backup/FINAL_STATUS.en.md`
 
 ### API et Validation
 
@@ -140,7 +141,8 @@ Documentation technique et d'implémentation :
 19. **docs/ZONE_FILES_QUICK_START.md** - 🟡 Anglais
 20. **docs/ZONE_FILES_QUICK_REFERENCE.md** - 🟡 Anglais
 21. **docs/ZONE_FILES_RECURSIVE_IMPLEMENTATION.md** - 🟡 Anglais
-22. **docs/ZONE_FILES_TESTING_GUIDE.md** - 🟡 Anglais
+22. ✅ **docs/ZONE_FILES_TESTING_GUIDE.md** - Français (traduit)
+    - **Backup** : `docs/backup/ZONE_FILES_TESTING_GUIDE.en.md`
 23. **docs/ZONE_GENERATION_FINAL_SUMMARY.md** - 🟡 Anglais
 24. **docs/ZONE_VALIDATION_IMPROVEMENTS.md** - 🟡 Anglais
 25. **docs/ZONEFILE_COMBOBOX_VERIFICATION.md** - 🟡 Anglais
@@ -288,12 +290,12 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 
 ### Progression Globale (Mise à jour : 2025-12-13)
 
-- **Documents traduits** : 12/52 (23%)
-- **Documents prioritaires traduits** : 2/6 (33%)
-- **Backups créés** : 10
+- **Documents traduits** : 17/52 (33%)
+- **Documents prioritaires traduits** : 4/6 (67%)
+- **Backups créés** : 15
 - **Nouveau contenu créé** : 2 (SUMMARY.md, CONTRIBUTING_DOCS.md)
 - **README homogénéisé** : ✅ Complété
-- **Dernière PR** : Traduction de 7 fichiers + homogénéisation README
+- **Dernière PR** : Traduction de 5 fichiers (ADMIN_QUICK_REFERENCE, ADMIN_RELEASE_NOTES, DNS_MANAGEMENT_GUIDE, FINAL_STATUS, ZONE_FILES_TESTING_GUIDE)
 
 ### Estimation de Travail Restant
 
@@ -307,16 +309,21 @@ Tous les fichiers traduits ont leur version anglaise originale sauvegardée dans
 
 ## Prochaines Actions
 
-### Court Terme (Cette PR)
+### Court Terme (Cette PR - 2025-12-13)
 
 1. ✅ Créer structure d'index globale
 2. ✅ Traduire GETTING_STARTED_API_TOKENS.md
 3. ✅ Créer ce document de suivi (TRANSLATION_STATUS.md)
 4. ✅ Homogénéiser README.md entièrement en français
-5. ✅ Traduire fichiers ADMIN_* principaux (3/5 complétés)
+5. ✅ Traduire fichiers ADMIN_* principaux (5/5 complétés)
 6. ✅ Traduire API_VALIDATION_IMPLEMENTATION.md
 7. ✅ Traduire MODAL_CENTERING_IMPLEMENTATION.md
-8. ⏳ Continuer traduction des fichiers restants (~30 fichiers)
+8. ✅ Traduire DNS_MANAGEMENT_GUIDE.md
+9. ✅ Traduire FINAL_STATUS.md
+10. ✅ Traduire ZONE_FILES_TESTING_GUIDE.md
+11. ✅ Mettre à jour SUMMARY.md avec fichiers traduits
+12. ✅ Mettre à jour TRANSLATION_STATUS.md (ce fichier)
+13. ⏳ Continuer traduction des fichiers restants (~23 fichiers) - à faire dans les prochaines PR
 
 ### Moyen Terme (PRs Futures)
 
