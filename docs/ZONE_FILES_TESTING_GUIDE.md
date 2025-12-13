@@ -1,17 +1,17 @@
-# Testing Guide for Zone Files Management
+# Guide de Test pour la Gestion des Fichiers de Zone
 
-## Database Setup
+## Configuration de la Base de Données
 
 > **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 
-To set up the database schema for testing:
+Pour configurer le schéma de base de données pour les tests:
 
-1. Import the complete schema:
+1. Importer le schéma complet:
 ```bash
 mysql -u dns3_user -p dns3_db < database.sql
 ```
 
-2. Verify tables were created:
+2. Vérifier que les tables ont été créées:
 ```sql
 USE dns3_db;
 SHOW TABLES LIKE 'zone%';
@@ -21,16 +21,16 @@ DESCRIBE zone_file_history;
 SHOW COLUMNS FROM dns_records LIKE 'zone_file_id';
 ```
 
-## API Testing
+## Tests de l'API
 
-### Zone File API
+### API des Fichiers de Zone
 
-1. **List zones** (requires authentication):
+1. **Lister les zones** (requiert authentification):
 ```bash
 curl -X GET "http://localhost/api/zone_api.php?action=list_zones" -H "Cookie: session_id=..."
 ```
 
-2. **Create a zone** (requires admin):
+2. **Créer une zone** (requiert admin):
 ```bash
 curl -X POST "http://localhost/api/zone_api.php?action=create_zone" \
   -H "Content-Type: application/json" \
@@ -43,12 +43,12 @@ curl -X POST "http://localhost/api/zone_api.php?action=create_zone" \
   }'
 ```
 
-3. **Get a specific zone**:
+3. **Obtenir une zone spécifique**:
 ```bash
 curl -X GET "http://localhost/api/zone_api.php?action=get_zone&id=1" -H "Cookie: session_id=..."
 ```
 
-4. **Update a zone** (requires admin):
+4. **Mettre à jour une zone** (requiert admin):
 ```bash
 curl -X POST "http://localhost/api/zone_api.php?action=update_zone&id=1" \
   -H "Content-Type: application/json" \
@@ -58,20 +58,20 @@ curl -X POST "http://localhost/api/zone_api.php?action=update_zone&id=1" \
   }'
 ```
 
-5. **Assign an include to a master zone** (requires admin):
+5. **Assigner une inclusion à une zone maître** (requiert admin):
 ```bash
 curl -X POST "http://localhost/api/zone_api.php?action=assign_include&master_id=1&include_id=2" \
   -H "Cookie: session_id=..."
 ```
 
-6. **Download zone file**:
+6. **Télécharger un fichier de zone**:
 ```bash
 curl -X GET "http://localhost/api/zone_api.php?action=download_zone&id=1" -H "Cookie: session_id=..." -o zone_file.txt
 ```
 
-### DNS Records API (with zone_file_id)
+### API des Enregistrements DNS (avec zone_file_id)
 
-1. **Create a DNS record** (now requires zone_file_id):
+1. **Créer un enregistrement DNS** (requiert maintenant zone_file_id):
 ```bash
 curl -X POST "http://localhost/api/dns_api.php?action=create" \
   -H "Content-Type: application/json" \
@@ -85,12 +85,12 @@ curl -X POST "http://localhost/api/dns_api.php?action=create" \
   }'
 ```
 
-2. **List DNS records** (now includes zone_name):
+2. **Lister les enregistrements DNS** (inclut maintenant zone_name):
 ```bash
 curl -X GET "http://localhost/api/dns_api.php?action=list" -H "Cookie: session_id=..."
 ```
 
-3. **Update DNS record** (can change zone_file_id):
+3. **Mettre à jour un enregistrement DNS** (peut changer zone_file_id):
 ```bash
 curl -X POST "http://localhost/api/dns_api.php?action=update&id=1" \
   -H "Content-Type: application/json" \
@@ -101,65 +101,65 @@ curl -X POST "http://localhost/api/dns_api.php?action=update&id=1" \
   }'
 ```
 
-## UI Testing
+## Tests de l'Interface Utilisateur
 
-1. Open the DNS Management page: `http://localhost/dns-management.php`
+1. Ouvrir la page de Gestion DNS: `http://localhost/dns-management.php`
 
-2. Click "Créer un enregistrement" to open the create modal
+2. Cliquer sur "Créer un enregistrement" pour ouvrir le modal de création
 
-3. Verify that:
-   - The "Fichier de zone" dropdown is present as the first field
-   - The dropdown loads zone files with type "master" or "include"
-   - When you select a zone and fill in the form, the record is created with the zone_file_id
+3. Vérifier que:
+   - Le menu déroulant "Fichier de zone" est présent comme premier champ
+   - Le menu déroulant charge les fichiers de zone de type "master" ou "include"
+   - Quand vous sélectionnez une zone et remplissez le formulaire, l'enregistrement est créé avec le zone_file_id
 
-4. In the DNS records table, verify that:
-   - The "Zone" column appears as the first column
-   - Each record shows its associated zone name
-   - When editing a record, the zone selector shows the current zone selected
-   - You can change the zone when editing a record
+4. Dans le tableau des enregistrements DNS, vérifier que:
+   - La colonne "Zone" apparaît comme première colonne
+   - Chaque enregistrement montre son nom de zone associé
+   - Lors de l'édition d'un enregistrement, le sélecteur de zone montre la zone actuelle sélectionnée
+   - Vous pouvez changer la zone lors de l'édition d'un enregistrement
 
-## Expected Behavior
+## Comportement Attendu
 
-### Creating a DNS Record
-- **Before**: Could create a record without selecting a zone
-- **After**: Must select a zone file (zone_file_id is required)
-- **Error if no zone selected**: "Missing required field: zone_file_id"
+### Création d'un Enregistrement DNS
+- **Avant**: Pouvait créer un enregistrement sans sélectionner une zone
+- **Après**: Doit sélectionner un fichier de zone (zone_file_id est requis)
+- **Erreur si aucune zone sélectionnée**: "Missing required field: zone_file_id"
 
-### Listing DNS Records
-- **Before**: Records showed only DNS data
-- **After**: Records include zone_name field showing the associated zone
+### Listage des Enregistrements DNS
+- **Avant**: Les enregistrements montraient seulement les données DNS
+- **Après**: Les enregistrements incluent le champ zone_name montrant la zone associée
 
-### Editing a DNS Record
-- **Before**: Could not change the zone
-- **After**: Can update the zone_file_id to move a record to a different zone
+### Édition d'un Enregistrement DNS
+- **Avant**: Ne pouvait pas changer la zone
+- **Après**: Peut mettre à jour le zone_file_id pour déplacer un enregistrement vers une zone différente
 
-### Zone Selector
-- **Shows**: Only zone files with status='active' and file_type in ('master', 'include')
-- **Format**: "zone_name (file_type)" - e.g., "example.com (master)"
+### Sélecteur de Zone
+- **Affiche**: Seulement les fichiers de zone avec status='active' et file_type in ('master', 'include')
+- **Format**: "zone_name (file_type)" - ex: "example.com (master)"
 
-## Migration Notes
+## Notes de Migration
 
-- The `zone_file_id` column in `dns_records` is nullable for migration purposes
-- Existing records without a zone_file_id can continue to exist
-- New records MUST have a zone_file_id (enforced by API validation)
-- The foreign key constraint is commented out in the migration but can be enabled if desired
+- La colonne `zone_file_id` dans `dns_records` est nullable pour les besoins de migration
+- Les enregistrements existants sans zone_file_id peuvent continuer d'exister
+- Les nouveaux enregistrements DOIVENT avoir un zone_file_id (appliqué par validation API)
+- La contrainte de clé étrangère est commentée dans la migration mais peut être activée si désiré
 
-## Troubleshooting
+## Dépannage
 
-### Error: "Invalid or inactive zone_file_id"
-- Ensure the zone file exists and has status='active'
-- Verify the zone_file_id is correct
+### Erreur: "Invalid or inactive zone_file_id"
+- S'assurer que le fichier de zone existe et a status='active'
+- Vérifier que le zone_file_id est correct
 
-### Error: "zone_file_id is required"
-- This is expected when trying to create a DNS record without selecting a zone
-- Select a zone from the dropdown in the UI
+### Erreur: "zone_file_id is required"
+- Ceci est attendu lors de la tentative de création d'un enregistrement DNS sans sélectionner une zone
+- Sélectionner une zone depuis le menu déroulant dans l'interface
 
-### Zone dropdown is empty
-- Check that zone files exist in the database with status='active'
-- Verify that at least one zone has file_type='master' or 'include'
-- Check browser console for API errors
+### Le menu déroulant de zone est vide
+- Vérifier que les fichiers de zone existent dans la base de données avec status='active'
+- Vérifier qu'au moins une zone a file_type='master' ou 'include'
+- Vérifier la console du navigateur pour les erreurs API
 
-### DNS records don't show zone names
-- Verify the migration added zone_file_id column to dns_records
-- Check that records have zone_file_id values
-- Verify the LEFT JOIN in search() and getById() methods
+### Les enregistrements DNS ne montrent pas les noms de zone
+- Vérifier que la migration a ajouté la colonne zone_file_id à dns_records
+- Vérifier que les enregistrements ont des valeurs zone_file_id
+- Vérifier le LEFT JOIN dans les méthodes search() et getById()
