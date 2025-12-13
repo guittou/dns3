@@ -1,104 +1,104 @@
-# Modal Vertical Centering - Implementation Guide
+# Centrage vertical des modales - Guide d'implémentation
 
-## Summary
-This implementation adds vertical and horizontal centering to all modal popups in the DNS3 application. Modals now appear centered in the viewport with proper content scrolling and responsive behavior.
+## Résumé
+Cette implémentation ajoute le centrage vertical et horizontal à toutes les fenêtres modales de l'application DNS3. Les modales apparaissent maintenant centrées dans la fenêtre avec un défilement de contenu approprié et un comportement responsive.
 
-## What Changed
+## Changements effectués
 
-### CSS Files
+### Fichiers CSS
 **assets/css/style.css**
-- Added flexbox centering to `.dns-modal.open`
-- Added padding (20px) and box-sizing for proper spacing
-- Added responsive fallback for screens < 768px (reduced padding to 10px)
-- Content max-height: `calc(100vh - 80px)` with internal scrolling
+- Ajout du centrage flexbox à `.dns-modal.open`
+- Ajout de padding (20px) et box-sizing pour un espacement approprié
+- Ajout d'un fallback responsive pour les écrans < 768px (padding réduit à 10px)
+- Hauteur max du contenu : `calc(100vh - 80px)` avec défilement interne
 
 **assets/css/zone-files.css**
-- Added flexbox centering to `.modal.open` (zone preview modal)
-- Added responsive fallback for small screens
-- Same approach as dns-modal for consistency
+- Ajout du centrage flexbox à `.modal.open` (modale de prévisualisation de zone)
+- Ajout d'un fallback responsive pour les petits écrans
+- Même approche que dns-modal pour la cohérence
 
-### JavaScript Files
+### Fichiers JavaScript
 **assets/js/zone-files.js**
-- `openCreateZoneModal()`: adds 'open' class, calls ensureModalCentered
-- `closeCreateZoneModal()`: removes 'open' class
-- `openZonePreviewModalWithLoading()`: calls ensureModalCentered
+- `openCreateZoneModal()` : ajoute la classe 'open', appelle ensureModalCentered
+- `closeCreateZoneModal()` : retire la classe 'open'
+- `openZonePreviewModalWithLoading()` : appelle ensureModalCentered
 
-**Already in place (from PR #69):**
-- `assets/js/modal-utils.js`: Helper for dynamic height adjustment
-- `assets/js/dns-records.js`: DNS modal integration
-- `assets/js/zone-files.js`: Zone edit modal integration
+**Déjà en place (depuis la PR #69) :**
+- `assets/js/modal-utils.js` : Helper pour l'ajustement de hauteur dynamique
+- `assets/js/dns-records.js` : Intégration modale DNS
+- `assets/js/zone-files.js` : Intégration modale d'édition de zone
 
-## How It Works
+## Comment ça fonctionne
 
-1. **Opening a Modal**
-   - JavaScript sets `modal.style.display = 'block'`
-   - JavaScript adds `modal.classList.add('open')`
-   - CSS `.modal.open` applies flexbox centering
-   - `ensureModalCentered()` adjusts content max-height dynamically
+1. **Ouverture d'une modale**
+   - JavaScript définit `modal.style.display = 'block'`
+   - JavaScript ajoute `modal.classList.add('open')`
+   - Le CSS `.modal.open` applique le centrage flexbox
+   - `ensureModalCentered()` ajuste dynamiquement la hauteur max du contenu
 
-2. **Content Overflow**
-   - Modal content limited to `calc(100vh - 80px)` height
-   - Overflow scrolls inside modal with `overflow: auto`
-   - Page body doesn't scroll, only modal content
+2. **Débordement du contenu**
+   - Contenu de la modale limité à la hauteur `calc(100vh - 80px)`
+   - Le débordement défile à l'intérieur de la modale avec `overflow: auto`
+   - Le corps de la page ne défile pas, seulement le contenu de la modale
 
-3. **Closing a Modal**
-   - JavaScript removes `modal.classList.remove('open')`
-   - JavaScript sets `modal.style.display = 'none'`
-   - Clean state for next opening
+3. **Fermeture d'une modale**
+   - JavaScript retire `modal.classList.remove('open')`
+   - JavaScript définit `modal.style.display = 'none'`
+   - État propre pour la prochaine ouverture
 
-4. **Responsive Behavior**
-   - On screens < 768px: reduced padding (10px vs 20px)
-   - Adjusted max-height: `calc(100vh - 40px)`
-   - Better fit for mobile devices
+4. **Comportement responsive**
+   - Sur les écrans < 768px : padding réduit (10px vs 20px)
+   - Hauteur max ajustée : `calc(100vh - 40px)`
+   - Meilleur ajustement pour les appareils mobiles
 
-## Testing Guide
+## Guide de test
 
-### Manual Tests
-1. **DNS Record Modals**
-   - Create new record: Should be centered
-   - Edit existing record: Should be centered
-   - Long content: Should scroll inside modal
+### Tests manuels
+1. **Modales d'enregistrement DNS**
+   - Créer un nouvel enregistrement : Devrait être centré
+   - Éditer un enregistrement existant : Devrait être centré
+   - Contenu long : Devrait défiler à l'intérieur de la modale
 
-2. **Zone Modals**
-   - Create zone: Should be centered
-   - Edit zone: Should be centered
-   - Tab switching: Position remains stable
-   - Generate preview: Preview modal centered
+2. **Modales de zone**
+   - Créer une zone : Devrait être centrée
+   - Éditer une zone : Devrait être centrée
+   - Changement d'onglets : La position reste stable
+   - Générer une prévisualisation : Modale de prévisualisation centrée
 
 3. **Responsive**
-   - Resize to mobile: Reduced padding, proper centering
-   - Verify content scrolling on small screens
+   - Redimensionner vers mobile : Padding réduit, centrage approprié
+   - Vérifier le défilement du contenu sur petits écrans
 
-4. **Regression**
-   - All CRUD operations work
-   - Modal close buttons work
-   - Outside click closes modal
-   - No JavaScript errors
+4. **Régression**
+   - Toutes les opérations CRUD fonctionnent
+   - Les boutons de fermeture de modale fonctionnent
+   - Le clic à l'extérieur ferme la modale
+   - Aucune erreur JavaScript
 
-### Browser Testing
+### Test des navigateurs
 - ✅ Chrome/Chromium
 - ✅ Firefox
 - ✅ Safari
 - ✅ Edge
-- ✅ Mobile browsers
+- ✅ Navigateurs mobiles
 
-## Rollback Instructions
-If needed, revert this PR to return to the previous modal behavior. The changes are minimal and reversible:
-1. CSS additions can be removed
-2. JavaScript class additions are backward compatible
-3. No breaking changes to HTML or database
+## Instructions de rollback
+Si nécessaire, revenir à cette PR pour retrouver le comportement de modale précédent. Les changements sont minimes et réversibles :
+1. Les ajouts CSS peuvent être supprimés
+2. Les ajouts de classe JavaScript sont rétrocompatibles
+3. Aucun changement cassant dans le HTML ou la base de données
 
-## Technical Notes
-- Uses CSS flexbox for reliable centering
-- `!important` ensures override of inline styles
-- No changes to modal IDs or HTML structure
-- Maintains `modal.style.display` for backward compatibility
-- All JavaScript passes syntax validation
-- No new dependencies added
+## Notes techniques
+- Utilise le flexbox CSS pour un centrage fiable
+- `!important` assure l'override des styles inline
+- Aucun changement aux IDs de modale ou à la structure HTML
+- Maintient `modal.style.display` pour la rétrocompatibilité
+- Tout le JavaScript passe la validation de syntaxe
+- Aucune nouvelle dépendance ajoutée
 
-## Files Modified
-- `assets/css/style.css` (+15 lines)
-- `assets/css/zone-files.css` (+25 lines)
-- `assets/js/zone-files.js` (+19 lines modified)
+## Fichiers modifiés
+- `assets/css/style.css` (+15 lignes)
+- `assets/css/zone-files.css` (+25 lignes)
+- `assets/js/zone-files.js` (+19 lignes modifiées)
 
-Total: 54 lines added/modified across 3 files
+Total : 54 lignes ajoutées/modifiées sur 3 fichiers
