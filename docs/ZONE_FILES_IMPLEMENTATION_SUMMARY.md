@@ -1,171 +1,171 @@
-# Zone Files Management - Implementation Summary
+# Gestion des fichiers de zone - Résumé d'implémentation
 
-## Overview
+## Vue d'ensemble
 
-This documentation describes the zone file management feature of the DNS3 system, which ensures that every DNS record is associated with a zone file.
+Cette documentation décrit la fonctionnalité de gestion des fichiers de zone du système DNS3, qui garantit que chaque enregistrement DNS est associé à un fichier de zone.
 
-> **Note**: The Applications feature was removed from the application. The `applications` table may remain in the database for historical reference but is no longer used by the application. See the migration archives for schema details.
+> **Note** : La fonctionnalité Applications a été retirée de l'application. La table `applications` peut rester dans la base de données à titre de référence historique mais n'est plus utilisée par l'application. Voir les archives de migration pour les détails du schéma.
 
-## Database Changes
+## Modifications de la base de données
 
-### New Tables
+### Nouvelles tables
 
 1. **zone_files**
-   - Primary table for managing DNS zone files
-   - Fields: id, name, filename, content, file_type (master/include), status, created_by, updated_by, created_at, updated_at
-   - Supports both master zones and include files
-   - Status: active, inactive, deleted
+   - Table principale pour la gestion des fichiers de zone DNS
+   - Champs : id, name, filename, content, file_type (master/include), status, created_by, updated_by, created_at, updated_at
+   - Supporte les zones master et les fichiers include
+   - Statut : active, inactive, deleted
 
 2. **zone_file_includes**
-   - Junction table for parent/include relationships (supports recursive nesting)
-   - Links parent zones (master or include) to their include files
-   - Fields: id, parent_id, include_id, position, created_at
-   - Note: `parent_id` replaced the older `master_id` column name
+   - Table de jonction pour les relations parent/include (supporte l'imbrication récursive)
+   - Lie les zones parentes (master ou include) à leurs fichiers include
+   - Champs : id, parent_id, include_id, position, created_at
+   - Note : `parent_id` a remplacé l'ancien nom de colonne `master_id`
 
 3. **zone_file_history**
-   - Audit trail for zone file changes
-   - Tracks all modifications including content changes
-   - Fields: id, zone_file_id, action, name, filename, file_type, old_status, new_status, old_content, new_content, changed_by, changed_at, notes
+   - Piste d'audit pour les modifications de fichier de zone
+   - Suit toutes les modifications y compris les changements de contenu
+   - Champs : id, zone_file_id, action, name, filename, file_type, old_status, new_status, old_content, new_content, changed_by, changed_at, notes
 
-### Modified Tables
+### Tables modifiées
 
 1. **dns_records**
-   - Added: zone_file_id INT NULL (nullable for migration)
-   - Added index: idx_zone_file_id
-   - Foreign key constraint available (commented) for optional enforcement
+   - Ajouté : zone_file_id INT NULL (nullable pour la migration)
+   - Ajout d'index : idx_zone_file_id
+   - Contrainte de clé étrangère disponible (commentée) pour application optionnelle
 
 2. **dns_record_history**
-   - Added: zone_file_id INT NULL
-   - Ensures history tracking includes zone information
+   - Ajouté : zone_file_id INT NULL
+   - Assure que le suivi de l'historique inclut les informations de zone
 
-## Backend Models
+## Modèles backend
 
 ### ZoneFile.php
-- Full CRUD operations for zone files
-- Methods:
-  - `search()` - Filter and search zone files
-  - `getById()` - Get zone by ID
-  - `getByName()` - Get zone by name
-  - `create()` - Create new zone file
-  - `update()` - Update zone file
-  - `setStatus()` - Change zone status
-  - `assignInclude()` - Link include file to master zone
-  - `getIncludes()` - Get all includes for a master zone
-  - `writeHistory()` - Record zone changes
-  - `getHistory()` - Retrieve zone change history
+- Opérations CRUD complètes pour les fichiers de zone
+- Méthodes :
+  - `search()` - Filtrer et rechercher des fichiers de zone
+  - `getById()` - Obtenir une zone par ID
+  - `getByName()` - Obtenir une zone par nom
+  - `create()` - Créer un nouveau fichier de zone
+  - `update()` - Mettre à jour un fichier de zone
+  - `setStatus()` - Changer le statut de zone
+  - `assignInclude()` - Lier un fichier include à une zone master
+  - `getIncludes()` - Obtenir tous les includes pour une zone master
+  - `writeHistory()` - Enregistrer les modifications de zone
+  - `getHistory()` - Récupérer l'historique des modifications de zone
 
-### DnsRecord.php (Modified)
-- Enhanced to require and manage zone_file_id
-- Changes:
-  - `create()`: Now requires zone_file_id, validates it references an active zone
-  - `update()`: Allows zone_file_id changes, validates if provided
-  - `search()`: LEFT JOINs zone_files to expose zone_name
-  - `getById()`: LEFT JOINs zone_files to expose zone_name
-  - `writeHistory()`: Includes zone_file_id in history records
+### DnsRecord.php (Modifié)
+- Amélioré pour exiger et gérer zone_file_id
+- Modifications :
+  - `create()` : Exige maintenant zone_file_id, valide qu'il référence une zone active
+  - `update()` : Permet les changements de zone_file_id, valide si fourni
+  - `search()` : LEFT JOIN sur zone_files pour exposer zone_name
+  - `getById()` : LEFT JOIN sur zone_files pour exposer zone_name
+  - `writeHistory()` : Inclut zone_file_id dans les enregistrements d'historique
 
-## API Endpoints
+## Endpoints API
 
 ### Zone API (api/zone_api.php)
-- `list_zones` - List zone files with filters (name, file_type, status)
-- `get_zone` - Get specific zone with includes and history
-- `create_zone` - Create new zone file (admin only, validates file_type)
-- `update_zone` - Update zone file (admin only)
-- `set_status_zone` - Change zone status (admin only)
-- `assign_include` - Link include to master zone (admin only)
-- `download_zone` - Download zone file content
+- `list_zones` - Lister les fichiers de zone avec filtres (name, file_type, status)
+- `get_zone` - Obtenir une zone spécifique avec includes et historique
+- `create_zone` - Créer un nouveau fichier de zone (admin uniquement, valide file_type)
+- `update_zone` - Mettre à jour un fichier de zone (admin uniquement)
+- `set_status_zone` - Changer le statut de zone (admin uniquement)
+- `assign_include` - Lier un include à une zone master (admin uniquement)
+- `download_zone` - Télécharger le contenu du fichier de zone
 
-### DNS API (api/dns_api.php) - Modified
-- `create` action: Now requires zone_file_id, validates zone exists and is active
-- `list` action: Returns zone_name for each record
-- `get` action: Returns zone_name and zone_file_id
-- `update` action: Allows zone_file_id changes, validates if provided
+### DNS API (api/dns_api.php) - Modifié
+- Action `create` : Exige maintenant zone_file_id, valide que la zone existe et est active
+- Action `list` : Retourne zone_name pour chaque enregistrement
+- Action `get` : Retourne zone_name et zone_file_id
+- Action `update` : Permet les changements de zone_file_id, valide si fourni
 
-## UI Changes
+## Modifications de l'interface
 
 ### dns-management.php
-1. **Table Layout**
-   - Added "Zone" column as the FIRST column
-   - Displays zone name for each DNS record
-   - Updated colspan for empty table message (13 → 14)
+1. **Disposition du tableau**
+   - Ajout de la colonne "Zone" comme PREMIÈRE colonne
+   - Affiche le nom de zone pour chaque enregistrement DNS
+   - Mise à jour du colspan pour le message de tableau vide (13 → 14)
 
-2. **Create/Edit Modal**
-   - Added "Fichier de zone" dropdown as the FIRST form field
-   - Dropdown is populated dynamically via API
-   - Shows only active zones with file_type 'master' or 'include'
-   - Format: "zone_name (file_type)"
-   - Required field for creating records
-   - Allows changing zone when editing records
+2. **Modale Créer/Éditer**
+   - Ajout du menu déroulant "Fichier de zone" comme PREMIER champ du formulaire
+   - Le menu déroulant est peuplé dynamiquement via API
+   - Affiche uniquement les zones actives avec file_type 'master' ou 'include'
+   - Format : "zone_name (file_type)"
+   - Champ requis pour la création d'enregistrements
+   - Permet de changer la zone lors de l'édition d'enregistrements
 
 ### dns-records.js
-1. **New Functions**
-   - `getZoneApiUrl()` - Construct URLs for zone API calls
-   - `zoneApiCall()` - Make API calls to zone endpoints
-   - `loadZoneFiles()` - Populate zone selector with active master/include zones
+1. **Nouvelles fonctions**
+   - `getZoneApiUrl()` - Construire les URLs pour les appels API de zone
+   - `zoneApiCall()` - Effectuer des appels API vers les endpoints de zone
+   - `loadZoneFiles()` - Peupler le sélecteur de zone avec les zones master/include actives
 
-2. **Modified Functions**
-   - `loadDnsTable()`: Updated to display zone column (first position)
-   - `openCreateModal()`: Loads zone files before showing modal
-   - `openEditModal()`: Loads zone files and sets current zone in selector
-   - `submitDnsForm()`: Includes zone_file_id in create/update requests, validates selection
+2. **Fonctions modifiées**
+   - `loadDnsTable()` : Mise à jour pour afficher la colonne zone (première position)
+   - `openCreateModal()` : Charge les fichiers de zone avant d'afficher la modale
+   - `openEditModal()` : Charge les fichiers de zone et définit la zone actuelle dans le sélecteur
+   - `submitDnsForm()` : Inclut zone_file_id dans les requêtes créer/mettre à jour, valide la sélection
 
-## Key Features
+## Fonctionnalités clés
 
-### Zone File Management
-✅ Create master and include zone files
-✅ Store zone file content
-✅ Track zone file history (including content changes)
-✅ Link include files to master zones
-✅ Download zone file content
-✅ Active/inactive/deleted status management
+### Gestion des fichiers de zone
+✅ Créer des fichiers de zone master et include
+✅ Stocker le contenu du fichier de zone
+✅ Suivre l'historique des fichiers de zone (y compris les modifications de contenu)
+✅ Lier les fichiers include aux zones master
+✅ Télécharger le contenu du fichier de zone
+✅ Gestion du statut active/inactive/deleted
 
-### DNS Record Integration
-✅ Zone column displayed as first column in table
-✅ Zone selector as first field in create/edit modal
-✅ zone_file_id required for new DNS records
-✅ zone_file_id can be changed when editing (migration-friendly)
-✅ Zone selector lists only active master and include zones
-✅ Validation ensures referenced zone exists and is active
-✅ LEFT JOIN preserves existing records without zones
+### Intégration des enregistrements DNS
+✅ Colonne Zone affichée comme première colonne dans le tableau
+✅ Sélecteur de zone comme premier champ dans la modale créer/éditer
+✅ zone_file_id requis pour les nouveaux enregistrements DNS
+✅ zone_file_id peut être modifié lors de l'édition (compatible migration)
+✅ Le sélecteur de zone liste uniquement les zones master et include actives
+✅ La validation garantit que la zone référencée existe et est active
+✅ LEFT JOIN préserve les enregistrements existants sans zones
 
-### Validation & Security
-✅ Admin-only access for create/update/delete operations
-✅ Zone existence and status validation
-✅ Foreign key support (optional, commented in migration)
-✅ Full history tracking for audit trails
-✅ Proper error messages for missing or invalid zone_file_id
+### Validation et sécurité
+✅ Accès admin uniquement pour les opérations créer/mettre à jour/supprimer
+✅ Validation de l'existence et du statut de la zone
+✅ Support de clé étrangère (optionnel, commenté dans la migration)
+✅ Suivi complet de l'historique pour les pistes d'audit
+✅ Messages d'erreur appropriés pour zone_file_id manquant ou invalide
 
-## Migration Strategy
+## Stratégie de migration
 
-The implementation is designed for backward compatibility:
+L'implémentation est conçue pour la rétrocompatibilité :
 
-1. **Nullable zone_file_id**: Existing records without zones continue to work
-2. **API Validation**: New records MUST have a zone, enforced at API level
-3. **Optional FK**: Foreign key constraint is commented out, can be enabled after cleanup
-4. **Gradual Migration**: Records can be updated incrementally to add zones
+1. **zone_file_id nullable** : Les enregistrements existants sans zones continuent de fonctionner
+2. **Validation API** : Les nouveaux enregistrements DOIVENT avoir une zone, appliqué au niveau API
+3. **FK optionnelle** : La contrainte de clé étrangère est commentée, peut être activée après nettoyage
+4. **Migration graduelle** : Les enregistrements peuvent être mis à jour progressivement pour ajouter des zones
 
-## Testing
+## Tests
 
-See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions including:
-- Database migration verification
-- API endpoint testing
-- UI functionality testing
-- Expected behavior and error handling
+Voir `ZONE_FILES_TESTING_GUIDE.md` pour des instructions de test complètes incluant :
+- Vérification de migration de base de données
+- Test des endpoints API
+- Test de fonctionnalité UI
+- Comportement attendu et gestion des erreurs
 
-## Files Modified
+## Fichiers modifiés
 
-### Created:
+### Créés :
 - `includes/models/ZoneFile.php`
 - `api/zone_api.php`
 - `ZONE_FILES_TESTING_GUIDE.md`
-- `ZONE_FILES_IMPLEMENTATION_SUMMARY.md` (this file)
+- `ZONE_FILES_IMPLEMENTATION_SUMMARY.md` (ce fichier)
 
-### Modified:
+### Modifiés :
 - `includes/models/DnsRecord.php`
 - `api/dns_api.php`
 - `dns-management.php`
 - `assets/js/dns-records.js`
 
-## Setup Notes
+## Notes de configuration
 
 > **Note** : Les fichiers de migration ont été supprimés. Pour les nouvelles installations, utilisez `database.sql` (ou `structure_ok_dns3_db.sql`).
 >
@@ -173,21 +173,21 @@ See `ZONE_FILES_TESTING_GUIDE.md` for comprehensive testing instructions includi
 > mysql -u dns3_user -p dns3_db < database.sql
 > ```
 
-After schema is imported:
-1. Create initial zone files via API or database INSERT
-2. Test zone file listing and selection in UI
-3. Create DNS records with zone associations
-4. (Optional) Enable foreign key constraint after existing records are updated
-5. (Optional) Make zone_file_id NOT NULL after all records have zones
+Après l'import du schéma :
+1. Créer les fichiers de zone initiaux via API ou INSERT en base de données
+2. Tester le listage et la sélection de fichiers de zone dans l'UI
+3. Créer des enregistrements DNS avec associations de zone
+4. (Optionnel) Activer la contrainte de clé étrangère après mise à jour des enregistrements existants
+5. (Optionnel) Rendre zone_file_id NOT NULL après que tous les enregistrements ont des zones
 
-## Compliance with Requirements
+## Conformité aux exigences
 
-✅ Zone column as first column in DNS table
-✅ Zone selector in create/edit modal
-✅ zone_file_id modifiable during edit
-✅ Selector lists master + include zones only
-✅ Migration creates all required tables
-✅ zone_file_id validation on record creation
-✅ All API endpoints implemented as specified
-✅ Admin-only restrictions on management operations
-✅ Full history tracking for zones
+✅ Colonne Zone comme première colonne dans le tableau DNS
+✅ Sélecteur de zone dans la modale créer/éditer
+✅ zone_file_id modifiable lors de l'édition
+✅ Le sélecteur liste les zones master + include uniquement
+✅ La migration crée toutes les tables requises
+✅ Validation de zone_file_id lors de la création d'enregistrement
+✅ Tous les endpoints API implémentés comme spécifié
+✅ Restrictions admin uniquement sur les opérations de gestion
+✅ Suivi complet de l'historique pour les zones
