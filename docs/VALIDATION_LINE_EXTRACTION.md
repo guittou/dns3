@@ -1,44 +1,44 @@
-# Zone File Validation - Line Context Extraction
+# Validation de fichier de zone - Extraction du contexte de ligne
 
-## Overview
+## Vue d'ensemble
 
-This feature enhances the zone file validation output by automatically extracting and displaying the exact lines that caused validation errors when `named-checkzone` reports issues.
+Cette fonctionnalité améliore la sortie de validation de fichier de zone en extrayant et affichant automatiquement les lignes exactes qui ont causé des erreurs de validation lorsque `named-checkzone` signale des problèmes.
 
-## Problem Statement
+## Énoncé du problème
 
-When `named-checkzone` validates zone files, it reports errors in the format:
+Lorsque `named-checkzone` valide des fichiers de zone, il rapporte les erreurs au format :
 ```
 filename:LINE: message
 ```
 
-For example:
+Par exemple :
 ```
 zone_1.db:13: ns1.example.com: bad owner name (check-names)
 ```
 
-Previously, users would see these error messages but couldn't easily locate the problematic lines because:
-1. The validation runs on temporary, inlined files (with includes expanded)
-2. The temporary files are deleted after validation
-3. Line numbers might not match the original zone file if includes are used
+Auparavant, les utilisateurs voyaient ces messages d'erreur mais ne pouvaient pas facilement localiser les lignes problématiques parce que :
+1. La validation s'exécute sur des fichiers temporaires inlinés (avec les includes développés)
+2. Les fichiers temporaires sont supprimés après validation
+3. Les numéros de ligne peuvent ne pas correspondre au fichier de zone original si des includes sont utilisés
 
 ## Solution
 
-The validation system now automatically:
-1. **Parses error messages** - Detects lines matching the pattern `filename:line: message`
-2. **Resolves file paths** - Locates the temporary files in the validation directory
-3. **Extracts line context** - Gets the problematic line plus 2 lines before and after
-4. **Formats the context** - Displays line numbers with a `>` marker for the error line
-5. **Appends to output** - Adds the extracted context to the validation results stored in the database
+Le système de validation maintenant automatiquement :
+1. **Analyse les messages d'erreur** - Détecte les lignes correspondant au motif `filename:line: message`
+2. **Résout les chemins de fichiers** - Localise les fichiers temporaires dans le répertoire de validation
+3. **Extrait le contexte de ligne** - Obtient la ligne problématique plus 2 lignes avant et après
+4. **Formate le contexte** - Affiche les numéros de ligne avec un marqueur `>` pour la ligne d'erreur
+5. **Ajoute à la sortie** - Ajoute le contexte extrait aux résultats de validation stockés dans la base de données
 
-## Example Output
+## Exemple de sortie
 
-### Before (original error only):
+### Avant (erreur originale seulement) :
 ```
 zone_1.db:13: bad..owner: bad owner name (check-names)
 zone example.com/IN: has 1 errors
 ```
 
-### After (with extracted context):
+### Après (avec contexte extrait) :
 ```
 zone_1.db:13: bad..owner: bad owner name (check-names)
 zone example.com/IN: has 1 errors
@@ -56,88 +56,88 @@ Message: bad..owner: bad owner name (check-names)
 === END OF EXTRACTED LINES ===
 ```
 
-## Implementation Details
+## Détails d'implémentation
 
-### Modified Method: `runNamedCheckzone()`
-- After executing `named-checkzone`, the output is enriched before storage
-- Calls `enrichValidationOutput()` to add line context
-- Stores and propagates the enriched output to child includes
+### Méthode modifiée : `runNamedCheckzone()`
+- Après l'exécution de `named-checkzone`, la sortie est enrichie avant le stockage
+- Appelle `enrichValidationOutput()` pour ajouter le contexte de ligne
+- Stocke et propage la sortie enrichie aux includes enfants
 
-### New Methods
+### Nouvelles méthodes
 
 #### `enrichValidationOutput($outputText, $tmpDir, $zoneFilename)`
-- Main enrichment method
-- Parses each line of output for error patterns
-- Collects line contexts and appends them to the output
-- Returns the enriched output text
+- Méthode d'enrichissement principale
+- Analyse chaque ligne de sortie pour les motifs d'erreur
+- Collecte les contextes de ligne et les ajoute à la sortie
+- Retourne le texte de sortie enrichi
 
 #### `resolveValidationFilePath($reportedFile, $tmpDir, $zoneFilename)`
-- Resolves file paths from error messages to actual files
-- Uses multiple strategies:
-  1. Absolute path in tmpDir
-  2. Basename matches zone filename
-  3. Basename exists in tmpDir
-  4. Relative path from tmpDir
-- Returns null if file cannot be located
+- Résout les chemins de fichiers depuis les messages d'erreur vers les fichiers réels
+- Utilise plusieurs stratégies :
+  1. Chemin absolu dans tmpDir
+  2. Le basename correspond au nom de fichier de zone
+  3. Le basename existe dans tmpDir
+  4. Chemin relatif depuis tmpDir
+- Retourne null si le fichier ne peut pas être localisé
 
 #### `getFileLineContext($path, $lineNumber, $contextLines = 2)`
-- Extracts lines from a file with context
-- Parameters:
-  - `$path`: File path
-  - `$lineNumber`: Target line number (1-based)
-  - `$contextLines`: Number of lines before/after to include (default: 2)
-- Returns formatted block with line numbers
-- Uses `>` prefix to mark the target line
+- Extrait les lignes d'un fichier avec contexte
+- Paramètres :
+  - `$path` : Chemin du fichier
+  - `$lineNumber` : Numéro de ligne cible (base 1)
+  - `$contextLines` : Nombre de lignes avant/après à inclure (par défaut : 2)
+- Retourne un bloc formaté avec numéros de ligne
+- Utilise le préfixe `>` pour marquer la ligne cible
 
 ## Configuration
 
-### Debug Mode
-To keep temporary files for manual inspection, define:
+### Mode débogage
+Pour conserver les fichiers temporaires pour inspection manuelle, définir :
 ```php
 define('DEBUG_KEEP_TMPDIR', true);
 ```
 
-When enabled, temporary directories are not deleted and their paths are logged.
+Lorsqu'activé, les répertoires temporaires ne sont pas supprimés et leurs chemins sont journalisés.
 
-### Custom named-checkzone Path
-If `named-checkzone` is not in the system PATH:
+### Chemin personnalisé named-checkzone
+Si `named-checkzone` n'est pas dans le PATH système :
 ```php
 define('NAMED_CHECKZONE_PATH', '/usr/local/bin/named-checkzone');
 ```
 
-## Benefits
+## Avantages
 
-1. **Faster debugging** - Users can immediately see what's wrong
-2. **Better UX** - No need to locate temporary files or count lines
-3. **Include-friendly** - Works with inlined zone files that have includes expanded
-4. **Clear visualization** - Line numbers and markers make errors obvious
-5. **Preserved history** - Enriched output is stored in the database for future reference
+1. **Débogage plus rapide** - Les utilisateurs peuvent immédiatement voir ce qui ne va pas
+2. **Meilleure UX** - Pas besoin de localiser les fichiers temporaires ou de compter les lignes
+3. **Compatible avec les includes** - Fonctionne avec les fichiers de zone inlinés ayant des includes développés
+4. **Visualisation claire** - Les numéros de ligne et les marqueurs rendent les erreurs évidentes
+5. **Historique préservé** - La sortie enrichie est stockée dans la base de données pour référence future
 
-## Testing
+## Tests
 
-A test script is provided: `test-validation-enrich.php`
+Un script de test est fourni : `test-validation-enrich.php`
 
-Run it with:
+Exécutez-le avec :
 ```bash
 php test-validation-enrich.php
 ```
 
-The test verifies:
-- Pattern matching for error lines
-- Line extraction with context
-- Full enrichment flow with multiple errors
-- Edge cases (missing files, invalid line numbers)
+Le test vérifie :
+- La correspondance de motif pour les lignes d'erreur
+- L'extraction de ligne avec contexte
+- Le flux d'enrichissement complet avec plusieurs erreurs
+- Les cas limites (fichiers manquants, numéros de ligne invalides)
 
-## Database Storage
+## Stockage en base de données
 
-The enriched output is stored in the `zone_file_validation` table:
-- `output` column (TEXT) contains the full enriched validation output
-- This output is also propagated to child includes via `propagateValidationToIncludes()`
+La sortie enrichie est stockée dans la table `zone_file_validation` :
+- La colonne `output` (TEXT) contient la sortie de validation enrichie complète
+- Cette sortie est également propagée aux includes enfants via `propagateValidationToIncludes()`
 
-## Future Enhancements
+## Améliorations futures
 
-Possible improvements:
-1. Configurable context lines (currently hardcoded to 2)
-2. Syntax highlighting in the UI for displayed context
-3. Direct links from error messages to specific lines in the zone file editor
-4. Support for additional validation tools beyond `named-checkzone`
+Améliorations possibles :
+1. Lignes de contexte configurables (actuellement codé en dur à 2)
+2. Coloration syntaxique dans l'UI pour le contexte affiché
+3. Liens directs depuis les messages d'erreur vers des lignes spécifiques dans l'éditeur de fichier de zone
+4. Support d'outils de validation supplémentaires au-delà de `named-checkzone`

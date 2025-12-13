@@ -1,148 +1,148 @@
-# Validation Include Master Generate - Implementation Summary
+# Validation Include Master Generate - Résumé d'implémentation
 
-## Overview
-This PR implements comprehensive logging and debugging support for zone file validation, with special handling for include-type zones that need to be validated through their parent master zone.
+## Vue d'ensemble
+Cette PR implémente une journalisation et un support de débogage complets pour la validation de fichiers de zone, avec une gestion spéciale pour les zones de type include qui doivent être validées via leur zone master parente.
 
-## Changes Made
+## Modifications effectuées
 
-### 1. Enhanced `jobs/process_validations.php`
-**Purpose**: Add comprehensive logging and JOBS_KEEP_TMP support
+### 1. Amélioration de `jobs/process_validations.php`
+**Objectif** : Ajouter une journalisation complète et le support de JOBS_KEEP_TMP
 
-**Key Changes**:
-- Added `logMessage()` function for consistent logging with timestamps
-- All log messages are written to `jobs/worker.log` and echoed to stdout
-- Added support for `JOBS_KEEP_TMP` environment variable
-  - When `JOBS_KEEP_TMP=1`, defines `DEBUG_KEEP_TMPDIR` constant to preserve temporary directories
-  - Logs a message when the setting is enabled
-- Enhanced validation logging:
-  - Logs zone details (name, type, status) before validation
-  - Logs validation result with status and return code
-  - Logs full output when validation fails
-  - Logs exceptions with stack traces
+**Modifications clés** :
+- Ajout de la fonction `logMessage()` pour une journalisation cohérente avec horodatage
+- Tous les messages de journal sont écrits dans `jobs/worker.log` et affichés sur stdout
+- Ajout du support pour la variable d'environnement `JOBS_KEEP_TMP`
+  - Quand `JOBS_KEEP_TMP=1`, définit la constante `DEBUG_KEEP_TMPDIR` pour préserver les répertoires temporaires
+  - Journalise un message quand le paramètre est activé
+- Amélioration de la journalisation de validation :
+  - Journalise les détails de zone (nom, type, statut) avant la validation
+  - Journalise le résultat de validation avec statut et code de retour
+  - Journalise la sortie complète quand la validation échoue
+  - Journalise les exceptions avec traces de pile
 
-**Benefits**:
-- Easy debugging with preserved temp directories
-- Complete audit trail of validation operations
-- Better error diagnostics
+**Avantages** :
+- Débogage facile avec répertoires temporaires préservés
+- Piste d'audit complète des opérations de validation
+- Meilleurs diagnostics d'erreur
 
-### 2. Enhanced `jobs/worker.sh`
-**Purpose**: Add verbose logging for background worker operations
+### 2. Amélioration de `jobs/worker.sh`
+**Objectif** : Ajouter une journalisation détaillée pour les opérations du worker en arrière-plan
 
-**Key Changes**:
-- Logs the processing file path
-- Counts and logs number of jobs in queue
-- Logs the exact command being executed
-- Captures and logs the exit code of `process_validations.php`
+**Modifications clés** :
+- Journalise le chemin du fichier en cours de traitement
+- Compte et journalise le nombre de jobs dans la file d'attente
+- Journalise la commande exacte en cours d'exécution
+- Capture et journalise le code de sortie de `process_validations.php`
 
-**Benefits**:
-- Better visibility into worker operations
-- Easy troubleshooting of worker issues
-- Clear audit trail
+**Avantages** :
+- Meilleure visibilité sur les opérations du worker
+- Dépannage facile des problèmes du worker
+- Piste d'audit claire
 
-### 3. Enhanced `includes/models/ZoneFile.php`
-**Purpose**: Add detailed logging throughout validation process
+### 3. Amélioration de `includes/models/ZoneFile.php`
+**Objectif** : Ajouter une journalisation détaillée tout au long du processus de validation
 
-**Key Changes**:
+**Modifications clés** :
 
-#### New `logValidation()` Method
-- Private method for consistent logging to `jobs/worker.log`
-- All validation-related operations now log their progress
+#### Nouvelle méthode `logValidation()`
+- Méthode privée pour une journalisation cohérente dans `jobs/worker.log`
+- Toutes les opérations liées à la validation journalisent maintenant leur progression
 
-#### Enhanced `validateZoneFile()` Method
-- Logs when handling include-type zones
-- Logs when finding top master for include validation
-- Logs error details when master not found
-- Logs which master will be validated
-- Logs zone type for direct validation
+#### Méthode améliorée `validateZoneFile()`
+- Journalise lors de la gestion des zones de type include
+- Journalise lors de la recherche du master de niveau supérieur pour la validation d'include
+- Journalise les détails d'erreur quand le master n'est pas trouvé
+- Journalise quel master sera validé
+- Journalise le type de zone pour la validation directe
 
-#### Enhanced `findTopMaster()` Method
-- Logs each step of parent chain traversal
-- Logs zone ID, type, and name at each step
-- Logs when master is found
-- Logs errors (circular dependencies, missing zones, orphaned includes)
+#### Méthode améliorée `findTopMaster()`
+- Journalise chaque étape de la traversée de la chaîne parente
+- Journalise l'ID de zone, le type et le nom à chaque étape
+- Journalise quand le master est trouvé
+- Journalise les erreurs (dépendances circulaires, zones manquantes, includes orphelins)
 
-#### Enhanced `runNamedCheckzone()` Method
-- Logs temporary directory creation
-- Logs when zone files are written to disk
-- Logs the exact command being executed
-- Logs working directory
-- Logs command exit code
-- Logs validation result (passed/failed)
-- Logs when temp directory is cleaned up or preserved
+#### Méthode améliorée `runNamedCheckzone()`
+- Journalise la création du répertoire temporaire
+- Journalise quand les fichiers de zone sont écrits sur disque
+- Journalise la commande exacte en cours d'exécution
+- Journalise le répertoire de travail
+- Journalise le code de sortie de la commande
+- Journalise le résultat de validation (réussi/échoué)
+- Journalise quand le répertoire temporaire est nettoyé ou préservé
 
-**Benefits**:
-- Complete visibility into validation process
-- Easy debugging of include chains
-- Clear error messages for common issues
-- Detailed command execution logs
+**Avantages** :
+- Visibilité complète sur le processus de validation
+- Débogage facile des chaînes d'include
+- Messages d'erreur clairs pour les problèmes courants
+- Journaux détaillés d'exécution de commandes
 
-## How It Works
+## Fonctionnement
 
-### For Master Zones
-1. Zone is identified as type 'master'
-2. Logged: "Zone ID X is a master zone - validating directly"
-3. `runNamedCheckzone()` is called:
-   - Creates temporary directory (logged)
-   - Writes zone file and all includes to disk (logged)
-   - Constructs and logs the named-checkzone command
-   - Executes command and logs exit code
-   - Stores validation result
-   - Cleans up or preserves temp directory based on `DEBUG_KEEP_TMPDIR`
+### Pour les zones master
+1. La zone est identifiée comme type 'master'
+2. Journalisé : "Zone ID X is a master zone - validating directly"
+3. `runNamedCheckzone()` est appelée :
+   - Crée le répertoire temporaire (journalisé)
+   - Écrit le fichier de zone et tous les includes sur disque (journalisé)
+   - Construit et journalise la commande named-checkzone
+   - Exécute la commande et journalise le code de sortie
+   - Stocke le résultat de validation
+   - Nettoie ou préserve le répertoire temporaire selon `DEBUG_KEEP_TMPDIR`
 
-### For Include Zones
-1. Zone is identified as type 'include'
-2. Logged: "Zone ID X is an include file - finding top master for validation"
-3. `findTopMaster()` is called:
-   - Traverses parent chain (each step logged)
-   - Detects and logs circular dependencies
-   - Finds and logs the top master zone
-4. Validation is performed on the top master (not the include itself)
-5. Result is stored for both the include and the master
+### Pour les zones include
+1. La zone est identifiée comme type 'include'
+2. Journalisé : "Zone ID X is an include file - finding top master for validation"
+3. `findTopMaster()` est appelée :
+   - Traverse la chaîne parente (chaque étape journalisée)
+   - Détecte et journalise les dépendances circulaires
+   - Trouve et journalise la zone master de niveau supérieur
+4. La validation est effectuée sur le master de niveau supérieur (pas sur l'include lui-même)
+5. Le résultat est stocké à la fois pour l'include et le master
 
-### Error Handling
-All error conditions are logged with clear messages:
+### Gestion des erreurs
+Toutes les conditions d'erreur sont journalisées avec des messages clairs :
 - "Circular dependency detected in include chain"
 - "Zone file (ID: X) not found in parent chain"
 - "Include file has no master parent; cannot validate standalone"
 - "Failed to write zone files: [error]"
 - "Failed to create temporary directory for validation"
 
-## Environment Variables
+## Variables d'environnement
 
 ### JOBS_KEEP_TMP
-**Usage**: `export JOBS_KEEP_TMP=1` or `JOBS_KEEP_TMP=1 php jobs/process_validations.php queue.json`
+**Utilisation** : `export JOBS_KEEP_TMP=1` ou `JOBS_KEEP_TMP=1 php jobs/process_validations.php queue.json`
 
-**Effect**: When set to `1`, temporary directories created during validation are preserved instead of being cleaned up. This is useful for debugging validation failures.
+**Effet** : Lorsque définie à `1`, les répertoires temporaires créés pendant la validation sont préservés au lieu d'être nettoyés. Ceci est utile pour déboguer les échecs de validation.
 
-**Logged Output**:
+**Sortie journalisée** :
 ```
 [2025-10-23 12:34:10] [process_validations] JOBS_KEEP_TMP is set - temporary directories will be preserved for debugging
 [2025-10-23 12:34:11] [ZoneFile] DEBUG: Temporary directory kept at: /tmp/dns3_validate_abc123
 ```
 
-## Logging Format
+## Format de journalisation
 
-All log entries follow this format:
+Toutes les entrées de journal suivent ce format :
 ```
-[YYYY-MM-DD HH:MM:SS] [component] message
+[YYYY-MM-DD HH:MM:SS] [composant] message
 ```
 
-Components:
-- `[process_validations]` - Logs from the validation job processor
-- `[ZoneFile]` - Logs from the ZoneFile model
-- `[worker.sh]` - Logs from the shell worker script
+Composants :
+- `[process_validations]` - Journaux du processeur de jobs de validation
+- `[ZoneFile]` - Journaux du modèle ZoneFile
+- `[worker.sh]` - Journaux du script shell worker
 
-## Testing
+## Tests
 
-The implementation has been tested with:
-1. Basic validation logic tests (environment variables, command construction)
-2. Integration tests (zone file creation, include handling)
-3. PHP syntax validation
-4. Shell script syntax validation
+L'implémentation a été testée avec :
+1. Tests de logique de validation de base (variables d'environnement, construction de commande)
+2. Tests d'intégration (création de fichier de zone, gestion des includes)
+3. Validation de syntaxe PHP
+4. Validation de syntaxe de script shell
 
-## Example Log Output
+## Exemple de sortie de journal
 
-### Successful Master Zone Validation
+### Validation réussie d'une zone master
 ```
 [2025-10-23 12:34:10] [process_validations] Processing 1 validation job(s)
 [2025-10-23 12:34:10] [process_validations] Starting validation for zone ID: 1 (user: 1)
@@ -158,7 +158,7 @@ The implementation has been tested with:
 [2025-10-23 12:34:11] [process_validations] Validation completed for zone ID 1: status=passed, return_code=0
 ```
 
-### Include Zone Validation
+### Validation d'une zone include
 ```
 [2025-10-23 12:34:10] [process_validations] Starting validation for zone ID: 5 (user: 1)
 [2025-10-23 12:34:10] [process_validations] Zone details: name='common.inc', type='include', status='active'
@@ -176,21 +176,21 @@ The implementation has been tested with:
 [2025-10-23 12:34:11] [process_validations] Validation completed for zone ID 5: status=passed, return_code=0
 ```
 
-## Compliance with Requirements
+## Conformité aux exigences
 
-✅ **Modified `jobs/process_validations.php`**: Added comprehensive logging  
-✅ **Modified `jobs/worker.sh`**: Added verbose logging  
-✅ **For master zones**: Behaves as before (generates complete content if needed and validates)  
-✅ **For include zones**: Finds top master parent and validates the complete master zone  
-✅ **Captures stdout/stderr and exit code**: All output is captured and logged  
-✅ **Stores results in zone_file_validation**: Status and output are stored in database  
-✅ **Respects JOBS_KEEP_TMP**: Temporary directories preserved when JOBS_KEEP_TMP=1  
-✅ **Logs command, tmpdir, and exit code**: All details logged to worker.log  
-✅ **Uses escapeshellarg**: All shell arguments are properly escaped  
-✅ **Handles orphaned includes**: Clear error message when include has no master parent  
-✅ **Does not modify zone_files.content**: Stored content remains unchanged with $INCLUDE directives  
+✅ **Modifié `jobs/process_validations.php`** : Ajout de journalisation complète  
+✅ **Modifié `jobs/worker.sh`** : Ajout de journalisation détaillée  
+✅ **Pour les zones master** : Se comporte comme avant (génère le contenu complet si nécessaire et valide)  
+✅ **Pour les zones include** : Trouve le master parent de niveau supérieur et valide la zone master complète  
+✅ **Capture stdout/stderr et code de sortie** : Toute la sortie est capturée et journalisée  
+✅ **Stocke les résultats dans zone_file_validation** : Le statut et la sortie sont stockés dans la base de données  
+✅ **Respecte JOBS_KEEP_TMP** : Les répertoires temporaires sont préservés quand JOBS_KEEP_TMP=1  
+✅ **Journalise commande, tmpdir et code de sortie** : Tous les détails journalisés dans worker.log  
+✅ **Utilise escapeshellarg** : Tous les arguments shell sont correctement échappés  
+✅ **Gère les includes orphelins** : Message d'erreur clair quand l'include n'a pas de master parent  
+✅ **Ne modifie pas zone_files.content** : Le contenu stocké reste inchangé avec les directives $INCLUDE  
 
-## Files Changed
-- `jobs/process_validations.php` - Enhanced logging and JOBS_KEEP_TMP support
-- `jobs/worker.sh` - Verbose logging for worker operations  
-- `includes/models/ZoneFile.php` - Detailed logging throughout validation process
+## Fichiers modifiés
+- `jobs/process_validations.php` - Journalisation améliorée et support JOBS_KEEP_TMP
+- `jobs/worker.sh` - Journalisation détaillée pour les opérations du worker  
+- `includes/models/ZoneFile.php` - Journalisation détaillée tout au long du processus de validation
