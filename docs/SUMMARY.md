@@ -32,11 +32,11 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Implémentation des métadonnées DNS](DNS_METADATA_IMPLEMENTATION.md) - Détails sur la gestion des métadonnées
 - [Génération de fichiers de zone](ZONE_FILE_GENERATION_IMPLEMENTATION.md) - Implémentation de la génération de zones
 - [Résumé de l'implémentation des fichiers de zone](ZONE_FILES_IMPLEMENTATION_SUMMARY.md) - Vue d'ensemble de l'implémentation
-- [Démarrage rapide - Fichiers de zone](ZONE_FILES_QUICK_START.md) - Guide de démarrage rapide
+- [Guide de démarrage rapide - Fichiers de zone](ZONE_FILES_QUICK_START.md) - Guide de démarrage rapide ✅
 - [Référence rapide - Fichiers de zone](ZONE_FILES_QUICK_REFERENCE.md) - Référence rapide pour les zones
 - [Implémentation récursive des fichiers de zone](ZONE_FILES_RECURSIVE_IMPLEMENTATION.md) - Support des includes récursifs
 - [Guide de test des fichiers de zone](ZONE_FILES_TESTING_GUIDE.md) - Tests pour les fichiers de zone ✅
-- [Résumé final de génération de zone](ZONE_GENERATION_FINAL_SUMMARY.md) - Résumé de la génération
+- [Fonctionnalité de génération de fichiers de zone - Résumé final](ZONE_GENERATION_FINAL_SUMMARY.md) - Résumé final de l'implémentation ✅
 - [Améliorations de validation de zone](ZONE_VALIDATION_IMPROVEMENTS.md) - Améliorations de la validation
 - [Vérification du combobox de zone](ZONEFILE_COMBOBOX_VERIFICATION.md) - Vérification de l'UI
 
@@ -73,7 +73,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 ### 🏗️ Architecture et Implémentation
 
 - [Diagramme d'architecture](ARCHITECTURE_DIAGRAM.md) - Vue d'ensemble de l'architecture système
-- [Notes d'implémentation](IMPLEMENTATION_NOTES.md) - Notes générales sur l'implémentation
+- [Correction de l'affichage du domaine DNS - Notes d'implémentation](IMPLEMENTATION_NOTES.md) - Notes d'implémentation de la correction ✅
 - [Statut d'implémentation](IMPLEMENTATION_STATUS.md) - État actuel de l'implémentation
 - [Guide visuel d'implémentation](IMPLEMENTATION_VISUAL_GUIDE.md) - Guide visuel des fonctionnalités
 - [Statut final](FINAL_STATUS.md) - Statut final du projet ✅
@@ -84,8 +84,8 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 ### 🎨 Interface Utilisateur
 
 - [Documentation des modifications UI - Champs spécifiques](UI_CHANGES_DOCUMENTATION.md) - Modifications visuelles et fonctionnelles ✅
-- [Guide visuel des changements UI](UI_CHANGES_VISUAL_GUIDE.md) - Guide visuel des changements
-- [Guide visuel de l'interface](UI_VISUAL_GUIDE.md) - Guide général de l'interface
+- [Guide visuel des modifications UI - Génération de zone](UI_CHANGES_VISUAL_GUIDE.md) - Guide visuel des changements UI ✅
+- [Guide visuel de l'interface utilisateur - Gestion des fichiers de zone](UI_VISUAL_GUIDE.md) - Guide complet de l'interface modale ✅
 - [Guide des changements visuels](VISUAL_CHANGES_GUIDE.md) - Documentation des modifications visuelles
 - [Implémentation Created At / Updated At](CREATED_UPDATED_UI_IMPLEMENTATION.md) - Affichage des horodatages ✅
 - [Implémentation des tables responsives](RESPONSIVE_TABLE_IMPLEMENTATION.md) - Tables adaptatives
@@ -95,7 +95,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 
 - [Implémentation de la bannière d'erreur modale](MODAL_ERROR_BANNER_IMPLEMENTATION.md) - Gestion des erreurs dans les modals
 - [Centrage vertical des modales - Guide d'implémentation](MODAL_CENTERING_IMPLEMENTATION.md) - Centrage des fenêtres modales ✅
-- [Standardisation des modals](MODAL_STANDARDIZATION_IMPLEMENTATION.md) - Uniformisation des modals
+- [Implémentation de la standardisation des modals](MODAL_STANDARDIZATION_IMPLEMENTATION.md) - Uniformisation des modals ✅
 
 ---
 
@@ -182,4 +182,5 @@ dns3/
 ---
 
 **Dernière mise à jour** : 2025-12-13  
-**Version de la documentation** : 2.1
+**Version de la documentation** : 2.2
+**Progression de la traduction** : 26/52 fichiers traduits (50%) ✅
