@@ -1,124 +1,124 @@
-# Validation Flattening Implementation
+# Implémentation de l'aplatissement pour la validation
 
-## Overview
+## Vue d'ensemble
 
-This implementation addresses the issue where zone validation fails when `$INCLUDE` directives reference files not present on disk. The solution generates a single flattened zone file containing all master and include records combined for validation purposes, while keeping the database content unchanged.
+Cette implémentation résout le problème où la validation de zone échoue lorsque les directives `$INCLUDE` référencent des fichiers non présents sur disque. La solution génère un fichier de zone aplati unique contenant tous les enregistrements master et include combinés à des fins de validation, tout en gardant le contenu de la base de données inchangé.
 
-## Changes Made
+## Modifications effectuées
 
-### 1. Database Migration (012_add_validation_command_fields.sql)
+### 1. Migration de base de données (012_add_validation_command_fields.sql)
 
-Added two new columns to the `zone_file_validation` table:
-- `command` (TEXT): Stores the exact named-checkzone command executed
-- `return_code` (INT): Stores the exit code from the validation command
+Ajout de deux nouvelles colonnes à la table `zone_file_validation` :
+- `command` (TEXT) : Stocke la commande named-checkzone exacte exécutée
+- `return_code` (INT) : Stocke le code de sortie de la commande de validation
 
-These fields provide better debugging and auditing capabilities.
+Ces champs fournissent de meilleures capacités de débogage et d'audit.
 
-### 2. ZoneFile Model (includes/models/ZoneFile.php)
+### 2. Modèle ZoneFile (includes/models/ZoneFile.php)
 
-#### New Method: `generateFlatZone()`
+#### Nouvelle méthode : `generateFlatZone()`
 
 ```php
 private function generateFlatZone($masterId, &$visited = [])
 ```
 
-This method:
-- Takes a master zone ID and generates a flattened zone file
-- Recursively concatenates master content with all include contents in order
-- Removes `$INCLUDE` directives from the content (since we're inlining)
-- Uses a `$visited` array to prevent circular include dependencies
-- Maintains the correct order based on `position` column in `zone_file_includes`
+Cette méthode :
+- Prend un ID de zone master et génère un fichier de zone aplati
+- Concatène récursivement le contenu master avec tous les contenus d'inclusion dans l'ordre
+- Supprime les directives `$INCLUDE` du contenu (puisque nous inlinons)
+- Utilise un tableau `$visited` pour éviter les dépendances d'inclusion circulaires
+- Maintient l'ordre correct basé sur la colonne `position` dans `zone_file_includes`
 
-#### Updated Method: `runNamedCheckzone()`
+#### Méthode mise à jour : `runNamedCheckzone()`
 
-Changed from writing multiple files to disk to writing a single flattened file:
+Changement de l'écriture de plusieurs fichiers sur disque à l'écriture d'un seul fichier aplati :
 
-**Before:**
-- Wrote master zone file with `$INCLUDE` directives
-- Recursively wrote all include files to disk in proper directory structure
-- Ran named-checkzone on the master file (which then followed `$INCLUDE` directives)
+**Avant :**
+- Écrivait le fichier de zone master avec les directives `$INCLUDE`
+- Écrivait récursivement tous les fichiers include sur disque dans une structure de répertoire appropriée
+- Exécutait named-checkzone sur le fichier master (qui suivait alors les directives `$INCLUDE`)
 
-**After:**
-- Generates flattened content using `generateFlatZone()`
-- Writes single flattened zone file to temporary directory
-- Runs named-checkzone on the flattened file
-- Captures and stores command and exit code
-- Truncates output if longer than 5000 characters
-- Respects `JOBS_KEEP_TMP=1` environment variable for debugging
+**Après :**
+- Génère le contenu aplati en utilisant `generateFlatZone()`
+- Écrit un seul fichier de zone aplati dans le répertoire temporaire
+- Exécute named-checkzone sur le fichier aplati
+- Capture et stocke la commande et le code de sortie
+- Tronque la sortie si elle dépasse 5000 caractères
+- Respecte la variable d'environnement `JOBS_KEEP_TMP=1` pour le débogage
 
-#### Updated Method: `storeValidationResult()`
+#### Méthode mise à jour : `storeValidationResult()`
 
-Added two optional parameters:
-- `$command`: The command executed
-- `$returnCode`: The exit code
+Ajout de deux paramètres optionnels :
+- `$command` : La commande exécutée
+- `$returnCode` : Le code de sortie
 
-These are stored in the database for audit and debugging purposes.
+Ceux-ci sont stockés dans la base de données à des fins d'audit et de débogage.
 
-#### Updated Method: `propagateValidationToIncludes()`
+#### Méthode mise à jour : `propagateValidationToIncludes()`
 
-Updated to pass command and return_code to child includes when propagating validation results.
+Mise à jour pour transmettre command et return_code aux includes enfants lors de la propagation des résultats de validation.
 
-## How It Works
+## Fonctionnement
 
-### For Master Zones
+### Pour les zones master
 
-1. User creates/updates a master zone
-2. Validation is triggered (sync or async)
-3. `generateFlatZone()` is called to create flattened content
-4. Single zone file is written to temporary directory
-5. `named-checkzone` is executed on the flattened file
-6. Results (status, output, command, return_code) are stored
-7. Results are propagated to all child includes
-8. Temporary directory is cleaned up (unless `JOBS_KEEP_TMP=1`)
+1. L'utilisateur crée/met à jour une zone master
+2. La validation est déclenchée (synchrone ou asynchrone)
+3. `generateFlatZone()` est appelée pour créer le contenu aplati
+4. Un fichier de zone unique est écrit dans le répertoire temporaire
+5. `named-checkzone` est exécuté sur le fichier aplati
+6. Les résultats (status, output, command, return_code) sont stockés
+7. Les résultats sont propagés à tous les includes enfants
+8. Le répertoire temporaire est nettoyé (sauf si `JOBS_KEEP_TMP=1`)
 
-### For Include Zones
+### Pour les zones include
 
-1. User creates/updates an include zone
-2. Validation is triggered (sync or async)
-3. `findTopMaster()` traverses the parent chain to find top master
-4. Validation runs on the top master (same as above)
-5. Results are stored for both master and include zones
+1. L'utilisateur crée/met à jour une zone include
+2. La validation est déclenchée (synchrone ou asynchrone)
+3. `findTopMaster()` traverse la chaîne parente pour trouver le master de niveau supérieur
+4. La validation s'exécute sur le master de niveau supérieur (comme ci-dessus)
+5. Les résultats sont stockés pour les zones master et include
 
-## Cycle Detection
+## Détection de cycles
 
-The implementation prevents circular dependencies in two places:
+L'implémentation empêche les dépendances circulaires à deux endroits :
 
-1. **`generateFlatZone()`**: Uses `$visited` array to track visited zone IDs
-2. **`findTopMaster()`**: Uses `$visited` array to detect cycles in parent chain
-3. **`propagateValidationToIncludes()`**: Uses BFS with visited tracking
+1. **`generateFlatZone()`** : Utilise un tableau `$visited` pour suivre les IDs de zone visités
+2. **`findTopMaster()`** : Utilise un tableau `$visited` pour détecter les cycles dans la chaîne parente
+3. **`propagateValidationToIncludes()`** : Utilise BFS avec suivi des visites
 
-## Debugging
+## Débogage
 
-Set the environment variable `JOBS_KEEP_TMP=1` to preserve temporary directories:
+Définissez la variable d'environnement `JOBS_KEEP_TMP=1` pour préserver les répertoires temporaires :
 
 ```bash
 JOBS_KEEP_TMP=1 php jobs/process_validations.php jobs/validation_queue.json
 ```
 
-The worker log (`jobs/worker.log`) now includes:
-- Temporary directory path
-- Executed command
-- Exit code
-- Size of generated flattened content
+Le journal du worker (`jobs/worker.log`) inclut maintenant :
+- Chemin du répertoire temporaire
+- Commande exécutée
+- Code de sortie
+- Taille du contenu aplati généré
 
-## Database Content Unchanged
+## Contenu de la base de données inchangé
 
-Important: The `zone_files.content` column remains unchanged. It still contains `$INCLUDE` directives as stored by users. The flattening only occurs during validation and is not persisted.
+Important : La colonne `zone_files.content` reste inchangée. Elle contient toujours les directives `$INCLUDE` telles que stockées par les utilisateurs. L'aplatissement se produit uniquement pendant la validation et n'est pas persisté.
 
-## Testing
+## Tests
 
-To test the implementation:
+Pour tester l'implémentation :
 
-1. Create a master zone with SOA record
-2. Create one or more include zones with A records
-3. Assign includes to master via `zone_file_includes` table
-4. Trigger validation on master or include
-5. Check `zone_file_validation` table for results
-6. Verify command and return_code fields are populated
+1. Créer une zone master avec un enregistrement SOA
+2. Créer une ou plusieurs zones include avec des enregistrements A
+3. Assigner les includes au master via la table `zone_file_includes`
+4. Déclencher la validation sur master ou include
+5. Vérifier la table `zone_file_validation` pour les résultats
+6. Vérifier que les champs command et return_code sont remplis
 
-## Example
+## Exemple
 
-Master zone content (stored in DB):
+Contenu de la zone master (stocké dans la BD) :
 ```
 $ORIGIN example.com.
 $TTL 3600
@@ -126,13 +126,13 @@ $TTL 3600
 $INCLUDE "includes/hosts.inc"
 ```
 
-Include zone content (stored in DB):
+Contenu de la zone include (stocké dans la BD) :
 ```
 host1   IN  A   192.168.1.1
 host2   IN  A   192.168.1.2
 ```
 
-Flattened content (used for validation, NOT stored):
+Contenu aplati (utilisé pour la validation, NON stocké) :
 ```
 $ORIGIN example.com.
 $TTL 3600
@@ -147,7 +147,7 @@ host2   IN  A   192.168.1.2
 
 ## Migration
 
-The database schema is now available in `database.sql`. Import it for new installations:
+Le schéma de base de données est maintenant disponible dans `database.sql`. Importez-le pour les nouvelles installations :
 
 ```sql
 mysql dns3_db < database.sql

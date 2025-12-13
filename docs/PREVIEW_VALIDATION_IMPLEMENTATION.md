@@ -1,35 +1,35 @@
-# Zone Preview with Validation Display - Implementation Summary
+# Aperçu de zone avec affichage de validation - Résumé d'implémentation
 
-## Overview
-This feature enhancement adds validation result display to the zone file preview modal, providing users with immediate feedback on the validity of their generated zone files.
+## Vue d'ensemble
+Cette amélioration de fonctionnalité ajoute l'affichage des résultats de validation à la modale d'aperçu de fichier de zone, fournissant aux utilisateurs un retour immédiat sur la validité de leurs fichiers de zone générés.
 
-## Changes Made
+## Modifications effectuées
 
-### 1. JavaScript Changes (`assets/js/zone-files.js`)
+### 1. Modifications JavaScript (`assets/js/zone-files.js`)
 
-#### New Function: `fetchAndDisplayValidation(zoneId)`
-- Calls the `zone_validate` API endpoint with `trigger=true` parameter
-- Uses `credentials: 'same-origin'` for authentication
-- Handles JSON and non-JSON responses gracefully
-- Displays validation results or errors in the modal
-- Error handling with user-friendly messages in French
+#### Nouvelle fonction : `fetchAndDisplayValidation(zoneId)`
+- Appelle l'endpoint API `zone_validate` avec le paramètre `trigger=true`
+- Utilise `credentials: 'same-origin'` pour l'authentification
+- Gère les réponses JSON et non-JSON de manière élégante
+- Affiche les résultats de validation ou les erreurs dans la modale
+- Gestion des erreurs avec messages conviviaux en français
 
-#### New Function: `displayValidationResults(validation)`
-- Displays validation status with appropriate icons and colors:
-  - ✅ Success (green) - `status: 'passed'`
-  - ❌ Failed (red) - `status: 'failed'`
-  - ⏳ Pending (yellow) - `status: 'pending'`
-- Shows validation output from `named-checkzone` command
-- Handles null/missing validation data gracefully
+#### Nouvelle fonction : `displayValidationResults(validation)`
+- Affiche le statut de validation avec icônes et couleurs appropriées :
+  - ✅ Succès (vert) - `status: 'passed'`
+  - ❌ Échec (rouge) - `status: 'failed'`
+  - ⏳ En attente (jaune) - `status: 'pending'`
+- Affiche la sortie de validation de la commande `named-checkzone`
+- Gère les données de validation nulles/manquantes de manière élégante
 
-#### Modified Function: `handleGenerateZoneFile()`
-- Added call to `fetchAndDisplayValidation()` after successful generation
-- Hides validation section on generation errors
-- All error messages are in French
+#### Fonction modifiée : `handleGenerateZoneFile()`
+- Ajout de l'appel à `fetchAndDisplayValidation()` après génération réussie
+- Masque la section de validation en cas d'erreur de génération
+- Tous les messages d'erreur sont en français
 
-### 2. PHP Changes (`zone-files.php`)
+### 2. Modifications PHP (`zone-files.php`)
 
-#### Added Validation Results Section
+#### Section de résultats de validation ajoutée
 ```html
 <div id="zoneValidationResults" class="validation-results" style="display: none;">
     <h4>Résultat de la validation (named-checkzone)</h4>
@@ -37,99 +37,99 @@ This feature enhancement adds validation result display to the zone file preview
     <div id="zoneValidationOutput" class="validation-output"></div>
 </div>
 ```
-- Initially hidden, displayed after validation completes
-- Located below the generated content textarea
-- Uses semantic IDs for JavaScript access
+- Initialement masquée, affichée après la fin de la validation
+- Située sous la zone de texte du contenu généré
+- Utilise des IDs sémantiques pour l'accès JavaScript
 
-### 3. CSS Changes (`assets/css/zone-files.css`)
+### 3. Modifications CSS (`assets/css/zone-files.css`)
 
-#### New Styles Added
-- `.validation-results` - Container styling with border and background
-- `.validation-status` - Status badge with state-specific colors:
-  - `.validation-status.passed` - Green background
-  - `.validation-status.failed` - Red background
-  - `.validation-status.pending` - Yellow background
-- `.validation-output` - Monospace output display with scrolling
+#### Nouveaux styles ajoutés
+- `.validation-results` - Style du conteneur avec bordure et arrière-plan
+- `.validation-status` - Badge de statut avec couleurs spécifiques à l'état :
+  - `.validation-status.passed` - Arrière-plan vert
+  - `.validation-status.failed` - Arrière-plan rouge
+  - `.validation-status.pending` - Arrière-plan jaune
+- `.validation-output` - Affichage de sortie monospace avec défilement
 
-## API Endpoints Used
+## Endpoints API utilisés
 
-### 1. Generate Zone File
-- **Endpoint**: `api/zone_api.php?action=generate_zone_file&id=NN`
-- **Method**: GET
-- **Authentication**: `credentials: 'same-origin'`
-- **Response**: JSON with `success`, `content`, `filename`
+### 1. Génération de fichier de zone
+- **Endpoint** : `api/zone_api.php?action=generate_zone_file&id=NN`
+- **Méthode** : GET
+- **Authentification** : `credentials: 'same-origin'`
+- **Réponse** : JSON avec `success`, `content`, `filename`
 
-### 2. Zone Validation
-- **Endpoint**: `api/zone_api.php?action=zone_validate&id=NN&trigger=true`
-- **Method**: GET
-- **Authentication**: `credentials: 'same-origin'`
-- **Response**: JSON with `success`, `validation` object
-- **Validation Object**: Contains `status`, `output`, `checked_at`, etc.
+### 2. Validation de zone
+- **Endpoint** : `api/zone_api.php?action=zone_validate&id=NN&trigger=true`
+- **Méthode** : GET
+- **Authentification** : `credentials: 'same-origin'`
+- **Réponse** : JSON avec `success`, objet `validation`
+- **Objet Validation** : Contient `status`, `output`, `checked_at`, etc.
 
-## User Experience Flow
+## Flux d'expérience utilisateur
 
-1. User clicks "Générer le fichier de zone" button
-2. Preview modal opens immediately with "Chargement…" message
-3. Zone file is generated and fetched from API
-4. Generated content is displayed in textarea
-5. Download button is attached with Blob functionality
-6. Validation is triggered automatically
-7. Validation results appear below the content:
-   - Status badge with icon and color
-   - Output from `named-checkzone` command
-8. User can download the file or close the modal
+1. L'utilisateur clique sur le bouton "Générer le fichier de zone"
+2. La modale d'aperçu s'ouvre immédiatement avec le message "Chargement…"
+3. Le fichier de zone est généré et récupéré depuis l'API
+4. Le contenu généré est affiché dans la zone de texte
+5. Le bouton de téléchargement est attaché avec la fonctionnalité Blob
+6. La validation est déclenchée automatiquement
+7. Les résultats de validation apparaissent sous le contenu :
+   - Badge de statut avec icône et couleur
+   - Sortie de la commande `named-checkzone`
+8. L'utilisateur peut télécharger le fichier ou fermer la modale
 
-## Error Handling
+## Gestion des erreurs
 
-### Generation Errors
-- Displayed in the textarea with descriptive French message
-- Validation section is hidden
-- Console logging for debugging
+### Erreurs de génération
+- Affichées dans la zone de texte avec un message descriptif en français
+- La section de validation est masquée
+- Journalisation console pour le débogage
 
-### Validation Errors
-- Displayed in validation section with error status
-- Error message in French
-- Console logging for debugging
+### Erreurs de validation
+- Affichées dans la section de validation avec statut d'erreur
+- Message d'erreur en français
+- Journalisation console pour le débogage
 
-### Network Errors
-- Caught and displayed with user-friendly messages
-- All error paths are handled
+### Erreurs réseau
+- Interceptées et affichées avec des messages conviviaux
+- Tous les chemins d'erreur sont gérés
 
-## Modal Behavior
+## Comportement de la modale
 
-- Preview modal has `z-index: 9999` to ensure it appears above editor modal
-- Uses `open` class for display control
-- Closes independently without affecting parent editor modal
-- Click on overlay closes the preview modal
+- La modale d'aperçu a un `z-index: 9999` pour s'assurer qu'elle apparaît au-dessus de la modale d'édition
+- Utilise la classe `open` pour le contrôle d'affichage
+- Se ferme indépendamment sans affecter la modale d'édition parente
+- Clic sur l'overlay ferme la modale d'aperçu
 
-## Code Quality
+## Qualité du code
 
-- Pure vanilla JavaScript (no external libraries)
-- All fetch calls use `credentials: 'same-origin'`
-- Consistent error handling pattern
-- French language for all user-facing messages
-- Console logging for developer debugging
-- Responsive CSS with proper theming variables
+- JavaScript vanilla pur (pas de bibliothèques externes)
+- Tous les appels fetch utilisent `credentials: 'same-origin'`
+- Motif de gestion des erreurs cohérent
+- Langue française pour tous les messages utilisateur
+- Journalisation console pour le débogage développeur
+- CSS responsive avec variables de thème appropriées
 
-## Testing Checklist
+## Liste de vérification des tests
 
-- [x] PHP syntax validation passed
-- [x] JavaScript syntax validation passed
-- [ ] Manual test: Click "Générer le fichier de zone"
-- [ ] Manual test: Preview opens immediately with loading message
-- [ ] Manual test: Content displays after generation
-- [ ] Manual test: Validation results appear below content
-- [ ] Manual test: Status badge shows correct color/icon
-- [ ] Manual test: Download button works
-- [ ] Manual test: Preview modal closes independently
-- [ ] Manual test: Error handling for failed generation
-- [ ] Manual test: Error handling for failed validation
-- [ ] Manual test: z-index ensures preview is above editor modal
+- [x] Validation de syntaxe PHP réussie
+- [x] Validation de syntaxe JavaScript réussie
+- [ ] Test manuel : Clic sur "Générer le fichier de zone"
+- [ ] Test manuel : L'aperçu s'ouvre immédiatement avec message de chargement
+- [ ] Test manuel : Le contenu s'affiche après génération
+- [ ] Test manuel : Les résultats de validation apparaissent sous le contenu
+- [ ] Test manuel : Le badge de statut affiche la bonne couleur/icône
+- [ ] Test manuel : Le bouton de téléchargement fonctionne
+- [ ] Test manuel : La modale d'aperçu se ferme indépendamment
+- [ ] Test manuel : Gestion des erreurs pour génération échouée
+- [ ] Test manuel : Gestion des erreurs pour validation échouée
+- [ ] Test manuel : Le z-index assure que l'aperçu est au-dessus de la modale d'édition
 
-## Files Modified
+## Fichiers modifiés
 
-1. `assets/js/zone-files.js` - Added validation fetch and display logic
-2. `assets/css/zone-files.css` - Added validation results styling
-3. `zone-files.php` - Added validation results HTML structure
+1. `assets/js/zone-files.js` - Ajout de la logique de récupération et d'affichage de validation
+2. `assets/css/zone-files.css` - Ajout du style des résultats de validation
+3. `zone-files.php` - Ajout de la structure HTML des résultats de validation
 
-Total lines added: ~181 (121 JS, 55 CSS, 5 HTML)
+Total de lignes ajoutées : ~181 (121 JS, 55 CSS, 5 HTML)

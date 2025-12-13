@@ -1,6 +1,6 @@
-# Diagramme d'architecture : Fonctionnalité de fichiers de zone paginés
+# Architecture Diagram: Paginated Zone Files Feature
 
-## Architecture système
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
