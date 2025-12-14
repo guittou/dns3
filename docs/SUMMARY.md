@@ -29,7 +29,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 ### 🌐 Gestion DNS et Zones
 
 - [Guide de gestion DNS](DNS_MANAGEMENT_GUIDE.md) - Guide complet pour gérer les enregistrements DNS
-- [Implémentation des métadonnées DNS](DNS_METADATA_IMPLEMENTATION.md) - Détails sur la gestion des métadonnées
+- [Champs de Métadonnées DNS - Documentation d'Implémentation](DNS_METADATA_IMPLEMENTATION.md) - Détails sur la gestion des métadonnées
 - [Génération de fichiers de zone](ZONE_FILE_GENERATION_IMPLEMENTATION.md) - Implémentation de la génération de zones
 - [Résumé de l'implémentation des fichiers de zone](ZONE_FILES_IMPLEMENTATION_SUMMARY.md) - Vue d'ensemble de l'implémentation
 - [Guide de démarrage rapide - Fichiers de zone](ZONE_FILES_QUICK_START.md) - Guide de démarrage rapide
@@ -37,7 +37,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Implémentation récursive des fichiers de zone](ZONE_FILES_RECURSIVE_IMPLEMENTATION.md) - Support des includes récursifs
 - [Guide de test des fichiers de zone](ZONE_FILES_TESTING_GUIDE.md) - Tests pour les fichiers de zone
 - [Fonctionnalité de génération de fichiers de zone - Résumé final](ZONE_GENERATION_FINAL_SUMMARY.md) - Résumé final de l'implémentation
-- [Améliorations de validation de zone](ZONE_VALIDATION_IMPROVEMENTS.md) - Améliorations de la validation
+- [Améliorations de la Validation des Fichiers de Zone](ZONE_VALIDATION_IMPROVEMENTS.md) - Améliorations de la validation
 - [Vérification du combobox de zone](ZONEFILE_COMBOBOX_VERIFICATION.md) - Vérification de l'UI
 
 ---
@@ -45,9 +45,9 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 ### 🔌 API et Intégration
 
 - [Authentification par tokens API](api_token_authentication.md) - Documentation complète de l'authentification API
-- [Résumé de l'implémentation de la validation API](API_VALIDATION_IMPLEMENTATION.md) - Détails de validation via API ✅
+- [Résumé de l'implémentation de la validation API](API_VALIDATION_IMPLEMENTATION.md) - Détails de validation via API
 - [Implémentation de la validation par preview](PREVIEW_VALIDATION_IMPLEMENTATION.md) - Validation en temps réel
-- [Flux du modal de preview](PREVIEW_MODAL_FLOW.md) - Workflow du preview de zone
+- [Flux de la Modale d'Aperçu de Zone](PREVIEW_MODAL_FLOW.md) - Workflow du preview de zone
 - [Diagramme de flux de validation](VALIDATION_FLOW_DIAGRAM.md) - Schéma du processus de validation
 - [Implémentation de l'aplatissement de validation](VALIDATION_FLATTENING_IMPLEMENTATION.md) - Aplatissement pour validation
 - [Implémentation de la validation include/master](VALIDATION_INCLUDE_MASTER_IMPLEMENTATION.md) - Validation des includes
@@ -72,12 +72,13 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 
 ### 🏗️ Architecture et Implémentation
 
-- [Diagramme d'architecture](ARCHITECTURE_DIAGRAM.md) - Vue d'ensemble de l'architecture système
+- [Diagramme d'Architecture : Fonctionnalité de Fichiers de Zone Paginés](ARCHITECTURE_DIAGRAM.md) - Vue d'ensemble de l'architecture système
 - [Correction de l'affichage du domaine DNS - Notes d'implémentation](IMPLEMENTATION_NOTES.md) - Notes d'implémentation de la correction
 - [Implémentation des champs spécifiques par type - Rapport d'état](IMPLEMENTATION_STATUS.md) - État actuel de l'implémentation
 - [Gestion des fichiers de zone - Guide visuel d'implémentation](IMPLEMENTATION_VISUAL_GUIDE.md) - Guide visuel des fonctionnalités
+- [Résumé d'Implémentation : Fonctionnalité de Fichiers de Zone Paginés](IMPLEMENTATION_SUMMARY_PAGINATION.md) - Pagination côté serveur
 - [Statut final](FINAL_STATUS.md) - Statut final du projet
-- [Documentation de l'inlining des includes](INCLUDE_INLINING_DOCUMENTATION.md) - Documentation du système d'include
+- [Validation de Fichier de Zone avec Fichiers Include Séparés](INCLUDE_INLINING_DOCUMENTATION.md) - Documentation du système d'include
 
 ---
 
@@ -86,9 +87,9 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Documentation des modifications UI - Champs spécifiques](UI_CHANGES_DOCUMENTATION.md) - Modifications visuelles et fonctionnelles
 - [Guide visuel des modifications UI - Génération de zone](UI_CHANGES_VISUAL_GUIDE.md) - Guide visuel des changements UI
 - [Guide visuel de l'interface utilisateur - Gestion des fichiers de zone](UI_VISUAL_GUIDE.md) - Guide complet de l'interface modale
-- [Guide des changements visuels](VISUAL_CHANGES_GUIDE.md) - Documentation des modifications visuelles
+- [Modifications Visuelles : Interface Created At / Updated At](VISUAL_CHANGES_GUIDE.md) - Documentation des modifications d'interface
 - [Implémentation Created At / Updated At](CREATED_UPDATED_UI_IMPLEMENTATION.md) - Affichage des horodatages
-- [Implémentation des tables responsives](RESPONSIVE_TABLE_IMPLEMENTATION.md) - Tables adaptatives
+- [Résumé de l'Implémentation de la Disposition Responsive des Tableaux](RESPONSIVE_TABLE_IMPLEMENTATION.md) - Tables adaptatives
 - [Résumé des champs spécifiques par type](TYPE_SPECIFIC_FIELDS_SUMMARY.md) - Champs dédiés par type d'enregistrement
 
 #### Modals
@@ -103,7 +104,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 
 - [Guide de test - Prévisualisation de zone](TESTING_GUIDE.md) - Guide pour tester la prévisualisation avec validation
 - [Plan de test - DNS last_seen et formulaires dynamiques](TEST_PLAN.md) - Plan de test complet
-- [Plan de test des champs spécifiques](TYPE_SPECIFIC_FIELDS_TEST_PLAN.md) - Tests par type d'enregistrement
+- [Implémentation des Champs Spécifiques par Type - Plan de Test](TYPE_SPECIFIC_FIELDS_TEST_PLAN.md) - Tests par type d'enregistrement
 - [Checklist de vérification](VERIFICATION_CHECKLIST.md) - Checklist pour validation manuelle
 - [Vérification complétée](VERIFICATION_COMPLETE.md) - Rapport de vérification
 
@@ -181,6 +182,6 @@ dns3/
 
 ---
 
-**Dernière mise à jour** : 2025-12-13  
-**Version de la documentation** : 2.3
-**Progression de la traduction** : 35/52 fichiers traduits (67%) ✅
+**Dernière mise à jour** : 2025-12-14  
+**Version de la documentation** : 2.4
+**Progression de la traduction** : 45/52 fichiers traduits (87%) ✅

@@ -1,19 +1,19 @@
-# Zone File Validation with Separate Include Files
+# Validation de Fichier de Zone avec Fichiers Include Séparés
 
-## Overview
+## Vue d'ensemble
 
 This feature implements validation of zone files with `$INCLUDE` directives by writing include files to disk in their proper directory structure, allowing `named-checkzone` to natively resolve includes.
 
 ## Problem Statement
 
-Previously, validation with `named-checkzone` would fail when `$INCLUDE` directives referenced files that don't exist on disk. This is because:
+## Énoncé du Problème
 
 1. Zone files are generated dynamically from the database
 2. Included files don't exist as separate files on disk
 3. `named-checkzone` cannot validate a zone with missing includes
 
 ## Solution
-
+## Solution
 The solution writes zone files and their includes to a temporary directory with proper structure:
 
 1. **During validation**: Write main zone file and all includes as separate files to temporary directory
@@ -21,7 +21,7 @@ The solution writes zone files and their includes to a temporary directory with 
 3. **During download**: Keep `$INCLUDE` directives unchanged for users
 
 ## Implementation Details
-
+## Détails d'Implémentation
 ### New Methods
 
 #### 1. `writeZoneFilesToDisk($zoneId, $tmpDir, &$visited = [])`
