@@ -1,77 +1,77 @@
-# Zone Files Management - Quick Start Guide
+# Gestion des Fichiers de Zone - Référence Rapide
 
-## Overview
+## Vue d'ensemble
 
-The Zone Files Management interface provides a complete solution for managing DNS zone files with support for recursive includes and automatic cycle detection.
+L'interface de gestion des fichiers de zone fournit une solution complète pour gérer les fichiers de zone DNS avec support des includes récursifs et de la détection automatique de cycles.
 
-## Accessing the Interface
+## Accéder à l'Interface
 
-1. Log in as an administrator
-2. Click on the "Zones" tab in the navigation menu
-3. You'll see the zone management interface with a split-pane layout
+1. Se connecter en tant qu'administrateur
+2. Cliquer sur l'onglet "Zones" dans le menu de navigation
+3. Vous verrez l'interface de gestion des zones avec une disposition à deux panneaux
 
-## Interface Layout
+## Disposition de l'Interface
 
-### Left Pane - Zone List
-- **Search Bar**: Filter zones by name or filename
-- **Type Filter**: Filter by Master or Include
-- **Status Filter**: Show Active, Inactive, or Deleted zones
-- **Master Zones**: List of master zone files
-- **Include Zones**: List of include zone files
-- Click any zone to view/edit its details
+### Panneau Gauche - Liste des Zones
+- **Barre de Recherche** : Filtrer les zones par nom ou fichier
+- **Filtre de Type** : Filtrer par Maître ou Include
+- **Filtre de Statut** : Afficher les zones Actives, Inactives ou Supprimées
+- **Zones Maîtres** : Liste des fichiers de zone maîtres
+- **Zones Include** : Liste des fichiers de zone include
+- Cliquer sur n'importe quelle zone pour voir/éditer ses détails
 
-### Right Pane - Zone Details (4 Tabs)
+### Panneau Droit - Détails de la Zone (4 Onglets)
 
-#### 1. Details Tab
-- Edit zone metadata: Name, Filename, Type, Status
-- View creation and modification info
-- Save changes with the "Enregistrer" button
+#### 1. Onglet Détails
+- Éditer les métadonnées de la zone : Nom, Fichier, Type, Statut
+- Voir les informations de création et modification
+- Sauvegarder les modifications avec le bouton "Enregistrer"
 
-#### 2. Editor Tab
-- Edit zone file content in a large textarea
-- **Download**: Download the zone file content
-- **View Resolved Content**: See the complete content with all includes flattened
-- **Save Content**: Save changes to the zone content
+#### 2. Onglet Éditeur
+- Éditer le contenu du fichier de zone dans une grande zone de texte
+- **Télécharger** : Télécharger le contenu du fichier de zone
+- **Voir le Contenu Résolu** : Voir le contenu complet avec tous les includes aplatis
+- **Sauvegarder le Contenu** : Sauvegarder les modifications du contenu de la zone
 
-#### 3. Includes Tab
-- View recursive tree of includes
-- **Add Include**: Add a new include file to the current zone
-  - Select from available include files
-  - Set position for ordering
-- **Remove**: Click the X button on any include to remove it
-- Tree shows nested structure with indentation
+#### 3. Onglet Includes
+- Voir l'arbre récursif des includes
+- **Ajouter Include** : Ajouter un nouveau fichier include à la zone actuelle
+  - Sélectionner parmi les fichiers include disponibles
+  - Définir la position pour l'ordonnancement
+- **Supprimer** : Cliquer sur le bouton X sur n'importe quel include pour le supprimer
+- L'arbre montre la structure imbriquée avec indentation
 
-#### 4. History Tab
-- View audit trail of all changes
-- Shows action type, user, timestamp, and notes
-- Tracks content changes and status changes
+#### 4. Onglet Historique
+- Voir la piste d'audit de tous les changements
+- Affiche le type d'action, l'utilisateur, l'horodatage et les notes
+- Suit les changements de contenu et de statut
 
-## Creating a New Zone
+## Créer une Nouvelle Zone
 
-1. Click **"Nouvelle zone"** button (top right)
-2. Fill in the form:
-   - **Name**: Zone name (e.g., example.com)
-   - **Filename**: Zone file name (e.g., db.example.com)
-   - **Type**: Select Master or Include
-   - **Content**: Optional - add initial zone content
-3. Click **"Créer"**
+1. Cliquer sur le bouton **"Nouvelle zone"** (en haut à droite)
+2. Remplir le formulaire :
+   - **Nom** : Nom de la zone (ex : example.com)
+   - **Fichier** : Nom du fichier de zone (ex : db.example.com)
+   - **Type** : Sélectionner Maître ou Include
+   - **Contenu** : Optionnel - ajouter un contenu de zone initial
+3. Cliquer sur **"Créer"**
 
-## Working with Recursive Includes
+## Travailler avec les Includes Récursifs
 
-### Adding Includes to a Zone
+### Ajouter des Includes à une Zone
 
-1. Select a zone (master or include)
-2. Go to the **Includes** tab
-3. Click **"Ajouter include"**
-4. Select an include file from the dropdown
-5. Set position (0 = first, higher numbers = later)
-6. Click **"Ajouter"**
+1. Sélectionner une zone (maître ou include)
+2. Aller à l'onglet **Includes**
+3. Cliquer sur **"Ajouter include"**
+4. Sélectionner un fichier include dans la liste déroulante
+5. Définir la position (0 = premier, nombres supérieurs = plus tard)
+6. Cliquer sur **"Ajouter"**
 
-### Include Tree Hierarchy
+### Hiérarchie de l'Arbre Include
 
-Includes can be nested to any depth:
+Les includes peuvent être imbriqués à n'importe quelle profondeur :
 ```
-Master Zone (example.com)
+Zone Maître (example.com)
 ├── Include A (common-records)
 │   ├── Include B (ns-records)
 │   └── Include C (mx-records)
@@ -79,114 +79,114 @@ Master Zone (example.com)
     └── Include E (service-records)
 ```
 
-### Viewing Resolved Content
+### Voir le Contenu Résolu
 
-To see the complete zone file with all includes flattened:
+Pour voir le fichier de zone complet avec tous les includes aplatis :
 
-1. Select a zone
-2. Go to the **Editor** tab
-3. Click **"Voir le contenu résolu"**
-4. A modal will show the complete content with comments indicating each include
+1. Sélectionner une zone
+2. Aller à l'onglet **Éditeur**
+3. Cliquer sur **"Voir le contenu résolu"**
+4. Un modal affichera le contenu complet avec des commentaires indiquant chaque include
 
-The resolved content will look like:
+Le contenu résolu ressemblera à :
 ```
 ; Zone: example.com (db.example.com)
 ; Type: master
 ; Generated: 2025-10-21 12:00:00
 
-[master zone content]
+[contenu de la zone maître]
 
 ; Including: common-records (db.common)
-[common-records content]
+[contenu de common-records]
 
 ; Including: ns-records (db.ns)
-[ns-records content]
+[contenu de ns-records]
 
 ...
 ```
 
-## Cycle Detection
+## Détection de Cycles
 
-The system automatically prevents circular dependencies:
+Le système empêche automatiquement les dépendances circulaires :
 
-### What is a Cycle?
+### Qu'est-ce qu'un Cycle ?
 
-A cycle occurs when:
-- A zone tries to include itself
-- Zone A includes Zone B, and Zone B includes Zone A
-- Any circular path: A → B → C → A
+Un cycle se produit quand :
+- Une zone tente de s'inclure elle-même
+- La zone A inclut la zone B, et la zone B inclut la zone A
+- N'importe quel chemin circulaire : A → B → C → A
 
-### How It Works
+### Comment Ça Fonctionne
 
-When you try to add an include that would create a cycle:
-1. The system checks the entire include tree
-2. If adding the include would create a cycle, it's rejected
-3. You'll see an error: "Cannot create circular dependency"
+Quand vous essayez d'ajouter un include qui créerait un cycle :
+1. Le système vérifie l'arbre complet des includes
+2. Si l'ajout de l'include créerait un cycle, il est rejeté
+3. Vous verrez une erreur : "Cannot create circular dependency"
 
-### Example Scenarios
+### Exemples de Scénarios
 
-❌ **Rejected - Self Include:**
+❌ **Rejeté - Auto-inclusion :**
 ```
-Zone A tries to include Zone A
-→ Error: "Cannot include a zone file in itself"
-```
-
-❌ **Rejected - Simple Cycle:**
-```
-Master → Include A → Include B
-Try to add: Master to Include B
-→ Error: "Cannot create circular dependency"
+La zone A tente d'inclure la zone A
+→ Erreur : "Cannot include a zone file in itself"
 ```
 
-❌ **Rejected - Complex Cycle:**
+❌ **Rejeté - Cycle Simple :**
+```
+Maître → Include A → Include B
+Tentative d'ajout : Maître vers Include B
+→ Erreur : "Cannot create circular dependency"
+```
+
+❌ **Rejeté - Cycle Complexe :**
 ```
 Zone A → Zone B → Zone C → Zone D
-Try to add: Zone D to Zone A
-→ Error: "Cannot create circular dependency"
+Tentative d'ajout : Zone D vers Zone A
+→ Erreur : "Cannot create circular dependency"
 ```
 
-✅ **Allowed - Tree Structure:**
+✅ **Autorisé - Structure en Arbre :**
 ```
-Master
+Maître
 ├── Include A
 │   └── Include B
 └── Include C
     └── Include D
 ```
 
-## Position-Based Ordering
+## Ordonnancement par Position
 
-The `position` field controls the order of includes:
+Le champ `position` contrôle l'ordre des includes :
 
-- Position 0 = First
-- Position 1 = Second
+- Position 0 = Premier
+- Position 1 = Deuxième
 - etc.
 
-Includes with the same position are sorted alphabetically by name.
+Les includes avec la même position sont triés alphabétiquement par nom.
 
-Example:
+Exemple :
 ```
 Include A (position 0)
-Include B (position 0)  ← alphabetically after A
+Include B (position 0)  ← alphabétiquement après A
 Include C (position 1)
 Include D (position 2)
 ```
 
-## API Endpoints
+## Points de Terminaison API
 
-The system provides REST API endpoints for programmatic access:
+Le système fournit des points de terminaison API REST pour un accès programmatique :
 
-### List Zones
+### Lister les Zones
 ```
 GET /api/zone_api.php?action=list_zones&file_type=master&status=active
 ```
 
-### Get Zone with Includes
+### Obtenir une Zone avec Includes
 ```
 GET /api/zone_api.php?action=get_zone&id=1
 ```
 
-### Create Zone
+### Créer une Zone
 ```
 POST /api/zone_api.php?action=create_zone
 Body: {
@@ -197,7 +197,7 @@ Body: {
 }
 ```
 
-### Assign Include (with Cycle Detection)
+### Assigner un Include (avec Détection de Cycles)
 ```
 POST /api/zone_api.php?action=assign_include
 Body: {
@@ -206,13 +206,13 @@ Body: {
   "position": 0
 }
 
-Response on cycle:
+Réponse en cas de cycle :
 {
   "error": "Cannot create circular dependency: this would create a cycle in the include tree"
 }
 ```
 
-### Get Recursive Tree
+### Obtenir l'Arbre Récursif
 ```
 GET /api/zone_api.php?action=get_tree&id=1
 
@@ -233,7 +233,7 @@ Response: {
 }
 ```
 
-### Render Resolved Content
+### Rendre le Contenu Résolu
 ```
 GET /api/zone_api.php?action=render_resolved&id=1
 
@@ -243,82 +243,82 @@ Response: {
 }
 ```
 
-## Best Practices
+## Bonnes Pratiques
 
-### Zone Organization
+### Organisation des Zones
 
-1. **Master Zones**: One per domain
-2. **Common Includes**: Reusable records (NS, SOA, MX)
-3. **Service Includes**: Service-specific records
-4. **Application Includes**: Application-specific records
+1. **Zones Maîtres** : Une par domaine
+2. **Includes Communs** : Enregistrements réutilisables (NS, SOA, MX)
+3. **Includes de Service** : Enregistrements spécifiques aux services
+4. **Includes d'Application** : Enregistrements spécifiques aux applications
 
-Example structure:
+Exemple de structure :
 ```
-Masters:
+Maîtres :
 - example.com
 - example.net
 
-Includes:
-- common-ns (NS records)
-- common-mx (MX records)
-- app-web (web server records)
-- app-mail (mail server records)
+Includes :
+- common-ns (enregistrements NS)
+- common-mx (enregistrements MX)
+- app-web (enregistrements serveur web)
+- app-mail (enregistrements serveur mail)
 ```
 
-### Include Strategy
+### Stratégie d'Include
 
-- Keep includes focused on a single purpose
-- Use position to control order (SOA/NS first, others later)
-- Don't nest too deeply (3-4 levels max)
-- Document the include structure in zone comments
+- Garder les includes focalisés sur un seul objectif
+- Utiliser la position pour contrôler l'ordre (SOA/NS en premier, autres plus tard)
+- Ne pas imbriquer trop profondément (3-4 niveaux max)
+- Documenter la structure d'include dans les commentaires de zone
 
-### Content Management
+### Gestion du Contenu
 
-- Use the Editor tab for quick edits
-- Use "View Resolved Content" to verify the final zone
-- Download zones before major changes
-- Review history after changes to verify
+- Utiliser l'onglet Éditeur pour les éditions rapides
+- Utiliser "Voir le Contenu Résolu" pour vérifier la zone finale
+- Télécharger les zones avant les changements majeurs
+- Réviser l'historique après les changements pour vérifier
 
-## Troubleshooting
+## Dépannage
 
 ### "Cannot create circular dependency"
-- Check the include tree to see existing relationships
-- Remove conflicting includes before adding new ones
-- Remember: includes can include other includes
+- Vérifier l'arbre des includes pour voir les relations existantes
+- Supprimer les includes conflictuels avant d'en ajouter de nouveaux
+- Rappel : les includes peuvent inclure d'autres includes
 
-### Zone Not Showing in DNS Records
-- Verify zone status is "active"
-- Check zone file_type (master or include)
-- Refresh the zone list
+### Zone Non Visible dans les Enregistrements DNS
+- Vérifier que le statut de la zone est "active"
+- Vérifier le file_type de la zone (master ou include)
+- Rafraîchir la liste des zones
 
-### Content Not Saving
-- Check that you have admin privileges
-- Verify the zone status is not "deleted"
-- Check browser console for errors
+### Le Contenu Ne Se Sauvegarde Pas
+- Vérifier que vous avez les privilèges administrateur
+- Vérifier que le statut de la zone n'est pas "deleted"
+- Vérifier la console du navigateur pour les erreurs
 
-### Include Tree Not Loading
-- Verify the zone has includes assigned
-- Check for circular references (should be prevented but could exist from direct DB edits)
-- Refresh the page
+### L'Arbre des Includes Ne Se Charge Pas
+- Vérifier que la zone a des includes assignés
+- Vérifier les références circulaires (devrait être empêché mais pourrait exister depuis des éditions directes en BD)
+- Rafraîchir la page
 
-## Security Notes
+## Notes de Sécurité
 
-- Only administrators can create, edit, or delete zones
-- All changes are logged in the history
-- Zone file content is stored securely in the database
-- API endpoints require authentication
-- Cycle detection prevents malicious or accidental loops
+- Seuls les administrateurs peuvent créer, éditer ou supprimer des zones
+- Tous les changements sont enregistrés dans l'historique
+- Le contenu des fichiers de zone est stocké de façon sécurisée dans la base de données
+- Les points de terminaison API requièrent l'authentification
+- La détection de cycles empêche les boucles malveillantes ou accidentelles
 
-## Related Documentation
+## Documentation Connexe
 
-- `ZONE_FILES_RECURSIVE_IMPLEMENTATION.md` - Technical implementation details
-- `ZONE_FILES_TESTING_GUIDE.md` - Comprehensive testing procedures
-- `ZONE_FILES_IMPLEMENTATION_SUMMARY.md` - Original implementation summary
+- `ZONE_FILES_RECURSIVE_IMPLEMENTATION.md` - Détails d'implémentation technique
+- `ZONE_FILES_TESTING_GUIDE.md` - Procédures de test complètes
+- `ZONE_FILES_IMPLEMENTATION_SUMMARY.md` - Résumé d'implémentation original
 
 ## Support
 
-For issues or questions:
-1. Check the History tab for recent changes
-2. Verify zone status and relationships
-3. Review the resolved content to see actual output
-4. Check server logs for API errors
+Pour les problèmes ou questions :
+1. Vérifier l'onglet Historique pour les changements récents
+2. Vérifier le statut et les relations de la zone
+3. Réviser le contenu résolu pour voir la sortie réelle
+4. Vérifier les logs serveur pour les erreurs API
