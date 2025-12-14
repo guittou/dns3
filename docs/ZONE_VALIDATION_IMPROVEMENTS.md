@@ -1,7 +1,5 @@
 # Améliorations de la Validation des Fichiers de Zone
 
-> **Note de Traduction** : Ce document est en cours de traduction. Seule l'introduction est actuellement en français. La traduction complète sera effectuée dans une PR future. La version anglaise complète est disponible dans `docs/backup/ZONE_VALIDATION_IMPROVEMENTS.en.md`.
-
 ## Vue d'ensemble
 
 Ce document décrit les améliorations apportées à la validation des fichiers de zone, spécifiquement pour la gestion des fichiers include faisant partie d'une chaîne d'inclusion.
@@ -14,122 +12,118 @@ L'implémentation précédente avait des limitations lors de la validation des f
 2. **Propagation limitée** : Les résultats de validation n'étaient propagés qu'aux enfants directs, pas aux includes profondément imbriqués.
 3. **Pas de détection de cycles** : Aucune protection contre les dépendances circulaires dans les chaînes d'inclusion.
 
----
-
-> **Translation Note**: This document is being translated. Only the introduction is currently in French. Complete translation will be done in a future PR. The complete English version is available at `docs/backup/ZONE_VALIDATION_IMPROVEMENTS.en.md`.
-
 ## Solution
 
-### 1. New Method: `findTopMaster($zoneId)`
+### 1. Nouvelle Méthode : `findTopMaster($zoneId)`
 
-**Purpose**: Traverse the entire parent chain to find the top-level master zone.
+**Objectif** : Parcourir toute la chaîne de parents pour trouver la zone maître de niveau supérieur.
 
-**Features**:
-- Walks up the parent chain from any include file
-- Handles multi-level include hierarchies (include → include → ... → master)
-- Detects circular dependencies using a visited array
-- Returns clear error messages for various failure cases
+**Fonctionnalités** :
+- Remonte la chaîne de parents depuis n'importe quel fichier include
+- Gère les hiérarchies d'includes multi-niveaux (include → include → ... → maître)
+- Détecte les dépendances circulaires en utilisant un tableau de visites
+- Retourne des messages d'erreur clairs pour les différents cas d'échec
 
-**Example**:
+**Exemple** :
 ```
-Zone Structure:
-  master.example.com (master)
+Structure de Zone :
+  master.example.com (maître)
     ├─ common.include (include, parent_id=1)
     │   └─ specific.include (include, parent_id=2)
     └─ other.include (include, parent_id=1)
 
-Calling findTopMaster(3) [specific.include]:
-  Step 1: Check zone 3 (specific.include) - it's an include
-  Step 2: Move to parent 2 (common.include) - it's an include
-  Step 3: Move to parent 1 (master.example.com) - it's a master ✓
-  Result: Returns master zone 1
+Appel de findTopMaster(3) [specific.include]:
+  Étape 1 : Vérifier la zone 3 (specific.include) - c'est un include
+  Étape 2 : Passer au parent 2 (common.include) - c'est un include
+  Étape 3 : Passer au parent 1 (master.example.com) - c'est un maître ✓
+  Résultat : Retourne la zone maître 1
 ```
 
-### 2. Updated Method: `validateZoneFile($zoneId, $userId, $sync)`
+### 2. Méthode Mise à Jour : `validateZoneFile($zoneId, $userId, $sync)`
 
-**Changes**:
-- Uses `findTopMaster()` to locate the top-level master
-- Always validates the complete zone (the master)
-- Propagates results to ALL includes in the tree
+**Modifications** :
+- Utilise `findTopMaster()` pour localiser le maître de niveau supérieur
+- Valide toujours la zone complète (le maître)
+- Propage les résultats à TOUS les includes de l'arbre
 
-**Flow for Include Files**:
+**Flux pour les Fichiers Include** :
 ```
-1. User requests validation of an include file
-2. System calls findTopMaster() to traverse to master
-3. System validates the master zone using named-checkzone
-4. System stores validation result for the master
-5. System propagates results to ALL descendant includes (BFS)
-6. System returns result with context about which master was validated
-```
-
-**Flow for Master Files**:
-```
-1. User requests validation of a master file
-2. System validates directly using named-checkzone
-3. System stores validation result for the master
-4. System propagates results to ALL descendant includes (BFS)
-5. System returns result to user
+1. L'utilisateur demande la validation d'un fichier include
+2. Le système appelle findTopMaster() pour remonter jusqu'au maître
+3. Le système valide la zone maître avec named-checkzone
+4. Le système stocke le résultat de validation pour le maître
+5. Le système propage les résultats à TOUS les includes descendants (BFS)
+6. Le système retourne le résultat avec le contexte du maître validé
 ```
 
-### 3. Updated Method: `propagateValidationToIncludes($parentId, ...)`
-
-**Changes**:
-- Uses Breadth-First Search (BFS) to traverse ALL descendants
-- Maintains cycle protection with visited array
-- Updates validation status for every include in the entire tree
-
-**Example**:
+**Flux pour les Fichiers Maîtres** :
 ```
-Zone Structure:
-  master (id=1)
+1. L'utilisateur demande la validation d'un fichier maître
+2. Le système valide directement avec named-checkzone
+3. Le système stocke le résultat de validation pour le maître
+4. Le système propage les résultats à TOUS les includes descendants (BFS)
+5. Le système retourne le résultat à l'utilisateur
+```
+
+### 3. Méthode Mise à Jour : `propagateValidationToIncludes($parentId, ...)`
+
+**Modifications** :
+- Utilise un Parcours en Largeur (BFS) pour traverser TOUS les descendants
+- Maintient la protection contre les cycles avec un tableau de visites
+- Met à jour le statut de validation pour chaque include dans tout l'arbre
+
+**Exemple** :
+```
+Structure de Zone :
+  maître (id=1)
     ├─ include1 (id=2)
     │   └─ include3 (id=4)
     └─ include2 (id=3)
 
-After validating master:
-  1. Process master (id=1) - find children [2, 3]
-  2. Store validation for include1 (id=2) - find children [4]
-  3. Store validation for include2 (id=3) - no children
-  4. Store validation for include3 (id=4) - no children
+Après validation du maître :
+  1. Traiter le maître (id=1) - trouver les enfants [2, 3]
+  2. Stocker la validation pour include1 (id=2) - trouver les enfants [4]
+  3. Stocker la validation pour include2 (id=3) - pas d'enfants
+  4. Stocker la validation pour include3 (id=4) - pas d'enfants
 
-Result: ALL includes (2, 3, 4) have validation results
+Résultat : TOUS les includes (2, 3, 4) ont des résultats de validation
 ```
 
-## Error Handling
+## Gestion des Erreurs
 
-The implementation provides specific error messages for each scenario:
+L'implémentation fournit des messages d'erreur spécifiques pour chaque scénario :
 
-### 1. Orphaned Include (No Master Parent)
+### 1. Include Orphelin (Pas de Parent Maître)
 ```
-Error: "Include file has no master parent; cannot validate standalone"
-Status: failed
-Return code: 1
+Erreur : "Le fichier include n'a pas de parent maître ; impossible de valider de manière autonome"
+Statut : failed
+Code de retour : 1
 
-This occurs when an include file has no parent_id set.
-```
-
-### 2. Circular Dependency
-```
-Error: "Circular dependency detected in include chain; cannot validate"
-Status: failed
-Return code: 1
-
-This occurs when traversing the parent chain finds a cycle.
-Note: Database constraints should prevent this, but the code protects against it.
+Cela se produit quand un fichier include n'a pas de parent_id défini.
 ```
 
-### 3. Missing Zone in Chain
+### 2. Dépendance Circulaire
 ```
-Error: "Zone file (ID: X) not found in parent chain"
-Status: failed
-Return code: 1
+Erreur : "Dépendance circulaire détectée dans la chaîne d'inclusion ; impossible de valider"
+Statut : failed
+Code de retour : 1
 
-This occurs when a parent_id references a non-existent zone.
+Cela se produit lorsque le parcours de la chaîne de parents trouve un cycle.
+Note : Les contraintes de base de données devraient empêcher cela, mais le code protège contre.
 ```
 
-## Database Schema
+### 3. Zone Manquante dans la Chaîne
+```
+Erreur : "Fichier de zone (ID : X) introuvable dans la chaîne de parents"
+Statut : failed
+Code de retour : 1
 
-The system relies on these tables:
+Cela se produit quand un parent_id référence une zone inexistante.
+```
+
+## Schéma de Base de Données
+
+Le système repose sur ces tables :
 
 ### zone_files
 ```sql
@@ -152,78 +146,78 @@ CREATE TABLE zone_file_includes (
 );
 ```
 
-**Important**: The `UNIQUE KEY (include_id)` constraint ensures each include can only have one parent, preventing most circular dependency scenarios at the database level.
+**Important** : La contrainte `UNIQUE KEY (include_id)` garantit que chaque include ne peut avoir qu'un seul parent, empêchant la plupart des scénarios de dépendances circulaires au niveau de la base de données.
 
-## API Behavior
+## Comportement de l'API
 
-### Synchronous Validation (`sync=true`)
+### Validation Synchrone (`sync=true`)
 ```php
 $result = $zoneFile->validateZoneFile($zoneId, $userId, true);
 
-// For include files, returns:
+// Pour les fichiers include, retourne :
 [
-    'status' => 'passed' or 'failed',
-    'output' => "Validation performed on top master zone 'example.com' (ID: 1):\n\n[named-checkzone output]",
-    'return_code' => 0 or 1
+    'status' => 'passed' ou 'failed',
+    'output' => "Validation effectuée sur la zone maître supérieure 'example.com' (ID : 1):\n\n[sortie de named-checkzone]",
+    'return_code' => 0 ou 1
 ]
 ```
 
-### Asynchronous Validation (`sync=false`)
+### Validation Asynchrone (`sync=false`)
 ```php
 $result = $zoneFile->validateZoneFile($zoneId, $userId, false);
 
-// Returns true if queued successfully
-// Stores 'pending' status in database
-// Background worker will process the top master
+// Retourne true si mis en file d'attente avec succès
+// Stocke le statut 'pending' dans la base de données
+// Un worker en arrière-plan traitera le maître supérieur
 ```
 
-## Validation Output
+## Sortie de Validation
 
-When validating an include file, users see context about which master was validated:
+Lors de la validation d'un fichier include, les utilisateurs voient le contexte sur quel maître a été validé :
 
-**Example Output**:
+**Exemple de Sortie** :
 ```
-Validation performed on top master zone 'example.com' (ID: 1):
+Validation effectuée sur la zone maître supérieure 'example.com' (ID : 1):
 
 zone example.com/IN: loaded serial 2025102201
 OK
 ```
 
-This clarifies that:
-1. The include was validated in the context of its master
-2. The master zone is what was actually checked
-3. The include is valid as part of that master zone
+Ceci clarifie que :
+1. L'include a été validé dans le contexte de son maître
+2. La zone maître est ce qui a réellement été vérifié
+3. L'include est valide en tant que partie de cette zone maître
 
-## Backward Compatibility
+## Compatibilité Ascendante
 
-✅ **Fully backward compatible**:
-- Existing validation of master files works identically
-- API interface unchanged
-- Database schema unchanged
-- All existing functionality preserved
+✅ **Totalement compatible en arrière** :
+- La validation existante des fichiers maîtres fonctionne de manière identique
+- Interface API inchangée
+- Schéma de base de données inchangé
+- Toutes les fonctionnalités existantes préservées
 
-## Testing
+## Tests
 
-Comprehensive tests verify the implementation:
+Des tests complets vérifient l'implémentation :
 
-1. ✓ Simple chain (master → include1)
-2. ✓ Multi-level chain (master → include1 → include2)
-3. ✓ Orphaned include detection
-4. ✓ Circular dependency detection
-5. ✓ Multi-branch tree propagation
+1. ✓ Chaîne simple (maître → include1)
+2. ✓ Chaîne multi-niveaux (maître → include1 → include2)
+3. ✓ Détection d'include orphelin
+4. ✓ Détection de dépendance circulaire
+5. ✓ Propagation d'arbre multi-branches
 
-All tests pass successfully.
+Tous les tests passent avec succès.
 
-## Performance Considerations
+## Considérations de Performance
 
-- **findTopMaster()**: O(n) where n = depth of include chain (typically 1-3 levels)
-- **propagateValidationToIncludes()**: O(m) where m = total number of includes in tree
-- Database queries are indexed on `parent_id` and `include_id`
-- BFS uses a queue and visited array to prevent redundant processing
+- **findTopMaster()** : O(n) où n = profondeur de la chaîne d'inclusion (typiquement 1-3 niveaux)
+- **propagateValidationToIncludes()** : O(m) où m = nombre total d'includes dans l'arbre
+- Les requêtes de base de données sont indexées sur `parent_id` et `include_id`
+- BFS utilise une file d'attente et un tableau de visites pour éviter le traitement redondant
 
 ## Configuration
 
-No new configuration required. The system respects existing settings:
+Aucune nouvelle configuration requise. Le système respecte les paramètres existants :
 
 ```php
 // In config.php (if defined)
@@ -231,77 +225,77 @@ define('NAMED_CHECKZONE_PATH', '/usr/sbin/named-checkzone');
 define('ZONE_VALIDATE_SYNC', false);
 ```
 
-## Files Modified
+## Fichiers Modifiés
 
 - `includes/models/ZoneFile.php`
-  - Added: `findTopMaster()` method (~line 970)
-  - Updated: `validateZoneFile()` method (~line 891)
-  - Updated: `propagateValidationToIncludes()` method (~line 1067)
+  - Ajout : Méthode `findTopMaster()` (~ligne 970)
+  - Mise à jour : Méthode `validateZoneFile()` (~ligne 891)
+  - Mise à jour : Méthode `propagateValidationToIncludes()` (~ligne 1067)
 
-## Example Use Cases
+## Exemples de Cas d'Usage
 
-### Use Case 1: Validating a Deeply Nested Include
+### Cas d'Usage 1 : Validation d'un Include Profondément Imbriqué
 
 ```
-Structure:
-  master.zone (master)
+Structure :
+  master.zone (maître)
     └─ level1.include (include)
         └─ level2.include (include)
             └─ level3.include (include)
 
-User action: Validate level3.include
-System behavior:
-  1. Traverse: level3 → level2 → level1 → master
-  2. Validate: master.zone (complete zone)
-  3. Propagate: Results to level1, level2, level3
-  4. Return: Success with master context
+Action utilisateur : Valider level3.include
+Comportement système :
+  1. Parcourir : level3 → level2 → level1 → maître
+  2. Valider : master.zone (zone complète)
+  3. Propager : Résultats à level1, level2, level3
+  4. Retourner : Succès avec contexte du maître
 ```
 
-### Use Case 2: Validating a Master with Multiple Includes
+### Cas d'Usage 2 : Validation d'un Maître avec Plusieurs Includes
 
 ```
-Structure:
-  master.zone (master)
+Structure :
+  master.zone (maître)
     ├─ common.include (include)
     │   └─ specific.include (include)
     └─ other.include (include)
 
-User action: Validate master.zone
-System behavior:
-  1. Validate: master.zone directly
-  2. Propagate: Results to common, specific, and other
-  3. Return: Success
-  4. Result: All 3 includes now have validation status
+Action utilisateur : Valider master.zone
+Comportement système :
+  1. Valider : master.zone directement
+  2. Propager : Résultats à common, specific, et other
+  3. Retourner : Succès
+  4. Résultat : Tous les 3 includes ont maintenant un statut de validation
 ```
 
-## Future Enhancements
+## Améliorations Futures
 
-Potential improvements for future PRs:
+Améliorations potentielles pour de futures PR :
 
-1. **Caching**: Cache master lookups for includes to reduce traversal overhead
-2. **Batch validation**: Validate multiple includes at once by grouping by master
-3. **Partial validation**: Validate just the changed include without full zone validation
-4. **Metrics**: Track validation performance and include chain depth statistics
+1. **Mise en cache** : Mettre en cache les recherches de maître pour les includes afin de réduire la surcharge de parcours
+2. **Validation par lots** : Valider plusieurs includes à la fois en les regroupant par maître
+3. **Validation partielle** : Valider uniquement l'include modifié sans validation complète de la zone
+4. **Métriques** : Suivre les performances de validation et les statistiques de profondeur de chaîne d'inclusion
 
-## Troubleshooting
+## Dépannage
 
-### Issue: Validation fails with "no master parent" error
+### Problème : La validation échoue avec l'erreur "no master parent"
 
-**Cause**: Include file has no parent_id set
-**Solution**: Assign the include to a parent zone using the UI or API
+**Cause** : Le fichier include n'a pas de parent_id défini
+**Solution** : Assigner l'include à une zone parent via l'interface ou l'API
 
-### Issue: Validation shows old results
+### Problème : La validation affiche d'anciens résultats
 
-**Cause**: Validation was propagated from a previous run
-**Solution**: Trigger a new validation on the master zone
+**Cause** : La validation a été propagée depuis une exécution précédente
+**Solution** : Déclencher une nouvelle validation sur la zone maître
 
-### Issue: Validation takes a long time
+### Problème : La validation prend beaucoup de temps
 
-**Cause**: Large zone file or slow named-checkzone execution
-**Solution**: Use async validation (`sync=false`) for large zones
+**Cause** : Fichier de zone volumineux ou exécution lente de named-checkzone
+**Solution** : Utiliser la validation asynchrone (`sync=false`) pour les grandes zones
 
-## References
+## Références
 
-- Original issue: Improve validation of zone files when validating include files
-- Related PR: #38 (work-in-progress)
-- Named-checkzone documentation: BIND 9 Administrator Reference Manual
+- Issue d'origine : Améliorer la validation des fichiers de zone lors de la validation de fichiers include
+- PR associée : #38 (en cours)
+- Documentation named-checkzone : Manuel de Référence de l'Administrateur BIND 9

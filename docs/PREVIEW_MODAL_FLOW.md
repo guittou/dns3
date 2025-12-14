@@ -128,14 +128,14 @@ Action utilisateur : Clic sur "Générer le fichier de zone"
     └────────────────────────────────────────┘
 ```
 
-## State Transitions
+## Transitions d'État
 
-### Initial State
-- Modal: Hidden
-- Textarea: Empty
-- Validation section: Hidden
+### État Initial
+- Modale : Masquée
+- Textarea : Vide
+- Section de validation : Masquée
 
-### Loading State
+### État de Chargement
 ```javascript
 // After clicking "Générer le fichier de zone"
 modal.classList.add('open')
@@ -143,74 +143,74 @@ textarea.value = 'Chargement…'
 validation.style.display = 'none'
 ```
 
-### Success State (Generation)
+### État de Succès (Génération)
 ```javascript
-// After successful generation
+// Après génération réussie
 textarea.value = generatedContent
 previewData = { content, filename }
-// Download button ready with Blob
+// Bouton Télécharger prêt avec Blob
 ```
 
-### Success State (Validation)
+### État de Succès (Validation)
 ```javascript
-// After successful validation
+// Après validation réussie
 validation.style.display = 'block'
 validationStatus.className = 'validation-status passed'
 validationStatus.textContent = '✅ Validation réussie'
 validationOutput.textContent = namedCheckzoneOutput
 ```
 
-### Error State (Generation)
+### État d'Erreur (Génération)
 ```javascript
-// On generation error
+// En cas d'erreur de génération
 textarea.value = 'Erreur lors de la génération...'
 validation.style.display = 'none'
 ```
 
-### Error State (Validation)
+### État d'Erreur (Validation)
 ```javascript
-// On validation error
+// En cas d'erreur de validation
 validation.style.display = 'block'
 validationStatus.className = 'validation-status failed'
 validationStatus.textContent = '❌ Erreur lors de la récupération...'
 validationOutput.textContent = errorDetails
 ```
 
-## CSS Classes and Styling
+## Classes CSS et Styles
 
-### Validation Status Colors
+### Couleurs de Statut de Validation
 
 ```css
 .validation-status.passed {
-  background-color: #d4edda;  /* Light green */
-  color: #155724;              /* Dark green */
+  background-color: #d4edda;  /* Vert clair */
+  color: #155724;              /* Vert foncé */
   border: 1px solid #c3e6cb;
 }
 
 .validation-status.failed {
-  background-color: #f8d7da;  /* Light red */
-  color: #721c24;              /* Dark red */
+  background-color: #f8d7da;  /* Rouge clair */
+  color: #721c24;              /* Rouge foncé */
   border: 1px solid #f5c6cb;
 }
 
 .validation-status.pending {
-  background-color: #fff3cd;  /* Light yellow */
-  color: #856404;              /* Dark yellow */
+  background-color: #fff3cd;  /* Jaune clair */
+  color: #856404;              /* Jaune foncé */
   border: 1px solid #ffeaa7;
 }
 ```
 
-### Z-Index Hierarchy
+### Hiérarchie Z-Index
 ```
-- Base modals: z-index: 1000
-- Preview modal: z-index: 9999
+- Modales de base : z-index: 1000
+- Modale de prévisualisation : z-index: 9999
 ```
 
-This ensures the preview modal always appears above the editor modal.
+Cela garantit que la modale de prévisualisation apparaît toujours au-dessus de la modale d'éditeur.
 
-## API Response Structures
+## Structures de Réponse API
 
-### Generate Zone File Response
+### Réponse de Génération de Fichier de Zone
 ```json
 {
   "success": true,
@@ -219,7 +219,7 @@ This ensures the preview modal always appears above the editor modal.
 }
 ```
 
-### Validation Response
+### Réponse de Validation
 ```json
 {
   "success": true,
@@ -232,34 +232,34 @@ This ensures the preview modal always appears above the editor modal.
 }
 ```
 
-### Error Response
+### Réponse d'Erreur
 ```json
 {
-  "error": "Error message in French"
+  "error": "Message d'erreur en français"
 }
 ```
 
-## User Interactions
+## Interactions Utilisateur
 
-1. **Generate**: Click "Générer le fichier de zone"
-   - Modal opens immediately
-   - Shows loading state
-   - Fetches and displays content
-   - Triggers validation automatically
+1. **Générer** : Cliquer sur "Générer le fichier de zone"
+   - La modale s'ouvre immédiatement
+   - Affiche l'état de chargement
+   - Récupère et affiche le contenu
+   - Déclenche la validation automatiquement
 
-2. **Download**: Click "Télécharger"
-   - Creates Blob from displayed content
-   - Downloads file with original filename
-   - Shows success message
+2. **Télécharger** : Cliquer sur "Télécharger"
+   - Crée un Blob depuis le contenu affiché
+   - Télécharge le fichier avec le nom original
+   - Affiche un message de succès
 
-3. **Close**: Click "Fermer" or click overlay
-   - Closes preview modal
-   - Does NOT close parent editor modal
-   - High z-index ensures proper overlay behavior
+3. **Fermer** : Cliquer sur "Fermer" ou cliquer sur l'overlay
+   - Ferme la modale de prévisualisation
+   - NE ferme PAS la modale d'éditeur parente
+   - Le z-index élevé garantit un comportement d'overlay approprié
 
-## Error Messages (French)
+## Messages d'Erreur (Français)
 
-All user-facing messages are in French:
+Tous les messages visibles par l'utilisateur sont en français :
 - "Chargement…"
 - "Erreur lors de la génération du fichier de zone"
 - "Réponse JSON invalide du serveur"

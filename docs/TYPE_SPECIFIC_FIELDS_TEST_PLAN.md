@@ -1,16 +1,16 @@
-# Type-Specific Fields Implementation - Test Plan
+# Implémentation des Champs Spécifiques par Type - Plan de Test
 
-## Overview
+## Vue d'ensemble
 This document outlines the testing requirements for the type-specific DNS record fields implementation.
 
-## Changes Summary
+## Résumé des Modifications
 - Added dedicated columns for each DNS record type (A, AAAA, CNAME, PTR, TXT)
 - Restricted supported types to: A, AAAA, CNAME, PTR, TXT only
 - API accepts `value` as an alias for backward compatibility
 - Frontend uses dedicated fields instead of generic `value` field
 - `last_seen` field is server-managed and cannot be set by clients
 
-## Test Checklist
+## Liste de Vérification des Tests
 
 ### 1. Migration Testing
 - [ ] Apply migration 005_add_type_specific_fields.sql to database

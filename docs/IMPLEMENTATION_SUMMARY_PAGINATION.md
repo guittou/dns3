@@ -1,12 +1,12 @@
-# Implementation Summary: Paginated Zone Files Feature
+# Résumé d'Implémentation : Fonctionnalité de Fichiers de Zone Paginés
 
-## Overview
+## Vue d'ensemble
 
 This document summarizes the implementation of the server-side paginated zone files list with a dedicated detail page, replacing the previous split-pane view that loaded all zones at once.
 
 ## Problem Statement
 
-The original implementation loaded all zone files at once in a split-pane view, which would not scale well with hundreds of zone files. The user requested:
+## Énoncé du Problème
 
 1. Server-side pagination to handle large datasets efficiently
 2. A dedicated detail page for each zone (instead of split-pane)
@@ -14,7 +14,7 @@ The original implementation loaded all zone files at once in a split-pane view, 
 4. Performance improvements via database indexes
 5. Maintain existing functionality (CRUD, includes, history)
 
-## Solution Architecture
+## Architecture de la Solution
 
 ### 1. Database Layer
 

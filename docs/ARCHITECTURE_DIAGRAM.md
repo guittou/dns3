@@ -176,9 +176,9 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-## Request Flow Examples
+## Exemples de Flux de Requête
 
-### 1. Loading Paginated Zone List
+### 1. Chargement de la Liste Paginée de Zones
 
 ```
 User → zone-files.php
@@ -202,13 +202,13 @@ Response: {data: [...], total: 150, page: 1, per_page: 25, total_pages: 6}
   ↓
 zone-files.js: renderZonesTable()
   ↓
-Display table with 25 zones + pagination controls
+Afficher le tableau avec 25 zones + contrôles de pagination
 ```
 
-### 2. Searching with Autocomplete
+### 2. Recherche avec Autocomplétion
 
 ```
-User types "test" in include search field
+L'utilisateur tape "test" dans le champ de recherche d'include
   ↓
 zone-file-detail.js: handleIncludeSearch() [300ms debounce]
   ↓
@@ -230,13 +230,13 @@ Response: {data: [{id, name, filename, file_type}, ...]}
   ↓
 zone-file-detail.js: displayAutocompleteResults()
   ↓
-Show dropdown with matching includes
+Afficher le menu déroulant avec les includes correspondants
 ```
 
-### 3. Lazy Loading Includes Tree
+### 3. Chargement Différé de l'Arbre des Includes
 
 ```
-User clicks "Includes" tab on detail page
+L'utilisateur clique sur l'onglet "Includes" de la page de détail
   ↓
 zone-file-detail.js: switchTab('includes')
   ↓
@@ -267,10 +267,10 @@ Response: {data: {id, name, file_type, includes: [{...}, {...}]}}
   ↓
 zone-file-detail.js: renderIncludeTree()
   ↓
-Display nested tree with expandable nodes
+Afficher l'arbre imbriqué avec nœuds extensibles
 ```
 
-## Data Flow Diagram
+## Diagramme de Flux de Données
 
 ```
 ┌──────────┐
@@ -342,77 +342,77 @@ Display nested tree with expandable nodes
 └──────────────────┘
 ```
 
-## Key Design Patterns
+## Modèles de Conception Clés
 
-### 1. **Server-Side Pagination Pattern**
-- Client stores: current page, per_page, filters
-- Server returns: data subset + pagination metadata
-- Benefits: Scalable, low memory, fast initial load
+### 1. **Modèle de Pagination Côté Serveur**
+- Le client stocke : page actuelle, per_page, filtres
+- Le serveur retourne : sous-ensemble de données + métadonnées de pagination
+- Avantages : Évolutif, faible mémoire, chargement initial rapide
 
-### 2. **Debounced Search Pattern**
-- Client waits for typing pause (300ms)
-- Prevents excessive API calls
-- Improves UX and reduces server load
+### 2. **Modèle de Recherche avec Debounce**
+- Le client attend une pause dans la saisie (300ms)
+- Empêche les appels API excessifs
+- Améliore l'UX et réduit la charge serveur
 
-### 3. **Lazy Loading Pattern**
-- Load expensive data only when needed
-- Includes tree loads on tab open, not page load
-- Reduces initial page load time by 50%+
+### 3. **Modèle de Chargement Différé**
+- Charger les données coûteuses uniquement si nécessaire
+- L'arbre des includes se charge à l'ouverture de l'onglet, pas au chargement de la page
+- Réduit le temps de chargement initial de la page de 50%+
 
-### 4. **Autocomplete Pattern**
-- Lightweight endpoint for fast responses
-- Returns minimal data (id, name, filename)
-- Limited to 20 results for performance
+### 4. **Modèle d'Autocomplétion**
+- Point de terminaison léger pour des réponses rapides
+- Retourne des données minimales (id, nom, nom de fichier)
+- Limité à 20 résultats pour les performances
 
-### 5. **RESTful API Design**
-- GET for reads, POST for writes
-- Consistent response format
-- Proper HTTP status codes
-- JSON responses
+### 5. **Conception d'API RESTful**
+- GET pour les lectures, POST pour les écritures
+- Format de réponse cohérent
+- Codes de statut HTTP appropriés
+- Réponses JSON
 
-### 6. **Model-View-Controller (MVC) Pattern**
-- Model: ZoneFile.php (data access)
-- View: zone-files.php, zone-file.php (presentation)
-- Controller: zone_api.php (business logic)
+### 6. **Modèle Modèle-Vue-Contrôleur (MVC)**
+- Modèle : ZoneFile.php (accès aux données)
+- Vue : zone-files.php, zone-file.php (présentation)
+- Contrôleur : zone_api.php (logique métier)
 
-## Performance Considerations
+## Considérations de Performance
 
-### Database Query Optimization
+### Optimisation des Requêtes de Base de Données
 
-**Without Index:**
+**Sans Index :**
 ```sql
 SELECT * FROM zone_files WHERE file_type = 'master' AND status = 'active';
--- Full table scan: O(n) where n = total rows
+-- Balayage complet de table : O(n) où n = nombre total de lignes
 ```
 
-**With Composite Index:**
+**Avec Index Composite :**
 ```sql
 SELECT * FROM zone_files WHERE file_type = 'master' AND status = 'active';
--- Index scan: O(log n) + O(k) where k = matching rows
--- Uses: idx_zone_type_status_name (file_type, status, name)
+-- Balayage d'index : O(log n) + O(k) où k = lignes correspondantes
+-- Utilise : idx_zone_type_status_name (file_type, status, name)
 ```
 
-### Network Optimization
+### Optimisation Réseau
 
-**Before (Split-pane):**
-- Initial load: ~100KB (all zones)
-- Rendering: 1000+ DOM elements
-- Memory: High (all data in JS)
+**Avant (Vue divisée) :**
+- Chargement initial : ~100KB (toutes les zones)
+- Rendu : 1000+ éléments DOM
+- Mémoire : Élevée (toutes les données en JS)
 
-**After (Paginated):**
-- Initial load: ~5KB (25 zones)
-- Rendering: 25-100 DOM elements
-- Memory: Low (only current page)
+**Après (Paginé) :**
+- Chargement initial : ~5KB (25 zones)
+- Rendu : 25-100 éléments DOM
+- Mémoire : Faible (uniquement page actuelle)
 
-### Browser Performance
+### Performance Navigateur
 
-**Rendering Optimization:**
-- Table virtualization (only visible rows)
-- Debounced search (prevent re-renders)
-- Lazy loading (deferred content)
-- CSS containment (isolate styles)
+**Optimisation du Rendu :**
+- Virtualisation de tableau (uniquement lignes visibles)
+- Recherche avec debounce (empêcher les re-rendus)
+- Chargement différé (contenu différé)
+- Containment CSS (isoler les styles)
 
-## Security Architecture
+## Architecture de Sécurité
 
 ```
 ┌──────────────────┐
@@ -461,20 +461,20 @@ SELECT * FROM zone_files WHERE file_type = 'master' AND status = 'active';
 └──────────────────┘
 ```
 
-## Scalability
+## Évolutivité
 
-### Horizontal Scaling
-- Stateless API (can run multiple instances)
-- Session stored in database (not memory)
-- No server-side caching required
+### Mise à l'Échelle Horizontale
+- API sans état (peut exécuter plusieurs instances)
+- Session stockée en base de données (pas en mémoire)
+- Pas de cache côté serveur requis
 
-### Vertical Scaling
-- Database indexes allow large datasets
-- Pagination limits memory usage
-- Efficient queries scale linearly
+### Mise à l'Échelle Verticale
+- Les index de base de données permettent de grands ensembles de données
+- La pagination limite l'utilisation de la mémoire
+- Les requêtes efficaces évoluent linéairement
 
-### Future Improvements
-- Redis cache for frequently accessed zones
-- CDN for static assets
-- Read replicas for database
-- WebSocket for real-time updates
+### Améliorations Futures
+- Cache Redis pour les zones fréquemment accédées
+- CDN pour les actifs statiques
+- Réplicas de lecture pour la base de données
+- WebSocket pour les mises à jour en temps réel
