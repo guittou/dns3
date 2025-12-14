@@ -184,4 +184,4 @@ dns3/
 
 **Dernière mise à jour** : 2025-12-14  
 **Version de la documentation** : 2.4
-**Progression de la traduction** : 45/52 fichiers traduits (87%) ✅
+**Progression de la traduction** : 45/52 fichiers complètement traduits (87%) + 4 avec en-têtes traduits + 57 fichiers d'archive (conservés en anglais) ✅

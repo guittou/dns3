@@ -95,7 +95,7 @@ Ajout d'un style de tableaux responsives complet qui s'applique à tous les tabl
 
 #### Classes Sémantiques Ajoutées
 - `col-name` - Nom de l'enregistrement DNS
-- `col-ttl` - Time To Live
+- `col-ttl` - TTL (Durée de vie)
 - `col-class` - Classe DNS (généralement IN)
 - `col-type` - Type d'enregistrement DNS (A, AAAA, CNAME, PTR, TXT)
 - `col-value` - Valeur de l'enregistrement (IPv4, IPv6, cible, etc.)

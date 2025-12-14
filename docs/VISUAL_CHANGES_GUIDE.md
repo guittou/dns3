@@ -35,7 +35,7 @@
 **Champs Visibles :**
 - Type d'enregistrement
 - Nom
-- Adresse IPv4/IPv6/etc (selon le type)
+- Champ de valeur spécifique au type (Adresse IPv4 pour A, IPv6 pour AAAA, Cible pour CNAME, etc.)
 - TTL
 - Demandeur
 - Date d'expiration
