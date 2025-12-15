@@ -72,7 +72,6 @@
 | Document | Description | Audience |
 |----------|-------------|----------|
 | [DB_SCHEMA.md](DB_SCHEMA.md) | Schéma de la base de données | Développeurs/DBAs |
-| [../migrations/README.md](../migrations/README.md) | Guide des migrations | Admins système |
 
 ---
 

@@ -12,9 +12,9 @@ This document describes the database schema for the DNS3 application, including 
 
 | Date       | Summary                                                                 |
 |------------|-------------------------------------------------------------------------|
-| 2025-12-05 | **SOA/TTL Fields for Zone Files**: Added columns `default_ttl`, `soa_refresh`, `soa_retry`, `soa_expire`, `soa_minimum`, `soa_rname` to `zone_files` table for customizable SOA timers and default TTL. See `migrations/20251205_add_soa_fields_to_zone_files.sql`. |
-| 2025-12-05 | **Extended DNS Record Types Migration**: Migrated `dns_records.record_type` from ENUM to VARCHAR(50) for extensibility. Added new columns for SRV, TLSA, SSHFP, CAA, NAPTR, SVCB/HTTPS, LOC, and RP record types. Added `record_types` reference table with UI categories. See `migrations/README.md` for details. |
-| 2025-12-05 | Removed legacy/migration tables (`acl_entries_old`, `acl_entries_new`, `zone_file_includes_new`). Updated `acl_history` FK reference. |
+| 2025-12-05 | **SOA/TTL Fields for Zone Files**: Added columns `default_ttl`, `soa_refresh`, `soa_retry`, `soa_expire`, `soa_minimum`, `soa_rname` to `zone_files` table for customizable SOA timers and default TTL. |
+| 2025-12-05 | **Extended DNS Record Types**: Extended `dns_records.record_type` to VARCHAR(50) for extensibility. Added new columns for SRV, TLSA, SSHFP, CAA, NAPTR, SVCB/HTTPS, LOC, and RP record types. Added `record_types` reference table with UI categories. |
+| 2025-12-05 | Removed legacy tables (`acl_entries_old`, `acl_entries_new`, `zone_file_includes_new`). Updated `acl_history` FK reference. |
 | 2025-12-04 | Initial schema documentation based on `structure_ok_dns3_db.sql` export |
 
 ---
@@ -163,7 +163,7 @@ Primary table for DNS zone files. Supports both master zones and include files.
 
 **Indexes**: `idx_name`, `idx_file_type`, `idx_status`, `idx_created_by`, `idx_zone_type_status_name`, `idx_directory`, `idx_domain`
 
-> **Migration Note (2025-12-05)**: Added columns `default_ttl`, `soa_refresh`, `soa_retry`, `soa_expire`, `soa_minimum`, and `soa_rname` to support customizable SOA timers and default TTL for master zones. See `migrations/20251205_add_soa_fields_to_zone_files.sql` for the ALTER TABLE statements.
+> **Note**: The columns `default_ttl`, `soa_refresh`, `soa_retry`, `soa_expire`, `soa_minimum`, and `soa_rname` support customizable SOA timers and default TTL for master zones.
 
 ---
 
@@ -324,7 +324,7 @@ Primary table for DNS records. Supports basic types (A, AAAA, CNAME, etc.) and e
 
 **Indexes**: `idx_name`, `idx_type`, `idx_status`, `idx_created_by`, `idx_expires_at`, `idx_ticket_ref`, `idx_address_ipv4`, `idx_address_ipv6`, `idx_cname_target`, `idx_zone_file_id`, `idx_srv_target`, `idx_mx_target`, `idx_ns_target`
 
-> **Note**: The `record_type` column has been migrated from ENUM to VARCHAR(50) to support extensible record types. See [migrations/README.md](../migrations/README.md) for migration details.
+> **Note**: The `record_type` column is VARCHAR(50) to support extensible record types.
 
 ---
 
@@ -423,13 +423,13 @@ WHERE zone_file_id IS NOT NULL
 
 ## Schema Cleanup Note (2025-12-05)
 
-The following legacy/migration tables have been removed from the database schema:
+The following legacy tables have been removed from the database schema:
 
 | Removed Table             | Previous Purpose                                              |
 |---------------------------|--------------------------------------------------------------|
 | `acl_entries_old`         | Backup of old ACL entries structure with CHECK constraint    |
-| `acl_entries_new`         | Alternate ACL structure during migration                     |
-| `zone_file_includes_new`  | Alternate includes structure during migration                |
+| `acl_entries_new`         | Alternate ACL structure                                      |
+| `zone_file_includes_new`  | Alternate includes structure                                 |
 
 The current schema uses only the canonical tables (`acl_entries`, `zone_file_includes`) documented above.
 
