@@ -174,6 +174,10 @@ echo "Database: ${DB_NAME}@${DB_HOST}:${DB_PORT}"
 echo "User ID: $USER_ID"
 echo
 
+# Initialize column tracking variables
+ZONE_COLUMNS=""
+RECORD_COLUMNS=""
+
 # Detect schema
 if [[ $DRY_RUN -eq 0 ]]; then
     echo "==> Detecting database schema..."
@@ -201,6 +205,11 @@ if [[ $DRY_RUN -eq 0 ]]; then
     echo "  ✓ zone_files columns detected"
     echo "  ✓ dns_records columns detected"
     echo
+else
+    # In dry-run mode, assume common columns exist
+    echo "==> DRY-RUN mode: Assuming standard schema"
+    ZONE_COLUMNS="id,name,filename,file_type,status,created_by,domain,directory,default_ttl,mname,soa_rname,soa_serial,soa_refresh,soa_retry,soa_expire,soa_minimum,created_at"
+    RECORD_COLUMNS="id,zone_file_id,record_type,name,value,ttl,status,created_by,address_ipv4,address_ipv6,cname_target,mx_target,priority,ns_target,ptrdname,txt,created_at"
 fi
 
 # Check if column exists in schema
@@ -837,11 +846,18 @@ parse_zone_file() {
         # Try to extract numeric values (serial, refresh, retry, expire, minimum)
         local nums=$(echo "$soa_data" | grep -oE '[0-9]+' | head -5)
         if [[ -n "$nums" ]]; then
-            soa_serial=$(echo "$nums" | sed -n '1p')
-            soa_refresh=$(echo "$nums" | sed -n '2p')
-            soa_retry=$(echo "$nums" | sed -n '3p')
-            soa_expire=$(echo "$nums" | sed -n '4p')
-            soa_minimum=$(echo "$nums" | sed -n '5p')
+            local serial_tmp=$(echo "$nums" | sed -n '1p')
+            local refresh_tmp=$(echo "$nums" | sed -n '2p')
+            local retry_tmp=$(echo "$nums" | sed -n '3p')
+            local expire_tmp=$(echo "$nums" | sed -n '4p')
+            local minimum_tmp=$(echo "$nums" | sed -n '5p')
+            
+            # Use extracted values, fallback to defaults if empty
+            [[ -n "$serial_tmp" ]] && soa_serial="$serial_tmp"
+            [[ -n "$refresh_tmp" ]] && soa_refresh="$refresh_tmp"
+            [[ -n "$retry_tmp" ]] && soa_retry="$retry_tmp"
+            [[ -n "$expire_tmp" ]] && soa_expire="$expire_tmp"
+            [[ -n "$minimum_tmp" ]] && soa_minimum="$minimum_tmp"
         fi
     fi
     
@@ -942,14 +958,24 @@ parse_zone_file() {
                     
                     echo "    [DRY-RUN] Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
                     
-                    # Resolve include path
-                    local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
-                    if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
-                        # Process include file with master's TTL
-                        local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl")
-                        if [[ -n "$include_id" ]] && [[ "$include_id" != "" ]]; then
+                    # Resolve include path (capture errors to prevent set -e from stopping)
+                    local resolved_include=""
+                    local resolve_exit_code=0
+                    resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")") || resolve_exit_code=$?
+                    
+                    if [[ $resolve_exit_code -eq 0 ]] && [[ -n "$resolved_include" ]]; then
+                        # Process include file with master's TTL (capture errors to prevent set -e from stopping)
+                        local include_id=""
+                        local process_exit_code=0
+                        include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl") || process_exit_code=$?
+                        
+                        if [[ $process_exit_code -eq 0 ]] && [[ -n "$include_id" ]] && [[ "$include_id" != "" ]]; then
                             ((include_count++))
+                        else
+                            echo "    [DRY-RUN] ⚠ Failed to process include (continuing with remaining records)" >&2
                         fi
+                    else
+                        echo "    [DRY-RUN] ⚠ Could not resolve include (continuing with remaining records)" >&2
                     fi
                 fi
             done < "$file"
@@ -1000,19 +1026,25 @@ parse_zone_file() {
                     
                     echo "    Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
                     
-                    # Resolve include path
-                    local resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")")
-                    if [[ $? -eq 0 ]] && [[ -n "$resolved_include" ]]; then
-                        # Process include file with master's TTL
-                        local include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl")
-                        if [[ -n "$include_id" ]] && [[ "$include_id" != "0" ]]; then
+                    # Resolve include path (capture errors to prevent set -e from stopping)
+                    local resolved_include=""
+                    local resolve_exit_code=0
+                    resolved_include=$(resolve_include_path "$include_file" "$(dirname "$file")") || resolve_exit_code=$?
+                    
+                    if [[ $resolve_exit_code -eq 0 ]] && [[ -n "$resolved_include" ]]; then
+                        # Process include file with master's TTL (capture errors to prevent set -e from stopping)
+                        local include_id=""
+                        local process_exit_code=0
+                        include_id=$(process_include_file "$resolved_include" "$include_origin" "$(dirname "$file")" "$zone_name" "$default_ttl") || process_exit_code=$?
+                        
+                        if [[ $process_exit_code -eq 0 ]] && [[ -n "$include_id" ]] && [[ "$include_id" != "0" ]]; then
                             include_zone_ids+=("$include_id:$include_count")
                             ((include_count++))
                         else
-                            echo "    ⚠ Failed to process include at line $line_num: $include_file" >&2
+                            echo "    ⚠ Failed to process include at line $line_num: $include_file (continuing with remaining records)" >&2
                         fi
                     else
-                        echo "    ⚠ Could not resolve include at line $line_num: $include_file" >&2
+                        echo "    ⚠ Could not resolve include at line $line_num: $include_file (continuing with remaining records)" >&2
                     fi
                 fi
             done < "$file"
@@ -1224,9 +1256,9 @@ FAILED=0
 
 for zone_file in "${ZONE_FILES[@]}"; do
     if parse_zone_file "$zone_file"; then
-        ((PROCESSED++))
+        PROCESSED=$((PROCESSED + 1))
     else
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
     echo
 done
