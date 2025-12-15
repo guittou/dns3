@@ -694,6 +694,10 @@ class ZoneImporter:
             raw_rdata_list = self._extract_raw_rdata(include_content, effective_origin)
             self.logger.debug(f"Extracted {len(raw_rdata_list)} raw RDATA value(s) from include {include_path.name}")
             
+            # Detect @ owners in the include file
+            at_owners = self._detect_at_owners(include_content, effective_origin)
+            self.logger.debug(f"Detected {len(at_owners)} @ owner(s) in include {include_path.name}")
+            
             # Parse the include file using dnspython
             # Use relativize=True to preserve relative names as-is from the zone file
             try:
@@ -784,7 +788,7 @@ class ZoneImporter:
                             self._create_zone_file_include_relationship(zone_id, nested_id, len(nested_include_ids))
             
             # Extract and create DNS records from include
-            records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls, fqdn_owners, raw_rdata_list)
+            records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls, fqdn_owners, raw_rdata_list, at_owners)
             
             # Extract out-of-origin records from raw include content
             out_of_origin_records = self._extract_out_of_origin_records(
@@ -1025,6 +1029,81 @@ class ZoneImporter:
                 self.logger.debug(f"Detected FQDN owner: {owner}")
         
         return fqdn_owners
+    
+    def _detect_at_owners(self, content: str, origin: str) -> Dict[Tuple[str, str], str]:
+        """
+        Detect which records use @ as owner in raw zone file.
+        Returns a dict mapping (normalized_name, record_type) to the raw owner string '@'.
+        
+        This is needed to preserve @ as the owner name instead of resolving it to the origin FQDN.
+        We map by normalized_name and record_type to match dnspython's parsed records back to raw '@'.
+        """
+        at_owners = {}
+        lines = content.split('\n')
+        current_origin = origin if origin.endswith('.') else origin + '.'
+        
+        for line in lines:
+            # Skip empty lines, comments, directives
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith(';') or stripped_line.startswith('$'):
+                continue
+            
+            # Skip SOA records (handled separately)
+            if 'SOA' in stripped_line.upper():
+                continue
+            
+            # Split the line into parts
+            parts = stripped_line.split()
+            if len(parts) < 3:
+                continue
+            
+            # First part should be the owner name
+            owner = parts[0]
+            
+            # Check if owner is @
+            if owner == '@':
+                # Parse the rest to find record type
+                remaining = parts[1:]
+                record_type = None
+                
+                for idx, part in enumerate(remaining):
+                    part_upper = part.upper()
+                    
+                    # Check if this looks like a TTL (number with optional time unit)
+                    if re.match(r'^\d+(?:\.\d+)?[smhdw]?$', part, re.IGNORECASE):
+                        # This could be a TTL, check what follows
+                        if idx + 1 < len(remaining):
+                            next_part = remaining[idx + 1].upper()
+                            # If next is a class
+                            if next_part in ('IN', 'CH', 'HS', 'NONE', 'ANY'):
+                                if idx + 2 < len(remaining):
+                                    record_type = remaining[idx + 2].upper()
+                            # If next is a record type
+                            elif next_part in self.COMMON_RECORD_TYPES:
+                                record_type = next_part
+                        break
+                    # Check if this is a class (without TTL before it)
+                    elif part_upper in ('IN', 'CH', 'HS', 'NONE', 'ANY'):
+                        # No TTL found, class is here
+                        if idx + 1 < len(remaining):
+                            record_type = remaining[idx + 1].upper()
+                        break
+                    # Check if this is a record type (no TTL, no class)
+                    elif part_upper in self.COMMON_RECORD_TYPES:
+                        record_type = part_upper
+                        break
+                
+                if record_type:
+                    # Normalize the name as dnspython would (@ becomes origin)
+                    normalized_name = current_origin.rstrip('.').lower()
+                    
+                    # Store mapping from (normalized_name, record_type) to '@'
+                    # Multiple @ records of same type share one key; each rdata is processed separately later
+                    key = (normalized_name, record_type)
+                    at_owners[key] = '@'
+                    self.logger.debug(f"Detected @ owner for {record_type} record")
+        
+        return at_owners
     
     def _extract_raw_rdata(self, content: str, origin: str) -> List[Tuple[str, str, str]]:
         """
@@ -1344,7 +1423,8 @@ class ZoneImporter:
     def _extract_records(self, zone: dns.zone.Zone, origin: str, zone_id: int, 
                         explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
                         fqdn_owners: Optional[Set[str]] = None,
-                        raw_rdata_list: Optional[List[Tuple[str, str, str]]] = None) -> List[Dict]:
+                        raw_rdata_list: Optional[List[Tuple[str, str, str]]] = None,
+                        at_owners: Optional[Dict[Tuple[str, str], str]] = None) -> List[Dict]:
         """Extract DNS records from zone
         
         Args:
@@ -1354,6 +1434,7 @@ class ZoneImporter:
             explicit_ttls: Set of records with explicit TTL
             fqdn_owners: Set of owner names that were FQDN in original file (lowercase, with trailing dot)
             raw_rdata_list: List of tuples (normalized_name, record_type, raw_rdata_string) from zone file
+            at_owners: Dict mapping (normalized_name, record_type) to '@' for records with @ owner
         """
         records = []
         origin_name = dns.name.from_text(origin)
@@ -1368,15 +1449,6 @@ class ZoneImporter:
             fqdn_lower = fqdn_str.lower()
             was_fqdn_in_file = fqdn_owners is not None and fqdn_lower in fqdn_owners
             
-            # Determine the name to store
-            if was_fqdn_in_file:
-                # Preserve the trailing dot as it was in the original file
-                stored_name = fqdn_str
-                self.logger.debug(f"Preserving FQDN format: {stored_name}")
-            else:
-                # Use relative name (current behavior) - remove trailing dot
-                stored_name = fqdn_str.rstrip('.')
-            
             for rdataset in node:
                 record_type = dns.rdatatype.to_text(rdataset.rdtype)
                 ttl = rdataset.ttl
@@ -1385,9 +1457,26 @@ class ZoneImporter:
                 if record_type == 'SOA':
                     continue
                 
+                # Determine the name to store for records of this type
+                # Check if this was @ in the original file
+                normalized_name_lower = fqdn_str.rstrip('.').lower()
+                at_key = (normalized_name_lower, record_type)
+                was_at_in_file = at_owners is not None and at_key in at_owners
+                
+                if was_at_in_file:
+                    # Preserve @ as it was in the original file
+                    stored_name = '@'
+                    self.logger.debug(f"Preserving @ owner for {record_type} record")
+                elif was_fqdn_in_file:
+                    # Preserve the trailing dot as it was in the original file
+                    stored_name = fqdn_str
+                    self.logger.debug(f"Preserving FQDN format: {stored_name}")
+                else:
+                    # Use relative name (current behavior) - remove trailing dot
+                    stored_name = fqdn_str.rstrip('.')
+                
                 for rdata in rdataset:
                     # Get raw RDATA if available by matching with dnspython's RDATA
-                    normalized_name_lower = fqdn_str.rstrip('.').lower()
                     raw_rdata = None
                     if raw_rdata_list:
                         # Get dnspython's RDATA string (may have resolved @ to FQDN)
@@ -1633,6 +1722,10 @@ class ZoneImporter:
             raw_rdata_list = self._extract_raw_rdata(file_content, origin)
             self.logger.debug(f"Extracted {len(raw_rdata_list)} raw RDATA value(s) from master zone {zone_name}")
             
+            # Detect @ owners in the zone file
+            at_owners = self._detect_at_owners(file_content, origin)
+            self.logger.debug(f"Detected {len(at_owners)} @ owner(s) in master zone {zone_name}")
+            
             # Extract SOA data
             soa_data = self._extract_soa_data(zone, origin)
             
@@ -1656,7 +1749,7 @@ class ZoneImporter:
                 self.logger.debug(f"[DRY-RUN] Zone data: {zone_data}")
                 
                 # Extract and display records
-                records = self._extract_records(zone, origin, 0, explicit_ttls, fqdn_owners, raw_rdata_list)
+                records = self._extract_records(zone, origin, 0, explicit_ttls, fqdn_owners, raw_rdata_list, at_owners)
                 
                 # Extract out-of-origin records
                 out_of_origin_records = self._extract_out_of_origin_records(
@@ -1733,7 +1826,7 @@ class ZoneImporter:
                 self._create_zone_file_include_relationship(zone_id, include_id, position)
             
             # Extract and create records from master zone
-            records = self._extract_records(zone, origin, zone_id, explicit_ttls, fqdn_owners, raw_rdata_list)
+            records = self._extract_records(zone, origin, zone_id, explicit_ttls, fqdn_owners, raw_rdata_list, at_owners)
             
             # Extract out-of-origin records from raw content
             out_of_origin_records = self._extract_out_of_origin_records(
@@ -1843,7 +1936,7 @@ ftp     IN      CNAME   www.example.com.
             self.logger.info("\nParsed zone successfully!")
             
             # Extract records
-            records = self._extract_records(zone, 'example.com.', 0, None, None, None)
+            records = self._extract_records(zone, 'example.com.', 0, None, None, None, None)
             self.logger.info(f"\nExtracted {len(records)} records:")
             for record in records:
                 print(f"  - {record['name']} {record['ttl']} IN {record['record_type']} {record['value']}")
