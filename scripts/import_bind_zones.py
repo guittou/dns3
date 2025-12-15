@@ -685,6 +685,10 @@ class ZoneImporter:
             fqdn_owners = self._detect_fqdn_owners(include_content)
             self.logger.debug(f"Detected {len(fqdn_owners)} FQDN owner(s) in include {include_path.name}")
             
+            # Extract raw RDATA to preserve @ symbols
+            raw_rdata_list = self._extract_raw_rdata(include_content, effective_origin)
+            self.logger.debug(f"Extracted {len(raw_rdata_list)} raw RDATA value(s) from include {include_path.name}")
+            
             # Parse the include file using dnspython
             # Use relativize=True to preserve relative names as-is from the zone file
             try:
@@ -775,7 +779,7 @@ class ZoneImporter:
                             self._create_zone_file_include_relationship(zone_id, nested_id, len(nested_include_ids))
             
             # Extract and create DNS records from include
-            records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls, fqdn_owners)
+            records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls, fqdn_owners, raw_rdata_list)
             
             # Extract out-of-origin records from raw include content
             out_of_origin_records = self._extract_out_of_origin_records(
@@ -1017,6 +1021,104 @@ class ZoneImporter:
         
         return fqdn_owners
     
+    def _extract_raw_rdata(self, content: str, origin: str) -> List[Tuple[str, str, str]]:
+        """
+        Extract raw RDATA values from zone file content.
+        Returns a list of tuples (normalized_name, record_type, raw_rdata_string).
+        
+        This captures the RDATA exactly as written in the zone file, including @ symbols,
+        which dnspython would otherwise resolve to FQDN.
+        
+        Args:
+            content: Raw zone file content
+            origin: Zone origin (with trailing dot)
+            
+        Returns:
+            List of tuples (normalized_name, record_type, raw_rdata_string)
+        """
+        raw_rdata_list = []
+        lines = content.split('\n')
+        current_origin = origin if origin.endswith('.') else origin + '.'
+        
+        # Parse each line to extract raw RDATA
+        for line in lines:
+            # Skip empty lines, comments, directives
+            line_stripped = line.strip()
+            if not line_stripped or line_stripped.startswith(';') or line_stripped.startswith('$'):
+                continue
+            
+            # Skip SOA records (handled separately and complex multi-line format)
+            if 'SOA' in line_stripped.upper():
+                continue
+            
+            # Split the line into parts
+            parts = line_stripped.split()
+            if len(parts) < 3:
+                continue
+            
+            # Parse: name [ttl] [class] type rdata
+            name = parts[0]
+            remaining = parts[1:]
+            
+            # Find the record type and RDATA start position
+            record_type = None
+            rdata_start_idx = None
+            
+            for idx, part in enumerate(remaining):
+                part_upper = part.upper()
+                
+                # Check if this looks like a TTL (number with optional time unit)
+                if re.match(r'^\d+(?:\.\d+)?[smhdw]?$', part, re.IGNORECASE):
+                    # This could be a TTL, check what follows
+                    if idx + 1 < len(remaining):
+                        next_part = remaining[idx + 1].upper()
+                        # If next is a class
+                        if next_part in ('IN', 'CH', 'HS', 'NONE', 'ANY'):
+                            if idx + 2 < len(remaining):
+                                record_type = remaining[idx + 2].upper()
+                                rdata_start_idx = idx + 3
+                        # If next is a record type
+                        elif next_part in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR', 'DNSKEY', 'RRSIG', 'NSEC', 'NSEC3', 'DS'):
+                            record_type = next_part
+                            rdata_start_idx = idx + 2
+                    break
+                # Check if this is a class (without TTL before it)
+                elif part_upper in ('IN', 'CH', 'HS', 'NONE', 'ANY'):
+                    # No TTL found, class is here
+                    if idx + 1 < len(remaining):
+                        record_type = remaining[idx + 1].upper()
+                        rdata_start_idx = idx + 2
+                    break
+                # Check if this is a record type (no TTL, no class)
+                elif part_upper in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR', 'DNSKEY', 'RRSIG', 'NSEC', 'NSEC3', 'DS'):
+                    record_type = part_upper
+                    rdata_start_idx = idx + 1
+                    break
+            
+            if record_type and rdata_start_idx is not None and rdata_start_idx < len(remaining):
+                # Normalize the owner name to match how dnspython will process it
+                if name == '@':
+                    normalized_name = current_origin.rstrip('.')
+                elif not name.endswith('.'):
+                    # Relative name
+                    normalized_name = f"{name}.{current_origin}".rstrip('.')
+                else:
+                    # Absolute name
+                    normalized_name = name.rstrip('.')
+                
+                normalized_name = normalized_name.lower()
+                
+                # Extract raw RDATA (everything after the record type)
+                rdata_parts = remaining[rdata_start_idx:]
+                raw_rdata = ' '.join(rdata_parts) if rdata_parts else ''
+                
+                # Add to list - we keep all records even if they have the same name+type
+                # This allows us to match them to dnspython records by comparing RDATA values
+                raw_rdata_list.append((normalized_name, record_type, raw_rdata))
+                self.logger.debug(f"Extracted raw RDATA: {normalized_name} {record_type} -> {raw_rdata}")
+        
+        return raw_rdata_list
+    
     def _extract_out_of_origin_records(self, content: str, origin: str, zone_id: int, 
                                        explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
                                        default_ttl: int = 3600) -> List[Dict]:
@@ -1236,7 +1338,8 @@ class ZoneImporter:
     
     def _extract_records(self, zone: dns.zone.Zone, origin: str, zone_id: int, 
                         explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
-                        fqdn_owners: Optional[Set[str]] = None) -> List[Dict]:
+                        fqdn_owners: Optional[Set[str]] = None,
+                        raw_rdata_list: Optional[List[Tuple[str, str, str]]] = None) -> List[Dict]:
         """Extract DNS records from zone
         
         Args:
@@ -1245,6 +1348,7 @@ class ZoneImporter:
             zone_id: Zone file ID in database
             explicit_ttls: Set of records with explicit TTL
             fqdn_owners: Set of owner names that were FQDN in original file (lowercase, with trailing dot)
+            raw_rdata_list: List of tuples (normalized_name, record_type, raw_rdata_string) from zone file
         """
         records = []
         origin_name = dns.name.from_text(origin)
@@ -1277,9 +1381,57 @@ class ZoneImporter:
                     continue
                 
                 for rdata in rdataset:
+                    # Get raw RDATA if available by matching with dnspython's RDATA
+                    normalized_name_lower = fqdn_str.rstrip('.').lower()
+                    raw_rdata = None
+                    if raw_rdata_list:
+                        # Get dnspython's RDATA string (may have resolved @ to FQDN)
+                        dnspython_rdata_str = str(rdata).lower().strip()
+                        
+                        # Look for matching raw RDATA entry
+                        # Match by name and type, then check if RDATA is compatible
+                        for raw_name, raw_type, raw_rdata_str in raw_rdata_list:
+                            if raw_name == normalized_name_lower and raw_type == record_type:
+                                # Normalize raw RDATA for comparison
+                                raw_rdata_normalized = raw_rdata_str.lower().strip()
+                                
+                                # Check if they match or if raw has @ which dnspython resolved
+                                # For MX: compare without priority
+                                # For SRV: compare without priority, weight, port
+                                # For others: direct comparison
+                                if record_type == 'MX':
+                                    # Extract target from raw (format: "priority target")
+                                    raw_parts = raw_rdata_normalized.split(None, 1)
+                                    dns_parts = dnspython_rdata_str.split(None, 1)
+                                    if len(raw_parts) == 2 and len(dns_parts) == 2:
+                                        raw_target = raw_parts[1].rstrip('.')
+                                        dns_target = dns_parts[1].rstrip('.')
+                                        # Match if targets are the same or raw is @ (dnspython resolves @ to origin)
+                                        if raw_target == dns_target or (raw_target == '@' and dns_target == normalized_name_lower):
+                                            raw_rdata = raw_rdata_str
+                                            break
+                                elif record_type == 'SRV':
+                                    # Extract target from raw (format: "priority weight port target")
+                                    raw_parts = raw_rdata_normalized.split(None, 3)
+                                    dns_parts = dnspython_rdata_str.split(None, 3)
+                                    if len(raw_parts) == 4 and len(dns_parts) == 4:
+                                        raw_target = raw_parts[3].rstrip('.')
+                                        dns_target = dns_parts[3].rstrip('.')
+                                        if raw_target == dns_target or (raw_target == '@' and dns_target == normalized_name_lower):
+                                            raw_rdata = raw_rdata_str
+                                            break
+                                else:
+                                    # For CNAME, NS, PTR, and others: direct comparison
+                                    raw_target = raw_rdata_normalized.rstrip('.')
+                                    dns_target = dnspython_rdata_str.rstrip('.')
+                                    if raw_target == dns_target or (raw_target == '@' and dns_target == normalized_name_lower):
+                                        raw_rdata = raw_rdata_str
+                                        break
+                    
                     record_data = self._convert_rdata_to_record(
                         stored_name, record_type, rdata, ttl, zone_id, explicit_ttls,
-                        fqdn_str.rstrip('.')  # Pass normalized name for TTL detection
+                        fqdn_str.rstrip('.'),  # Pass normalized name for TTL detection
+                        raw_rdata  # Pass raw RDATA from zone file
                     )
                     if record_data:
                         records.append(record_data)
@@ -1289,7 +1441,8 @@ class ZoneImporter:
     def _convert_rdata_to_record(self, name: str, record_type: str, 
                                  rdata: Any, ttl: int, zone_id: int,
                                  explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
-                                 normalized_name: Optional[str] = None) -> Optional[Dict]:
+                                 normalized_name: Optional[str] = None,
+                                 raw_rdata: Optional[str] = None) -> Optional[Dict]:
         """Convert dnspython rdata to dns_records table format
         
         Args:
@@ -1301,9 +1454,10 @@ class ZoneImporter:
             explicit_ttls: Set of records with explicit TTL
             normalized_name: Normalized name (lowercase, no trailing dot) for TTL detection.
                            If None, name will be normalized on-the-fly.
+            raw_rdata: Raw RDATA string from zone file (preserves @ symbols)
         """
-        # Build rdata key for TTL detection (simplified)
-        rdata_str = str(rdata)
+        # Use raw RDATA if available, otherwise use dnspython's string representation
+        rdata_str = raw_rdata if raw_rdata is not None else str(rdata)
         rdata_key = rdata_str
         
         # Normalize name for TTL detection (lowercase, no trailing dot)
@@ -1345,21 +1499,47 @@ class ZoneImporter:
             elif record_type == 'AAAA':
                 base_record['address_ipv6'] = str(rdata.address)
             elif record_type == 'CNAME':
-                base_record['cname_target'] = str(rdata.target)
+                # Check if raw RDATA is @ (preserve it)
+                if raw_rdata and raw_rdata.strip() == '@':
+                    base_record['cname_target'] = '@'
+                else:
+                    base_record['cname_target'] = str(rdata.target)
             elif record_type == 'MX':
-                base_record['mx_target'] = str(rdata.exchange)
+                # For MX, extract the target from raw RDATA (format: "priority target")
+                mx_target = str(rdata.exchange)
+                if raw_rdata:
+                    # Parse raw RDATA to get the target (second part)
+                    parts = raw_rdata.strip().split(None, 1)
+                    if len(parts) == 2 and parts[1].strip() == '@':
+                        mx_target = '@'
+                base_record['mx_target'] = mx_target
                 base_record['priority'] = rdata.preference
             elif record_type == 'NS':
-                base_record['ns_target'] = str(rdata.target)
+                # Check if raw RDATA is @ (preserve it)
+                if raw_rdata and raw_rdata.strip() == '@':
+                    base_record['ns_target'] = '@'
+                else:
+                    base_record['ns_target'] = str(rdata.target)
             elif record_type == 'PTR':
-                base_record['ptrdname'] = str(rdata.target)
+                # Check if raw RDATA is @ (preserve it)
+                if raw_rdata and raw_rdata.strip() == '@':
+                    base_record['ptrdname'] = '@'
+                else:
+                    base_record['ptrdname'] = str(rdata.target)
             elif record_type == 'TXT':
                 # TXT records can have multiple strings
                 txt_value = ' '.join([s.decode('utf-8', errors='replace') if isinstance(s, bytes) else str(s) 
                                      for s in rdata.strings])
                 base_record['txt'] = txt_value
             elif record_type == 'SRV':
-                base_record['srv_target'] = str(rdata.target)
+                # For SRV, extract the target from raw RDATA (format: "priority weight port target")
+                srv_target = str(rdata.target)
+                if raw_rdata:
+                    # Parse raw RDATA to get the target (fourth part)
+                    parts = raw_rdata.strip().split(None, 3)
+                    if len(parts) == 4 and parts[3].strip() == '@':
+                        srv_target = '@'
+                base_record['srv_target'] = srv_target
                 base_record['priority'] = rdata.priority
                 base_record['weight'] = rdata.weight
                 base_record['port'] = rdata.port
@@ -1444,6 +1624,10 @@ class ZoneImporter:
             fqdn_owners = self._detect_fqdn_owners(file_content)
             self.logger.debug(f"Detected {len(fqdn_owners)} FQDN owner(s) in master zone {zone_name}")
             
+            # Extract raw RDATA to preserve @ symbols
+            raw_rdata_list = self._extract_raw_rdata(file_content, origin)
+            self.logger.debug(f"Extracted {len(raw_rdata_list)} raw RDATA value(s) from master zone {zone_name}")
+            
             # Extract SOA data
             soa_data = self._extract_soa_data(zone, origin)
             
@@ -1467,7 +1651,7 @@ class ZoneImporter:
                 self.logger.debug(f"[DRY-RUN] Zone data: {zone_data}")
                 
                 # Extract and display records
-                records = self._extract_records(zone, origin, 0, explicit_ttls, fqdn_owners)
+                records = self._extract_records(zone, origin, 0, explicit_ttls, fqdn_owners, raw_rdata_list)
                 
                 # Extract out-of-origin records
                 out_of_origin_records = self._extract_out_of_origin_records(
@@ -1544,7 +1728,7 @@ class ZoneImporter:
                 self._create_zone_file_include_relationship(zone_id, include_id, position)
             
             # Extract and create records from master zone
-            records = self._extract_records(zone, origin, zone_id, explicit_ttls, fqdn_owners)
+            records = self._extract_records(zone, origin, zone_id, explicit_ttls, fqdn_owners, raw_rdata_list)
             
             # Extract out-of-origin records from raw content
             out_of_origin_records = self._extract_out_of_origin_records(
@@ -1654,7 +1838,7 @@ ftp     IN      CNAME   www.example.com.
             self.logger.info("\nParsed zone successfully!")
             
             # Extract records
-            records = self._extract_records(zone, 'example.com.', 0, None, None)
+            records = self._extract_records(zone, 'example.com.', 0, None, None, None)
             self.logger.info(f"\nExtracted {len(records)} records:")
             for record in records:
                 print(f"  - {record['name']} {record['ttl']} IN {record['record_type']} {record['value']}")
