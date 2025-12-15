@@ -1102,14 +1102,15 @@ class ZoneImporter:
             ttl: TTL value
             zone_id: Zone file ID
             explicit_ttls: Set of records with explicit TTL
-            normalized_name: Normalized name (lowercase, no trailing dot) for TTL detection
+            normalized_name: Normalized name (lowercase, no trailing dot) for TTL detection.
+                           If None, name will be normalized on-the-fly.
         """
         # Build rdata key for TTL detection (simplified)
         rdata_str = str(rdata)
         rdata_key = rdata_str
         
-        # Use normalized name for TTL detection if provided, otherwise use name as-is
-        ttl_check_name = normalized_name if normalized_name else name.rstrip('.')
+        # Normalize name for TTL detection (lowercase, no trailing dot)
+        ttl_check_name = normalized_name if normalized_name is not None else name.rstrip('.').lower()
         
         # Check if this record had an explicit TTL
         has_explicit_ttl = False
