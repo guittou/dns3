@@ -846,11 +846,18 @@ parse_zone_file() {
         # Try to extract numeric values (serial, refresh, retry, expire, minimum)
         local nums=$(echo "$soa_data" | grep -oE '[0-9]+' | head -5)
         if [[ -n "$nums" ]]; then
-            soa_serial=$(echo "$nums" | sed -n '1p')
-            soa_refresh=$(echo "$nums" | sed -n '2p')
-            soa_retry=$(echo "$nums" | sed -n '3p')
-            soa_expire=$(echo "$nums" | sed -n '4p')
-            soa_minimum=$(echo "$nums" | sed -n '5p')
+            local serial_tmp=$(echo "$nums" | sed -n '1p')
+            local refresh_tmp=$(echo "$nums" | sed -n '2p')
+            local retry_tmp=$(echo "$nums" | sed -n '3p')
+            local expire_tmp=$(echo "$nums" | sed -n '4p')
+            local minimum_tmp=$(echo "$nums" | sed -n '5p')
+            
+            # Use extracted values, fallback to defaults if empty
+            [[ -n "$serial_tmp" ]] && soa_serial="$serial_tmp"
+            [[ -n "$refresh_tmp" ]] && soa_refresh="$refresh_tmp"
+            [[ -n "$retry_tmp" ]] && soa_retry="$retry_tmp"
+            [[ -n "$expire_tmp" ]] && soa_expire="$expire_tmp"
+            [[ -n "$minimum_tmp" ]] && soa_minimum="$minimum_tmp"
         fi
     fi
     
@@ -1249,9 +1256,9 @@ FAILED=0
 
 for zone_file in "${ZONE_FILES[@]}"; do
     if parse_zone_file "$zone_file"; then
-        ((PROCESSED++))
+        PROCESSED=$((PROCESSED + 1))
     else
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
     fi
     echo
 done
