@@ -681,6 +681,10 @@ class ZoneImporter:
             explicit_ttls = self._detect_explicit_ttls(include_content, effective_origin)
             self.logger.debug(f"Detected {len(explicit_ttls)} record(s) with explicit TTL in include {include_path.name}")
             
+            # Detect FQDN owners in the include file
+            fqdn_owners = self._detect_fqdn_owners(include_content)
+            self.logger.debug(f"Detected {len(fqdn_owners)} FQDN owner(s) in include {include_path.name}")
+            
             # Parse the include file using dnspython
             # Use relativize=True to preserve relative names as-is from the zone file
             try:
@@ -771,7 +775,7 @@ class ZoneImporter:
                             self._create_zone_file_include_relationship(zone_id, nested_id, len(nested_include_ids))
             
             # Extract and create DNS records from include
-            records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls)
+            records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls, fqdn_owners)
             self.logger.info(f"Creating {len(records)} records for include {include_path.name}")
             
             for record in records:
@@ -970,6 +974,39 @@ class ZoneImporter:
         
         return explicit_ttls
     
+    def _detect_fqdn_owners(self, content: str) -> Set[str]:
+        """
+        Detect which record owners are written as FQDN (with trailing dot) in raw zone file.
+        Returns a set of FQDN strings as they appear in the file (with trailing dot).
+        
+        This is needed to preserve the original format from the zone file - if an owner
+        was written as FQDN, we store it with the trailing dot.
+        """
+        fqdn_owners = set()
+        lines = content.split('\n')
+        
+        for line in lines:
+            # Skip empty lines, comments, directives
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith(';') or stripped_line.startswith('$'):
+                continue
+            
+            # Split the line into parts
+            parts = stripped_line.split()
+            if len(parts) < 3:
+                continue
+            
+            # First part should be the owner name
+            owner = parts[0]
+            
+            # Check if owner ends with dot (FQDN)
+            if owner.endswith('.') and owner != '@':
+                # Store the FQDN (lowercase for comparison)
+                fqdn_owners.add(owner.lower())
+                self.logger.debug(f"Detected FQDN owner: {owner}")
+        
+        return fqdn_owners
+    
     def _extract_soa_data(self, zone: dns.zone.Zone, origin: str) -> Dict:
         """Extract SOA record data from zone"""
         soa_data = {
@@ -1001,14 +1038,38 @@ class ZoneImporter:
         return soa_data
     
     def _extract_records(self, zone: dns.zone.Zone, origin: str, zone_id: int, 
-                        explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None) -> List[Dict]:
-        """Extract DNS records from zone"""
+                        explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
+                        fqdn_owners: Optional[Set[str]] = None) -> List[Dict]:
+        """Extract DNS records from zone
+        
+        Args:
+            zone: Parsed DNS zone from dnspython
+            origin: Zone origin
+            zone_id: Zone file ID in database
+            explicit_ttls: Set of records with explicit TTL
+            fqdn_owners: Set of owner names that were FQDN in original file (lowercase, with trailing dot)
+        """
         records = []
+        origin_name = dns.name.from_text(origin)
         
         for name, node in zone.items():
-            # Use to_text() to preserve the exact name format from dnspython
-            # This avoids concatenating owner + zone name
-            name_str = name.to_text()
+            # Derelativize the name to get the full FQDN
+            fqdn = name.derelativize(origin_name)
+            fqdn_str = fqdn.to_text()
+            
+            # Check if this name was originally written as FQDN in the file
+            # Compare lowercase versions
+            fqdn_lower = fqdn_str.lower()
+            was_fqdn_in_file = fqdn_owners is not None and fqdn_lower in fqdn_owners
+            
+            # Determine the name to store
+            if was_fqdn_in_file:
+                # Preserve the trailing dot as it was in the original file
+                stored_name = fqdn_str
+                self.logger.debug(f"Preserving FQDN format: {stored_name}")
+            else:
+                # Use relative name (current behavior) - remove trailing dot
+                stored_name = fqdn_str.rstrip('.')
             
             for rdataset in node:
                 record_type = dns.rdatatype.to_text(rdataset.rdtype)
@@ -1020,7 +1081,8 @@ class ZoneImporter:
                 
                 for rdata in rdataset:
                     record_data = self._convert_rdata_to_record(
-                        name_str, record_type, rdata, ttl, zone_id, explicit_ttls
+                        stored_name, record_type, rdata, ttl, zone_id, explicit_ttls,
+                        fqdn_str.rstrip('.')  # Pass normalized name for TTL detection
                     )
                     if record_data:
                         records.append(record_data)
@@ -1029,11 +1091,25 @@ class ZoneImporter:
     
     def _convert_rdata_to_record(self, name: str, record_type: str, 
                                  rdata: Any, ttl: int, zone_id: int,
-                                 explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None) -> Optional[Dict]:
-        """Convert dnspython rdata to dns_records table format"""
+                                 explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
+                                 normalized_name: Optional[str] = None) -> Optional[Dict]:
+        """Convert dnspython rdata to dns_records table format
+        
+        Args:
+            name: Record name to store (may have trailing dot if FQDN)
+            record_type: Record type
+            rdata: Record data from dnspython
+            ttl: TTL value
+            zone_id: Zone file ID
+            explicit_ttls: Set of records with explicit TTL
+            normalized_name: Normalized name (lowercase, no trailing dot) for TTL detection
+        """
         # Build rdata key for TTL detection (simplified)
         rdata_str = str(rdata)
         rdata_key = rdata_str
+        
+        # Use normalized name for TTL detection if provided, otherwise use name as-is
+        ttl_check_name = normalized_name if normalized_name else name.rstrip('.')
         
         # Check if this record had an explicit TTL
         has_explicit_ttl = False
@@ -1041,7 +1117,7 @@ class ZoneImporter:
             # Try to find match in explicit_ttls set
             # Match by name, type, and a normalized form of rdata
             for (exp_name, exp_type, exp_rdata) in explicit_ttls:
-                if exp_name == name and exp_type == record_type:
+                if exp_name == ttl_check_name and exp_type == record_type:
                     # Also check rdata to avoid false positives when multiple records
                     # with same name and type exist
                     # Normalize both for comparison (strip whitespace, lowercase)
@@ -1166,6 +1242,10 @@ class ZoneImporter:
             explicit_ttls = self._detect_explicit_ttls(file_content, origin)
             self.logger.debug(f"Detected {len(explicit_ttls)} record(s) with explicit TTL in master zone {zone_name}")
             
+            # Detect FQDN owners in the zone file
+            fqdn_owners = self._detect_fqdn_owners(file_content)
+            self.logger.debug(f"Detected {len(fqdn_owners)} FQDN owner(s) in master zone {zone_name}")
+            
             # Extract SOA data
             soa_data = self._extract_soa_data(zone, origin)
             
@@ -1189,7 +1269,7 @@ class ZoneImporter:
                 self.logger.debug(f"[DRY-RUN] Zone data: {zone_data}")
                 
                 # Extract and display records
-                records = self._extract_records(zone, origin, 0, explicit_ttls)
+                records = self._extract_records(zone, origin, 0, explicit_ttls, fqdn_owners)
                 self.logger.info(f"[DRY-RUN] Would create {len(records)} records for master")
                 for record in records[:5]:  # Show first 5
                     self.logger.debug(f"[DRY-RUN] Record: {record['name']} {record['record_type']} {record['value']}")
@@ -1257,7 +1337,7 @@ class ZoneImporter:
                 self._create_zone_file_include_relationship(zone_id, include_id, position)
             
             # Extract and create records from master zone
-            records = self._extract_records(zone, origin, zone_id, explicit_ttls)
+            records = self._extract_records(zone, origin, zone_id, explicit_ttls, fqdn_owners)
             self.logger.info(f"Importing {len(records)} records for zone {zone_name}")
             
             for record in records:
@@ -1357,7 +1437,7 @@ ftp     IN      CNAME   www.example.com.
             self.logger.info("\nParsed zone successfully!")
             
             # Extract records
-            records = self._extract_records(zone, 'example.com.', 0)
+            records = self._extract_records(zone, 'example.com.', 0, None, None)
             self.logger.info(f"\nExtracted {len(records)} records:")
             for record in records:
                 print(f"  - {record['name']} {record['ttl']} IN {record['record_type']} {record['value']}")
