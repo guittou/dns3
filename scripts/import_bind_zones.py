@@ -1512,8 +1512,10 @@ class ZoneImporter:
                     stored_name = fqdn_str
                     self.logger.debug(f"Preserving FQDN format: {stored_name}")
                 else:
-                    # Use relative name (current behavior) - remove trailing dot
-                    stored_name = fqdn_str.rstrip('.')
+                    # Relativize to origin to get relative name (e.g., "ns1" not "ns1.mondomaine.fr")
+                    relative_name = fqdn.relativize(origin_name)
+                    stored_name = relative_name.to_text().rstrip('.')
+                    self.logger.debug(f"Using relative name: {stored_name}")
                 
                 for rdata in rdataset:
                     # Get raw RDATA if available by matching with dnspython's RDATA
@@ -1589,8 +1591,12 @@ class ZoneImporter:
                            If None, name will be normalized on-the-fly.
             raw_rdata: Raw RDATA string from zone file (preserves @ symbols)
         """
-        # Use raw RDATA if available, otherwise use dnspython's string representation
-        rdata_str = raw_rdata if raw_rdata is not None else str(rdata)
+        # Use raw RDATA only if it contains @ symbol, otherwise use dnspython's relativized form
+        # This ensures we store relative names (e.g., "ns1") not FQDNs (e.g., "ns1.mondomaine.fr.")
+        if raw_rdata is not None and '@' in raw_rdata:
+            rdata_str = raw_rdata
+        else:
+            rdata_str = str(rdata)
         rdata_key = rdata_str
         
         # Normalize name for TTL detection (lowercase, no trailing dot)
@@ -1632,31 +1638,32 @@ class ZoneImporter:
             elif record_type == 'AAAA':
                 base_record['address_ipv6'] = str(rdata.address)
             elif record_type == 'CNAME':
-                # Use raw RDATA when available to preserve @ and original format
-                if raw_rdata:
+                # Use raw RDATA only if it contains @ symbol, otherwise use dnspython's relativized form
+                if raw_rdata and '@' in raw_rdata:
                     base_record['cname_target'] = raw_rdata.strip()
                 else:
                     base_record['cname_target'] = str(rdata.target)
             elif record_type == 'MX':
                 # For MX, extract the target from raw RDATA (format: "priority target")
                 mx_target = str(rdata.exchange)
-                if raw_rdata:
+                # Use raw target only if it contains @ symbol
+                if raw_rdata and '@' in raw_rdata:
                     # Parse raw RDATA to get the target (second part)
                     parts = raw_rdata.strip().split(None, 1)
                     if len(parts) == 2:
-                        # Use the raw target value to preserve @ and original format
+                        # Use the raw target value to preserve @ symbol
                         mx_target = parts[1].strip()
                 base_record['mx_target'] = mx_target
                 base_record['priority'] = rdata.preference
             elif record_type == 'NS':
-                # Use raw RDATA when available to preserve @ and original format
-                if raw_rdata:
+                # Use raw RDATA only if it contains @ symbol, otherwise use dnspython's relativized form
+                if raw_rdata and '@' in raw_rdata:
                     base_record['ns_target'] = raw_rdata.strip()
                 else:
                     base_record['ns_target'] = str(rdata.target)
             elif record_type == 'PTR':
-                # Use raw RDATA when available to preserve @ and original format
-                if raw_rdata:
+                # Use raw RDATA only if it contains @ symbol, otherwise use dnspython's relativized form
+                if raw_rdata and '@' in raw_rdata:
                     base_record['ptrdname'] = raw_rdata.strip()
                 else:
                     base_record['ptrdname'] = str(rdata.target)
@@ -1668,11 +1675,12 @@ class ZoneImporter:
             elif record_type == 'SRV':
                 # For SRV, extract the target from raw RDATA (format: "priority weight port target")
                 srv_target = str(rdata.target)
-                if raw_rdata:
+                # Use raw target only if it contains @ symbol
+                if raw_rdata and '@' in raw_rdata:
                     # Parse raw RDATA to get the target (fourth part)
                     parts = raw_rdata.strip().split(None, 3)
                     if len(parts) == 4:
-                        # Use the raw target value to preserve @ and original format
+                        # Use the raw target value to preserve @ symbol
                         srv_target = parts[3].strip()
                 base_record['srv_target'] = srv_target
                 base_record['priority'] = rdata.priority
