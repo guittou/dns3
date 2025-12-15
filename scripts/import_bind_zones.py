@@ -1426,25 +1426,27 @@ class ZoneImporter:
         Check if a raw RDATA target matches a dnspython RDATA target.
         
         Handles cases where:
-        - Raw is @ and dns is the origin (@ resolution)
+        - Direct match (including @ symbols which dnspython preserves)
         - Raw is FQDN within origin and dns is relative
-        - Direct match
+        - Raw is @ and dns resolved it to record name (edge case, rarely happens)
         
         Args:
             raw_target: Target from raw zone file (normalized, no trailing dot)
             dns_target: Target from dnspython (normalized, no trailing dot)
             origin: Zone origin (with trailing dot)
-            normalized_name_lower: Lowercase normalized record name for @ comparison
+            normalized_name_lower: Lowercase normalized record owner name (used for edge case
+                                 where @ might resolve to the record's own name)
             
         Returns:
             True if targets match, False otherwise
         """
-        # Handle @ symbol resolution
-        if raw_target == '@' and dns_target == normalized_name_lower:
+        # Direct match (most common case, includes @ which dnspython preserves)
+        if raw_target == dns_target:
             return True
         
-        # Direct match
-        if raw_target == dns_target:
+        # Edge case: Handle @ symbol resolution to record name
+        # (In practice, dnspython preserves @ as-is, but this handles any edge cases)
+        if raw_target == '@' and dns_target == normalized_name_lower:
             return True
         
         # If raw_target looks like it could be within origin, try FQDN comparison
