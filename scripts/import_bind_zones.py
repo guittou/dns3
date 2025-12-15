@@ -635,24 +635,31 @@ class ZoneImporter:
             
             # Prepare content for parsing - filter out $INCLUDE directives
             # dnspython's zone.from_text() does not support $INCLUDE directives
-            parse_text = include_content
-            if self.args.create_includes and nested_includes:
-                self.logger.debug(f"Filtering {len(nested_includes)} nested $INCLUDE directive(s) from {include_path.name}")
-                lines = include_content.split('\n')
-                filtered_lines = []
-                
-                for line in lines:
-                    # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
-                    if re.match(r'^\$INCLUDE\s+\S+', line):
-                        self.logger.debug(f"Filtering out $INCLUDE line: {line.strip()}")
-                        continue
-                    filtered_lines.append(line)
-                
-                parse_text = '\n'.join(filtered_lines)
-                
-                # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
-                if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
-                    self.logger.error(f"$INCLUDE directive(s) still present after filtering in {include_path.name}")
+            # Filter them out regardless of --create-includes flag to allow parsing to continue
+            lines = include_content.split('\n')
+            filtered_lines = []
+            nested_include_count = 0
+            
+            for line in lines:
+                # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
+                if re.match(r'^\$INCLUDE\s+\S+', line):
+                    nested_include_count += 1
+                    self.logger.debug(f"Filtering out nested $INCLUDE line: {line.strip()}")
+                    continue
+                filtered_lines.append(line)
+            
+            parse_text = '\n'.join(filtered_lines)
+            
+            # Log appropriate message if nested includes were found
+            if nested_include_count > 0:
+                if self.args.create_includes:
+                    self.logger.debug(f"Filtered {nested_include_count} nested $INCLUDE directive(s) from {include_path.name}")
+                else:
+                    self.logger.warning(f"Ignoring {nested_include_count} nested $INCLUDE directive(s) in {include_path.name}")
+            
+            # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
+            if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
+                self.logger.error(f"$INCLUDE directive(s) still present after filtering in {include_path.name}")
             
             # Check if include file has its own $TTL directive
             # BIND supports time unit suffixes: s, m, h, d, w (e.g., $TTL 1h, $TTL 30m)
@@ -817,33 +824,34 @@ class ZoneImporter:
                 self.logger.debug(f"No $ORIGIN found, using filename as origin: {origin}")
             
             # Prepare content for parsing
-            parse_text = content
-            
-            # If --create-includes is enabled, filter out $INCLUDE lines before parsing
             # dnspython's zone.from_text() does not support $INCLUDE directives
-            if self.args.create_includes:
-                self.logger.debug(f"Filtering $INCLUDE directives before parsing (create_includes=True)")
-                lines = content.split('\n')
-                filtered_lines = []
-                include_count = 0
-                
-                for line in lines:
-                    # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
-                    if re.match(r'^\$INCLUDE\s+\S+', line):
-                        include_count += 1
-                        self.logger.debug(f"Filtering out $INCLUDE line: {line.strip()}")
-                        continue
-                    filtered_lines.append(line)
-                
-                parse_text = '\n'.join(filtered_lines)
-                
-                if include_count > 0:
+            # Filter them out regardless of --create-includes flag to allow parsing to continue
+            lines = content.split('\n')
+            filtered_lines = []
+            include_count = 0
+            
+            for line in lines:
+                # Check if line contains $INCLUDE directive (consistent with _find_include_directives)
+                if re.match(r'^\$INCLUDE\s+\S+', line):
+                    include_count += 1
+                    self.logger.debug(f"Filtering out $INCLUDE line: {line.strip()}")
+                    continue
+                filtered_lines.append(line)
+            
+            parse_text = '\n'.join(filtered_lines)
+            
+            # Log appropriate message based on whether includes are being created
+            if include_count > 0:
+                if self.args.create_includes:
                     self.logger.info(f"Filtered {include_count} $INCLUDE directive(s) before parsing {filepath.name}")
-                
-                # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
-                if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
-                    self.logger.error(f"$INCLUDE directive(s) still present after filtering in {filepath.name}")
-                    self.logger.error("This should not happen - parsing may fail")
+                else:
+                    self.logger.warning(f"Ignoring {include_count} $INCLUDE directive(s) in {filepath.name} (use --create-includes to process them)")
+                    self.logger.warning(f"  Parsing will continue with records after $INCLUDE directives")
+            
+            # Safety check: verify no $INCLUDE directives remain (using regex for accuracy)
+            if re.search(r'^\$INCLUDE\s+\S+', parse_text, re.MULTILINE):
+                self.logger.error(f"$INCLUDE directive(s) still present after filtering in {filepath.name}")
+                self.logger.error("This should not happen - parsing may fail")
             
             # Parse the zone
             # Use relativize=True to preserve relative names as-is from the zone file
