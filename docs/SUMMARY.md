@@ -63,10 +63,9 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 
 ---
 
-### 🗄️ Base de Données et Migrations
+### 🗄️ Base de Données
 
 - [Schéma de base de données](DB_SCHEMA.md) - Documentation complète du schéma
-- [Guide des migrations](../migrations/README.md) - Guide de migration des types d'enregistrements DNS
 
 ---
 
@@ -160,13 +159,9 @@ dns3/
 │   ├── UI_*.md                        # Documentation interface
 │   ├── TESTING_*.md                   # Documentation tests
 │   ├── import_bind_zones.md           # Import BIND
-│   ├── api_token_authentication.md    # Auth API
-│   ├── backup/                        # Backups des versions originales anglaises
-│   └── archive/                       # Archives historiques
-├── jobs/
-│   └── README.md                      # Workers de validation
-└── migrations/
-    └── README.md                      # Guide des migrations
+│   └── api_token_authentication.md    # Auth API
+└── jobs/
+    └── README.md                      # Workers de validation
 ```
 
 ---

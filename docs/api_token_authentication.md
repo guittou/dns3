@@ -195,10 +195,7 @@ Les tokens sont stockés dans la table `api_tokens` avec les informations suivan
 
 Pour activer l'authentification par tokens API dans une installation existante :
 
-1. Exécutez la migration de base de données :
-```bash
-mysql -u root -p dns3_db < migrations/20251208_add_api_tokens_table.sql
-```
+1. La table `api_tokens` est déjà incluse dans le schéma principal `database.sql`
 
 2. Aucun changement de code requis - la fonctionnalité est automatiquement disponible
 

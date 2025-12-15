@@ -67,14 +67,8 @@ dns3/
 │   ├── api_token_authentication.md    # Authentification API
 │   ├── UPDATE_LAST_SEEN_FROM_BIND_LOGS.md
 │   │
-│   ├── backup/                        # Backups des versions anglaises
-│   │   └── (fichiers .en.md)
-│   │
-│   └── archive/                       # Documents historiques
-│       └── (anciens PR, notes obsolètes)
 │
-├── jobs/README.md                     # Documentation workers
-└── migrations/README.md               # Documentation migrations
+└── jobs/README.md                     # Documentation workers
 ```
 
 ---
@@ -87,9 +81,7 @@ Déterminez où placer votre document :
 
 - **Racine** (`/`) : README.md uniquement
 - **docs/** : Documentation principale (guides, références, implémentation, guides de démarrage)
-- **docs/backup/** : Backups des versions originales anglaises
-- **docs/archive/** : Documents obsolètes ou historiques (ne pas éditer)
-- **Sous-dossiers** (`jobs/`, `migrations/`) : Documentation spécifique au composant
+- **Sous-dossiers** (`jobs/`) : Documentation spécifique au composant
 
 ### 2. Choisir un Nom de Fichier
 
@@ -216,13 +208,12 @@ Le fichier `docs/SUMMARY.md` est l'**index global** de toute la documentation. I
 - **Administration** : Gestion des utilisateurs, rôles, authentification
 - **Gestion DNS** : Zones, enregistrements, validation
 - **API** : Documentation des endpoints, authentification
-- **Scripts** : Utilitaires, imports, migrations
-- **Base de Données** : Schéma, migrations
+- **Scripts** : Utilitaires, imports
+- **Base de Données** : Schéma, structure
 - **Architecture** : Design, implémentation, diagrammes
 - **Interface** : UI, modals, composants
 - **Tests** : Plans de test, guides de test, validation
 - **Livraison** : Résumés de complétion, vérifications
-- **Archives** : Documents historiques (ne pas ajouter de nouveaux)
 
 ---
 

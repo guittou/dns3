@@ -176,7 +176,6 @@ Exemple : `admin@example.com` devient `admin.example.com.`
 
 ## Checklist de Test
 
-- [ ] Exécuter la migration pour ajouter les colonnes SOA/TTL : `migrations/20251205_add_soa_fields_to_zone_files.sql`
 - [ ] Créer/mettre à jour des zones avec le champ répertoire
 - [ ] Vérifier que le champ répertoire s'affiche dans le modal mais pas dans le tableau
 - [ ] Créer un nouveau maître avec TTL et timers SOA personnalisés

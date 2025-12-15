@@ -217,17 +217,14 @@ Documentation technique et d'implémentation :
    - Tables en anglais
    - **Action** : Traduire les descriptions de tables
 
-### 2. **migrations/README.md** - 🔄 Majoritairement anglais
-   - Guide de migration
-   - **Action** : Traduire les sections principales
-
 ---
 
-## Fichiers Archive (Non Prioritaires) ⏸️
+## Fichiers Obsolètes Supprimés ✅
 
-Le dossier `docs/archive/` contient **57 fichiers** principalement en anglais :
-- Anciennes PR descriptions
-- Notes d'implémentation obsolètes
+Les dossiers et fichiers suivants ont été supprimés du dépôt :
+- Dossier `docs/archive/` - Anciennes PR descriptions et notes d'implémentation obsolètes
+- Dossier `docs/backup/` - Backups des versions originales anglaises
+- Dossier `migrations/` - Fichiers de migration SQL historiques
 - Guides de test pour fonctionnalités retirées
 - Résumés historiques
 
