@@ -1005,10 +1005,20 @@ class ZoneImporter:
         """Extract DNS records from zone"""
         records = []
         
+        # Create origin name object for derelativization
+        origin_name = dns.name.from_text(origin)
+        
         for name, node in zone.items():
-            # Use to_text() to preserve the exact name format from dnspython
-            # This avoids concatenating owner + zone name
-            name_str = name.to_text()
+            # Derelativize the name to get absolute FQDN
+            # If the name is already absolute, this is a no-op
+            # If the name is relative, this converts it to absolute (e.g., 'www' -> 'www.mondomaine.fr.')
+            if not name.is_absolute():
+                abs_name = name.derelativize(origin_name)
+            else:
+                abs_name = name
+            
+            # Convert to text without trailing dot for storage (consistent with _detect_explicit_ttls)
+            name_str = abs_name.to_text().rstrip('.')
             
             for rdataset in node:
                 record_type = dns.rdatatype.to_text(rdataset.rdtype)

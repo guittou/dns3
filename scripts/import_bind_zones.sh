@@ -301,6 +301,42 @@ convert_ttl_to_seconds() {
     fi
 }
 
+# Normalize a DNS record name to absolute FQDN (without trailing dot)
+# Args: $1 = name from zone file, $2 = origin (zone name)
+# Examples:
+#   normalize_name "@" "example.com." -> "example.com"
+#   normalize_name "www" "example.com." -> "www.example.com"
+#   normalize_name "test.example.com." "example.com." -> "test.example.com"
+normalize_name() {
+    local name="$1"
+    local origin="$2"
+    
+    # Ensure origin ends with dot
+    if [[ ! "$origin" =~ \.$ ]]; then
+        origin="${origin}."
+    fi
+    
+    # Remove trailing dot from origin for concatenation
+    local origin_no_dot="${origin%.}"
+    
+    # Handle @ (apex)
+    if [[ "$name" == "@" ]]; then
+        echo "$origin_no_dot"
+        return
+    fi
+    
+    # Handle absolute names (FQDN with trailing dot)
+    if [[ "$name" =~ \.$ ]]; then
+        # Remove trailing dot
+        echo "${name%.}"
+        return
+    fi
+    
+    # Handle relative names (no trailing dot)
+    # Concatenate with origin
+    echo "${name}.${origin_no_dot}"
+}
+
 # Resolve include path (relative to absolute) using multiple strategies
 # Resolution order for relative paths:
 # 1. Resolve relative to base_dir (directory of master zone file)
@@ -701,9 +737,9 @@ process_include_file() {
             ((idx++))
         done
         
-        # Preserve record name as-is from zone file (do not concatenate with origin)
-        # The name will be stored exactly as it appears: @ for apex, relative names stay relative
-        # This matches the Python script behavior with relativize=True and name.to_text()
+        # Normalize record name to absolute FQDN (without trailing dot)
+        # This converts relative names to absolute and removes trailing dots from FQDNs
+        record_name=$(normalize_name "$record_name" "$effective_origin")
         
         # Detect record type
         for part in "${parts[@]}"; do
@@ -1122,9 +1158,9 @@ parse_zone_file() {
             ((idx++))
         done
         
-        # Preserve record name as-is from zone file (do not concatenate with origin)
-        # The name will be stored exactly as it appears: @ for apex, relative names stay relative
-        # This matches the Python script behavior with relativize=True and name.to_text()
+        # Normalize record name to absolute FQDN (without trailing dot)
+        # This converts relative names to absolute and removes trailing dots from FQDNs
+        record_name=$(normalize_name "$record_name" "$origin")
         
         # Detect record type (look for known types)
         for part in "${parts[@]}"; do
