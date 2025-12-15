@@ -1420,6 +1420,44 @@ class ZoneImporter:
         
         return soa_data
     
+    def _rdata_targets_match(self, raw_target: str, dns_target: str, origin: str, 
+                            normalized_name_lower: str) -> bool:
+        """
+        Check if a raw RDATA target matches a dnspython RDATA target.
+        
+        Handles cases where:
+        - Raw is @ and dns is the origin (@ resolution)
+        - Raw is FQDN within origin and dns is relative
+        - Direct match
+        
+        Args:
+            raw_target: Target from raw zone file (normalized, no trailing dot)
+            dns_target: Target from dnspython (normalized, no trailing dot)
+            origin: Zone origin (with trailing dot)
+            normalized_name_lower: Lowercase normalized record name for @ comparison
+            
+        Returns:
+            True if targets match, False otherwise
+        """
+        # Handle @ symbol resolution
+        if raw_target == '@' and dns_target == normalized_name_lower:
+            return True
+        
+        # Direct match
+        if raw_target == dns_target:
+            return True
+        
+        # If raw_target looks like it could be within origin, try FQDN comparison
+        origin_normalized = origin.rstrip('.').lower()
+        if raw_target.endswith('.' + origin_normalized):
+            # Raw is FQDN within origin, dns might be relative
+            if not dns_target.endswith('.' + origin_normalized):
+                dns_target_fqdn = f"{dns_target}.{origin_normalized}"
+                if raw_target == dns_target_fqdn:
+                    return True
+        
+        return False
+    
     def _extract_records(self, zone: dns.zone.Zone, origin: str, zone_id: int, 
                         explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
                         fqdn_owners: Optional[Set[str]] = None,
@@ -1500,26 +1538,9 @@ class ZoneImporter:
                                     if len(raw_parts) == 2 and len(dns_parts) == 2:
                                         raw_target = raw_parts[1].rstrip('.')
                                         dns_target = dns_parts[1].rstrip('.')
-                                        
-                                        # Handle @ symbol resolution
-                                        if raw_target == '@' and dns_target == normalized_name_lower:
+                                        if self._rdata_targets_match(raw_target, dns_target, origin, normalized_name_lower):
                                             raw_rdata = raw_rdata_str
                                             break
-                                        
-                                        # Direct match
-                                        if raw_target == dns_target:
-                                            raw_rdata = raw_rdata_str
-                                            break
-                                        
-                                        # If raw_target looks like it could be within origin, try FQDN comparison
-                                        origin_normalized = origin.rstrip('.').lower()
-                                        if raw_target.endswith('.' + origin_normalized):
-                                            # Raw is FQDN within origin, dns might be relative
-                                            if not dns_target.endswith('.' + origin_normalized):
-                                                dns_target_fqdn = f"{dns_target}.{origin_normalized}"
-                                                if raw_target == dns_target_fqdn:
-                                                    raw_rdata = raw_rdata_str
-                                                    break
                                 elif record_type == 'SRV':
                                     # Extract target from raw (format: "priority weight port target")
                                     raw_parts = raw_rdata_normalized.split(None, 3)
@@ -1527,51 +1548,16 @@ class ZoneImporter:
                                     if len(raw_parts) == 4 and len(dns_parts) == 4:
                                         raw_target = raw_parts[3].rstrip('.')
                                         dns_target = dns_parts[3].rstrip('.')
-                                        
-                                        # Handle @ symbol resolution
-                                        if raw_target == '@' and dns_target == normalized_name_lower:
+                                        if self._rdata_targets_match(raw_target, dns_target, origin, normalized_name_lower):
                                             raw_rdata = raw_rdata_str
                                             break
-                                        
-                                        # Direct match
-                                        if raw_target == dns_target:
-                                            raw_rdata = raw_rdata_str
-                                            break
-                                        
-                                        # If raw_target looks like it could be within origin, try FQDN comparison
-                                        origin_normalized = origin.rstrip('.').lower()
-                                        if raw_target.endswith('.' + origin_normalized):
-                                            # Raw is FQDN within origin, dns might be relative
-                                            if not dns_target.endswith('.' + origin_normalized):
-                                                dns_target_fqdn = f"{dns_target}.{origin_normalized}"
-                                                if raw_target == dns_target_fqdn:
-                                                    raw_rdata = raw_rdata_str
-                                                    break
                                 else:
                                     # For CNAME, NS, PTR, and others: direct comparison
                                     raw_target = raw_rdata_normalized.rstrip('.')
                                     dns_target = dnspython_rdata_str.rstrip('.')
-                                    
-                                    # Handle @ symbol resolution
-                                    if raw_target == '@' and dns_target == normalized_name_lower:
+                                    if self._rdata_targets_match(raw_target, dns_target, origin, normalized_name_lower):
                                         raw_rdata = raw_rdata_str
                                         break
-                                    
-                                    # If raw_target looks like it could be relative to origin, 
-                                    # also try comparing as FQDN within origin
-                                    origin_normalized = origin.rstrip('.').lower()
-                                    if raw_target == dns_target:
-                                        # Direct match
-                                        raw_rdata = raw_rdata_str
-                                        break
-                                    elif raw_target.endswith('.' + origin_normalized):
-                                        # Raw is FQDN within origin, dns might be relative
-                                        # Convert dns to FQDN within origin to compare
-                                        if not dns_target.endswith('.' + origin_normalized):
-                                            dns_target_fqdn = f"{dns_target}.{origin_normalized}"
-                                            if raw_target == dns_target_fqdn:
-                                                raw_rdata = raw_rdata_str
-                                                break
                     
                     record_data = self._convert_rdata_to_record(
                         stored_name, record_type, rdata, ttl, zone_id, explicit_ttls,
