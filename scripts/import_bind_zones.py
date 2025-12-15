@@ -1180,17 +1180,16 @@ class ZoneImporter:
                     break
             
             if record_type and rdata_start_idx is not None and rdata_start_idx < len(remaining):
-                # Normalize the owner name to match how dnspython will process it
+                # Keep @ as-is for owner, normalize others to match dnspython processing
+                # This preserves the distinction between @ and the origin FQDN
                 if name == '@':
-                    normalized_name = current_origin.rstrip('.')
+                    owner_key = '@'
                 elif not name.endswith('.'):
                     # Relative name
-                    normalized_name = f"{name}.{current_origin}".rstrip('.')
+                    owner_key = f"{name}.{current_origin}".rstrip('.').lower()
                 else:
                     # Absolute name
-                    normalized_name = name.rstrip('.')
-                
-                normalized_name = normalized_name.lower()
+                    owner_key = name.rstrip('.').lower()
                 
                 # Extract raw RDATA (everything after the record type)
                 rdata_parts = remaining[rdata_start_idx:]
@@ -1198,8 +1197,9 @@ class ZoneImporter:
                 
                 # Add to list - we keep all records even if they have the same name+type
                 # This allows us to match them to dnspython records by comparing RDATA values
-                raw_rdata_list.append((normalized_name, record_type, raw_rdata))
-                self.logger.debug(f"Extracted raw RDATA: {normalized_name} {record_type} -> {raw_rdata}")
+                # Using @ as key preserves the original owner format for lookup
+                raw_rdata_list.append((owner_key, record_type, raw_rdata))
+                self.logger.debug(f"Extracted raw RDATA: {owner_key} {record_type} -> {raw_rdata}")
         
         return raw_rdata_list
     
@@ -1497,37 +1497,32 @@ class ZoneImporter:
                 if record_type == 'SOA':
                     continue
                 
-                # Determine the name to store for records of this type
-                # Check if this was @ in the original file
+                # Normalize name for matching
                 normalized_name_lower = fqdn_str.rstrip('.').lower()
                 at_key = (normalized_name_lower, record_type)
                 was_at_in_file = at_owners is not None and at_key in at_owners
                 
-                if was_at_in_file:
-                    # Preserve @ as it was in the original file
-                    stored_name = '@'
-                    self.logger.debug(f"Preserving @ owner for {record_type} record")
-                elif was_fqdn_in_file:
-                    # Preserve the trailing dot as it was in the original file
-                    stored_name = fqdn_str
-                    self.logger.debug(f"Preserving FQDN format: {stored_name}")
-                else:
-                    # Relativize to origin to get relative name (e.g., "ns1" not "ns1.mondomaine.fr.")
-                    relative_name = fqdn.relativize(origin_name)
-                    stored_name = relative_name.to_text().rstrip('.')
-                    self.logger.debug(f"Using relative name: {stored_name}")
-                
                 for rdata in rdataset:
                     # Get raw RDATA if available by matching with dnspython's RDATA
+                    # We try multiple lookup keys to find the right match
                     raw_rdata = None
+                    raw_owner_key = None
                     if raw_rdata_list:
                         # Get dnspython's RDATA string (may have resolved @ to FQDN)
                         dnspython_rdata_str = str(rdata).lower().strip()
                         
+                        # Build set of possible lookup keys for O(1) lookups
+                        # Priority: @ (if was @ in file), normalized name, FQDN
+                        lookup_keys = {normalized_name_lower}
+                        if was_at_in_file:
+                            lookup_keys.add('@')
+                        if was_fqdn_in_file:
+                            lookup_keys.add(fqdn_str.rstrip('.').lower())
+                        
                         # Look for matching raw RDATA entry
                         # Match by name and type, then check if RDATA is compatible
                         for raw_name, raw_type, raw_rdata_str in raw_rdata_list:
-                            if raw_name == normalized_name_lower and raw_type == record_type:
+                            if raw_name in lookup_keys and raw_type == record_type:
                                 # Normalize raw RDATA for comparison
                                 raw_rdata_normalized = raw_rdata_str.lower().strip()
                                 
@@ -1544,6 +1539,7 @@ class ZoneImporter:
                                         dns_target = dns_parts[1].rstrip('.')
                                         if self._rdata_targets_match(raw_target, dns_target, origin, normalized_name_lower):
                                             raw_rdata = raw_rdata_str
+                                            raw_owner_key = raw_name
                                             break
                                 elif record_type == 'SRV':
                                     # Extract target from raw (format: "priority weight port target")
@@ -1554,6 +1550,7 @@ class ZoneImporter:
                                         dns_target = dns_parts[3].rstrip('.')
                                         if self._rdata_targets_match(raw_target, dns_target, origin, normalized_name_lower):
                                             raw_rdata = raw_rdata_str
+                                            raw_owner_key = raw_name
                                             break
                                 else:
                                     # For CNAME, NS, PTR, and others: direct comparison
@@ -1561,7 +1558,22 @@ class ZoneImporter:
                                     dns_target = dnspython_rdata_str.rstrip('.')
                                     if self._rdata_targets_match(raw_target, dns_target, origin, normalized_name_lower):
                                         raw_rdata = raw_rdata_str
+                                        raw_owner_key = raw_name
                                         break
+                    
+                    # Determine the stored name based on the raw owner key (if available)
+                    if raw_owner_key == '@':
+                        stored_name = '@'
+                        self.logger.debug(f"Preserving @ owner for {record_type} record (from raw RDATA match)")
+                    elif was_fqdn_in_file:
+                        # Preserve the trailing dot as it was in the original file
+                        stored_name = fqdn_str
+                        self.logger.debug(f"Preserving FQDN format: {stored_name}")
+                    else:
+                        # Relativize to origin to get relative name (e.g., "ns1" not "ns1.mondomaine.fr.")
+                        relative_name = fqdn.relativize(origin_name)
+                        stored_name = relative_name.to_text().rstrip('.')
+                        self.logger.debug(f"Using relative name: {stored_name}")
                     
                     record_data = self._convert_rdata_to_record(
                         stored_name, record_type, rdata, ttl, zone_id, explicit_ttls,
