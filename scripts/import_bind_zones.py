@@ -1098,7 +1098,7 @@ class ZoneImporter:
                     normalized_name = current_origin.rstrip('.').lower()
                     
                     # Store mapping from (normalized_name, record_type) to '@'
-                    # Use a tuple as key to handle multiple @ records of same type
+                    # Multiple @ records of same type share one key; each rdata is processed separately later
                     key = (normalized_name, record_type)
                     at_owners[key] = '@'
                     self.logger.debug(f"Detected @ owner for {record_type} record")
