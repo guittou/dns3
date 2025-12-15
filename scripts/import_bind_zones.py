@@ -1512,7 +1512,7 @@ class ZoneImporter:
                     stored_name = fqdn_str
                     self.logger.debug(f"Preserving FQDN format: {stored_name}")
                 else:
-                    # Relativize to origin to get relative name (e.g., "ns1" not "ns1.mondomaine.fr")
+                    # Relativize to origin to get relative name (e.g., "ns1" not "ns1.mondomaine.fr.")
                     relative_name = fqdn.relativize(origin_name)
                     stored_name = relative_name.to_text().rstrip('.')
                     self.logger.debug(f"Using relative name: {stored_name}")
@@ -1591,8 +1591,9 @@ class ZoneImporter:
                            If None, name will be normalized on-the-fly.
             raw_rdata: Raw RDATA string from zone file (preserves @ symbols)
         """
-        # Use raw RDATA only if it contains @ symbol, otherwise use dnspython's relativized form
-        # This ensures we store relative names (e.g., "ns1") not FQDNs (e.g., "ns1.mondomaine.fr.")
+        # Use raw RDATA only if it contains @ symbol, otherwise use dnspython's string representation.
+        # Dnspython returns relative names for targets within origin (e.g., "ns1" not "ns1.mondomaine.fr."),
+        # but preserves @ symbols as-is when they appear in RDATA.
         if raw_rdata is not None and '@' in raw_rdata:
             rdata_str = raw_rdata
         else:
