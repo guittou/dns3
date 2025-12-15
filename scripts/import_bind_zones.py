@@ -1988,8 +1988,12 @@ ftp     IN      CNAME   www.example.com.
             zone = dns.zone.from_text(example_zone, origin='example.com.')
             self.logger.info("\nParsed zone successfully!")
             
+            # Extract raw RDATA and @ owners to test preservation
+            raw_rdata_list = self._extract_raw_rdata(example_zone, 'example.com.')
+            at_owners = self._detect_at_owners(example_zone, 'example.com.')
+            
             # Extract records
-            records = self._extract_records(zone, 'example.com.', 0, None, None, None, None)
+            records = self._extract_records(zone, 'example.com.', 0, None, None, raw_rdata_list, at_owners)
             self.logger.info(f"\nExtracted {len(records)} records:")
             for record in records:
                 print(f"  - {record['name']} {record['ttl']} IN {record['record_type']} {record['value']}")
