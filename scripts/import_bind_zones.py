@@ -1043,10 +1043,9 @@ class ZoneImporter:
         # Normalize origin for comparison (lowercase, no trailing dot)
         origin_normalized = origin.rstrip('.').lower()
         
-        # Common record types we support
+        # Common record types we support (only those with parsing logic below)
         supported_types = {
-            'A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 
-            'SSHFP', 'TLSA', 'NAPTR'
+            'A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA'
         }
         
         for line_num, line in enumerate(lines, 1):
@@ -1089,7 +1088,7 @@ class ZoneImporter:
             
             # Parse remaining fields: [ttl] [class] type rdata
             remaining = parts[1:]
-            ttl = None
+            parsed_ttl = None
             record_class = 'IN'
             record_type = None
             rdata_parts = []
@@ -1102,9 +1101,9 @@ class ZoneImporter:
                 multipliers = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
                 match = re.match(r'^(\d+)([smhdw]?)$', ttl_str, re.IGNORECASE)
                 if match:
-                    ttl = int(match.group(1))
+                    parsed_ttl = int(match.group(1))
                     if match.group(2):
-                        ttl *= multipliers.get(match.group(2).lower(), 1)
+                        parsed_ttl *= multipliers.get(match.group(2).lower(), 1)
                 idx += 1
             
             # Try to parse class
@@ -1134,22 +1133,10 @@ class ZoneImporter:
             # Join rdata parts (may need quotes for TXT records, etc.)
             rdata_str = ' '.join(rdata_parts)
             
-            # Determine TTL to use
-            has_explicit_ttl = ttl is not None
-            if not has_explicit_ttl:
-                # Check if this record was in the explicit_ttls set
-                ttl_check_name = owner_normalized
-                if explicit_ttls:
-                    for (exp_name, exp_type, exp_rdata) in explicit_ttls:
-                        if exp_name == ttl_check_name and exp_type == record_type:
-                            has_explicit_ttl = True
-                            # We don't have the actual TTL value, but we know it's explicit
-                            # This shouldn't happen for out-of-origin records since we parse them here
-                            break
-                
-                # Use default TTL if not explicit
-                if not has_explicit_ttl:
-                    ttl = default_ttl
+            # Determine TTL to use: we parse TTL directly from the raw line,
+            # so we don't need to check explicit_ttls (which is for dnspython-parsed records)
+            has_explicit_ttl = parsed_ttl is not None
+            final_ttl = parsed_ttl if has_explicit_ttl else default_ttl
             
             # Build base record
             record_data = {
@@ -1163,7 +1150,7 @@ class ZoneImporter:
             
             # Set TTL only if explicit
             if has_explicit_ttl:
-                record_data['ttl'] = ttl
+                record_data['ttl'] = final_ttl
             
             # Parse type-specific fields
             try:
