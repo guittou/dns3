@@ -1,16 +1,16 @@
-# DNS Metadata Fields - Implementation Documentation
+# Champs de Métadonnées DNS - Documentation d'Implémentation
 
-## Overview
+## Vue d'ensemble
 
 This document describes the implementation of business metadata fields for DNS records, including requester, expiration date, ticket reference, comment, and last-seen tracking.
 
-## Objective
+## Objectif
 
 Add business metadata fields to DNS records and expose them properly through the database, model, API, and user interface. The `last_seen` field is managed exclusively server-side and cannot be modified via the interface or API create/update endpoints.
 
-## Changes Summary
+## Résumé des Modifications
 
-### 1. Database Schema
+### 1. Schéma de Base de Données
 
 > **Note** : Les fichiers de migration ont été supprimés. Le schéma complet est maintenant disponible dans `database.sql`.
 

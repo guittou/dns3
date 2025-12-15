@@ -1,24 +1,24 @@
-# Visual Changes: Created At / Updated At UI
+# Modifications Visuelles : Interface Created At / Updated At
 
-## Table View Changes
+## Modifications de la Vue Tableau
 
-### Before
+### Avant
 ```
 | Nom | TTL | Classe | Type | Valeur | Demandeur | Expire | Vu le | Statut | ID | Actions |
 |-----|-----|--------|------|--------|-----------|--------|-------|--------|----|---------| 
 ```
 
-### After
+### Après
 ```
 | Nom | TTL | Classe | Type | Valeur | Demandeur | Expire | Vu le | Créé le | Modifié le | Statut | ID | Actions |
 |-----|-----|--------|------|--------|-----------|--------|-------|---------|------------|--------|----|---------| 
 ```
 
-**New Columns:**
-- **Créé le**: Displays record creation timestamp (DD/MM/YYYY HH:MM)
-- **Modifié le**: Displays last modification timestamp (DD/MM/YYYY HH:MM)
+**Nouvelles Colonnes :**
+- **Créé le** : Affiche l'horodatage de création de l'enregistrement (JJ/MM/AAAA HH:MM)
+- **Modifié le** : Affiche l'horodatage de la dernière modification (JJ/MM/AAAA HH:MM)
 
-### Example Data Display
+### Exemple d'Affichage des Données
 
 ```
 | Nom                  | ... | Vu le              | Créé le            | Modifié le         | Statut | ... |
@@ -28,33 +28,33 @@
 | old-record.com       | ... | 10/10/2025 16:45   | 01/10/2025 10:00   | 15/10/2025 14:30   | active | ... |
 ```
 
-## Modal View Changes
+## Modifications de la Vue Modale
 
-### Create Mode (New Record)
+### Mode Création (Nouvel Enregistrement)
 
-**Fields Visible:**
+**Champs Visibles :**
 - Type d'enregistrement
 - Nom
-- Adresse IPv4/IPv6/etc (depending on type)
+- Champ de valeur spécifique au type (Adresse IPv4 pour A, IPv6 pour AAAA, Cible pour CNAME, etc.)
 - TTL
 - Demandeur
 - Date d'expiration
 - Référence ticket
 - Commentaire
 
-**Fields NOT Visible:**
-- ❌ Vu pour la dernière fois (hidden - not yet seen)
-- ❌ Créé le (hidden - not yet created)
-- ❌ Modifié le (hidden - not yet modified)
+**Champs NON Visibles :**
+- ❌ Vu pour la dernière fois (masqué - pas encore consulté)
+- ❌ Créé le (masqué - pas encore créé)
+- ❌ Modifié le (masqué - pas encore modifié)
 
-### Edit Mode (Existing Record)
+### Mode Édition (Enregistrement Existant)
 
-**Additional Fields Visible:**
-- ✓ Vu pour la dernière fois (read-only, if record has been seen)
-- ✓ **Créé le** (read-only, shows creation timestamp)
-- ✓ **Modifié le** (read-only, shows last modification timestamp)
+**Champs Additionnels Visibles :**
+- ✓ Vu pour la dernière fois (lecture seule, si l'enregistrement a été consulté)
+- ✓ **Créé le** (lecture seule, affiche l'horodatage de création)
+- ✓ **Modifié le** (lecture seule, affiche l'horodatage de dernière modification)
 
-**Example Modal Content (Edit Mode):**
+**Exemple de Contenu de la Modale (Mode Édition) :**
 ```
 ═══════════════════════════════════════════
   Modifier l'enregistrement DNS
@@ -77,23 +77,23 @@ Référence ticket: [JIRA-1234              ]
 Commentaire: [Record for production...   ]
 
 Vu pour la dernière fois: [20/10/2025 14:30]
-                          (disabled, read-only)
+                          (désactivé, lecture seule)
 
-Créé le: [15/10/2025 09:15]              ← NEW!
-         (disabled, read-only)
+Créé le: [15/10/2025 09:15]              ← NOUVEAU!
+         (désactivé, lecture seule)
 
-Modifié le: [18/10/2025 11:20]           ← NEW!
-            (disabled, read-only)
+Modifié le: [18/10/2025 11:20]           ← NOUVEAU!
+            (désactivé, lecture seule)
 
                     [Annuler] [Enregistrer]
 ═══════════════════════════════════════════
 ```
 
-## Database Changes
+## Modifications de la Base de Données
 
-### INSERT Statement
+### Instruction INSERT
 
-**Before:**
+**Avant :**
 ```sql
 INSERT INTO dns_records (
     record_type, name, value, ..., status, created_by
@@ -101,7 +101,7 @@ INSERT INTO dns_records (
 VALUES (?, ?, ?, ..., 'active', ?)
 ```
 
-**After:**
+**Après :**
 ```sql
 INSERT INTO dns_records (
     record_type, name, value, ..., status, created_by, created_at
@@ -109,9 +109,9 @@ INSERT INTO dns_records (
 VALUES (?, ?, ?, ..., 'active', ?, NOW())
 ```
 
-### UPDATE Statement
+### Instruction UPDATE
 
-**No changes required** - already uses `updated_at = NOW()`:
+**Aucune modification requise** - utilise déjà `updated_at = NOW()` :
 ```sql
 UPDATE dns_records 
 SET record_type = ?, name = ?, value = ?, ..., 
@@ -119,45 +119,45 @@ SET record_type = ?, name = ?, value = ?, ...,
 WHERE id = ?
 ```
 
-## Security
+## Sécurité
 
-### Client Request (CREATE)
+### Requête Client (CREATE)
 ```json
 {
   "record_type": "A",
   "name": "example.com",
   "address_ipv4": "192.168.1.100",
   "ttl": 3600,
-  "created_at": "2020-01-01 00:00:00"  ← Ignored by server!
+  "created_at": "2020-01-01 00:00:00"  ← Ignoré par le serveur!
 }
 ```
 
-Server will:
-1. Unset `created_at` from payload
-2. Use `NOW()` for `created_at` in SQL
-3. Prevent client tampering
+Le serveur va :
+1. Supprimer `created_at` de la charge utile
+2. Utiliser `NOW()` pour `created_at` dans le SQL
+3. Empêcher la manipulation côté client
 
-### Client Request (UPDATE)
+### Requête Client (UPDATE)
 ```json
 {
   "name": "example.com",
   "ttl": 7200,
-  "created_at": "2020-01-01 00:00:00",  ← Ignored by server!
-  "updated_at": "2020-01-01 00:00:00"   ← Ignored by server!
+  "created_at": "2020-01-01 00:00:00",  ← Ignoré par le serveur!
+  "updated_at": "2020-01-01 00:00:00"   ← Ignoré par le serveur!
 }
 ```
 
-Server will:
-1. Unset both `created_at` and `updated_at` from payload
-2. Use `NOW()` for `updated_at` in SQL
-3. Never modify `created_at` (preserve original)
-4. Prevent client tampering
+Le serveur va :
+1. Supprimer `created_at` et `updated_at` de la charge utile
+2. Utiliser `NOW()` pour `updated_at` dans le SQL
+3. Ne jamais modifier `created_at` (préserver l'original)
+4. Empêcher la manipulation côté client
 
-## API Response
+## Réponses API
 
 ### GET /api/dns_api.php?action=get&id=123
 
-**Response includes timestamps:**
+**La réponse inclut les horodatages :**
 ```json
 {
   "success": true,
@@ -167,8 +167,8 @@ Server will:
     "name": "example.com",
     "address_ipv4": "192.168.1.100",
     "ttl": 3600,
-    "created_at": "2025-10-15 09:15:00",    ← Returned
-    "updated_at": "2025-10-18 11:20:00",    ← Returned
+    "created_at": "2025-10-15 09:15:00",    ← Retourné
+    "updated_at": "2025-10-18 11:20:00",    ← Retourné
     "last_seen": "2025-10-20 14:30:00",
     "status": "active",
     ...
@@ -178,7 +178,7 @@ Server will:
 
 ### GET /api/dns_api.php?action=list
 
-**Each record in array includes timestamps:**
+**Chaque enregistrement dans le tableau inclut les horodatages :**
 ```json
 {
   "success": true,
@@ -186,8 +186,8 @@ Server will:
     {
       "id": 123,
       "name": "example.com",
-      "created_at": "2025-10-15 09:15:00",  ← Returned
-      "updated_at": "2025-10-18 11:20:00",  ← Returned
+      "created_at": "2025-10-15 09:15:00",  ← Retourné
+      "updated_at": "2025-10-18 11:20:00",  ← Retourné
       ...
     },
     ...
@@ -195,47 +195,47 @@ Server will:
 }
 ```
 
-## User Experience Flow
+## Flux d'Expérience Utilisateur
 
-### Creating a New Record
-1. User clicks "+ Créer un enregistrement"
-2. Modal opens with empty form
-3. Timestamp fields are hidden (not applicable yet)
-4. User fills in required fields
-5. User clicks "Enregistrer"
-6. Server creates record with `created_at = NOW()`
-7. Table refreshes
-8. New record appears with "Créé le" and "Modifié le" populated
+### Création d'un Nouvel Enregistrement
+1. L'utilisateur clique sur "+ Créer un enregistrement"
+2. La modale s'ouvre avec un formulaire vide
+3. Les champs d'horodatage sont masqués (pas encore applicables)
+4. L'utilisateur remplit les champs requis
+5. L'utilisateur clique sur "Enregistrer"
+6. Le serveur crée l'enregistrement avec `created_at = NOW()`
+7. Le tableau se rafraîchit
+8. Le nouvel enregistrement apparaît avec "Créé le" et "Modifié le" remplis
 
-### Editing an Existing Record
-1. User clicks "Modifier" on a record
-2. Modal opens with populated form
-3. Timestamp fields are visible and readonly:
-   - "Créé le" shows original creation time
-   - "Modifié le" shows last modification time
-   - "Vu pour la dernière fois" shows last view time
-4. User modifies a field
-5. User clicks "Enregistrer"
-6. Server updates record with `updated_at = NOW()`
-7. Table refreshes
-8. Record shows updated "Modifié le" timestamp
-9. "Créé le" remains unchanged
+### Modification d'un Enregistrement Existant
+1. L'utilisateur clique sur "Modifier" sur un enregistrement
+2. La modale s'ouvre avec le formulaire prérempli
+3. Les champs d'horodatage sont visibles et en lecture seule :
+   - "Créé le" affiche l'heure de création d'origine
+   - "Modifié le" affiche l'heure de dernière modification
+   - "Vu pour la dernière fois" affiche l'heure de dernière consultation
+4. L'utilisateur modifie un champ
+5. L'utilisateur clique sur "Enregistrer"
+6. Le serveur met à jour l'enregistrement avec `updated_at = NOW()`
+7. Le tableau se rafraîchit
+8. L'enregistrement affiche l'horodatage "Modifié le" mis à jour
+9. "Créé le" reste inchangé
 
-### Viewing the Table
-1. User navigates to DNS Management page
-2. Table loads with all records
-3. Each row shows formatted timestamps:
-   - "Créé le": Always shows creation time
-   - "Modifié le": Shows last modification time
-   - If null: displays "-"
-4. User can filter/search records
-5. Timestamps remain visible and formatted
+### Consultation du Tableau
+1. L'utilisateur navigue vers la page de Gestion DNS
+2. Le tableau se charge avec tous les enregistrements
+3. Chaque ligne affiche les horodatages formatés :
+   - "Créé le" : Affiche toujours l'heure de création
+   - "Modifié le" : Affiche l'heure de dernière modification
+   - Si null : affiche "-"
+4. L'utilisateur peut filtrer/rechercher des enregistrements
+5. Les horodatages restent visibles et formatés
 
-## Technical Implementation
+## Implémentation Technique
 
-### JavaScript Date Formatting
+### Formatage de Date JavaScript
 
-Function used: `formatDateTime(datetime)`
+Fonction utilisée : `formatDateTime(datetime)`
 ```javascript
 function formatDateTime(datetime) {
     if (!datetime) return '';
@@ -254,13 +254,13 @@ function formatDateTime(datetime) {
 }
 ```
 
-**Input:** `"2025-10-15 09:15:00"` (SQL format)
-**Output:** `"15/10/2025 09:15"` (French locale)
+**Entrée :** `"2025-10-15 09:15:00"` (format SQL)
+**Sortie :** `"15/10/2025 09:15"` (locale française)
 
-### Table Row Generation
+### Génération de Lignes de Tableau
 
 ```javascript
-// Generate table rows with semantic classes
+// Générer des lignes de tableau avec des classes sémantiques
 currentRecords.forEach(record => {
     const row = document.createElement('tr');
     row.innerHTML = `
@@ -282,11 +282,11 @@ currentRecords.forEach(record => {
 });
 ```
 
-## Summary
+## Résumé
 
-This implementation adds full visibility of temporal metadata to DNS records while maintaining:
-- ✓ Security (server-managed timestamps)
-- ✓ User experience (appropriate field visibility)
-- ✓ Data integrity (explicit NOW() in SQL)
-- ✓ Backward compatibility (works with existing data)
-- ✓ Clean code (minimal changes)
+Cette implémentation ajoute une visibilité complète des métadonnées temporelles aux enregistrements DNS tout en maintenant :
+- ✓ La sécurité (horodatages gérés par le serveur)
+- ✓ L'expérience utilisateur (visibilité appropriée des champs)
+- ✓ L'intégrité des données (NOW() explicite dans le SQL)
+- ✓ La compatibilité ascendante (fonctionne avec les données existantes)
+- ✓ Un code propre (modifications minimales)
