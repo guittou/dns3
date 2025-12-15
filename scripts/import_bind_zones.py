@@ -76,6 +76,11 @@ except ImportError:
 class ZoneImporter:
     """Main class for importing BIND zone files"""
     
+    # Common DNS record types for parsing
+    COMMON_RECORD_TYPES = ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 
+                          'CAA', 'SSHFP', 'TLSA', 'NAPTR', 'DNSKEY', 'RRSIG', 
+                          'NSEC', 'NSEC3', 'DS')
+    
     def __init__(self, args):
         self.args = args
         self.logger = self._setup_logging()
@@ -951,7 +956,7 @@ class ZoneImporter:
                                 record_type = remaining[idx + 2].upper()
                                 rdata_start_idx = idx + 3
                         # If next is a record type, TTL is explicit
-                        elif next_part in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR'):
+                        elif next_part in self.COMMON_RECORD_TYPES:
                             has_explicit_ttl = True
                             record_type = next_part
                             rdata_start_idx = idx + 2
@@ -964,7 +969,7 @@ class ZoneImporter:
                         rdata_start_idx = idx + 2
                     break
                 # Check if this is a record type (no TTL, no class)
-                elif part.upper() in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR'):
+                elif part.upper() in self.COMMON_RECORD_TYPES:
                     record_type = part.upper()
                     rdata_start_idx = idx + 1
                     break
@@ -1078,7 +1083,7 @@ class ZoneImporter:
                                 record_type = remaining[idx + 2].upper()
                                 rdata_start_idx = idx + 3
                         # If next is a record type
-                        elif next_part in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR', 'DNSKEY', 'RRSIG', 'NSEC', 'NSEC3', 'DS'):
+                        elif next_part in self.COMMON_RECORD_TYPES:
                             record_type = next_part
                             rdata_start_idx = idx + 2
                     break
@@ -1090,7 +1095,7 @@ class ZoneImporter:
                         rdata_start_idx = idx + 2
                     break
                 # Check if this is a record type (no TTL, no class)
-                elif part_upper in ('A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 'SSHFP', 'TLSA', 'NAPTR', 'DNSKEY', 'RRSIG', 'NSEC', 'NSEC3', 'DS'):
+                elif part_upper in self.COMMON_RECORD_TYPES:
                     record_type = part_upper
                     rdata_start_idx = idx + 1
                     break
