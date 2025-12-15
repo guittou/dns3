@@ -1180,17 +1180,16 @@ class ZoneImporter:
                     break
             
             if record_type and rdata_start_idx is not None and rdata_start_idx < len(remaining):
-                # Normalize the owner name to match how dnspython will process it
+                # Keep @ as-is for owner, normalize others to match dnspython processing
+                # This preserves the distinction between @ and the origin FQDN
                 if name == '@':
-                    normalized_name = current_origin.rstrip('.')
+                    owner_key = '@'
                 elif not name.endswith('.'):
                     # Relative name
-                    normalized_name = f"{name}.{current_origin}".rstrip('.')
+                    owner_key = f"{name}.{current_origin}".rstrip('.').lower()
                 else:
                     # Absolute name
-                    normalized_name = name.rstrip('.')
-                
-                normalized_name = normalized_name.lower()
+                    owner_key = name.rstrip('.').lower()
                 
                 # Extract raw RDATA (everything after the record type)
                 rdata_parts = remaining[rdata_start_idx:]
@@ -1198,8 +1197,9 @@ class ZoneImporter:
                 
                 # Add to list - we keep all records even if they have the same name+type
                 # This allows us to match them to dnspython records by comparing RDATA values
-                raw_rdata_list.append((normalized_name, record_type, raw_rdata))
-                self.logger.debug(f"Extracted raw RDATA: {normalized_name} {record_type} -> {raw_rdata}")
+                # Using @ as key preserves the original owner format for lookup
+                raw_rdata_list.append((owner_key, record_type, raw_rdata))
+                self.logger.debug(f"Extracted raw RDATA: {owner_key} {record_type} -> {raw_rdata}")
         
         return raw_rdata_list
     
@@ -1524,10 +1524,17 @@ class ZoneImporter:
                         # Get dnspython's RDATA string (may have resolved @ to FQDN)
                         dnspython_rdata_str = str(rdata).lower().strip()
                         
+                        # Determine the lookup key for matching raw RDATA
+                        # If this record has @ owner, look for '@' key; otherwise use normalized name
+                        if was_at_in_file:
+                            lookup_key = '@'
+                        else:
+                            lookup_key = normalized_name_lower
+                        
                         # Look for matching raw RDATA entry
                         # Match by name and type, then check if RDATA is compatible
                         for raw_name, raw_type, raw_rdata_str in raw_rdata_list:
-                            if raw_name == normalized_name_lower and raw_type == record_type:
+                            if raw_name == lookup_key and raw_type == record_type:
                                 # Normalize raw RDATA for comparison
                                 raw_rdata_normalized = raw_rdata_str.lower().strip()
                                 
