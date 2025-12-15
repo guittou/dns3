@@ -1500,10 +1500,26 @@ class ZoneImporter:
                                     if len(raw_parts) == 2 and len(dns_parts) == 2:
                                         raw_target = raw_parts[1].rstrip('.')
                                         dns_target = dns_parts[1].rstrip('.')
-                                        # Match if targets are the same or raw is @ (dnspython resolves @ to origin)
-                                        if raw_target == dns_target or (raw_target == '@' and dns_target == normalized_name_lower):
+                                        
+                                        # Handle @ symbol resolution
+                                        if raw_target == '@' and dns_target == normalized_name_lower:
                                             raw_rdata = raw_rdata_str
                                             break
+                                        
+                                        # Direct match
+                                        if raw_target == dns_target:
+                                            raw_rdata = raw_rdata_str
+                                            break
+                                        
+                                        # If raw_target looks like it could be within origin, try FQDN comparison
+                                        origin_normalized = origin.rstrip('.').lower()
+                                        if raw_target.endswith('.' + origin_normalized):
+                                            # Raw is FQDN within origin, dns might be relative
+                                            if not dns_target.endswith('.' + origin_normalized):
+                                                dns_target_fqdn = f"{dns_target}.{origin_normalized}"
+                                                if raw_target == dns_target_fqdn:
+                                                    raw_rdata = raw_rdata_str
+                                                    break
                                 elif record_type == 'SRV':
                                     # Extract target from raw (format: "priority weight port target")
                                     raw_parts = raw_rdata_normalized.split(None, 3)
@@ -1511,16 +1527,51 @@ class ZoneImporter:
                                     if len(raw_parts) == 4 and len(dns_parts) == 4:
                                         raw_target = raw_parts[3].rstrip('.')
                                         dns_target = dns_parts[3].rstrip('.')
-                                        if raw_target == dns_target or (raw_target == '@' and dns_target == normalized_name_lower):
+                                        
+                                        # Handle @ symbol resolution
+                                        if raw_target == '@' and dns_target == normalized_name_lower:
                                             raw_rdata = raw_rdata_str
                                             break
+                                        
+                                        # Direct match
+                                        if raw_target == dns_target:
+                                            raw_rdata = raw_rdata_str
+                                            break
+                                        
+                                        # If raw_target looks like it could be within origin, try FQDN comparison
+                                        origin_normalized = origin.rstrip('.').lower()
+                                        if raw_target.endswith('.' + origin_normalized):
+                                            # Raw is FQDN within origin, dns might be relative
+                                            if not dns_target.endswith('.' + origin_normalized):
+                                                dns_target_fqdn = f"{dns_target}.{origin_normalized}"
+                                                if raw_target == dns_target_fqdn:
+                                                    raw_rdata = raw_rdata_str
+                                                    break
                                 else:
                                     # For CNAME, NS, PTR, and others: direct comparison
                                     raw_target = raw_rdata_normalized.rstrip('.')
                                     dns_target = dnspython_rdata_str.rstrip('.')
-                                    if raw_target == dns_target or (raw_target == '@' and dns_target == normalized_name_lower):
+                                    
+                                    # Handle @ symbol resolution
+                                    if raw_target == '@' and dns_target == normalized_name_lower:
                                         raw_rdata = raw_rdata_str
                                         break
+                                    
+                                    # If raw_target looks like it could be relative to origin, 
+                                    # also try comparing as FQDN within origin
+                                    origin_normalized = origin.rstrip('.').lower()
+                                    if raw_target == dns_target:
+                                        # Direct match
+                                        raw_rdata = raw_rdata_str
+                                        break
+                                    elif raw_target.endswith('.' + origin_normalized):
+                                        # Raw is FQDN within origin, dns might be relative
+                                        # Convert dns to FQDN within origin to compare
+                                        if not dns_target.endswith('.' + origin_normalized):
+                                            dns_target_fqdn = f"{dns_target}.{origin_normalized}"
+                                            if raw_target == dns_target_fqdn:
+                                                raw_rdata = raw_rdata_str
+                                                break
                     
                     record_data = self._convert_rdata_to_record(
                         stored_name, record_type, rdata, ttl, zone_id, explicit_ttls,
@@ -1593,9 +1644,9 @@ class ZoneImporter:
             elif record_type == 'AAAA':
                 base_record['address_ipv6'] = str(rdata.address)
             elif record_type == 'CNAME':
-                # Check if raw RDATA is @ (preserve it)
-                if raw_rdata and raw_rdata.strip() == '@':
-                    base_record['cname_target'] = '@'
+                # Use raw RDATA when available to preserve @ and original format
+                if raw_rdata:
+                    base_record['cname_target'] = raw_rdata.strip()
                 else:
                     base_record['cname_target'] = str(rdata.target)
             elif record_type == 'MX':
@@ -1604,20 +1655,21 @@ class ZoneImporter:
                 if raw_rdata:
                     # Parse raw RDATA to get the target (second part)
                     parts = raw_rdata.strip().split(None, 1)
-                    if len(parts) == 2 and parts[1].strip() == '@':
-                        mx_target = '@'
+                    if len(parts) == 2:
+                        # Use the raw target value to preserve @ and original format
+                        mx_target = parts[1].strip()
                 base_record['mx_target'] = mx_target
                 base_record['priority'] = rdata.preference
             elif record_type == 'NS':
-                # Check if raw RDATA is @ (preserve it)
-                if raw_rdata and raw_rdata.strip() == '@':
-                    base_record['ns_target'] = '@'
+                # Use raw RDATA when available to preserve @ and original format
+                if raw_rdata:
+                    base_record['ns_target'] = raw_rdata.strip()
                 else:
                     base_record['ns_target'] = str(rdata.target)
             elif record_type == 'PTR':
-                # Check if raw RDATA is @ (preserve it)
-                if raw_rdata and raw_rdata.strip() == '@':
-                    base_record['ptrdname'] = '@'
+                # Use raw RDATA when available to preserve @ and original format
+                if raw_rdata:
+                    base_record['ptrdname'] = raw_rdata.strip()
                 else:
                     base_record['ptrdname'] = str(rdata.target)
             elif record_type == 'TXT':
@@ -1631,8 +1683,9 @@ class ZoneImporter:
                 if raw_rdata:
                     # Parse raw RDATA to get the target (fourth part)
                     parts = raw_rdata.strip().split(None, 3)
-                    if len(parts) == 4 and parts[3].strip() == '@':
-                        srv_target = '@'
+                    if len(parts) == 4:
+                        # Use the raw target value to preserve @ and original format
+                        srv_target = parts[3].strip()
                 base_record['srv_target'] = srv_target
                 base_record['priority'] = rdata.priority
                 base_record['weight'] = rdata.weight
