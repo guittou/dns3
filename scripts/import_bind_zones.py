@@ -1511,14 +1511,13 @@ class ZoneImporter:
                         # Get dnspython's RDATA string (may have resolved @ to FQDN)
                         dnspython_rdata_str = str(rdata).lower().strip()
                         
-                        # Try different lookup keys to find matching raw RDATA
+                        # Build set of possible lookup keys for O(1) lookups
                         # Priority: @ (if was @ in file), normalized name, FQDN
-                        lookup_keys = []
+                        lookup_keys = {normalized_name_lower}
                         if was_at_in_file:
-                            lookup_keys.append('@')
-                        lookup_keys.append(normalized_name_lower)
+                            lookup_keys.add('@')
                         if was_fqdn_in_file:
-                            lookup_keys.append(fqdn_str.rstrip('.').lower())
+                            lookup_keys.add(fqdn_str.rstrip('.').lower())
                         
                         # Look for matching raw RDATA entry
                         # Match by name and type, then check if RDATA is compatible
