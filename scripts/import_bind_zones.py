@@ -776,6 +776,16 @@ class ZoneImporter:
             
             # Extract and create DNS records from include
             records = self._extract_records(zone, effective_origin, zone_id, explicit_ttls, fqdn_owners)
+            
+            # Extract out-of-origin records from raw include content
+            out_of_origin_records = self._extract_out_of_origin_records(
+                include_content, effective_origin, zone_id, explicit_ttls, default_ttl
+            )
+            
+            if out_of_origin_records:
+                self.logger.info(f"Found {len(out_of_origin_records)} out-of-origin record(s) in include")
+                records.extend(out_of_origin_records)
+            
             self.logger.info(f"Creating {len(records)} records for include {include_path.name}")
             
             for record in records:
@@ -1006,6 +1016,206 @@ class ZoneImporter:
                 self.logger.debug(f"Detected FQDN owner: {owner}")
         
         return fqdn_owners
+    
+    def _extract_out_of_origin_records(self, content: str, origin: str, zone_id: int, 
+                                       explicit_ttls: Optional[Set[Tuple[str, str, str]]] = None,
+                                       default_ttl: int = 3600) -> List[Dict]:
+        """
+        Extract records with FQDN owners that are outside the zone origin.
+        
+        dnspython's parser with relativize=True ignores records whose FQDN is not a
+        subdomain of the origin. This function parses the raw zone file content to
+        capture those records.
+        
+        Args:
+            content: Raw zone file content
+            origin: Zone origin (with trailing dot)
+            zone_id: Zone file ID for association
+            explicit_ttls: Set of records with explicit TTL
+            default_ttl: Default TTL to use if not explicit
+            
+        Returns:
+            List of record dictionaries for out-of-origin records
+        """
+        records = []
+        lines = content.split('\n')
+        
+        # Normalize origin for comparison (lowercase, no trailing dot)
+        origin_normalized = origin.rstrip('.').lower()
+        
+        # Common record types we support
+        supported_types = {
+            'A', 'AAAA', 'CNAME', 'MX', 'NS', 'PTR', 'TXT', 'SRV', 'CAA', 
+            'SSHFP', 'TLSA', 'NAPTR'
+        }
+        
+        for line_num, line in enumerate(lines, 1):
+            # Skip empty lines, comments, directives
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith(';') or stripped_line.startswith('$'):
+                continue
+            
+            # Skip multi-line continuations (SOA, etc.)
+            if stripped_line.startswith('(') or stripped_line.startswith(')'):
+                continue
+            
+            # Parse line: owner [ttl] [class] type rdata
+            parts = stripped_line.split()
+            if len(parts) < 3:
+                continue
+            
+            owner = parts[0]
+            
+            # Check if owner is a FQDN (ends with dot) and not @ or relative
+            if not owner.endswith('.') or owner == '@':
+                continue
+            
+            # Normalize owner for comparison (lowercase, no trailing dot)
+            owner_normalized = owner.rstrip('.').lower()
+            
+            # Check if this FQDN is outside the origin
+            # A name is within origin if it equals origin or ends with .origin
+            is_in_origin = (
+                owner_normalized == origin_normalized or
+                owner_normalized.endswith('.' + origin_normalized)
+            )
+            
+            if is_in_origin:
+                # This record is within the origin, dnspython will handle it
+                continue
+            
+            # This is an out-of-origin record - parse it
+            self.logger.debug(f"Found out-of-origin record at line {line_num}: {owner}")
+            
+            # Parse remaining fields: [ttl] [class] type rdata
+            remaining = parts[1:]
+            ttl = None
+            record_class = 'IN'
+            record_type = None
+            rdata_parts = []
+            idx = 0
+            
+            # Try to parse TTL (numeric with optional time unit)
+            if idx < len(remaining) and re.match(r'^\d+(?:\.\d+)?[smhdw]?$', remaining[idx], re.IGNORECASE):
+                ttl_str = remaining[idx]
+                # Convert time units to seconds
+                multipliers = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400, 'w': 604800}
+                match = re.match(r'^(\d+)([smhdw]?)$', ttl_str, re.IGNORECASE)
+                if match:
+                    ttl = int(match.group(1))
+                    if match.group(2):
+                        ttl *= multipliers.get(match.group(2).lower(), 1)
+                idx += 1
+            
+            # Try to parse class
+            if idx < len(remaining) and remaining[idx].upper() in ('IN', 'CH', 'HS', 'NONE', 'ANY'):
+                record_class = remaining[idx].upper()
+                idx += 1
+            
+            # Parse record type
+            if idx < len(remaining):
+                record_type = remaining[idx].upper()
+                idx += 1
+            else:
+                self.logger.warning(f"Could not parse record type at line {line_num}: {stripped_line}")
+                continue
+            
+            # Check if we support this record type
+            if record_type not in supported_types:
+                self.logger.debug(f"Skipping unsupported record type {record_type} at line {line_num}")
+                continue
+            
+            # Remaining parts are rdata
+            rdata_parts = remaining[idx:]
+            if not rdata_parts:
+                self.logger.warning(f"No rdata found at line {line_num}: {stripped_line}")
+                continue
+            
+            # Join rdata parts (may need quotes for TXT records, etc.)
+            rdata_str = ' '.join(rdata_parts)
+            
+            # Determine TTL to use
+            has_explicit_ttl = ttl is not None
+            if not has_explicit_ttl:
+                # Check if this record was in the explicit_ttls set
+                ttl_check_name = owner_normalized
+                if explicit_ttls:
+                    for (exp_name, exp_type, exp_rdata) in explicit_ttls:
+                        if exp_name == ttl_check_name and exp_type == record_type:
+                            has_explicit_ttl = True
+                            # We don't have the actual TTL value, but we know it's explicit
+                            # This shouldn't happen for out-of-origin records since we parse them here
+                            break
+                
+                # Use default TTL if not explicit
+                if not has_explicit_ttl:
+                    ttl = default_ttl
+            
+            # Build base record
+            record_data = {
+                'zone_file_id': zone_id,
+                'record_type': record_type,
+                'name': owner,  # Preserve FQDN with trailing dot
+                'status': 'active',
+                'created_by': self.args.user_id,
+                'value': rdata_str
+            }
+            
+            # Set TTL only if explicit
+            if has_explicit_ttl:
+                record_data['ttl'] = ttl
+            
+            # Parse type-specific fields
+            try:
+                if record_type == 'A':
+                    # Simple IPv4 address
+                    record_data['address_ipv4'] = rdata_parts[0]
+                elif record_type == 'AAAA':
+                    # Simple IPv6 address
+                    record_data['address_ipv6'] = rdata_parts[0]
+                elif record_type == 'CNAME':
+                    # CNAME target
+                    record_data['cname_target'] = rdata_parts[0]
+                elif record_type == 'MX':
+                    # Priority + target
+                    if len(rdata_parts) >= 2:
+                        record_data['priority'] = int(rdata_parts[0])
+                        record_data['mx_target'] = rdata_parts[1]
+                elif record_type == 'NS':
+                    # NS target
+                    record_data['ns_target'] = rdata_parts[0]
+                elif record_type == 'PTR':
+                    # PTR target
+                    record_data['ptrdname'] = rdata_parts[0]
+                elif record_type == 'TXT':
+                    # TXT can have quoted strings
+                    # Join all parts and remove quotes if present
+                    txt_value = ' '.join(rdata_parts)
+                    if txt_value.startswith('"') and txt_value.endswith('"'):
+                        txt_value = txt_value[1:-1]
+                    record_data['txt'] = txt_value
+                elif record_type == 'SRV':
+                    # Priority Weight Port Target
+                    if len(rdata_parts) >= 4:
+                        record_data['priority'] = int(rdata_parts[0])
+                        record_data['weight'] = int(rdata_parts[1])
+                        record_data['port'] = int(rdata_parts[2])
+                        record_data['srv_target'] = rdata_parts[3]
+                elif record_type == 'CAA':
+                    # Flags Tag Value
+                    if len(rdata_parts) >= 3:
+                        record_data['caa_flag'] = int(rdata_parts[0])
+                        record_data['caa_tag'] = rdata_parts[1]
+                        record_data['caa_value'] = ' '.join(rdata_parts[2:])
+                
+                records.append(record_data)
+                self.logger.info(f"Extracted out-of-origin record: {owner} {record_type} {rdata_str}")
+                
+            except (ValueError, IndexError) as e:
+                self.logger.warning(f"Failed to parse {record_type} record at line {line_num}: {e}")
+                continue
+        
+        return records
     
     def _extract_soa_data(self, zone: dns.zone.Zone, origin: str) -> Dict:
         """Extract SOA record data from zone"""
@@ -1271,6 +1481,15 @@ class ZoneImporter:
                 
                 # Extract and display records
                 records = self._extract_records(zone, origin, 0, explicit_ttls, fqdn_owners)
+                
+                # Extract out-of-origin records
+                out_of_origin_records = self._extract_out_of_origin_records(
+                    file_content, origin, 0, explicit_ttls, default_ttl
+                )
+                if out_of_origin_records:
+                    self.logger.info(f"[DRY-RUN] Found {len(out_of_origin_records)} out-of-origin record(s)")
+                    records.extend(out_of_origin_records)
+                
                 self.logger.info(f"[DRY-RUN] Would create {len(records)} records for master")
                 for record in records[:5]:  # Show first 5
                     self.logger.debug(f"[DRY-RUN] Record: {record['name']} {record['record_type']} {record['value']}")
@@ -1339,6 +1558,16 @@ class ZoneImporter:
             
             # Extract and create records from master zone
             records = self._extract_records(zone, origin, zone_id, explicit_ttls, fqdn_owners)
+            
+            # Extract out-of-origin records from raw content
+            out_of_origin_records = self._extract_out_of_origin_records(
+                file_content, origin, zone_id, explicit_ttls, default_ttl
+            )
+            
+            if out_of_origin_records:
+                self.logger.info(f"Found {len(out_of_origin_records)} out-of-origin record(s)")
+                records.extend(out_of_origin_records)
+            
             self.logger.info(f"Importing {len(records)} records for zone {zone_name}")
             
             for record in records:
