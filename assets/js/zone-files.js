@@ -2212,6 +2212,17 @@ async function onZoneFileSelected(zoneFileId) {
                     console.warn('[onZoneFileSelected] setDomainForZone failed:', e);
                 }
             }
+            
+            // After setDomainForZone, ensure "Modifier le domaine" button is visible
+            // This is needed for fallback zones (outside initial cache) where onZoneDomainSelected wasn't called
+            if (topMasterId) {
+                const btnEditDomain = document.getElementById('btn-edit-domain');
+                if (btnEditDomain) {
+                    btnEditDomain.style.display = 'inline-block';
+                    btnEditDomain.disabled = false;
+                    console.debug('[onZoneFileSelected] Enabled "Modifier le domaine" button for masterId:', topMasterId);
+                }
+            }
         } else {
             // Fallback: just set the value even if we couldn't fetch display info
             setZoneFileDisplay(`Zone ${zoneFileId}`);
