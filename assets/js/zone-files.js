@@ -863,6 +863,26 @@ async function setDomainForZone(zoneId) {
 }
 
 /**
+ * Update "Modifier le domaine" button visibility and state
+ * Extracted helper to ensure consistency between onZoneDomainSelected and onZoneFileSelected flows
+ * @param {number|null} masterId - Master zone ID, or null to hide the button
+ */
+function updateEditDomainButton(masterId) {
+    const btnEditDomain = document.getElementById('btn-edit-domain');
+    if (!btnEditDomain) return;
+    
+    if (masterId) {
+        btnEditDomain.style.display = 'inline-block';
+        btnEditDomain.disabled = false;
+        console.debug('[updateEditDomainButton] Enabled button for masterId:', masterId);
+    } else {
+        btnEditDomain.style.display = 'none';
+        btnEditDomain.disabled = true;
+        console.debug('[updateEditDomainButton] Disabled button (no masterId)');
+    }
+}
+
+/**
  * Update create button state based on zone selection
  * Adapted for zone-files page (btn-new-zone-file instead of dns-create-btn)
  */
@@ -1704,16 +1724,12 @@ async function onZoneDomainSelected(masterZoneId) {
     
     // Show/hide buttons based on selection
     const btnNewZoneFile = document.getElementById('btn-new-zone-file');
-    const btnEditDomain = document.getElementById('btn-edit-domain');
     
     if (masterZoneId) {
         if (btnNewZoneFile) {
             btnNewZoneFile.disabled = false;
         }
-        if (btnEditDomain) {
-            btnEditDomain.style.display = 'inline-block';
-            btnEditDomain.disabled = false;
-        }
+        updateEditDomainButton(masterZoneId);
         
         // Populate zone file combobox for the selected domain WITHOUT auto-selection
         // This keeps the visible input empty and ready for search (aligned with problem statement)
@@ -1732,10 +1748,7 @@ async function onZoneDomainSelected(masterZoneId) {
         if (btnNewZoneFile) {
             btnNewZoneFile.disabled = true;
         }
-        if (btnEditDomain) {
-            btnEditDomain.style.display = 'none';
-            btnEditDomain.disabled = true;
-        }
+        updateEditDomainButton(null);
         
         // Disable zone file combobox when no domain selected using shared helper
         if (typeof window.setZoneComboboxEnabledShared === 'function') {
@@ -2215,14 +2228,7 @@ async function onZoneFileSelected(zoneFileId) {
             
             // After setDomainForZone, ensure "Modifier le domaine" button is visible
             // This is needed for fallback zones (outside initial cache) where onZoneDomainSelected wasn't called
-            if (topMasterId) {
-                const btnEditDomain = document.getElementById('btn-edit-domain');
-                if (btnEditDomain) {
-                    btnEditDomain.style.display = 'inline-block';
-                    btnEditDomain.disabled = false;
-                    console.debug('[onZoneFileSelected] Enabled "Modifier le domaine" button for masterId:', topMasterId);
-                }
-            }
+            updateEditDomainButton(topMasterId);
         } else {
             // Fallback: just set the value even if we couldn't fetch display info
             setZoneFileDisplay(`Zone ${zoneFileId}`);
