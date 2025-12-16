@@ -801,7 +801,7 @@ async function setDomainForZone(zoneId) {
 
         // Calculate master ID based on zone type
         // For master: use zone.id
-        // For include: use zone.master_id or zone.parent_id, with fallback to getTopMasterId
+        // For include: use zone.master_id, parent_zone_id, or parent_id, with fallback to getTopMasterId
         let masterId;
         if (zone.file_type === 'master') {
             masterId = zone.id;
