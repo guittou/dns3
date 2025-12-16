@@ -1136,6 +1136,22 @@
             
             console.debug('[setDomainForZone] Zone fetched:', zone.name, 'type:', zone.file_type);
             
+            // Add fetched zone to caches if not already present (for zones outside preloaded cache)
+            // Note: Arrays are already initialized at lines 1093-1106, so no need to check Array.isArray again
+            const existsInAllZones = window.ALL_ZONES.some(z => parseInt(z.id, 10) === parseInt(zoneId, 10));
+            if (!existsInAllZones) {
+                window.ALL_ZONES.push(zone);
+                ALL_ZONES = window.ALL_ZONES;
+                console.debug('[setDomainForZone] Added zone to ALL_ZONES cache:', zone.name);
+            }
+            
+            const existsInCurrentList = window.CURRENT_ZONE_LIST.some(z => parseInt(z.id, 10) === parseInt(zoneId, 10));
+            if (!existsInCurrentList) {
+                window.CURRENT_ZONE_LIST.push(zone);
+                CURRENT_ZONE_LIST = window.CURRENT_ZONE_LIST;
+                console.debug('[setDomainForZone] Added zone to CURRENT_ZONE_LIST cache:', zone.name);
+            }
+            
             // Step 4: Calculate master ID for populateZoneComboboxForDomain
             let masterId = null;
             let domainName = '';
