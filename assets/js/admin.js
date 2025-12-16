@@ -268,13 +268,13 @@
      */
     async function loadUsers(filters = {}) {
         const tbody = document.getElementById('users-tbody');
-        tbody.innerHTML = '<tr><td colspan="9" class="loading">Chargement des utilisateurs...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">Chargement des utilisateurs...</td></tr>';
 
         try {
             const data = await apiCall('list_users', filters);
             
             if (data.data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Aucun utilisateur trouvé</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Aucun utilisateur trouvé</td></tr>';
                 return;
             }
 
