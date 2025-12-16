@@ -73,9 +73,6 @@ try {
             if (isset($_GET['username'])) {
                 $filters['username'] = $_GET['username'];
             }
-            if (isset($_GET['email'])) {
-                $filters['email'] = $_GET['email'];
-            }
             if (isset($_GET['auth_method'])) {
                 $filters['auth_method'] = $_GET['auth_method'];
             }
@@ -121,9 +118,9 @@ try {
             // Create a new user
             $input = json_decode(file_get_contents('php://input'), true);
             
-            if (!$input || !isset($input['username']) || !isset($input['email'])) {
+            if (!$input || !isset($input['username'])) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Missing required fields: username, email']);
+                echo json_encode(['error' => 'Missing required fields: username']);
                 exit;
             }
             
@@ -142,7 +139,7 @@ try {
             
             if (!$user_id) {
                 http_response_code(500);
-                echo json_encode(['error' => 'Failed to create user. Username or email may already exist.']);
+                echo json_encode(['error' => 'Failed to create user. Username may already exist.']);
                 exit;
             }
             

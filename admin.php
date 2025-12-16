@@ -60,7 +60,6 @@ if (!$auth->isAdmin()) {
                     <tr>
                         <th>ID</th>
                         <th>Nom d'utilisateur</th>
-                        <th>Email</th>
                         <th>Méthode d'auth</th>
                         <th>Rôles</th>
                         <th>Statut</th>
@@ -71,7 +70,7 @@ if (!$auth->isAdmin()) {
                 </thead>
                 <tbody id="users-tbody">
                     <tr>
-                        <td colspan="9" class="loading">Chargement des utilisateurs...</td>
+                        <td colspan="8" class="loading">Chargement des utilisateurs...</td>
                     </tr>
                 </tbody>
             </table>
@@ -194,11 +193,6 @@ if (!$auth->isAdmin()) {
                 <div class="form-group">
                     <label for="user-username">Nom d'utilisateur *</label>
                     <input type="text" id="user-username" name="username" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="user-email">Email *</label>
-                    <input type="email" id="user-email" name="email" required>
                 </div>
                 
                 <div class="form-group" id="auth-method-group" style="display: none;">

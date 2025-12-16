@@ -1,7 +1,7 @@
 <?php
 // scripts/create_admin.php
 // Usage:
-//   php scripts/create_admin.php --username admin --password 'admin123' --email admin@example.com
+//   php scripts/create_admin.php --username admin --password 'admin123'
 // or interactive:
 //   php scripts/create_admin.php
 //
@@ -22,7 +22,6 @@ function getArg($name) {
 
 $username = getArg('--username');
 $password = getArg('--password');
-$email = getArg('--email') ?: 'admin@example.local';
 
 if (!$username || !$password) {
     // interactive prompt
@@ -45,11 +44,6 @@ if (!$username || !$password) {
             exit(1);
         }
     }
-    if (!$email) {
-        echo "Email [admin@example.local]: ";
-        $line = trim(fgets(STDIN));
-        $email = $line !== '' ? $line : 'admin@example.local';
-    }
 }
 
 try {
@@ -69,13 +63,13 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if ($user) {
     // update
-    $stmt = $db->prepare("UPDATE users SET password = ?, email = ?, auth_method = 'database', is_active = 1 WHERE id = ?");
-    $stmt->execute([$hash, $email, $user['id']]);
+    $stmt = $db->prepare("UPDATE users SET password = ?, auth_method = 'database', is_active = 1 WHERE id = ?");
+    $stmt->execute([$hash, $user['id']]);
     echo "Utilisateur '{$username}' mis à jour (mot de passe réinitialisé).\n";
 } else {
     // insert
-    $stmt = $db->prepare("INSERT INTO users (username, email, password, auth_method, is_active, created_at) VALUES (?, ?, ?, 'database', 1, NOW())");
-    $stmt->execute([$username, $email, $hash]);
+    $stmt = $db->prepare("INSERT INTO users (username, password, auth_method, is_active, created_at) VALUES (?, ?, 'database', 1, NOW())");
+    $stmt->execute([$username, $hash]);
     $newId = $db->lastInsertId();
     echo "Utilisateur '{$username}' créé avec l'ID {$newId}.\n";
 }

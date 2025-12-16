@@ -87,7 +87,6 @@ class Auth {
         // Session was already started in config.php
         $_SESSION['user_id'] = $userInfo['id'];
         $_SESSION['username'] = $userInfo['username'];
-        $_SESSION['email'] = $userInfo['email'];
         $_SESSION['logged_in'] = true;
         $_SESSION['auth_method'] = 'api_token';
         $_SESSION['token_id'] = $userInfo['token_id'];
@@ -130,7 +129,7 @@ class Auth {
      */
     private function authenticateDatabase($username, $password) {
         try {
-            $stmt = $this->db->prepare("SELECT id, username, email, password, auth_method FROM users WHERE username = ? AND is_active = 1");
+            $stmt = $this->db->prepare("SELECT id, username, password, auth_method FROM users WHERE username = ? AND is_active = 1");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
 
@@ -166,11 +165,10 @@ class Auth {
             if (@ldap_bind($ldap, $bind_username, $password)) {
                 // Search for user details and groups
                 $filter = "(sAMAccountName=" . ldap_escape($username, '', LDAP_ESCAPE_FILTER) . ")";
-                $result = ldap_search($ldap, AD_BASE_DN, $filter, ['mail', 'cn', 'sAMAccountName', 'memberOf']);
+                $result = ldap_search($ldap, AD_BASE_DN, $filter, ['cn', 'sAMAccountName', 'memberOf']);
                 $entries = ldap_get_entries($ldap, $result);
 
                 if ($entries['count'] > 0) {
-                    $email = $entries[0]['mail'][0] ?? $username . '@' . AD_DOMAIN;
                     $user_dn = $entries[0]['dn'] ?? '';
                     
                     // Determine storedUsername: prefer CN, fallback to sAMAccountName
@@ -204,7 +202,7 @@ class Auth {
                     }
                     
                     // Create or update user with normalized username
-                    $this->createOrUpdateUserWithMappings($storedUsername, $email, 'ad', $groups, $user_dn);
+                    $this->createOrUpdateUserWithMappings($storedUsername, 'ad', $groups, $user_dn);
                     
                     // Get user ID and perform post-login actions
                     $user_id = $this->getUserIdByUsername($storedUsername);
@@ -248,12 +246,11 @@ class Auth {
             // First bind with admin credentials to search for user
             if (@ldap_bind($ldap, LDAP_BIND_DN, LDAP_BIND_PASS)) {
                 $filter = "(uid=" . ldap_escape($username, '', LDAP_ESCAPE_FILTER) . ")";
-                $result = ldap_search($ldap, LDAP_BASE_DN, $filter, ['dn', 'mail', 'cn', 'uid']);
+                $result = ldap_search($ldap, LDAP_BASE_DN, $filter, ['dn', 'cn', 'uid']);
                 $entries = ldap_get_entries($ldap, $result);
 
                 if ($entries['count'] > 0) {
                     $user_dn = $entries[0]['dn'];
-                    $email = $entries[0]['mail'][0] ?? $username . '@example.com';
                     
                     // Determine storedUsername: prefer UID, fallback to username
                     // Normalize to lowercase for consistency
@@ -282,7 +279,7 @@ class Auth {
                         }
                         
                         // Create or update user with normalized username
-                        $this->createOrUpdateUserWithMappings($storedUsername, $email, 'ldap', [], $user_dn);
+                        $this->createOrUpdateUserWithMappings($storedUsername, 'ldap', [], $user_dn);
                         
                         // Get user ID and perform post-login actions
                         $user_id = $this->getUserIdByUsername($storedUsername);
@@ -312,26 +309,25 @@ class Auth {
      * Create or update user in database for LDAP/AD users
      * Apply role mappings based on groups/DN
      */
-    private function createOrUpdateUserWithMappings($username, $email, $auth_method, $groups = [], $user_dn = '') {
+    private function createOrUpdateUserWithMappings($username, $auth_method, $groups = [], $user_dn = '') {
         try {
-            $stmt = $this->db->prepare("SELECT id, username, email FROM users WHERE username = ?");
+            $stmt = $this->db->prepare("SELECT id, username FROM users WHERE username = ?");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
 
             if ($user) {
                 // Update existing user
-                $stmt = $this->db->prepare("UPDATE users SET email = ?, auth_method = ?, last_login = NOW() WHERE id = ?");
-                $stmt->execute([$email, $auth_method, $user['id']]);
+                $stmt = $this->db->prepare("UPDATE users SET auth_method = ?, last_login = NOW() WHERE id = ?");
+                $stmt->execute([$auth_method, $user['id']]);
                 $user_id = $user['id'];
             } else {
                 // Create new user with minimal required fields
-                $stmt = $this->db->prepare("INSERT INTO users (username, email, password, auth_method, is_active, created_at) VALUES (?, ?, '', ?, 1, NOW())");
-                $stmt->execute([$username, $email, $auth_method]);
+                $stmt = $this->db->prepare("INSERT INTO users (username, password, auth_method, is_active, created_at) VALUES (?, '', ?, 1, NOW())");
+                $stmt->execute([$username, $auth_method]);
                 $user_id = $this->db->lastInsertId();
                 $user = [
                     'id' => $user_id,
                     'username' => $username,
-                    'email' => $email,
                     'auth_method' => $auth_method
                 ];
             }
@@ -517,8 +513,8 @@ class Auth {
     private function createSession($user, $groups = []) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
-        $_SESSION['email'] = $user['email'];
         $_SESSION['logged_in'] = true;
+        $_SESSION['auth_method'] = $user['auth_method'] ?? 'database';
         $_SESSION['user_groups'] = $groups;
     }
 
@@ -563,8 +559,7 @@ class Auth {
         if ($this->isLoggedIn()) {
             return [
                 'id' => $_SESSION['user_id'],
-                'username' => $_SESSION['username'],
-                'email' => $_SESSION['email']
+                'username' => $_SESSION['username']
             ];
         }
         return null;

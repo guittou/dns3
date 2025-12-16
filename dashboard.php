@@ -12,7 +12,6 @@ if (!$auth->isLoggedIn()) {
     <p>Bienvenue sur votre tableau de bord, <?php echo htmlspecialchars($user['username']); ?>!</p>
     
     <div class="success-message">
-        <strong>Email:</strong> <?php echo htmlspecialchars($user['email']); ?><br>
         <strong>ID Utilisateur:</strong> <?php echo htmlspecialchars($user['id']); ?>
     </div>
 </div>

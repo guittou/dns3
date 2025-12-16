@@ -301,7 +301,6 @@
                     <tr data-user-id="${user.id}">
                         <td>${user.id}</td>
                         <td>${escapeHtml(user.username)}</td>
-                        <td>${escapeHtml(user.email)}</td>
                         <td>${authBadge}</td>
                         <td>${roles || '<em>Aucun rôle</em>'}</td>
                         <td class="user-status-cell">${statusBadge}</td>
@@ -315,7 +314,7 @@
                 `;
             }).join('');
         } catch (error) {
-            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #e74c3c;">Erreur: ${escapeHtml(error.message)}</td></tr>`;
             showAlert('Erreur lors du chargement des utilisateurs: ' + error.message, 'error');
         }
     }
@@ -451,7 +450,6 @@
             document.getElementById('modal-user-title').textContent = 'Modifier un utilisateur';
             document.getElementById('user-id').value = user.id;
             document.getElementById('user-username').value = user.username;
-            document.getElementById('user-email').value = user.email;
             document.getElementById('user-auth-method').value = user.auth_method;
             document.getElementById('user-is-active').value = user.is_active;
             document.getElementById('user-password').value = '';
@@ -532,7 +530,6 @@
         const formData = new FormData(event.target);
         const userData = {
             username: formData.get('username'),
-            email: formData.get('email'),
             is_active: formData.get('is_active')
         };
         
