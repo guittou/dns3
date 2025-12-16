@@ -31,14 +31,15 @@ sudo systemctl restart apache2
 # Se connecter à MariaDB
 sudo mysql -u root
 
-# Créer un utilisateur et importer le schéma
+# Créer la base et l'utilisateur
+CREATE DATABASE dns3_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'dns3_user'@'localhost' IDENTIFIED BY 'VotreMotDePasse';
 GRANT ALL PRIVILEGES ON dns3_db.* TO 'dns3_user'@'localhost';
 FLUSH PRIVILEGES;
 exit;
 
-# Importer le schéma
-mysql -u dns3_user -p < database.sql
+# Importer le schéma dans la base dns3_db
+mysql -u dns3_user -p dns3_db < database.sql
 ```
 
 ### 3. Configuration de l'application
