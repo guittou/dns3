@@ -8,7 +8,7 @@
 mysql -u dns3_user -p dns3_db < database.sql
 
 # 2. Créer un utilisateur admin
-php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
+php scripts/create_admin.php --username admin --password 'admin123'
 
 # 3. Accéder
 http://your-domain/admin.php
@@ -28,13 +28,13 @@ http://your-domain/admin.php
 
 **Commande CLI :**
 ```bash
-php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+php scripts/create_admin.php --username admin --password 'AdminPass123!'
 ```
 
 **Mode interactif :**
 ```bash
 php scripts/create_admin.php
-# Le script vous demandera username, password et email
+# Le script vous demandera username, password
 ```
 
 **Ce que fait le script :**
@@ -44,7 +44,7 @@ php scripts/create_admin.php
 
 **Vérifications SQL :**
 ```sql
-SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+SELECT id, username, auth_method, is_active FROM users WHERE username = 'admin';
 SELECT * FROM user_roles WHERE user_id = <id_utilisateur>;
 ```
 
@@ -271,7 +271,6 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_user' \
   -H 'Content-Type: application/json' \
   -d '{
     "username": "john.doe",
-    "email": "john@example.com",
     "auth_method": "database",
     "password": "SecurePass123",
     "role_ids": [2]
@@ -365,7 +364,6 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_external_user' \
   -H 'Content-Type: application/json' \
   -d '{
     "username": "ext.user",
-    "email": "ext.user@example.com",
     "auth_method": "ad",
     "is_active": 0
   }' \
@@ -451,7 +449,7 @@ WHERE u.username = 'your_username' AND r.name = 'admin';
 
 ### users
 ```
-Colonnes: id, username, email, password, auth_method, created_at, 
+Colonnes: id, username, password, auth_method, created_at, 
           last_login, is_active
 ```
 
@@ -477,7 +475,7 @@ Colonnes: id, source, dn_or_group, role_id, created_by,
 
 ### Lister tous les administrateurs
 ```sql
-SELECT u.username, u.email 
+SELECT u.username 
 FROM users u
 JOIN user_roles ur ON u.id = ur.user_id
 JOIN roles r ON ur.role_id = r.id
@@ -501,7 +499,7 @@ ORDER BY am.source, r.name;
 
 ### Trouver les utilisateurs sans rôles
 ```sql
-SELECT u.id, u.username, u.email
+SELECT u.id, u.username
 FROM users u
 LEFT JOIN user_roles ur ON u.id = ur.user_id
 WHERE ur.role_id IS NULL;
@@ -549,8 +547,8 @@ php scripts/create_admin.php --username admin --password 'NewSecurePass123'
 -- Générer le hash en PHP d'abord:
 -- php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT);"
 
-INSERT INTO users (username, email, password, auth_method, is_active)
-VALUES ('admin', 'admin@example.local', '$2y$10$...hash...', 'database', 1);
+INSERT INTO users (username, password, auth_method, is_active)
+VALUES ('admin', '$2y$10$...hash...', 'database', 1);
 
 INSERT INTO user_roles (user_id, role_id)
 SELECT u.id, r.id FROM users u, roles r

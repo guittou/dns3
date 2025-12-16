@@ -100,7 +100,7 @@ mysql -u dns3_user -p dns3_db < database.sql
 
 ### 2. Créer un utilisateur administrateur
 ```bash
-php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
+php scripts/create_admin.php --username admin --password 'admin123'
 ```
 
 Ou de manière interactive :
@@ -206,7 +206,6 @@ Créer un utilisateur :
 POST /api/admin_api.php?action=create_user
 {
   "username": "john.doe",
-  "email": "john@example.com",
   "auth_method": "database",
   "password": "SecurePass123",
   "is_active": 1,
@@ -237,7 +236,7 @@ POST /api/admin_api.php?action=create_mapping
 
 **Commande :**
 ```bash
-php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+php scripts/create_admin.php --username admin --password 'AdminPass123!'
 ```
 
 **Ce que fait le script :**
@@ -248,7 +247,7 @@ php scripts/create_admin.php --username admin --password 'AdminPass123!' --email
 
 **Vérifications SQL post-exécution :**
 ```sql
-SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+SELECT id, username, auth_method, is_active FROM users WHERE username = 'admin';
 SELECT r.id, r.name FROM roles r WHERE r.name = 'admin';
 SELECT * FROM user_roles WHERE user_id = <id_utilisateur>;
 ```
@@ -264,8 +263,8 @@ php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT) . PHP_EOL;"
 
 ```sql
 -- Insérer l'utilisateur
-INSERT INTO users (username, email, password, auth_method, is_active, created_at)
-VALUES ('admin', 'admin@example.local', '$2y$10$...votre_hash...', 'database', 1, NOW());
+INSERT INTO users (username, password, auth_method, is_active, created_at)
+VALUES ('admin', '$2y$10$...votre_hash...', 'database', 1, NOW());
 
 -- Assigner le rôle admin
 INSERT INTO user_roles (user_id, role_id, assigned_at)
@@ -474,7 +473,7 @@ Authentification AD/LDAP
 - [ ] Lister les utilisateurs avec divers filtres
 - [ ] Créer un utilisateur de base de données avec mot de passe
 - [ ] Créer un utilisateur AD sans mot de passe
-- [ ] Modifier un utilisateur et changer l'email
+- [ ] Modifier un utilisateur et changer le mot de passe
 - [ ] Assigner/retirer des rôles d'un utilisateur
 - [ ] Créer un mapping AD
 - [ ] Créer un mapping LDAP
@@ -522,7 +521,7 @@ SELECT id, username, is_active FROM users WHERE username = 'unmapped_user';
 # Test de création d'utilisateur (requiert authentification admin)
 curl -X POST http://localhost/api/admin_api.php?action=create_user \
   -H "Content-Type: application/json" \
-  -d '{"username":"test","email":"test@test.com","auth_method":"database","password":"test123"}'
+  -d '{"username":"test","auth_method":"database","password":"test123"}'
 
 # Test de liste des utilisateurs
 curl http://localhost/api/admin_api.php?action=list_users
@@ -544,7 +543,7 @@ curl -X POST http://localhost/api/admin_api.php?action=create_mapping \
 
 2. **Impossible de créer un utilisateur**
    - Vérifier les permissions de base de données
-   - Vérifier que le nom d'utilisateur/email est unique
+   - Vérifier que le nom d'utilisateur est unique
    - Pour l'authentification database, le mot de passe est requis
 
 3. **La création de mapping échoue**
@@ -699,7 +698,6 @@ POST /api/admin_api.php?action=delete_acl&id=X
 POST /api/admin_api.php?action=create_external_user
 {
   "username": "john.doe",
-  "email": "john.doe@example.com",
   "auth_method": "ad",
   "is_active": 0
 }

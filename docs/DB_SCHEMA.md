@@ -58,14 +58,13 @@ Stores user accounts for authentication and authorization.
 |--------------|-----------------------------------|--------------------------------------|
 | `id`         | INT(11) PK AUTO_INCREMENT         | Unique user identifier               |
 | `username`   | VARCHAR(100) UNIQUE               | Login username                       |
-| `email`      | VARCHAR(255) UNIQUE               | User email address                   |
 | `password`   | VARCHAR(255)                      | Hashed password (bcrypt)             |
 | `auth_method`| ENUM('database','ad','ldap')      | Authentication source                |
 | `created_at` | TIMESTAMP                         | Account creation time                |
 | `last_login` | TIMESTAMP NULL                    | Last successful login                |
 | `is_active`  | TINYINT(1) DEFAULT 1              | Account status (1=active, 0=disabled)|
 
-**Indexes**: `idx_username`, `idx_email`
+**Indexes**: `idx_username`
 
 ---
 

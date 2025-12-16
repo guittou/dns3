@@ -76,7 +76,7 @@ DNS3 est une application web PHP pour la gestion de fichiers de zone DNS et d'en
    Prérequis : `config.php` configuré (credentials DB), PHP CLI disponible.
    
    ```bash
-   php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+   php scripts/create_admin.php --username admin --password 'AdminPass123!'
    ```
    
    Ce que fait le script :
@@ -86,7 +86,7 @@ DNS3 est une application web PHP pour la gestion de fichiers de zone DNS et d'en
    
    Vérifications post-exécution :
    ```sql
-   SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+   SELECT id, username, auth_method, is_active FROM users WHERE username = 'admin';
    SELECT r.id, r.name FROM roles r WHERE r.name = 'admin';
    SELECT * FROM user_roles WHERE user_id = <id_utilisateur>;
    ```
@@ -169,7 +169,7 @@ ldapsearch -x -H ldap://ldap.example.com -D "cn=admin,dc=example,dc=com" -W \
 
 ```sql
 -- Vérifier l'état d'un utilisateur
-SELECT id, username, email, auth_method, is_active, last_login 
+SELECT id, username, auth_method, is_active, last_login 
 FROM users WHERE username = 'username';
 
 -- Vérifier les rôles assignés
@@ -198,8 +198,8 @@ php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT) . PHP_EOL;"
 
 ```sql
 -- Insérer l'utilisateur
-INSERT INTO users (username, email, password, auth_method, is_active, created_at)
-VALUES ('admin', 'admin@example.local', '$2y$10$...votre_hash...', 'database', 1, NOW());
+INSERT INTO users (username, password, auth_method, is_active, created_at)
+VALUES ('admin', '$2y$10$...votre_hash...', 'database', 1, NOW());
 
 -- Assigner le rôle admin
 INSERT INTO user_roles (user_id, role_id, assigned_at)

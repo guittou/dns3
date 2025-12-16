@@ -97,7 +97,7 @@ Puis accédez à : `http://localhost/dns3`
 **Commande d'exemple :**
 
 ```bash
-php scripts/create_admin.php --username admin --password 'AdminPass123!' --email 'admin@example.local'
+php scripts/create_admin.php --username admin --password 'AdminPass123!'
 ```
 
 Ou en mode interactif (le script vous demandera les informations) :
@@ -116,7 +116,7 @@ php scripts/create_admin.php
 
 ```sql
 -- Vérifier que l'utilisateur a été créé
-SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'admin';
+SELECT id, username, auth_method, is_active FROM users WHERE username = 'admin';
 
 -- Vérifier que le rôle admin existe
 SELECT r.id, r.name FROM roles r WHERE r.name = 'admin';
@@ -142,8 +142,8 @@ php -r "echo password_hash('VotreMotDePasse', PASSWORD_DEFAULT) . PHP_EOL;"
 
 ```sql
 -- Insérer l'utilisateur (remplacer $2y$10$...votre_hash... par le hash généré)
-INSERT INTO users (username, email, password, auth_method, is_active, created_at)
-VALUES ('admin', 'admin@example.local', '$2y$10$...votre_hash...', 'database', 1, NOW());
+INSERT INTO users (username, password, auth_method, is_active, created_at)
+VALUES ('admin', '$2y$10$...votre_hash...', 'database', 1, NOW());
 
 -- Assigner le rôle admin
 INSERT INTO user_roles (user_id, role_id, assigned_at)

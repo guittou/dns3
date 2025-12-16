@@ -119,7 +119,7 @@ mysql -u dns3_user -p dns3_db < database.sql
 
 ### Étape 2: Créer un Utilisateur Admin
 ```bash
-php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
+php scripts/create_admin.php --username admin --password 'admin123'
 ```
 
 Ou en mode interactif:
@@ -138,7 +138,7 @@ Naviguer vers: `http://your-domain/admin.php`
 1. Se connecter en tant qu'admin
 2. Naviguer vers Administration → Utilisateurs
 3. Cliquer sur "Créer un utilisateur"
-4. Remplir username, email, mot de passe
+4. Remplir username, mot de passe
 5. Sélectionner "database" comme méthode d'auth
 6. Assigner des rôles (ex: "user")
 7. Cliquer sur "Enregistrer"
@@ -342,7 +342,7 @@ Développé dans le cadre de l'initiative d'amélioration du projet DNS3.
 3. **Améliorations Optionnelles**
    - Implémenter l'interface de gestion ACL
    - Ajouter des logs d'activité utilisateur
-   - Ajouter des notifications email pour la création d'utilisateurs
+   - Ajouter des notifications pour la création d'utilisateurs
    - Ajouter un flag `admin_disabled` pour empêcher la réactivation automatique des comptes désactivés manuellement
 
 4. **Maintenance**
