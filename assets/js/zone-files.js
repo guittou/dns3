@@ -2132,15 +2132,47 @@ async function onZoneFileSelected(zoneFileId) {
             zone = allMasters.find(m => parseInt(m.id, 10) === zoneId);
         }
         
-        // If still not found, try to fetch from API for a nicer display value
+        // If still not found, try to fetch from API (fallback for zones not in preloaded cache)
         if (!zone) {
+            console.info('[onZoneFileSelected] Zone not found in cache, fetching from API:', zoneFileId);
             try {
                 const res = await zoneApiCall('get_zone', { params: { id: zoneFileId } });
                 if (res && res.data) {
                     zone = res.data;
+                    
+                    // Add fetched zone to caches so it's available for downstream operations
+                    if (!Array.isArray(window.ZONES_ALL)) {
+                        window.ZONES_ALL = [];
+                    }
+                    if (!Array.isArray(window.CURRENT_ZONE_LIST)) {
+                        window.CURRENT_ZONE_LIST = [];
+                    }
+                    
+                    // Add to ZONES_ALL if not already present
+                    const existsInZonesAll = window.ZONES_ALL.some(z => parseInt(z.id, 10) === zoneId);
+                    if (!existsInZonesAll) {
+                        window.ZONES_ALL.push(zone);
+                        console.debug('[onZoneFileSelected] Added zone to ZONES_ALL cache:', zone.name);
+                    }
+                    
+                    // Add to CURRENT_ZONE_LIST if not already present
+                    const existsInCurrent = window.CURRENT_ZONE_LIST.some(z => parseInt(z.id, 10) === zoneId);
+                    if (!existsInCurrent) {
+                        window.CURRENT_ZONE_LIST.push(zone);
+                        console.debug('[onZoneFileSelected] Added zone to CURRENT_ZONE_LIST cache:', zone.name);
+                    }
+                    
+                    // Also check if this is a master and add to allMasters if needed
+                    if (zone.file_type === 'master') {
+                        const existsInMasters = allMasters.some(m => parseInt(m.id, 10) === zoneId);
+                        if (!existsInMasters) {
+                            allMasters.push(zone);
+                            console.debug('[onZoneFileSelected] Added master to allMasters cache:', zone.name);
+                        }
+                    }
                 }
             } catch (e) {
-                console.warn('Failed to fetch zone for display:', e);
+                console.warn('[onZoneFileSelected] Failed to fetch zone from API:', e);
             }
         }
         
@@ -2167,6 +2199,17 @@ async function onZoneFileSelected(zoneFileId) {
                 const masterZone = allMasters.find(m => parseInt(m.id, 10) === topMasterId);
                 if (masterZone && domainInput) {
                     domainInput.value = masterZone.domain;
+                }
+            }
+            
+            // Call setDomainForZone to populate the domain field and enable the combobox
+            // This ensures the domain field is properly filled even for zones outside the preloaded cache
+            if (typeof setDomainForZone === 'function') {
+                try {
+                    await setDomainForZone(zone.id);
+                    console.debug('[onZoneFileSelected] Domain populated via setDomainForZone');
+                } catch (e) {
+                    console.warn('[onZoneFileSelected] setDomainForZone failed:', e);
                 }
             }
         } else {
