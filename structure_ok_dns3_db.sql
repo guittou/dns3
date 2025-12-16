@@ -507,7 +507,7 @@ CREATE TABLE `zone_files` (
 /*!50001 SET character_set_results     = utf8mb3 */;
 /*!50001 SET collation_connection      = utf8mb3_general_ci */;
 /*!50001 CREATE ALGORITHM=UNDEFINED */
-/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */
+/*!50001 SQL SECURITY INVOKER */
 /*!50001 VIEW `zone_acl_entries` AS select `acl_entries`.`id` AS `id`,`acl_entries`.`zone_file_id` AS `zone_file_id`,`acl_entries`.`subject_type` AS `subject_type`,`acl_entries`.`subject_identifier` AS `subject_identifier`,`acl_entries`.`permission` AS `permission`,`acl_entries`.`created_by` AS `created_by`,`acl_entries`.`created_at` AS `created_at` from `acl_entries` where `acl_entries`.`zone_file_id` is not null and `acl_entries`.`subject_type` is not null and `acl_entries`.`subject_identifier` is not null */;
 /*!50001 SET character_set_client      = @saved_cs_client */;
 /*!50001 SET character_set_results     = @saved_cs_results */;
