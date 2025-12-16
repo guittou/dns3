@@ -808,7 +808,15 @@ async function setDomainForZone(zoneId) {
         } else {
             // Try multiple fields that may contain the master ID
             // Fields checked: master_id, parent_zone_id, parent_id (in order of preference)
+            // Use explicit checks to avoid accepting falsy values like 0 or empty string as valid IDs
             masterId = zone.master_id || zone.parent_zone_id || zone.parent_id;
+            // Validate that masterId is a positive integer if found
+            if (masterId) {
+                const masterIdNum = parseInt(masterId, 10);
+                if (isNaN(masterIdNum) || masterIdNum <= 0) {
+                    masterId = null; // Invalid ID, will trigger fallback to getTopMasterId
+                }
+            }
             
             // Fallback: recursively find top master if parent fields are not set
             if (!masterId) {
