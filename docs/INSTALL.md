@@ -38,9 +38,11 @@ GRANT ALL PRIVILEGES ON dns3_db.* TO 'dns3_user'@'localhost';
 FLUSH PRIVILEGES;
 exit;
 
-# Importer le schéma dans la base dns3_db
+# Importer le schéma dans la base dns3_db (sélection explicite de la base)
 mysql -u dns3_user -p dns3_db < database.sql
 ```
+
+**Note importante** : Le fichier `database.sql` utilise `SQL SECURITY INVOKER` pour les vues, ce qui permet l'import avec un compte non-SUPER. Si vous utilisez un dump personnalisé contenant `DEFINER=`, consultez la section de dépannage ci-dessous.
 
 ### 3. Configuration de l'application
 
@@ -176,6 +178,43 @@ Si vous voulez tester avec Active Directory ou OpenLDAP :
 Pour tester l'interface sans configurer la base de données, vous pouvez commenter temporairement les lignes de connexion dans `includes/header.php` et voir directement les pages statiques.
 
 ## Dépannage rapide
+
+### Erreur "Access denied; you need (at least one of) the SUPER, SET USER privilege(s)"
+
+Cette erreur se produit lors de l'import d'un dump SQL contenant des clauses `DEFINER=` sur les vues, procédures stockées ou triggers.
+
+**Le fichier `database.sql` fourni** a été corrigé pour utiliser `SQL SECURITY INVOKER` sans `DEFINER`, évitant ce problème.
+
+**Si vous importez un dump personnalisé** contenant `DEFINER`, deux solutions :
+
+**Solution 1 : Importer en tant que root**
+```bash
+# Importer avec l'utilisateur root (possède les privilèges SUPER)
+sudo mysql -u root dns3_db < votre_dump.sql
+```
+
+**Solution 2 : Nettoyer le DEFINER avant l'import**
+```bash
+# Retirer toutes les clauses DEFINER du fichier SQL
+sed -i 's/DEFINER=`[^`]*`@`[^`]*` //g' votre_dump.sql
+
+# Puis importer normalement
+mysql -u dns3_user -p dns3_db < votre_dump.sql
+```
+
+**Remarque** : La solution 2 est recommandée car elle évite d'avoir à utiliser le compte root et permet à la vue d'utiliser les privilèges de l'utilisateur qui l'interroge (`SQL SECURITY INVOKER`).
+
+### Erreur "No database selected"
+
+Si vous obtenez cette erreur lors de l'import, assurez-vous de spécifier explicitement le nom de la base de données dans la commande d'import :
+
+```bash
+# Correct - spécifie la base dns3_db
+mysql -u dns3_user -p dns3_db < database.sql
+
+# Incorrect - aucune base sélectionnée
+mysql -u dns3_user -p < database.sql
+```
 
 ### Erreur "Call to undefined function ldap_connect"
 ```bash
