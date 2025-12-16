@@ -71,7 +71,7 @@ Ce document décrit les modifications apportées pour imposer la création d'uti
 ### Test 1 : Création d'utilisateur en base de données
 1. Naviguer vers le panneau d'administration (admin.php)
 2. Cliquer sur "Créer un utilisateur"
-3. Remplir nom d'utilisateur, email, mot de passe
+3. Remplir nom d'utilisateur, mot de passe
 4. Noter que le champ auth_method n'est pas affiché
 5. Enregistrer l'utilisateur
 6. Vérifier dans la base de données : `SELECT username, auth_method FROM users WHERE username='testuser';`
@@ -83,7 +83,6 @@ curl -X POST 'http://localhost/api/admin_api.php?action=create_user' \
   -H 'Content-Type: application/json' \
   -d '{
     "username": "testuser2",
-    "email": "test2@example.com",
     "password": "password123",
     "auth_method": "ad"
   }'

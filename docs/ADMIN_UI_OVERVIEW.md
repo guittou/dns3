@@ -31,11 +31,11 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 │ Filters:                                                         │
 │ [Search username...] [Auth method ▼] [Status ▼] [Filtrer] [Réinitialiser]│
 ├─────────────────────────────────────────────────────────────────┤
-│ ID │ Username │ Email │ Auth │ Rôles │ Statut │ Créé │ Actions │
-├────┼──────────┼───────┼──────┼───────┼────────┼──────┼─────────┤
-│ 1  │ admin    │ admin@│[DB]  │[admin]│[Actif] │ Jan 1│[Modifier]│
-│ 2  │ jdoe     │ j@ex  │[AD]  │[user] │[Actif] │ Jan 2│[Modifier]│
-│ 3  │ ldap_usr │ l@ex  │[LDAP]│[user] │[Inact] │ Jan 3│[Modifier]│
+│ ID │ Username │ Auth │ Rôles │ Statut │ Créé │ Actions │
+├────┼──────────┼──────┼───────┼────────┼──────┼─────────┤
+│ 1  │ admin    │[DB]  │[admin]│[Actif] │ Jan 1│[Modifier]│
+│ 2  │ jdoe     │[AD]  │[user] │[Actif] │ Jan 2│[Modifier]│
+│ 3  │ ldap_usr │[LDAP]│[user] │[Inact] │ Jan 3│[Modifier]│
 └────┴──────────┴───────┴──────┴───────┴────────┴──────┴─────────┘
 ```
 
@@ -61,12 +61,6 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 │                                        │
 │ Nom d'utilisateur *                   │
 │ [_________________________________]   │
-│                                        │
-│ Email *                                │
-│ [_________________________________]   │
-│                                        │
-│ Méthode d'authentification *           │
-│ [Base de données            ▼]        │
 │                                        │
 │ Mot de passe *                         │
 │ [_________________________________]   │

@@ -21,7 +21,7 @@ mysql -u dns3_user -p dns3_db < database.sql
 Utilisez le script fourni pour créer ou réinitialiser l'utilisateur admin :
 
 ```bash
-php scripts/create_admin.php --username admin --password 'admin123' --email 'admin@example.local'
+php scripts/create_admin.php --username admin --password 'admin123'
 ```
 
 Ou en mode interactif :
@@ -42,7 +42,7 @@ http://votre-domaine/admin.php
 ### Onglet Utilisateurs
 
 #### Lister les Utilisateurs
-- Affiche tous les utilisateurs avec leurs informations : nom d'utilisateur, email, méthode d'authentification, rôles, statut
+- Affiche tous les utilisateurs avec leurs informations : nom d'utilisateur, méthode d'authentification, rôles, statut
 - **Filtres disponibles** :
   - Recherche par nom d'utilisateur
   - Filtrage par méthode d'authentification (database, AD, LDAP)
@@ -52,7 +52,6 @@ http://votre-domaine/admin.php
 1. Cliquez sur **"Créer un utilisateur"**
 2. Remplissez le formulaire :
    - **Nom d'utilisateur*** : requis, unique
-   - **Email*** : requis, unique
    - **Méthode d'authentification*** : 
      - `database` : authentification locale (nécessite un mot de passe)
      - `ad` : Active Directory (pas de mot de passe local)
@@ -139,7 +138,6 @@ curl -X POST http://votre-domaine/api/admin_api.php?action=create_user \
   -H "Content-Type: application/json" \
   -d '{
     "username": "john.doe",
-    "email": "john.doe@example.com",
     "auth_method": "database",
     "password": "SecurePassword123",
     "is_active": 1,
@@ -240,7 +238,7 @@ ldapsearch -x -H ldap://ldap.example.com -D "cn=admin,dc=example,dc=com" -W \
 
 ```sql
 -- Vérifier l'état d'un utilisateur
-SELECT id, username, email, auth_method, is_active FROM users WHERE username = 'jdoe';
+SELECT id, username, auth_method, is_active FROM users WHERE username = 'jdoe';
 
 -- Vérifier les rôles assignés
 SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id
@@ -260,7 +258,7 @@ FROM auth_mappings am JOIN roles r ON am.role_id = r.id;
 - Vérifiez que le rôle 'admin' est bien attribué à votre utilisateur dans la table `user_roles`
 
 ### Erreur "Failed to create user"
-- Le nom d'utilisateur ou l'email existe peut-être déjà
+- Le nom d'utilisateur existe peut-être déjà
 - Vérifiez que tous les champs requis sont remplis
 - Pour un utilisateur `database`, le mot de passe est obligatoire
 

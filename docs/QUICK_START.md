@@ -26,7 +26,7 @@
 
 4. **Créer un administrateur**
    ```bash
-   php scripts/create_admin.php --username admin --password 'VotreMotDePasse' --email 'admin@example.com'
+   php scripts/create_admin.php --username admin --password 'VotreMotDePasse'
    ```
 
 5. **Accéder à l'application**
@@ -153,7 +153,7 @@ mysqldump -u root -p dns3_db > backup_$(date +%Y%m%d).sql
 mysql -u root -p dns3_db < backup_20251208.sql
 
 # Vérifier les utilisateurs
-mysql -u root -p dns3_db -e "SELECT username, email, auth_method FROM users;"
+mysql -u root -p dns3_db -e "SELECT username, auth_method FROM users;"
 ```
 
 ---

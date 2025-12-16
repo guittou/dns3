@@ -73,9 +73,6 @@ try {
             if (isset($_GET['username'])) {
                 $filters['username'] = $_GET['username'];
             }
-            if (isset($_GET['email'])) {
-                $filters['email'] = $_GET['email'];
-            }
             if (isset($_GET['auth_method'])) {
                 $filters['auth_method'] = $_GET['auth_method'];
             }
@@ -121,9 +118,9 @@ try {
             // Create a new user
             $input = json_decode(file_get_contents('php://input'), true);
             
-            if (!$input || !isset($input['username']) || !isset($input['email'])) {
+            if (!$input || !isset($input['username'])) {
                 http_response_code(400);
-                echo json_encode(['error' => 'Missing required fields: username, email']);
+                echo json_encode(['error' => 'Missing required fields: username']);
                 exit;
             }
             
@@ -142,7 +139,7 @@ try {
             
             if (!$user_id) {
                 http_response_code(500);
-                echo json_encode(['error' => 'Failed to create user. Username or email may already exist.']);
+                echo json_encode(['error' => 'Failed to create user. Username may already exist.']);
                 exit;
             }
             
@@ -646,31 +643,16 @@ try {
                 exit;
             }
             
-            // Email is optional for external users - use placeholder format if not provided
-            // Format: username@external.local (valid email format but clearly indicates external user)
-            $email = isset($input['email']) && !empty(trim($input['email'])) 
-                ? trim($input['email']) 
-                : $username . '@external.local';
-            
-            // Check if email already exists
-            $emailStmt = $db->prepare("SELECT id FROM users WHERE email = ?");
-            $emailStmt->execute([$email]);
-            if ($emailStmt->fetch()) {
-                http_response_code(400);
-                echo json_encode(['error' => 'Un utilisateur avec cet email existe déjà']);
-                exit;
-            }
-            
             // Default to inactive unless specified otherwise
             $is_active = isset($input['is_active']) ? (int)$input['is_active'] : 0;
             
             try {
                 // Insert external user (no password for AD/LDAP users)
                 $insertStmt = $db->prepare("
-                    INSERT INTO users (username, email, password, auth_method, is_active, created_at)
-                    VALUES (?, ?, '', ?, ?, NOW())
+                    INSERT INTO users (username, password, auth_method, is_active, created_at)
+                    VALUES (?, '', ?, ?, NOW())
                 ");
-                $insertStmt->execute([$username, $email, $auth_method, $is_active]);
+                $insertStmt->execute([$username, $auth_method, $is_active]);
                 $user_id = $db->lastInsertId();
                 
                 echo json_encode([
@@ -679,7 +661,6 @@ try {
                     'data' => [
                         'id' => $user_id,
                         'username' => $username,
-                        'email' => $email,
                         'auth_method' => $auth_method,
                         'is_active' => $is_active
                     ]

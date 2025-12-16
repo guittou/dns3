@@ -4581,7 +4581,7 @@ async function populateAclUsersSelect() {
         aclUsersCache.forEach(user => {
             const option = document.createElement('option');
             option.value = user.id;
-            option.textContent = `${user.username} (${user.email})`;
+            option.textContent = user.username;
             selectEl.appendChild(option);
         });
     } catch (error) {

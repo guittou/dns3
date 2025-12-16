@@ -78,7 +78,7 @@ class ApiToken {
             // Look up token in database
             $stmt = $this->db->prepare("
                 SELECT t.id, t.user_id, t.token_name, t.expires_at, t.revoked_at,
-                       u.username, u.email, u.is_active
+                       u.username, u.is_active
                 FROM api_tokens t
                 INNER JOIN users u ON t.user_id = u.id
                 WHERE t.token_hash = ?
@@ -120,7 +120,6 @@ class ApiToken {
             return [
                 'id' => $tokenData['user_id'],
                 'username' => $tokenData['username'],
-                'email' => $tokenData['email'],
                 'token_id' => $tokenData['id'],
                 'token_name' => $tokenData['token_name']
             ];

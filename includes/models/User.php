@@ -16,14 +16,14 @@ class User {
     /**
      * List all users with their roles
      * 
-     * @param array $filters Optional filters (username, email, auth_method, is_active)
+     * @param array $filters Optional filters (username, auth_method, is_active)
      * @param int $limit Maximum number of results
      * @param int $offset Pagination offset
      * @return array Array of users with their roles
      */
     public function list($filters = [], $limit = 100, $offset = 0) {
         try {
-            $sql = "SELECT u.id, u.username, u.email, u.auth_method, u.is_active, 
+            $sql = "SELECT u.id, u.username, u.auth_method, u.is_active, 
                            u.created_at, u.last_login
                     FROM users u
                     WHERE 1=1";
@@ -33,11 +33,6 @@ class User {
             if (isset($filters['username']) && $filters['username'] !== '') {
                 $sql .= " AND u.username LIKE ?";
                 $params[] = '%' . $filters['username'] . '%';
-            }
-            
-            if (isset($filters['email']) && $filters['email'] !== '') {
-                $sql .= " AND u.email LIKE ?";
-                $params[] = '%' . $filters['email'] . '%';
             }
             
             if (isset($filters['auth_method']) && $filters['auth_method'] !== '') {
@@ -78,7 +73,7 @@ class User {
      */
     public function getById($id) {
         try {
-            $sql = "SELECT u.id, u.username, u.email, u.auth_method, u.is_active,
+            $sql = "SELECT u.id, u.username, u.auth_method, u.is_active,
                            u.created_at, u.last_login
                     FROM users u
                     WHERE u.id = ?";
@@ -101,14 +96,14 @@ class User {
     /**
      * Create a new user
      * 
-     * @param array $data User data (username, email, password, auth_method)
+     * @param array $data User data (username, password, auth_method)
      * @param int $created_by User ID creating this user
      * @return int|bool New user ID or false on failure
      */
     public function create($data, $created_by = null) {
         try {
             // Validate required fields
-            if (!isset($data['username']) || !isset($data['email'])) {
+            if (!isset($data['username'])) {
                 return false;
             }
             
@@ -123,13 +118,12 @@ class User {
             }
             $password = password_hash($data['password'], PASSWORD_DEFAULT);
             
-            $sql = "INSERT INTO users (username, email, password, auth_method, is_active, created_at)
-                    VALUES (?, ?, ?, ?, ?, NOW())";
+            $sql = "INSERT INTO users (username, password, auth_method, is_active, created_at)
+                    VALUES (?, ?, ?, ?, NOW())";
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([
                 $data['username'],
-                $data['email'],
                 $password,
                 $auth_method,
                 isset($data['is_active']) ? (int)$data['is_active'] : 1
@@ -163,11 +157,6 @@ class User {
             if (isset($data['username'])) {
                 $updates[] = "username = ?";
                 $params[] = $data['username'];
-            }
-            
-            if (isset($data['email'])) {
-                $updates[] = "email = ?";
-                $params[] = $data['email'];
             }
             
             if (isset($data['password']) && $data['password'] !== '') {

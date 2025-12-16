@@ -33,8 +33,8 @@ class ApiTokenTest extends TestCase {
             self::$testUserId = $user['id'];
         } else {
             $stmt = self::$db->prepare("
-                INSERT INTO users (username, email, password, auth_method, is_active, created_at)
-                VALUES ('test_token_user', 'test_token@example.com', '', 'database', 1, NOW())
+                INSERT INTO users (username, password, auth_method, is_active, created_at)
+                VALUES ('test_token_user', '', 'database', 1, NOW())
             ");
             $stmt->execute();
             self::$testUserId = self::$db->lastInsertId();
