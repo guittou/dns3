@@ -793,7 +793,31 @@ async function setDomainForZone(zoneId) {
             if (typeof setZoneFileComboboxEnabled === 'function') {
                 setZoneFileComboboxEnabled(false);
             }
+            
+            // Update edit domain button to hide it
+            updateEditDomainButton(null);
             return;
+        }
+
+        // Calculate master ID based on zone type
+        // For master: use zone.id
+        // For include: use zone.master_id or zone.parent_id, with fallback to getTopMasterId
+        let masterId;
+        if (zone.file_type === 'master') {
+            masterId = zone.id;
+        } else {
+            // Try multiple fields that may contain the master ID
+            masterId = zone.master_id || zone.parent_zone_id || zone.parent_id;
+            
+            // Fallback: recursively find top master if parent fields are not set
+            if (!masterId) {
+                try {
+                    masterId = await getTopMasterId(zone.id);
+                } catch (fallbackError) {
+                    console.warn('getTopMasterId fallback failed:', fallbackError);
+                    masterId = zone.id; // Last resort: use zone.id
+                }
+            }
         }
 
         // Calculate domain based on zone type
@@ -819,8 +843,13 @@ async function setDomainForZone(zoneId) {
         const domainInput = document.getElementById('zone-domain-input');
         if (domainInput) domainInput.value = domainName;
         
+        // Store the master ID (not the selected zone ID)
         const hiddenInput = document.getElementById('zone-master-id');
-        if (hiddenInput) hiddenInput.value = zone.id || '';
+        if (hiddenInput) hiddenInput.value = masterId || '';
+        
+        // Update global state with master ID
+        window.selectedDomainId = masterId;
+        window.ZONES_SELECTED_MASTER_ID = masterId;
 
         // Update zone file input text display
         const zoneFileInput = document.getElementById('zone-file-input');
@@ -828,10 +857,10 @@ async function setDomainForZone(zoneId) {
             zoneFileInput.value = `${zone.name} (${zone.file_type})`;
         }
 
-        // ALWAYS call populateZoneComboboxForDomain even if domainName is empty
+        // ALWAYS call populateZoneComboboxForDomain with masterId
         if (typeof populateZoneComboboxForDomain === 'function') {
             try { 
-                await populateZoneComboboxForDomain(zone.id); 
+                await populateZoneComboboxForDomain(masterId); 
             } catch (e) {
                 console.warn('populateZoneComboboxForDomain failed:', e);
                 // Fallback: filter ALL_ZONES by domain if available and apply ordering
@@ -840,10 +869,10 @@ async function setDomainForZone(zoneId) {
                     if (domainName) {
                         filteredZones = window.ALL_ZONES.filter(z => (z.domain || '') === domainName);
                     } else {
-                        filteredZones = window.ALL_ZONES.filter(z => z.id === zone.id);
+                        filteredZones = window.ALL_ZONES.filter(z => z.id === masterId);
                     }
                     // Apply consistent ordering using shared helper
-                    window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(filteredZones, zone.id);
+                    window.CURRENT_ZONE_LIST = window.makeOrderedZoneList(filteredZones, masterId);
                     
                     // Sync combobox instance state with updated CURRENT_ZONE_LIST
                     syncZoneFileComboboxInstance();
@@ -855,6 +884,9 @@ async function setDomainForZone(zoneId) {
         if (typeof setZoneFileComboboxEnabled === 'function') {
             setZoneFileComboboxEnabled(true);
         }
+        
+        // Update edit domain button with master ID
+        updateEditDomainButton(masterId);
 
         if (typeof updateCreateBtnState === 'function') updateCreateBtnState();
     } catch (e) {
