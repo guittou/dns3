@@ -807,15 +807,25 @@ async function setDomainForZone(zoneId) {
             masterId = zone.id;
         } else {
             // Try multiple fields that may contain the master ID
+            // Fields checked: master_id, parent_zone_id, parent_id (in order of preference)
             masterId = zone.master_id || zone.parent_zone_id || zone.parent_id;
             
             // Fallback: recursively find top master if parent fields are not set
             if (!masterId) {
                 try {
                     masterId = await getTopMasterId(zone.id);
+                    if (!masterId) {
+                        console.error('setDomainForZone: Cannot determine master ID for include zone:', zone.id);
+                        // For includes, we cannot use zone.id as fallback since it would be wrong
+                        // Clear the state and disable the edit button
+                        updateEditDomainButton(null);
+                        return;
+                    }
                 } catch (fallbackError) {
-                    console.warn('getTopMasterId fallback failed:', fallbackError);
-                    masterId = zone.id; // Last resort: use zone.id
+                    console.error('setDomainForZone: getTopMasterId failed for include zone:', zone.id, fallbackError);
+                    // For includes, we cannot use zone.id as fallback since it would be wrong
+                    updateEditDomainButton(null);
+                    return;
                 }
             }
         }
