@@ -62,12 +62,6 @@ L'interface d'administration (`admin.php`) fournit une interface à onglets avec
 │ Nom d'utilisateur *                   │
 │ [_________________________________]   │
 │                                        │
-│ Email *                                │
-│ [_________________________________]   │
-│                                        │
-│ Méthode d'authentification *           │
-│ [Base de données            ▼]        │
-│                                        │
 │ Mot de passe *                         │
 │ [_________________________________]   │
 │ Laissez vide pour ne pas modifier     │
