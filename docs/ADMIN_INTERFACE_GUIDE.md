@@ -52,7 +52,6 @@ http://votre-domaine/admin.php
 1. Cliquez sur **"Créer un utilisateur"**
 2. Remplissez le formulaire :
    - **Nom d'utilisateur*** : requis, unique
-   - **Email*** : requis, unique
    - **Méthode d'authentification*** : 
      - `database` : authentification locale (nécessite un mot de passe)
      - `ad` : Active Directory (pas de mot de passe local)

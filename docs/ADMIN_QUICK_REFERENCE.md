@@ -54,7 +54,6 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_user' \
   -H 'Content-Type: application/json' \
   -d '{
     "username": "admin",
-    "email": "admin@example.local",
     "auth_method": "database",
     "password": "AdminPass123!",
     "role_ids": [1]
@@ -78,7 +77,6 @@ curl -X POST 'http://domain/api/admin_api.php?action=create_user' \
 Navigation: Admin → Utilisateurs → Créer un utilisateur
 Champs:
   - Username: requis, unique
-  - Email: requis, unique
   - Méthode d'auth: database
   - Mot de passe: requis (hashé avec bcrypt)
   - Statut: actif/inactif
@@ -90,7 +88,6 @@ Champs:
 Navigation: Admin → Utilisateurs → Créer un utilisateur
 Champs:
   - Username: requis, unique
-  - Email: requis, unique
   - Méthode d'auth: ad OU ldap
   - Mot de passe: NON requis
   - Statut: actif/inactif
@@ -101,9 +98,7 @@ Champs:
 ```
 Navigation: Admin → Utilisateurs → Cliquer sur "Modifier"
 Peut modifier:
-  - Email
   - Mot de passe (optionnel, laisser vide pour conserver l'actuel)
-  - Méthode d'auth
   - Statut
   - Rôles
 ```

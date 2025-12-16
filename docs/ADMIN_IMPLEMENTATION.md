@@ -279,7 +279,6 @@ WHERE u.username = 'admin' AND r.name = 'admin';
 2. Cliquer sur "Créer un utilisateur"
 3. Remplir :
    - Nom d'utilisateur : john.doe
-   - Email : john@example.com
    - Méthode d'authentification : database
    - Mot de passe : SecurePassword123
    - Rôles : Cocher "user"
