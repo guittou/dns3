@@ -294,6 +294,14 @@ CREATE TABLE `roles` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Dumping data for table `roles`
+--
+
+INSERT INTO `roles` (`id`, `name`, `description`, `created_at`) VALUES
+(1, 'admin', 'Administrator with full access', NOW()),
+(2, 'user', 'Regular user with limited access', NOW());
+
+--
 -- Table structure for table `sessions`
 --
 
