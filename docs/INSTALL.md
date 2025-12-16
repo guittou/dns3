@@ -42,7 +42,9 @@ exit;
 mysql -u dns3_user -p dns3_db < database.sql
 ```
 
-**Note importante** : Le fichier `database.sql` utilise `SQL SECURITY INVOKER` pour les vues, ce qui permet l'import avec un compte non-SUPER. Si vous utilisez un dump personnalisé contenant `DEFINER=`, consultez la section de dépannage ci-dessous.
+**Note importante** : 
+- Le fichier `database.sql` utilise `SQL SECURITY INVOKER` pour les vues, ce qui permet l'import avec un compte non-SUPER. Si vous utilisez un dump personnalisé contenant `DEFINER=`, consultez la section de dépannage ci-dessous.
+- Les rôles de base `admin` et `user` sont automatiquement créés lors de l'import du schéma. Vous pouvez les voir dans l'interface d'administration sous "Administration > Rôles".
 
 ### 3. Configuration de l'application
 
@@ -106,7 +108,7 @@ php scripts/create_admin.php
 
 **Ce que fait le script :**
 1. Crée un enregistrement dans la table `users` avec le mot de passe hashé via `password_hash(..., PASSWORD_DEFAULT)`
-2. Si la table `roles` contient un rôle `name='admin'`, il ajoute automatiquement une entrée dans `user_roles` pour assigner ce rôle à l'utilisateur
+2. Assigne automatiquement le rôle `admin` à l'utilisateur (le rôle existe déjà après l'import du schéma)
 3. Si l'utilisateur existe déjà, le script met à jour son mot de passe
 4. Affiche un message de succès ou d'erreur
 
