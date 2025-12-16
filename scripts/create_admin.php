@@ -96,7 +96,7 @@ try {
             $u = $stmt->fetch(PDO::FETCH_ASSOC);
             if ($u) {
                 // insert user_roles if not exists
-                $stmt = $db->prepare("SELECT id FROM user_roles WHERE user_id = ? AND role_id = ? LIMIT 1");
+                $stmt = $db->prepare("SELECT 1 FROM user_roles WHERE user_id = ? AND role_id = ? LIMIT 1");
                 $stmt->execute([$u['id'], $role['id']]);
                 if (!$stmt->fetch()) {
                     $stmt = $db->prepare("INSERT INTO user_roles (user_id, role_id, assigned_at) VALUES (?, ?, NOW())");
