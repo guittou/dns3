@@ -300,9 +300,9 @@ CREATE TABLE `roles` (
 -- Dumping data for table `roles`
 --
 
-INSERT INTO `roles` (`id`, `name`, `description`, `created_at`) VALUES
-(1, 'admin', 'Administrator with full access', NOW()),
-(2, 'user', 'Regular user with limited access', NOW());
+INSERT INTO `roles` (`name`, `description`, `created_at`) VALUES
+('admin', 'Administrator with full access', NOW()),
+('user', 'Regular user with limited access', NOW());
 
 --
 -- Table structure for table `sessions`
