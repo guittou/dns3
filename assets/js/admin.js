@@ -593,12 +593,22 @@
         const input = document.getElementById('mapping-dn-or-group');
         const hint = document.getElementById('mapping-dn-or-group-hint');
         
+        // Add null checks to prevent errors if elements don't exist
+        if (!input || !hint) {
+            console.warn('Mapping form elements not found');
+            return;
+        }
+        
         if (source === 'ad') {
             input.placeholder = 'Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com ou sAMAccountName:j.bon';
             hint.innerHTML = '<strong>AD:</strong> DN complet du groupe ou <code>sAMAccountName:&lt;login&gt;</code>';
         } else if (source === 'ldap') {
             input.placeholder = 'Ex: uid:jean.bon ou departmentNumber:ORGANISME/MON/SERVICE';
             hint.innerHTML = '<strong>LDAP:</strong> <code>uid:&lt;login&gt;</code> ou <code>departmentNumber:&lt;valeur&gt;</code>';
+        } else {
+            // Default to AD format for unknown source types
+            input.placeholder = 'Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com';
+            hint.innerHTML = 'DN complet du groupe ou format spécifique selon la source';
         }
     }
 
