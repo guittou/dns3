@@ -29,14 +29,6 @@
     color: white;
 }
 
-.btn-secondary:hover {
-    background-color: #5a6268;
-}
-
-.btn-secondary:active {
-    background-color: #545b62;
-}
-
 /* ==========================================================================
    Pagination Controls
    ========================================================================== */
