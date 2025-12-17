@@ -148,10 +148,41 @@ SELECT 'ldap', 'ou=IT,dc=example,dc=com', r.id, 'Personnel IT'
 FROM roles r WHERE r.name = 'user';
 ```
 
+### Nouveaux Formats de Mapping
+
+Le champ `dn_or_group` supporte désormais des formats préfixés pour mapper directement des attributs utilisateur :
+
+**Active Directory :**
+- `sAMAccountName:<login>` - Mapper un login AD spécifique
+  ```sql
+  INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+  SELECT 'ad', 'sAMAccountName:john.doe', r.id, 'Accès pour john.doe'
+  FROM roles r WHERE r.name = 'admin';
+  ```
+
+**OpenLDAP :**
+- `uid:<login>` - Mapper un login LDAP spécifique
+  ```sql
+  INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+  SELECT 'ldap', 'uid:foobar', r.id, 'Accès pour foobar'
+  FROM roles r WHERE r.name = 'user';
+  ```
+- `departmentNumber:<valeur>` - Mapper un département LDAP
+  ```sql
+  INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+  SELECT 'ldap', 'departmentNumber:12345', r.id, 'Département IT'
+  FROM roles r WHERE r.name = 'zone_editor';
+  ```
+
 ### Comparaison des Mappings
 
-- **Active Directory** : La comparaison des groupes (`memberOf`) est insensible à la casse.
-- **OpenLDAP** : Le DN de l'utilisateur doit contenir la chaîne `dn_or_group` (insensible à la casse).
+- **Active Directory** : 
+  - Groupes (`memberOf`) : comparaison insensible à la casse du DN complet
+  - `sAMAccountName:value` : comparaison exacte insensible à la casse
+- **OpenLDAP** : 
+  - DN utilisateur : doit contenir la chaîne `dn_or_group` (insensible à la casse)
+  - `uid:value` : comparaison exacte insensible à la casse
+  - `departmentNumber:value` : comparaison exacte insensible à la casse
 
 ### Tests avec ldapsearch
 

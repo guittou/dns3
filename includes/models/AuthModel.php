@@ -220,11 +220,11 @@ class AuthModel {
      * Get role IDs from auth_mappings that match user's groups/DN
      * 
      * @param string $authMethod Authentication method ('ad' or 'ldap')
-     * @param array $groups Array of AD group DNs
-     * @param string $userDn User's full DN (for LDAP)
+     * @param array $comparableValues Array of values to compare (AD groups, sAMAccountName:value, uid:value, departmentNumber:value, etc.)
+     * @param string $userDn User's full DN (for LDAP OU matching)
      * @return array Array of matched role IDs
      */
-    public function getRoleIdsFromMappings($authMethod, array $groups = [], $userDn = '') {
+    public function getRoleIdsFromMappings($authMethod, array $comparableValues = [], $userDn = '') {
         $matchedRoleIds = [];
         
         try {
@@ -235,20 +235,20 @@ class AuthModel {
             foreach ($mappings as $mapping) {
                 $matches = false;
                 
-                if ($authMethod === 'ad') {
-                    // For AD: check if user is member of the mapped group
-                    // Use mb_strtolower for proper Unicode case-insensitive comparison
-                    $mappingLower = mb_strtolower($mapping['dn_or_group']);
-                    foreach ($groups as $group_dn) {
-                        if (mb_strtolower($group_dn) === $mappingLower) {
-                            $matches = true;
-                            break;
-                        }
+                // Check for exact match (case-insensitive) against comparable values
+                // This handles: AD groups (DNs), sAMAccountName:value, uid:value, departmentNumber:value
+                $mappingLower = mb_strtolower($mapping['dn_or_group']);
+                foreach ($comparableValues as $value) {
+                    if (mb_strtolower($value) === $mappingLower) {
+                        $matches = true;
+                        break;
                     }
-                } elseif ($authMethod === 'ldap') {
-                    // For LDAP: check if user DN contains the mapped DN/OU path
-                    // Use mb_stripos for Unicode-safe case-insensitive search
-                    if ($userDn && mb_stripos($userDn, $mapping['dn_or_group']) !== false) {
+                }
+                
+                // For LDAP: also check if user DN contains the mapped DN/OU path
+                // This is for backward compatibility with existing OU-based mappings
+                if (!$matches && $authMethod === 'ldap' && $userDn) {
+                    if (mb_stripos($userDn, $mapping['dn_or_group']) !== false) {
                         $matches = true;
                     }
                 }
