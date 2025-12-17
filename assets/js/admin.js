@@ -10,6 +10,45 @@
     let currentEditUserId = null;
 
     /**
+     * Configuration for mapping types based on source
+     * Defines available mapping types for AD and LDAP with their prefixes, placeholders, and hints
+     */
+    const MAPPING_TYPE_CONFIG = {
+        ad: [
+            {
+                value: 'group_dn',
+                label: 'DN de groupe',
+                prefix: '',
+                placeholder: 'Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com',
+                hint: 'DN complet du groupe Active Directory'
+            },
+            {
+                value: 'samaccountname',
+                label: 'Login AD (sAMAccountName)',
+                prefix: 'sAMAccountName:',
+                placeholder: 'Ex: j.bon',
+                hint: 'Login Active Directory (le préfixe <code>sAMAccountName:</code> sera ajouté automatiquement)'
+            }
+        ],
+        ldap: [
+            {
+                value: 'uid',
+                label: 'UID',
+                prefix: 'uid:',
+                placeholder: 'Ex: jean.bon',
+                hint: 'Identifiant utilisateur LDAP (le préfixe <code>uid:</code> sera ajouté automatiquement)'
+            },
+            {
+                value: 'departmentnumber',
+                label: 'departmentNumber',
+                prefix: 'departmentNumber:',
+                placeholder: 'Ex: ORGANISME/MON/SERVICE',
+                hint: 'Numéro ou code de département LDAP (le préfixe <code>departmentNumber:</code> sera ajouté automatiquement)'
+            }
+        ]
+    };
+
+    /**
      * Construct API URL using window.API_BASE
      */
     function getApiUrl(action, params = {}) {
@@ -588,8 +627,37 @@
 
     /**
      * Update mapping form fields based on selected source
+     * Populates the type selector with options for the selected source
      */
     function updateMappingFormForSource(source) {
+        const typeSelect = document.getElementById('mapping-type');
+        
+        // Add null check to prevent errors if element doesn't exist
+        if (!typeSelect) {
+            console.warn('Mapping type selector not found');
+            return;
+        }
+        
+        // Get the type options for the selected source
+        const typeOptions = MAPPING_TYPE_CONFIG[source] || [];
+        
+        // Populate the type selector
+        typeSelect.innerHTML = typeOptions.map(type => 
+            `<option value="${type.value}">${escapeHtml(type.label)}</option>`
+        ).join('');
+        
+        // If there are options, select the first one and update form fields
+        if (typeOptions.length > 0) {
+            typeSelect.value = typeOptions[0].value;
+            updateMappingFormForType(source, typeOptions[0].value);
+        }
+    }
+
+    /**
+     * Update mapping form fields based on selected type
+     * Updates placeholder and hint for the value input field
+     */
+    function updateMappingFormForType(source, type) {
         const input = document.getElementById('mapping-dn-or-group');
         const hint = document.getElementById('mapping-dn-or-group-hint');
         
@@ -599,16 +667,17 @@
             return;
         }
         
-        if (source === 'ad') {
-            input.placeholder = 'Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com ou sAMAccountName:j.bon';
-            hint.innerHTML = '<strong>AD:</strong> DN complet du groupe ou <code>sAMAccountName:&lt;login&gt;</code>';
-        } else if (source === 'ldap') {
-            input.placeholder = 'Ex: uid:jean.bon ou departmentNumber:ORGANISME/MON/SERVICE';
-            hint.innerHTML = '<strong>LDAP:</strong> <code>uid:&lt;login&gt;</code> ou <code>departmentNumber:&lt;valeur&gt;</code>';
+        // Get the type configuration
+        const typeOptions = MAPPING_TYPE_CONFIG[source] || [];
+        const typeConfig = typeOptions.find(t => t.value === type);
+        
+        if (typeConfig) {
+            input.placeholder = typeConfig.placeholder;
+            hint.innerHTML = typeConfig.hint;
         } else {
-            // Default to AD format for unknown source types
-            input.placeholder = 'Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com';
-            hint.innerHTML = 'DN complet du groupe ou format spécifique selon la source';
+            // Fallback
+            input.placeholder = 'Entrez la valeur';
+            hint.innerHTML = 'Valeur de mapping';
         }
     }
 
@@ -656,9 +725,25 @@
         event.preventDefault();
         
         const formData = new FormData(event.target);
+        const source = formData.get('source');
+        const type = formData.get('mapping_type');
+        let dnOrGroup = formData.get('dn_or_group').trim();
+        
+        // Get the type configuration to determine if a prefix should be added
+        const typeOptions = MAPPING_TYPE_CONFIG[source] || [];
+        const typeConfig = typeOptions.find(t => t.value === type);
+        
+        // Auto-inject prefix if needed
+        if (typeConfig && typeConfig.prefix) {
+            // Only add prefix if not already present
+            if (!dnOrGroup.toLowerCase().startsWith(typeConfig.prefix.toLowerCase())) {
+                dnOrGroup = typeConfig.prefix + dnOrGroup;
+            }
+        }
+        
         const mappingData = {
-            source: formData.get('source'),
-            dn_or_group: formData.get('dn_or_group'),
+            source: source,
+            dn_or_group: dnOrGroup,
             role_id: parseInt(formData.get('role_id')),
             notes: formData.get('notes')
         };
@@ -1379,6 +1464,12 @@
         safeAddEventListener('mapping-source', 'change', function(e) {
             updateMappingFormForSource(e.target.value);
         }, 'Mapping source select');
+        
+        // Mapping type change listener
+        safeAddEventListener('mapping-type', 'change', function(e) {
+            const source = document.getElementById('mapping-source').value;
+            updateMappingFormForType(source, e.target.value);
+        }, 'Mapping type select');
         
         // Close modals on outside click
         window.addEventListener('click', function(e) {
