@@ -779,6 +779,18 @@ async function populateZoneComboboxForDomain(masterId) {
             });
             window.ALL_ZONES = existingAllZones;
             
+            // Merge into ZONES_ALL cache as well for table rendering (deduplication)
+            if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
+            const existingZonesAllIds = new Set(window.ZONES_ALL.map(z => parseInt(z.id, 10)));
+            orderedZones.forEach(z => {
+                const zoneId = parseInt(z.id, 10);
+                if (!existingZonesAllIds.has(zoneId)) {
+                    window.ZONES_ALL.push(z);
+                    existingZonesAllIds.add(zoneId);
+                }
+            });
+            console.debug('[populateZoneComboboxForDomain] Merged zones into ZONES_ALL, total:', window.ZONES_ALL.length);
+            
             // Sync combobox instance state with updated CURRENT_ZONE_LIST
             if (typeof syncZoneFileComboboxInstance === 'function') {
                 try {
@@ -2610,7 +2622,15 @@ async function renderZonesTable() {
         await loadZonesData();
     }
     
-    let filteredZones = [...window.ZONES_ALL];
+    // Initialize filteredZones with fallback to CURRENT_ZONE_LIST when ZONES_ALL is empty/partial
+    // This ensures zones present only in CURRENT_ZONE_LIST (e.g., children of selected include) are rendered
+    let filteredZones = [];
+    if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
+        filteredZones = [...window.ZONES_ALL];
+    } else if (window.CURRENT_ZONE_LIST && window.CURRENT_ZONE_LIST.length > 0) {
+        filteredZones = [...window.CURRENT_ZONE_LIST];
+        console.debug('[renderZonesTable] Fallback to CURRENT_ZONE_LIST with', filteredZones.length, 'zones');
+    }
     
     // Helper: check whether a zone has `ancestorId` somewhere in its parent chain
     const zonesAll = Array.isArray(window.ZONES_ALL) ? window.ZONES_ALL : (Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : []);
