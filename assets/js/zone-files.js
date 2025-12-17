@@ -2447,9 +2447,8 @@ async function resetZoneDomainSelection() {
     // Reset pagination to page 1
     currentPage = 1;
     
-    // Reload full table data and render
+    // Reload full table data (loadZonesData calls renderZonesTable internally)
     await loadZonesData();
-    await renderZonesTable();
 }
 
 /**
