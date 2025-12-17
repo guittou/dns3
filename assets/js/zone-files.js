@@ -687,6 +687,10 @@ async function populateZoneComboboxForDomain(masterId) {
                 if (orderedZones.length > 0) {
                     window.CURRENT_ZONE_LIST = orderedZones;
                     
+                    // Merge into ALL_ZONES and ZONES_ALL caches using shared helper (with deduplication)
+                    mergeZonesIntoCache(orderedZones);
+                    console.debug('[populateZoneComboboxForDomain] Merged zones into ALL_ZONES and ZONES_ALL');
+                    
                     // Sync combobox instance state with updated CURRENT_ZONE_LIST
                     if (typeof syncZoneFileComboboxInstance === 'function') {
                         try {
@@ -2184,6 +2188,11 @@ async function populateZoneFileCombobox(masterZoneId, selectedZoneFileId = null,
         if (orderedZones.length > 0) {
             window.CURRENT_ZONE_LIST = orderedZones.slice();
             console.debug('[populateZoneFileCombobox] Updated CURRENT_ZONE_LIST with', orderedZones.length, 'zones (master first, then includes sorted A-Z)');
+            
+            // Merge into ZONES_ALL cache so renderZonesTable can display these zones
+            // This ensures child includes of a selected include appear in the table
+            mergeZonesIntoCache(orderedZones);
+            console.debug('[populateZoneFileCombobox] Merged zones into ZONES_ALL for table rendering');
         } else {
             console.warn('[populateZoneFileCombobox] orderedZones is empty, preserving existing CURRENT_ZONE_LIST');
         }
@@ -2602,23 +2611,41 @@ async function renderZonesTable() {
         await loadZonesData();
     }
     
-    // Initialize filteredZones with fallback to CURRENT_ZONE_LIST when ZONES_ALL is empty/partial
+    // Build filteredZones from union of ZONES_ALL and CURRENT_ZONE_LIST
     // This ensures zones present only in CURRENT_ZONE_LIST (e.g., children of selected include) are rendered
+    // Deduplicate by zone ID using a Map for O(1) lookup
     let filteredZones = [];
-    if (window.ZONES_ALL && window.ZONES_ALL.length > 0) {
-        filteredZones = [...window.ZONES_ALL];
-    } else if (window.CURRENT_ZONE_LIST && window.CURRENT_ZONE_LIST.length > 0) {
-        filteredZones = [...window.CURRENT_ZONE_LIST];
-        console.debug('[renderZonesTable] Fallback to CURRENT_ZONE_LIST with', filteredZones.length, 'zones');
+    const zonesMap = new Map();
+    
+    // Add zones from ZONES_ALL first (primary cache)
+    if (Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length > 0) {
+        window.ZONES_ALL.forEach(zone => {
+            if (zone && zone.id) {
+                zonesMap.set(String(zone.id), zone);
+            }
+        });
     }
     
+    // Add zones from CURRENT_ZONE_LIST (domain/zone-specific cache)
+    if (Array.isArray(window.CURRENT_ZONE_LIST) && window.CURRENT_ZONE_LIST.length > 0) {
+        window.CURRENT_ZONE_LIST.forEach(zone => {
+            if (zone && zone.id) {
+                zonesMap.set(String(zone.id), zone);
+            }
+        });
+    }
+    
+    // Convert map values to array
+    filteredZones = Array.from(zonesMap.values());
+    console.debug('[renderZonesTable] Built filteredZones from union of ZONES_ALL (', 
+        (Array.isArray(window.ZONES_ALL) ? window.ZONES_ALL.length : 0), 
+        ') and CURRENT_ZONE_LIST (', 
+        (Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST.length : 0), 
+        ') = ', filteredZones.length, 'unique zones');
+    
     // Helper: check whether a zone has `ancestorId` somewhere in its parent chain
-    // Use multiple caches with fallbacks for robustness
-    const zonesAll = Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length > 0 
-        ? window.ZONES_ALL 
-        : (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length > 0
-            ? window.ALL_ZONES 
-            : (Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST : []));
+    // Use the merged filteredZones (union of all caches) for robust parent resolution
+    const zonesAll = filteredZones;
     function hasAncestor(zone, ancestorId) {
         if (!zone || !ancestorId) return false;
         let currentZone = zone;
