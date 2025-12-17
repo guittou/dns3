@@ -24,26 +24,26 @@
             },
             {
                 value: 'samaccountname',
-                label: 'Login AD (sAMAccountName)',
+                label: 'Login Active Directory (sAMAccountName)',
                 prefix: 'sAMAccountName:',
                 placeholder: 'Ex: j.bon',
-                hint: 'Login Active Directory (le préfixe <code>sAMAccountName:</code> sera ajouté automatiquement)'
+                hint: 'Login Active Directory'
             }
         ],
         ldap: [
             {
                 value: 'uid',
-                label: 'UID',
+                label: 'UID de l\'utilisateur LDAP',
                 prefix: 'uid:',
                 placeholder: 'Ex: jean.bon',
-                hint: 'Identifiant utilisateur LDAP (le préfixe <code>uid:</code> sera ajouté automatiquement)'
+                hint: 'UID de l\'utilisateur LDAP'
             },
             {
                 value: 'departmentnumber',
                 label: 'departmentNumber',
                 prefix: 'departmentNumber:',
                 placeholder: 'Ex: ORGANISME/MON/SERVICE',
-                hint: 'Numéro ou code de département LDAP (le préfixe <code>departmentNumber:</code> sera ajouté automatiquement)'
+                hint: 'departmentNumber'
             }
         ]
     };
