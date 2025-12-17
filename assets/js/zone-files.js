@@ -2739,8 +2739,8 @@ async function renderZonesTable() {
                 else if (!parentZone) {
                     // Store parent ID in data attribute for async fetch
                     parentDisplay = `<span class="parent-fallback" data-parent-id="${parentId}" title="Chargement...">Parent #${parentId}</span>`;
-                    // Queue async fetch for this parent (will be handled after render)
-                    setTimeout(() => fetchAndDisplayParent(zone.id, parentId), 0);
+                    // Queue async fetch for this parent using microtask queue for predictable scheduling
+                    queueMicrotask(() => fetchAndDisplayParent(zone.id, parentId));
                 }
             }
         }
@@ -2759,11 +2759,11 @@ async function renderZonesTable() {
         
         return `
             <tr class="zone-row" data-zone-id="${zone.id}" data-file-type="${zone.file_type || 'include'}" data-parent-id="${zone.parent_id || ''}" onclick="handleZoneRowClick(${zone.id}, ${zone.parent_id || 'null'})" style="cursor: pointer;">
-                <td><strong>${escapeHtml(zone.name)}</strong></td>
-                <td><code>${escapeHtml(zone.filename)}</code></td>
-                <td>${parentDisplay}</td>
-                <td>${formatDate(dateValue)}</td>
-                <td>${statusBadge}</td>
+                <td class="col-name"><strong>${escapeHtml(zone.name)}</strong></td>
+                <td class="col-filename"><code>${escapeHtml(zone.filename)}</code></td>
+                <td class="col-parent">${parentDisplay}</td>
+                <td class="col-date">${formatDate(dateValue)}</td>
+                <td class="col-status">${statusBadge}</td>
                 ${actionsHtml}
             </tr>
         `;
@@ -2886,10 +2886,10 @@ async function fetchAndDisplayParent(zoneId, parentId) {
             // Merge into cache for future lookups
             mergeZonesIntoCache([parentZone]);
             
-            // Update the display in the table row
+            // Update the display in the table row using specific class selector
             const row = document.querySelector(`tr.zone-row[data-zone-id="${zoneId}"]`);
             if (row) {
-                const parentCell = row.querySelector('td:nth-child(3)'); // Parent column is 3rd
+                const parentCell = row.querySelector('td.col-parent');
                 if (parentCell) {
                     const parentName = parentZone.name || parentZone.domain || `Parent #${parentId}`;
                     parentCell.innerHTML = escapeHtml(parentName);
@@ -2900,10 +2900,10 @@ async function fetchAndDisplayParent(zoneId, parentId) {
         }
     } catch (e) {
         console.warn('[fetchAndDisplayParent] Failed to fetch parent:', parentId, e);
-        // Update fallback display with error indication
+        // Update fallback display with error indication using specific class selector
         const row = document.querySelector(`tr.zone-row[data-zone-id="${zoneId}"]`);
         if (row) {
-            const parentCell = row.querySelector('td:nth-child(3)');
+            const parentCell = row.querySelector('td.col-parent');
             if (parentCell) {
                 parentCell.innerHTML = `<span class="parent-fallback" title="Parent introuvable">Parent #${parentId}</span>`;
             }
