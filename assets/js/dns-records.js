@@ -1501,6 +1501,12 @@
      * Reset domain and zone filters
      */
     function resetDomainZoneFilters() {
+        // Clear search input
+        const dnsSearchInput = document.getElementById('dns-search');
+        if (dnsSearchInput) {
+            dnsSearchInput.value = '';
+        }
+        
         // Clear domain selection
         selectedDomainId = null;
         const domainInput = document.getElementById('dns-domain-input');
