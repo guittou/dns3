@@ -277,13 +277,19 @@ try {
 
             $zones = $zoneFile->search($filters, $limit, 0);
 
-            // Return minimal data for autocomplete
+            // Return data including parent information for proper display
+            // Include parent_id, parent_name, and parent_domain to support:
+            // 1. Parent column display in zones table
+            // 2. Master resolution for "Modifier domaine" button
             $results = array_map(function($zone) {
                 return [
                     'id' => $zone['id'],
                     'name' => $zone['name'],
                     'filename' => $zone['filename'],
-                    'file_type' => $zone['file_type']
+                    'file_type' => $zone['file_type'],
+                    'parent_id' => $zone['parent_id'] ?? null,
+                    'parent_name' => $zone['parent_name'] ?? null,
+                    'parent_domain' => $zone['parent_domain'] ?? null
                 ];
             }, $zones);
 
