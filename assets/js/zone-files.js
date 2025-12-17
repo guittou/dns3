@@ -821,73 +821,30 @@ async function setDomainForZone(zoneId) {
 
         // Calculate master ID based on zone type
         // For master: use zone.id
-        // For include: try parent fields first (master_id, parent_zone_id, parent_id),
-        // then use getTopMasterId to traverse the entire parent chain if needed
+        // For include: ALWAYS use getTopMasterId to traverse the complete parent chain
+        // This ensures we get the final master, not an intermediate include
         let masterId;
         if (zone.file_type === 'master') {
             masterId = zone.id;
         } else {
-            // For includes: try direct fields first for performance
-            // Order of precedence: master_id → parent_zone_id → parent_id
-            masterId = parseValidZoneId(zone.master_id);
-            if (masterId) {
-                console.debug('[setDomainForZone] Using zone.master_id:', masterId);
-            } else {
-                masterId = parseValidZoneId(zone.parent_zone_id);
-                if (masterId) {
-                    console.debug('[setDomainForZone] Using zone.parent_zone_id:', masterId);
-                } else {
-                    // parent_id might be immediate parent (not top master), so check if it's a master
-                    const parentId = parseValidZoneId(zone.parent_id);
-                    if (parentId) {
-                        // Try to find parent in cache to check if it's a master
-                        const cachesToCheck = [
-                            window.ZONES_ALL, 
-                            window.ALL_ZONES, 
-                            window.CURRENT_ZONE_LIST, 
-                            (typeof allMasters !== 'undefined' && allMasters) ? allMasters : []
-                        ];
-                        let parentZone = null;
-                        // Optimize: compare as strings to avoid repeated parseInt in find()
-                        const parentIdStr = String(parentId);
-                        for (const cache of cachesToCheck) {
-                            if (Array.isArray(cache) && cache.length > 0) {
-                                parentZone = cache.find(z => String(z.id) === parentIdStr);
-                                if (parentZone) break;
-                            }
-                        }
-                        
-                        if (parentZone && parentZone.file_type === 'master') {
-                            // Parent is a master, use it directly
-                            masterId = parentId;
-                            console.debug('[setDomainForZone] Parent is master, using zone.parent_id:', masterId);
-                        } else {
-                            // Parent is not a master or not found in cache, need to traverse
-                            masterId = null;
-                            console.debug('[setDomainForZone] Parent is not master or not in cache, will use getTopMasterId');
-                        }
-                    }
-                }
-            }
-            
-            // If direct fields didn't give us a master, traverse the chain with getTopMasterId
-            if (!masterId) {
-                try {
-                    masterId = await getTopMasterId(zone.id);
-                    console.debug('[setDomainForZone] Traversed to top master using getTopMasterId:', masterId);
-                    if (!masterId) {
-                        console.error('setDomainForZone: Cannot determine master ID for include zone:', zone.id);
-                        // For includes, we cannot use zone.id as fallback since it would be wrong
-                        // Clear the state and disable the edit button
-                        updateEditDomainButton(null);
-                        return;
-                    }
-                } catch (fallbackError) {
-                    console.error('setDomainForZone: getTopMasterId failed for include zone:', zone.id, fallbackError);
+            // For includes: ALWAYS traverse to the top master to handle nested includes correctly
+            // Even if master_id/parent_zone_id/parent_id fields exist, they might point to 
+            // an intermediate include rather than the final master
+            try {
+                masterId = await getTopMasterId(zone.id);
+                console.debug('[setDomainForZone] Traversed to top master using getTopMasterId:', masterId);
+                if (!masterId) {
+                    console.error('setDomainForZone: Cannot determine master ID for include zone:', zone.id);
                     // For includes, we cannot use zone.id as fallback since it would be wrong
+                    // Clear the state and disable the edit button
                     updateEditDomainButton(null);
                     return;
                 }
+            } catch (fallbackError) {
+                console.error('setDomainForZone: getTopMasterId failed for include zone:', zone.id, fallbackError);
+                // For includes, we cannot use zone.id as fallback since it would be wrong
+                updateEditDomainButton(null);
+                return;
             }
         }
 
@@ -2677,10 +2634,23 @@ async function renderZonesTable() {
     tbody.innerHTML = paginatedZones.map(zone => {
         const statusBadge = getStatusBadge(zone.status);
         
-        // Display parent name: try parent_name from API, then lookup in cache via parent_id
+        // Display parent name: try parent_name from API, then parent_domain, then lookup in cache via parent_id
+        // Handle string literals 'null', 'undefined', null, and undefined as missing values
         let parentDisplay = '-';
-        if (zone.parent_name) {
+        const hasValidParentName = zone.parent_name && 
+                                   zone.parent_name !== 'null' && 
+                                   zone.parent_name !== 'undefined' && 
+                                   zone.parent_name.trim() !== '';
+        const hasValidParentDomain = zone.parent_domain && 
+                                     zone.parent_domain !== 'null' && 
+                                     zone.parent_domain !== 'undefined' && 
+                                     zone.parent_domain.trim() !== '';
+        
+        if (hasValidParentName) {
             parentDisplay = escapeHtml(zone.parent_name);
+        } else if (hasValidParentDomain) {
+            // Fallback: use parent_domain if parent_name is not available
+            parentDisplay = escapeHtml(zone.parent_domain);
         } else if (zone.parent_id) {
             // Look up parent in caches to get the name
             const parentId = parseValidZoneId(zone.parent_id);
@@ -2702,6 +2672,13 @@ async function renderZonesTable() {
                 
                 if (parentZone && parentZone.name) {
                     parentDisplay = escapeHtml(parentZone.name);
+                } else if (parentZone && parentZone.domain) {
+                    // If name is not available, try domain
+                    parentDisplay = escapeHtml(parentZone.domain);
+                }
+                // If still not found, show parent ID as fallback instead of undefined
+                else if (!parentZone) {
+                    parentDisplay = `<span title="Parent ID: ${parentId}" style="color: #999;">Parent #${parentId}</span>`;
                 }
             }
         }
