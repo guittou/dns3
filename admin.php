@@ -112,9 +112,9 @@ if (!$auth->isAdmin()) {
         </div>
         
         <div class="info-box">
-            <p><strong>Mappings AD/LDAP</strong> permettent d'attribuer automatiquement des rôles aux utilisateurs lors de l'authentification basée sur leur groupe AD ou DN LDAP.</p>
-            <p><strong>AD:</strong> DN complet du groupe <code>CN=DNSAdmins,OU=Groups,DC=example,DC=com</code> ou login <code>sAMAccountName:john.doe</code></p>
-            <p><strong>LDAP:</strong> DN/OU <code>ou=IT,dc=example,dc=com</code>, login <code>uid:jdoe</code> ou département <code>departmentNumber:12345</code></p>
+            <p><strong>Mappings AD/LDAP</strong> permettent d'attribuer automatiquement des rôles aux utilisateurs lors de l'authentification.</p>
+            <p><strong>AD:</strong> DN complet du groupe <code>CN=DNSAdmins,OU=Groups,DC=example,DC=com</code> ou login <code>sAMAccountName:j.bon</code></p>
+            <p><strong>LDAP:</strong> <code>uid:jean.bon</code> ou entité <code>departmentNumber:ORGANISME/MON/SERVICE</code></p>
         </div>
         
         <div class="table-container">
@@ -255,12 +255,11 @@ if (!$auth->isAdmin()) {
                 </div>
                 
                 <div class="form-group">
-                    <label for="mapping-dn-or-group">DN/Groupe *</label>
+                    <label for="mapping-dn-or-group" id="mapping-dn-or-group-label">DN/Groupe *</label>
                     <input type="text" id="mapping-dn-or-group" name="dn_or_group" required 
-                           placeholder="Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com ou sAMAccountName:john.doe">
-                    <small class="form-hint">
-                        <strong>AD:</strong> DN complet du groupe ou <code>sAMAccountName:&lt;login&gt;</code><br>
-                        <strong>LDAP:</strong> DN/OU, <code>uid:&lt;login&gt;</code> ou <code>departmentNumber:&lt;valeur&gt;</code>
+                           placeholder="Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com">
+                    <small class="form-hint" id="mapping-dn-or-group-hint">
+                        <strong>AD:</strong> DN complet du groupe ou <code>sAMAccountName:&lt;login&gt;</code>
                     </small>
                 </div>
                 
