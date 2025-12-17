@@ -1380,6 +1380,7 @@ window.ZONES_ALL = [];
 
 // Constants
 const MAX_INCLUDES_PER_FETCH = 1000; // Maximum includes to fetch when filtering by domain
+const API_STANDARD_PER_PAGE_LIMIT = 100; // API caps per_page at 100 for standard requests
 const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
 
 // API base URL
@@ -2590,9 +2591,8 @@ async function loadZonesData() {
     // Create and store the promise
     window._loadZonesDataPromise = (async () => {
         try {
-            // Use API standard limit (100) per page and loop to fetch all pages
-            const perPage = 100; // API caps per_page at 100 for standard requests
-            let page = 1;
+            // Use API standard limit per page and loop to fetch all pages
+            const perPage = API_STANDARD_PER_PAGE_LIMIT;
             let allZones = [];
             let total = 0;
             let totalPages = 1;
@@ -2608,7 +2608,7 @@ async function loadZonesData() {
             }
 
             // Fetch first page to get total count
-            console.debug('[loadZonesData] Fetching page 1 with per_page=' + perPage);
+            console.debug(`[loadZonesData] Fetching page 1 with per_page=${perPage}`);
             const firstResponse = await zoneApiCall('list_zones', { 
                 params: { ...baseParams, page: 1 } 
             });
@@ -2622,12 +2622,12 @@ async function loadZonesData() {
                 
                 // Log warning if total exceeds first page results (indicating pagination is needed)
                 if (total > perPage) {
-                    console.log('[loadZonesData] Total zones (' + total + ') exceeds page size (' + perPage + '), fetching remaining pages...');
+                    console.log(`[loadZonesData] Total zones (${total}) exceeds page size (${perPage}), fetching remaining pages...`);
                 }
                 
                 // Fetch remaining pages if needed
                 if (totalPages > 1) {
-                    for (page = 2; page <= totalPages; page++) {
+                    for (let page = 2; page <= totalPages; page++) {
                         console.debug('[loadZonesData] Fetching page', page, 'of', totalPages);
                         const response = await zoneApiCall('list_zones', { 
                             params: { ...baseParams, page: page } 
@@ -2648,7 +2648,7 @@ async function loadZonesData() {
                 window.ZONES_ALL = allZones;
                 totalCount = total; // Use total from API, not array length (more reliable)
                 
-                console.debug('[loadZonesData] Loaded', allZones.length, 'zones (total from API:', total + ')');
+                console.debug(`[loadZonesData] Loaded ${allZones.length} zones (total from API: ${total})`);
                 
                 // Defensive combobox initialization to ensure UI components are populated
                 // This covers cases where loadZonesData is called outside initZonesWhenReady (e.g., manual refresh)
