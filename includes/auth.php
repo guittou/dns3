@@ -215,8 +215,16 @@ class Auth {
                         }
                     }
                     
+                    // Build list of comparable values for mapping matching
+                    $comparableValues = $groups; // Start with AD groups
+                    
+                    // Add sAMAccountName as a comparable value
+                    if (isset($entries[0]['samaccountname'][0])) {
+                        $comparableValues[] = 'sAMAccountName:' . $entries[0]['samaccountname'][0];
+                    }
+                    
                     // Get matched role IDs from auth_mappings
-                    $matchedRoleIds = $this->getRoleIdsFromMappings('ad', $groups, $user_dn);
+                    $matchedRoleIds = $this->getRoleIdsFromMappings('ad', $comparableValues, $user_dn);
                     
                     // Check if user has any ACL entry (by username, role, or AD group)
                     require_once __DIR__ . '/models/ZoneAcl.php';
@@ -233,7 +241,7 @@ class Auth {
                     }
                     
                     // Create or update user with normalized username
-                    $this->createOrUpdateUserWithMappings($storedUsername, 'ad', $groups, $user_dn);
+                    $this->createOrUpdateUserWithMappings($storedUsername, 'ad', $groups, $user_dn, $comparableValues);
                     
                     // Get user ID and perform post-login actions
                     $user_id = $this->getUserIdByUsername($storedUsername);
@@ -291,7 +299,8 @@ class Auth {
             // First bind with admin credentials to search for user
             if (@ldap_bind($ldap, LDAP_BIND_DN, LDAP_BIND_PASS)) {
                 $filter = "(uid=" . ldap_escape($username, '', LDAP_ESCAPE_FILTER) . ")";
-                $result = ldap_search($ldap, LDAP_BASE_DN, $filter, ['dn', 'cn', 'uid']);
+                // Retrieve attributes for authentication and mapping
+                $result = ldap_search($ldap, LDAP_BASE_DN, $filter, ['dn', 'cn', 'uid', 'departmentNumber']);
                 $entries = ldap_get_entries($ldap, $result);
 
                 if ($entries['count'] > 0) {
@@ -306,8 +315,23 @@ class Auth {
                     // Try to bind with user credentials
                     if (@ldap_bind($ldap, $user_dn, $password)) {
                         // User authenticated successfully
+                        
+                        // Build list of comparable values for mapping matching
+                        $comparableValues = [];
+                        
+                        // Add uid as a comparable value
+                        if (isset($entries[0]['uid'][0])) {
+                            $comparableValues[] = 'uid:' . $entries[0]['uid'][0];
+                        }
+                        
+                        // Add departmentNumber as a comparable value
+                        // Note: LDAP returns attribute names in lowercase (departmentnumber)
+                        if (isset($entries[0]['departmentnumber'][0])) {
+                            $comparableValues[] = 'departmentNumber:' . $entries[0]['departmentnumber'][0];
+                        }
+                        
                         // Get matched role IDs from auth_mappings
-                        $matchedRoleIds = $this->getRoleIdsFromMappings('ldap', [], $user_dn);
+                        $matchedRoleIds = $this->getRoleIdsFromMappings('ldap', $comparableValues, $user_dn);
                         
                         // Check if user has any ACL entry (by username)
                         // LDAP typically doesn't have groups like AD, but we check anyway
@@ -325,7 +349,7 @@ class Auth {
                         }
                         
                         // Create or update user with normalized username
-                        $this->createOrUpdateUserWithMappings($storedUsername, 'ldap', [], $user_dn);
+                        $this->createOrUpdateUserWithMappings($storedUsername, 'ldap', [], $user_dn, $comparableValues);
                         
                         // Get user ID and perform post-login actions
                         $user_id = $this->getUserIdByUsername($storedUsername);
@@ -363,9 +387,15 @@ class Auth {
 
     /**
      * Create or update user in database for LDAP/AD users
-     * Apply role mappings based on groups/DN
+     * Apply role mappings based on comparable values and DN
+     * 
+     * @param string $username Username
+     * @param string $auth_method Authentication method ('ad' or 'ldap')
+     * @param array $groups AD/LDAP groups for session storage and ACL checks
+     * @param string $user_dn User's full DN
+     * @param array $comparableValues Values for mapping comparison (groups, sAMAccountName:value, uid:value, etc.)
      */
-    private function createOrUpdateUserWithMappings($username, $auth_method, $groups = [], $user_dn = '') {
+    private function createOrUpdateUserWithMappings($username, $auth_method, $groups = [], $user_dn = '', $comparableValues = []) {
         try {
             $stmt = $this->db->prepare("SELECT id, username FROM users WHERE username = ?");
             $stmt->execute([$username]);
@@ -389,7 +419,10 @@ class Auth {
             }
             
             // Apply role mappings from auth_mappings table
-            $this->applyRoleMappings($user_id, $auth_method, $groups, $user_dn);
+            // Use comparableValues if provided, otherwise fallback to groups for backward compatibility
+            // Fallback occurs when createOrUpdateUserWithMappings is called without comparableValues parameter
+            $valuesToCompare = !empty($comparableValues) ? $comparableValues : $groups;
+            $this->applyRoleMappings($user_id, $auth_method, $valuesToCompare, $user_dn);
             
             // Create session after user is created/updated
             // $groups contains AD/LDAP memberOf groups, stored in session for zone ACL checks
@@ -401,12 +434,17 @@ class Auth {
     }
     
     /**
-     * Apply role mappings based on AD groups or LDAP DN
+     * Apply role mappings based on comparable values or LDAP DN
      * Uses getRoleIdsFromMappings to get matched roles and applies them
+     * 
+     * @param int $user_id User ID
+     * @param string $auth_method Authentication method ('ad' or 'ldap')
+     * @param array $comparableValues Values for comparison (groups, sAMAccountName:value, uid:value, etc.)
+     * @param string $user_dn User's full DN
      */
-    private function applyRoleMappings($user_id, $auth_method, $groups = [], $user_dn = '') {
+    private function applyRoleMappings($user_id, $auth_method, $comparableValues = [], $user_dn = '') {
         try {
-            $matchedRoleIds = $this->getRoleIdsFromMappings($auth_method, $groups, $user_dn);
+            $matchedRoleIds = $this->getRoleIdsFromMappings($auth_method, $comparableValues, $user_dn);
             
             foreach ($matchedRoleIds as $roleId) {
                 // Assign role to user (INSERT IGNORE / ON DUPLICATE KEY UPDATE)
@@ -425,8 +463,13 @@ class Auth {
     /**
      * Get role IDs from auth_mappings that match user's groups/DN
      * Returns array of matched role IDs
+     * 
+     * @param string $auth_method Authentication method ('ad' or 'ldap')
+     * @param array $comparableValues Array of values to compare (AD groups, sAMAccountName:value, uid:value, departmentNumber:value, etc.)
+     * @param string $user_dn User's full DN (for LDAP OU matching)
+     * @return array Array of matched role IDs
      */
-    private function getRoleIdsFromMappings($auth_method, $groups = [], $user_dn = '') {
+    private function getRoleIdsFromMappings($auth_method, $comparableValues = [], $user_dn = '') {
         $matchedRoleIds = [];
         try {
             $stmt = $this->db->prepare("SELECT id, dn_or_group, role_id FROM auth_mappings WHERE source = ?");
@@ -436,17 +479,19 @@ class Auth {
             foreach ($mappings as $mapping) {
                 $matches = false;
                 
-                if ($auth_method === 'ad') {
-                    // For AD: check if user is member of the mapped group
-                    foreach ($groups as $group_dn) {
-                        if (strcasecmp($group_dn, $mapping['dn_or_group']) === 0) {
-                            $matches = true;
-                            break;
-                        }
+                // Check for exact match (case-insensitive) against comparable values
+                // This handles: AD groups (DNs), sAMAccountName:value, uid:value, departmentNumber:value
+                foreach ($comparableValues as $value) {
+                    if (strcasecmp($value, $mapping['dn_or_group']) === 0) {
+                        $matches = true;
+                        break;
                     }
-                } elseif ($auth_method === 'ldap') {
-                    // For LDAP: check if user DN contains the mapped DN/OU path
-                    if ($user_dn && stripos($user_dn, $mapping['dn_or_group']) !== false) {
+                }
+                
+                // For LDAP: also check if user DN contains the mapped DN/OU path
+                // This is for backward compatibility with existing OU-based mappings
+                if (!$matches && $auth_method === 'ldap' && $user_dn) {
+                    if (stripos($user_dn, $mapping['dn_or_group']) !== false) {
                         $matches = true;
                     }
                 }

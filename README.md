@@ -148,21 +148,96 @@ SELECT 'ldap', 'ou=IT,dc=example,dc=com', r.id, 'Personnel IT'
 FROM roles r WHERE r.name = 'user';
 ```
 
+### Nouveaux Formats de Mapping
+
+Le champ `dn_or_group` supporte désormais des formats préfixés pour mapper directement des attributs utilisateur :
+
+**Active Directory :**
+- `sAMAccountName:<login>` - Mapper un login AD spécifique
+  ```sql
+  INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+  SELECT 'ad', 'sAMAccountName:john.doe', r.id, 'Accès pour john.doe'
+  FROM roles r WHERE r.name = 'admin';
+  ```
+
+**OpenLDAP :**
+- `uid:<login>` - Mapper un login LDAP spécifique
+  ```sql
+  INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+  SELECT 'ldap', 'uid:foobar', r.id, 'Accès pour foobar'
+  FROM roles r WHERE r.name = 'user';
+  ```
+- `departmentNumber:<valeur>` - Mapper un département LDAP
+  ```sql
+  INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+  SELECT 'ldap', 'departmentNumber:12345', r.id, 'Département IT'
+  FROM roles r WHERE r.name = 'zone_editor';
+  ```
+
+### Exemples Pratiques
+
+**Scénario 1 : Accorder l'accès admin à un utilisateur AD spécifique**
+```sql
+-- Donner le rôle admin à john.doe via son login AD
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ad', 'sAMAccountName:john.doe', r.id, 'Admin principal'
+FROM roles r WHERE r.name = 'admin';
+```
+
+**Scénario 2 : Accorder l'accès à tous les membres d'un département LDAP**
+```sql
+-- Tous les utilisateurs du département 12345 obtiennent le rôle zone_editor
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ldap', 'departmentNumber:12345', r.id, 'Équipe DNS département IT'
+FROM roles r WHERE r.name = 'zone_editor';
+```
+
+**Scénario 3 : Configuration mixte (groupes AD + utilisateurs spécifiques)**
+```sql
+-- Groupe AD pour les administrateurs
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ad', 'CN=DNSAdmins,OU=Groups,DC=example,DC=com', r.id, 'Groupe admins DNS'
+FROM roles r WHERE r.name = 'admin';
+
+-- Utilisateur AD spécifique avec accès admin
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ad', 'sAMAccountName:emergency.admin', r.id, 'Compte admin urgence'
+FROM roles r WHERE r.name = 'admin';
+```
+
+**Scénario 4 : LDAP avec UID et département**
+```sql
+-- Accès par uid pour un utilisateur spécifique
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ldap', 'uid:jdoe', r.id, 'John Doe - accès lecture'
+FROM roles r WHERE r.name = 'user';
+
+-- Accès par département
+INSERT INTO auth_mappings (source, dn_or_group, role_id, notes)
+SELECT 'ldap', 'departmentNumber:IT-001', r.id, 'Service IT - édition zones'
+FROM roles r WHERE r.name = 'zone_editor';
+```
+
 ### Comparaison des Mappings
 
-- **Active Directory** : La comparaison des groupes (`memberOf`) est insensible à la casse.
-- **OpenLDAP** : Le DN de l'utilisateur doit contenir la chaîne `dn_or_group` (insensible à la casse).
+- **Active Directory** : 
+  - Groupes (`memberOf`) : comparaison insensible à la casse du DN complet
+  - `sAMAccountName:value` : comparaison exacte insensible à la casse
+- **OpenLDAP** : 
+  - DN utilisateur : doit contenir la chaîne `dn_or_group` (insensible à la casse)
+  - `uid:value` : comparaison exacte insensible à la casse
+  - `departmentNumber:value` : comparaison exacte insensible à la casse
 
 ### Tests avec ldapsearch
 
 ```bash
-# Tester la connexion AD et récupérer les groupes
+# Tester la connexion AD et récupérer les attributs utilisés pour mapping
 ldapsearch -x -H ldap://ad.example.com -D "DOMAIN\\username" -W \
-  -b "DC=example,DC=com" "(sAMAccountName=username)" memberOf
+  -b "DC=example,DC=com" "(sAMAccountName=username)" sAMAccountName memberOf
 
-# Tester la connexion LDAP et récupérer le DN
+# Tester la connexion LDAP et récupérer les attributs utilisés pour mapping
 ldapsearch -x -H ldap://ldap.example.com -D "cn=admin,dc=example,dc=com" -W \
-  -b "dc=example,dc=com" "(uid=username)" dn
+  -b "dc=example,dc=com" "(uid=username)" dn uid departmentNumber
 ```
 
 ### Vérifications SQL après Connexion
