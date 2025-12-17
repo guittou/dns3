@@ -9,6 +9,7 @@ class Auth {
     private $db;
     private $acl = null;
     private $apiToken = null;
+    private $lastError = null;
 
     /**
      * Error message constants for access control
@@ -42,6 +43,15 @@ class Auth {
             $this->apiToken = new ApiToken();
         }
         return $this->apiToken;
+    }
+
+    /**
+     * Get the last authentication error code
+     * 
+     * @return string|null Error code or null if no error
+     */
+    public function getLastError() {
+        return $this->lastError;
     }
 
     /**
@@ -100,6 +110,9 @@ class Auth {
      * Authenticate user with multiple methods
      */
     public function login($username, $password, $method = 'auto') {
+        // Reset error at the beginning
+        $this->lastError = null;
+        
         // Try database authentication first if auto or database
         if ($method === 'auto' || $method === 'database') {
             if ($this->authenticateDatabase($username, $password)) {
@@ -121,6 +134,12 @@ class Auth {
             }
         }
 
+        // All authentication methods failed
+        // If no error was set, default to invalid_credentials
+        if ($this->lastError === null) {
+            $this->lastError = 'invalid_credentials';
+        }
+        
         return false;
     }
 
@@ -138,8 +157,12 @@ class Auth {
                 $this->updateLastLogin($user['id']);
                 return true;
             }
+            
+            // User not found or invalid password
+            $this->lastError = 'invalid_credentials';
         } catch (Exception $e) {
             error_log("Database auth error: " . $e->getMessage());
+            $this->lastError = 'invalid_credentials';
         }
         return false;
     }
@@ -155,11 +178,16 @@ class Auth {
         try {
             $ldap = ldap_connect(AD_SERVER, AD_PORT);
             if (!$ldap) {
+                $this->lastError = 'server_unreachable';
                 return false;
             }
 
             ldap_set_option($ldap, LDAP_OPT_PROTOCOL_VERSION, 3);
             ldap_set_option($ldap, LDAP_OPT_REFERRALS, 0);
+            
+            // Set timeouts for network operations (3 seconds)
+            @ldap_set_option($ldap, LDAP_OPT_NETWORK_TIMEOUT, 3);
+            @ldap_set_option($ldap, LDAP_OPT_TIMELIMIT, 3);
 
             $bind_username = AD_DOMAIN . '\\' . $username;
             if (@ldap_bind($ldap, $bind_username, $password)) {
@@ -197,6 +225,7 @@ class Auth {
                     if (empty($matchedRoleIds) && !$hasAcl) {
                         // No mapping and no ACL - refuse connection and disable existing user
                         $this->findAndDisableExistingUser($storedUsername, 'ad');
+                        $this->lastError = 'no_access';
                         ldap_close($ldap);
                         return false;
                     }
@@ -219,10 +248,17 @@ class Auth {
                     ldap_close($ldap);
                     return true;
                 }
+                
+                // User not found in search results
+                $this->lastError = 'invalid_credentials';
+            } else {
+                // User bind failed - invalid credentials
+                $this->lastError = 'invalid_credentials';
             }
             ldap_close($ldap);
         } catch (Exception $e) {
             error_log("AD auth error: " . $e->getMessage());
+            $this->lastError = 'server_unreachable';
         }
         return false;
     }
@@ -238,10 +274,15 @@ class Auth {
         try {
             $ldap = ldap_connect(LDAP_SERVER, LDAP_PORT);
             if (!$ldap) {
+                $this->lastError = 'server_unreachable';
                 return false;
             }
 
             ldap_set_option($ldap, LDAP_OPT_PROTOCOL_VERSION, 3);
+            
+            // Set timeouts for network operations (3 seconds)
+            @ldap_set_option($ldap, LDAP_OPT_NETWORK_TIMEOUT, 3);
+            @ldap_set_option($ldap, LDAP_OPT_TIMELIMIT, 3);
 
             // First bind with admin credentials to search for user
             if (@ldap_bind($ldap, LDAP_BIND_DN, LDAP_BIND_PASS)) {
@@ -274,6 +315,7 @@ class Auth {
                         if (empty($matchedRoleIds) && !$hasAcl) {
                             // No mapping and no ACL - refuse connection and disable existing user
                             $this->findAndDisableExistingUser($storedUsername, 'ldap');
+                            $this->lastError = 'no_access';
                             ldap_close($ldap);
                             return false;
                         }
@@ -295,12 +337,22 @@ class Auth {
                         
                         ldap_close($ldap);
                         return true;
+                    } else {
+                        // User bind failed - invalid password
+                        $this->lastError = 'invalid_credentials';
                     }
+                } else {
+                    // User not found in LDAP search
+                    $this->lastError = 'invalid_credentials';
                 }
+            } else {
+                // Service bind failed - LDAP server or credentials issue
+                $this->lastError = 'ldap_bind_failed';
             }
             ldap_close($ldap);
         } catch (Exception $e) {
             error_log("LDAP auth error: " . $e->getMessage());
+            $this->lastError = 'server_unreachable';
         }
         return false;
     }

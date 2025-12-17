@@ -34,7 +34,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: ' . BASE_URL . 'dns-management.php');
             exit;
         } else {
-            $error = 'Identifiants incorrects. Veuillez réessayer.';
+            // Get error code to display appropriate message
+            $errorCode = $auth->getLastError();
+            
+            switch ($errorCode) {
+                case 'no_access':
+                    $error = 'Accès refusé : aucun mapping AD/LDAP/ACL ne vous autorise.';
+                    break;
+                case 'server_unreachable':
+                case 'ldap_bind_failed':
+                    $error = 'Service d\'authentification indisponible.';
+                    break;
+                default:
+                    $error = 'Identifiants incorrects. Veuillez réessayer.';
+                    break;
+            }
         }
     }
 }
