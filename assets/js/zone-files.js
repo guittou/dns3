@@ -512,7 +512,8 @@ async function getMasterIdFromZoneId(zoneId) {
 
 /**
  * Get the top master (root) zone ID for any zone
- * Recursively traverses up the parent chain
+ * Recursively traverses up the parent chain until a master zone is found
+ * Ensures the returned zone is actually a master (file_type === 'master')
  */
 async function getTopMasterId(zoneId) {
     if (!zoneId) return null;
@@ -523,6 +524,8 @@ async function getTopMasterId(zoneId) {
     let currentZoneId = zoneIdNum;
     let iterations = 0;
     const maxIterations = 20;
+    
+    console.debug('[getTopMasterId] Starting climb for zone:', zoneIdNum);
     
     while (iterations < maxIterations) {
         iterations++;
@@ -554,22 +557,38 @@ async function getTopMasterId(zoneId) {
             }
         }
         
-        if (!zone) return null;
+        if (!zone) {
+            console.warn('[getTopMasterId] Zone not found:', currentZoneId);
+            return null;
+        }
         
-        // Check if this is a top master (no parent)
+        console.debug('[getTopMasterId] Iteration', iterations, '- Zone:', currentZoneId, 'Type:', zone.file_type, 'Parent:', zone.parent_id);
+        
+        // Check if this is a master zone
+        if (zone.file_type === 'master') {
+            console.debug('[getTopMasterId] Found master zone:', currentZoneId);
+            return currentZoneId;
+        }
+        
+        // Not a master - check if it has a parent to climb to
         if (!zone.parent_id || zone.parent_id === null || zone.parent_id === 0) {
+            // No parent but not a master - this is an error condition
+            // Return the current zone as fallback but log a warning
+            console.warn('[getTopMasterId] Zone', currentZoneId, 'has no parent but is not a master (type:', zone.file_type, ')');
             return currentZoneId;
         }
         
         // Move up to parent
         const parentId = parseInt(zone.parent_id, 10);
         if (isNaN(parentId) || parentId <= 0) {
+            console.warn('[getTopMasterId] Invalid parent_id:', zone.parent_id, 'for zone:', currentZoneId);
             return currentZoneId;
         }
         
         currentZoneId = parentId;
     }
     
+    console.warn('[getTopMasterId] Max iterations reached for zone:', zoneIdNum);
     return currentZoneId;
 }
 
@@ -805,20 +824,23 @@ async function setDomainForZone(zoneId) {
         let masterId;
         if (zone.file_type === 'master') {
             masterId = zone.id;
+            console.debug('[setDomainForZone] Selected zone is master:', masterId);
         } else {
             // For includes (including nested includes), always use getTopMasterId
             // to ensure we find the top-level master, not just the immediate parent
+            console.debug('[setDomainForZone] Selected zone is include:', zone.id, '- climbing to find master');
             try {
                 masterId = await getTopMasterId(zone.id);
                 if (!masterId) {
-                    console.error('setDomainForZone: Cannot determine master ID for include zone:', zone.id);
+                    console.error('[setDomainForZone] Cannot determine master ID for include zone:', zone.id);
                     // For includes, we cannot use zone.id as fallback since it would be wrong
                     // Clear the state and disable the edit button
                     updateEditDomainButton(null);
                     return;
                 }
+                console.debug('[setDomainForZone] Found master ID for include:', masterId);
             } catch (fallbackError) {
-                console.error('setDomainForZone: getTopMasterId failed for include zone:', zone.id, fallbackError);
+                console.error('[setDomainForZone] getTopMasterId failed for include zone:', zone.id, fallbackError);
                 // For includes, we cannot use zone.id as fallback since it would be wrong
                 updateEditDomainButton(null);
                 return;
