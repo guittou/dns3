@@ -591,15 +591,15 @@ async function getTopMasterId(zoneId) {
         // Move up to parent
         const parentId = parseInt(zone.parent_id, 10);
         if (isNaN(parentId) || parentId <= 0) {
-            console.warn('[getTopMasterId] Invalid parent_id:', zone.parent_id, 'for zone:', currentZoneId);
-            return currentZoneId;
+            console.error('[getTopMasterId] Invalid parent_id:', zone.parent_id, 'for zone:', currentZoneId, '- cannot continue climb');
+            return null;
         }
         
         currentZoneId = parentId;
     }
     
-    console.warn('[getTopMasterId] Max iterations reached for zone:', zoneIdNum);
-    return currentZoneId;
+    console.error('[getTopMasterId] Max iterations reached for zone:', zoneIdNum, '- possible circular reference');
+    return null;
 }
 
 /**
