@@ -2678,7 +2678,7 @@ async function renderZonesTable() {
                 }
                 // If still not found, show parent ID as fallback instead of undefined
                 else if (!parentZone) {
-                    parentDisplay = `<span title="Parent ID: ${parentId}" style="color: #999;">Parent #${parentId}</span>`;
+                    parentDisplay = `<span class="parent-fallback" title="Parent ID: ${parentId}">Parent #${parentId}</span>`;
                 }
             }
         }

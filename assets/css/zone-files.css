@@ -1086,6 +1086,12 @@
     white-space: normal;
 }
 
+/* Parent fallback style for table */
+.parent-fallback {
+    color: #999;
+    font-style: italic;
+}
+
 /* Responsive fallback for modal centering on small screens */
 @media (max-width: 768px) {
   .modal.open {
