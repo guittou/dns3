@@ -1223,7 +1223,7 @@ function attachFilterStatusHandler() {
 function attachPerPageHandler() {
     const select = document.getElementById('perPageSelect');
     if (!select) {
-        console.log('[attachPerPageHandler] #perPageSelect not found on this page');
+        console.debug('[attachPerPageHandler] #perPageSelect not found on this page');
         return;
     }
     
