@@ -567,9 +567,9 @@ async function getTopMasterId(zoneId) {
         // Check if this is a master zone (should be at top with no parent)
         if (zone.file_type === 'master') {
             // Verify master zone has no parent (data consistency check)
-            if (zone.parent_id && zone.parent_id !== null && zone.parent_id !== 0) {
-                console.warn('[getTopMasterId] Master zone', currentZoneId, 'has unexpected parent_id:', zone.parent_id, '- continuing climb');
-                // Continue climbing - this is an inconsistent data state
+            if (zone.parent_id && zone.parent_id !== 0) {
+                console.warn('[getTopMasterId] Master zone', currentZoneId, 'has unexpected parent_id:', zone.parent_id, '- continuing climb (data inconsistency)');
+                // Continue climbing - this is an inconsistent data state that should be investigated
                 const parentId = parseInt(zone.parent_id, 10);
                 if (!isNaN(parentId) && parentId > 0) {
                     currentZoneId = parentId;
@@ -581,7 +581,7 @@ async function getTopMasterId(zoneId) {
         }
         
         // Not a master - check if it has a parent to climb to
-        if (!zone.parent_id || zone.parent_id === null || zone.parent_id === 0) {
+        if (!zone.parent_id || zone.parent_id === 0) {
             // No parent but not a master - this is an error condition
             // Return null to indicate we couldn't find a proper master
             console.error('[getTopMasterId] Zone', currentZoneId, 'has no parent but is not a master (type:', zone.file_type, ') - cannot find top master');
