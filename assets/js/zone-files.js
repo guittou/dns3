@@ -2877,6 +2877,19 @@ function updateResultsInfo() {
  * @param {number} parentId - Parent zone ID to fetch
  */
 async function fetchAndDisplayParent(zoneId, parentId) {
+    // Get parent cell once to avoid duplication
+    const row = document.querySelector(`tr.zone-row[data-zone-id="${zoneId}"]`);
+    if (!row) {
+        console.debug('[fetchAndDisplayParent] Row not found for zone:', zoneId);
+        return;
+    }
+    
+    const parentCell = row.querySelector('td.col-parent');
+    if (!parentCell) {
+        console.debug('[fetchAndDisplayParent] Parent cell not found for zone:', zoneId);
+        return;
+    }
+    
     try {
         // Fetch parent zone via API
         const result = await zoneApiCall('get_zone', { params: { id: parentId } });
@@ -2886,28 +2899,16 @@ async function fetchAndDisplayParent(zoneId, parentId) {
             // Merge into cache for future lookups
             mergeZonesIntoCache([parentZone]);
             
-            // Update the display in the table row using specific class selector
-            const row = document.querySelector(`tr.zone-row[data-zone-id="${zoneId}"]`);
-            if (row) {
-                const parentCell = row.querySelector('td.col-parent');
-                if (parentCell) {
-                    const parentName = parentZone.name || parentZone.domain || `Parent #${parentId}`;
-                    parentCell.innerHTML = escapeHtml(parentName);
-                }
-            }
+            // Update the display in the table row
+            const parentName = parentZone.name || parentZone.domain || `Parent #${parentId}`;
+            parentCell.innerHTML = escapeHtml(parentName);
             
             console.debug('[fetchAndDisplayParent] Fetched and displayed parent:', parentZone.name || parentId);
         }
     } catch (e) {
         console.warn('[fetchAndDisplayParent] Failed to fetch parent:', parentId, e);
-        // Update fallback display with error indication using specific class selector
-        const row = document.querySelector(`tr.zone-row[data-zone-id="${zoneId}"]`);
-        if (row) {
-            const parentCell = row.querySelector('td.col-parent');
-            if (parentCell) {
-                parentCell.innerHTML = `<span class="parent-fallback" title="Parent introuvable">Parent #${parentId}</span>`;
-            }
-        }
+        // Update fallback display with error indication
+        parentCell.innerHTML = `<span class="parent-fallback" title="Parent introuvable">Parent #${parentId}</span>`;
     }
 }
 
