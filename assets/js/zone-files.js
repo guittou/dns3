@@ -504,11 +504,16 @@ async function getMasterIdFromZoneId(zoneId) {
         }
     }
     
-    // Fallback: fetch from API
+    // Fallback: fetch from API and merge into cache
     if (!zone) {
         try {
             const result = await zoneApiCall('get_zone', { params: { id: zoneIdNum } });
             zone = result && result.data ? result.data : null;
+            
+            // Merge fetched zone into caches for future lookups
+            if (zone) {
+                mergeZonesIntoCache([zone]);
+            }
         } catch (e) {
             console.warn('[getMasterIdFromZoneId] Failed to fetch zone:', e);
             return null;
@@ -558,11 +563,16 @@ async function getTopMasterId(zoneId) {
             }
         }
         
-        // Fallback: fetch from API
+        // Fallback: fetch from API and merge into cache
         if (!zone) {
             try {
                 const result = await zoneApiCall('get_zone', { params: { id: currentZoneId } });
                 zone = result && result.data ? result.data : null;
+                
+                // Merge fetched zone into caches for future lookups
+                if (zone) {
+                    mergeZonesIntoCache([zone]);
+                }
             } catch (e) {
                 console.warn('[getTopMasterId] Failed to fetch zone:', currentZoneId, e);
                 return null;
@@ -1059,6 +1069,45 @@ function clientFilterZones(query) {
 // initServerSearchCombobox moved to zone-combobox-shared.js and exported as window.initServerSearchCombobox
 
 /**
+ * Merge zones into global caches (ALL_ZONES, ZONES_ALL, CURRENT_ZONE_LIST)
+ * Used after search to ensure parent resolution and master lookup work properly
+ * @param {Array} zones - Array of zone objects to merge into caches
+ */
+function mergeZonesIntoCache(zones) {
+    if (!Array.isArray(zones) || zones.length === 0) {
+        return;
+    }
+    
+    // Ensure caches are initialized
+    if (!Array.isArray(window.ALL_ZONES)) window.ALL_ZONES = [];
+    if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
+    if (!Array.isArray(window.CURRENT_ZONE_LIST)) window.CURRENT_ZONE_LIST = [];
+    
+    // Create sets of existing IDs for O(1) lookup
+    const allZonesIds = new Set(window.ALL_ZONES.map(z => parseInt(z.id, 10)));
+    const currentZoneListIds = new Set(window.CURRENT_ZONE_LIST.map(z => parseInt(z.id, 10)));
+    
+    // Merge zones into caches (deduplicated)
+    zones.forEach(zone => {
+        const zoneId = parseInt(zone.id, 10);
+        
+        // Add to ALL_ZONES if not already present
+        if (!allZonesIds.has(zoneId)) {
+            window.ALL_ZONES.push(zone);
+            allZonesIds.add(zoneId);
+        }
+        
+        // Add to CURRENT_ZONE_LIST if not already present
+        if (!currentZoneListIds.has(zoneId)) {
+            window.CURRENT_ZONE_LIST.push(zone);
+            currentZoneListIds.add(zoneId);
+        }
+    });
+    
+    console.debug('[mergeZonesIntoCache] Merged', zones.length, 'zones into caches');
+}
+
+/**
  * Attach search handler to #searchInput with debouncing
  * Server-first approach: prefers server search for queries ≥2 chars to handle pagination
  * Updates the global searchQuery variable and re-renders the table
@@ -1115,6 +1164,11 @@ function attachZoneSearchInput() {
             try {
                 const results = await serverSearchZones(val, { limit: 1000 });
                 console.debug('[attachZoneSearchInput] Server search returned', results.length, 'results');
+                
+                // Merge search results into caches for proper parent resolution and master lookup
+                // This ensures renderZonesTable can resolve parent names and setDomainForZone can find masters
+                mergeZonesIntoCache(results);
+                
                 // Store server results in ZONES_ALL for rendering
                 // Note: These are partial results; when search is cleared, loadZonesData() will restore full data
                 window.ZONES_ALL = results;
@@ -2713,8 +2767,39 @@ async function renderZonesTable() {
 
 /**
  * Handle zone row click - select parent domain and zone file
+ * Ensures zone and parent data are loaded into caches before processing
  */
 async function handleZoneRowClick(zoneId, parentId) {
+    // Fetch and cache zone if not already cached (for search results)
+    if (zoneId) {
+        const zoneIdNum = parseInt(zoneId, 10);
+        if (!isNaN(zoneIdNum) && zoneIdNum > 0) {
+            // Check if zone is in cache
+            const cachesToCheck = [window.ALL_ZONES, window.ZONES_ALL, window.CURRENT_ZONE_LIST];
+            let zoneInCache = false;
+            
+            for (const cache of cachesToCheck) {
+                if (Array.isArray(cache) && cache.some(z => parseInt(z.id, 10) === zoneIdNum)) {
+                    zoneInCache = true;
+                    break;
+                }
+            }
+            
+            // Fetch and cache zone if missing
+            if (!zoneInCache) {
+                try {
+                    const result = await zoneApiCall('get_zone', { params: { id: zoneIdNum } });
+                    if (result && result.data) {
+                        mergeZonesIntoCache([result.data]);
+                        console.debug('[handleZoneRowClick] Fetched and cached zone:', result.data.name);
+                    }
+                } catch (e) {
+                    console.warn('[handleZoneRowClick] Failed to fetch zone:', e);
+                }
+            }
+        }
+    }
+    
     const hasParent = parentId && parentId !== null && parentId !== 'null' && parentId !== '';
 
     if (hasParent) {
