@@ -174,6 +174,21 @@ function initCombobox(opts) {
 const MAX_PARENT_CHAIN_DEPTH = 20;
 
 /**
+ * Parse and validate a zone ID
+ * @param {*} value - Value to parse as zone ID
+ * @returns {number|null} - Parsed zone ID if valid, null otherwise
+ * @example
+ * parseValidZoneId('123') // Returns: 123
+ * parseValidZoneId('abc') // Returns: null
+ * parseValidZoneId(-1)    // Returns: null
+ */
+function parseValidZoneId(value) {
+    if (value === null || value === undefined) return null;
+    const parsed = parseInt(value, 10);
+    return (!isNaN(parsed) && parsed > 0) ? parsed : null;
+}
+
+/**
  * Sort zones alphabetically by name (case-insensitive)
  * Used to harmonize combobox behavior between DNS and Zones tabs
  * @param {Array} zones - Array of zone objects to sort
@@ -809,45 +824,41 @@ async function setDomainForZone(zoneId) {
         } else {
             // For includes: try direct fields first for performance
             // Order of precedence: master_id → parent_zone_id → parent_id
-            if (zone.master_id) {
-                const parsedMasterId = parseInt(zone.master_id, 10);
-                if (!isNaN(parsedMasterId) && parsedMasterId > 0) {
-                    masterId = parsedMasterId;
-                    console.debug('[setDomainForZone] Using zone.master_id:', masterId);
-                }
-            } else if (zone.parent_zone_id) {
-                const parsedParentZoneId = parseInt(zone.parent_zone_id, 10);
-                if (!isNaN(parsedParentZoneId) && parsedParentZoneId > 0) {
-                    masterId = parsedParentZoneId;
+            masterId = parseValidZoneId(zone.master_id);
+            if (masterId) {
+                console.debug('[setDomainForZone] Using zone.master_id:', masterId);
+            } else {
+                masterId = parseValidZoneId(zone.parent_zone_id);
+                if (masterId) {
                     console.debug('[setDomainForZone] Using zone.parent_zone_id:', masterId);
-                }
-            } else if (zone.parent_id) {
-                // parent_id might be immediate parent (not top master), so check if it's a master
-                const parentId = parseInt(zone.parent_id, 10);
-                if (!isNaN(parentId) && parentId > 0) {
-                    // Try to find parent in cache to check if it's a master
-                    const cachesToCheck = [
-                        window.ZONES_ALL, 
-                        window.ALL_ZONES, 
-                        window.CURRENT_ZONE_LIST, 
-                        typeof allMasters !== 'undefined' ? allMasters : []
-                    ];
-                    let parentZone = null;
-                    for (const cache of cachesToCheck) {
-                        if (Array.isArray(cache)) {
-                            parentZone = cache.find(z => parseInt(z.id, 10) === parentId);
-                            if (parentZone) break;
+                } else {
+                    // parent_id might be immediate parent (not top master), so check if it's a master
+                    const parentId = parseValidZoneId(zone.parent_id);
+                    if (parentId) {
+                        // Try to find parent in cache to check if it's a master
+                        const cachesToCheck = [
+                            window.ZONES_ALL, 
+                            window.ALL_ZONES, 
+                            window.CURRENT_ZONE_LIST, 
+                            typeof allMasters !== 'undefined' ? allMasters : []
+                        ];
+                        let parentZone = null;
+                        for (const cache of cachesToCheck) {
+                            if (Array.isArray(cache)) {
+                                parentZone = cache.find(z => parseInt(z.id, 10) === parentId);
+                                if (parentZone) break;
+                            }
                         }
-                    }
-                    
-                    if (parentZone && parentZone.file_type === 'master') {
-                        // Parent is a master, use it directly
-                        masterId = parentId;
-                        console.debug('[setDomainForZone] Parent is master, using zone.parent_id:', masterId);
-                    } else {
-                        // Parent is not a master or not found in cache, need to traverse
-                        masterId = null;
-                        console.debug('[setDomainForZone] Parent is not master or not in cache, will use getTopMasterId');
+                        
+                        if (parentZone && parentZone.file_type === 'master') {
+                            // Parent is a master, use it directly
+                            masterId = parentId;
+                            console.debug('[setDomainForZone] Parent is master, using zone.parent_id:', masterId);
+                        } else {
+                            // Parent is not a master or not found in cache, need to traverse
+                            masterId = null;
+                            console.debug('[setDomainForZone] Parent is not master or not in cache, will use getTopMasterId');
+                        }
                     }
                 }
             }
