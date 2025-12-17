@@ -941,7 +941,7 @@ async function setDomainForZone(zoneId) {
                         }
                     }
                 } catch (fallbackError) {
-                    console.warn('Failed to get domain from master zone:', fallbackError);
+                    console.warn('[setDomainForZone] Failed to resolve domain from master zone or API fallback:', fallbackError);
                 }
             }
         }
