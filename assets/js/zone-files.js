@@ -767,29 +767,9 @@ async function populateZoneComboboxForDomain(masterId) {
             window.CURRENT_ZONE_LIST = orderedZones;
             console.debug('[populateZoneComboboxForDomain] Updated CURRENT_ZONE_LIST with', orderedZones.length, 'zones');
             
-            // Merge into ALL_ZONES cache without overwriting (O(n) performance with Set)
-            const existingAllZones = Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : [];
-            const existingIds = new Set(existingAllZones.map(z => parseInt(z.id, 10)));
-            orderedZones.forEach(z => {
-                const zoneId = parseInt(z.id, 10);
-                if (!existingIds.has(zoneId)) {
-                    existingAllZones.push(z);
-                    existingIds.add(zoneId);
-                }
-            });
-            window.ALL_ZONES = existingAllZones;
-            
-            // Merge into ZONES_ALL cache as well for table rendering (deduplication)
-            if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
-            const existingZonesAllIds = new Set(window.ZONES_ALL.map(z => parseInt(z.id, 10)));
-            orderedZones.forEach(z => {
-                const zoneId = parseInt(z.id, 10);
-                if (!existingZonesAllIds.has(zoneId)) {
-                    window.ZONES_ALL.push(z);
-                    existingZonesAllIds.add(zoneId);
-                }
-            });
-            console.debug('[populateZoneComboboxForDomain] Merged zones into ZONES_ALL, total:', window.ZONES_ALL.length);
+            // Merge into ALL_ZONES and ZONES_ALL caches using shared helper (with deduplication)
+            mergeZonesIntoCache(orderedZones);
+            console.debug('[populateZoneComboboxForDomain] Merged zones into ALL_ZONES and ZONES_ALL');
             
             // Sync combobox instance state with updated CURRENT_ZONE_LIST
             if (typeof syncZoneFileComboboxInstance === 'function') {
@@ -1081,8 +1061,9 @@ function clientFilterZones(query) {
 // initServerSearchCombobox moved to zone-combobox-shared.js and exported as window.initServerSearchCombobox
 
 /**
- * Merge zones into global caches (ALL_ZONES, ZONES_ALL, CURRENT_ZONE_LIST)
- * Used after search to ensure parent resolution and master lookup work properly
+ * Merge zones into global caches (ALL_ZONES, ZONES_ALL)
+ * Used after search or fetch to ensure parent resolution and master lookup work properly
+ * Note: Does not modify CURRENT_ZONE_LIST as that is domain-specific and managed by populateZoneComboboxForDomain
  * @param {Array} zones - Array of zone objects to merge into caches
  */
 function mergeZonesIntoCache(zones) {
@@ -1093,11 +1074,10 @@ function mergeZonesIntoCache(zones) {
     // Ensure caches are initialized
     if (!Array.isArray(window.ALL_ZONES)) window.ALL_ZONES = [];
     if (!Array.isArray(window.ZONES_ALL)) window.ZONES_ALL = [];
-    if (!Array.isArray(window.CURRENT_ZONE_LIST)) window.CURRENT_ZONE_LIST = [];
     
     // Create sets of existing IDs for O(1) lookup
     const allZonesIds = new Set(window.ALL_ZONES.map(z => parseInt(z.id, 10)));
-    const currentZoneListIds = new Set(window.CURRENT_ZONE_LIST.map(z => parseInt(z.id, 10)));
+    const zonesAllIds = new Set(window.ZONES_ALL.map(z => parseInt(z.id, 10)));
     
     // Merge zones into caches (deduplicated)
     zones.forEach(zone => {
@@ -1109,14 +1089,14 @@ function mergeZonesIntoCache(zones) {
             allZonesIds.add(zoneId);
         }
         
-        // Add to CURRENT_ZONE_LIST if not already present
-        if (!currentZoneListIds.has(zoneId)) {
-            window.CURRENT_ZONE_LIST.push(zone);
-            currentZoneListIds.add(zoneId);
+        // Add to ZONES_ALL if not already present
+        if (!zonesAllIds.has(zoneId)) {
+            window.ZONES_ALL.push(zone);
+            zonesAllIds.add(zoneId);
         }
     });
     
-    console.debug('[mergeZonesIntoCache] Merged', zones.length, 'zones into caches');
+    console.debug('[mergeZonesIntoCache] Merged', zones.length, 'zones into ALL_ZONES and ZONES_ALL');
 }
 
 /**
