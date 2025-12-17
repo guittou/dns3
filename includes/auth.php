@@ -299,6 +299,7 @@ class Auth {
             // First bind with admin credentials to search for user
             if (@ldap_bind($ldap, LDAP_BIND_DN, LDAP_BIND_PASS)) {
                 $filter = "(uid=" . ldap_escape($username, '', LDAP_ESCAPE_FILTER) . ")";
+                // Retrieve attributes for authentication and mapping
                 $result = ldap_search($ldap, LDAP_BASE_DN, $filter, ['dn', 'cn', 'uid', 'departmentNumber']);
                 $entries = ldap_get_entries($ldap, $result);
 
@@ -324,6 +325,7 @@ class Auth {
                         }
                         
                         // Add departmentNumber as a comparable value
+                        // Note: LDAP returns attribute names in lowercase (departmentnumber)
                         if (isset($entries[0]['departmentnumber'][0])) {
                             $comparableValues[] = 'departmentNumber:' . $entries[0]['departmentnumber'][0];
                         }
@@ -418,6 +420,7 @@ class Auth {
             
             // Apply role mappings from auth_mappings table
             // Use comparableValues if provided, otherwise fallback to groups for backward compatibility
+            // Fallback occurs when createOrUpdateUserWithMappings is called without comparableValues parameter
             $valuesToCompare = !empty($comparableValues) ? $comparableValues : $groups;
             $this->applyRoleMappings($user_id, $auth_method, $valuesToCompare, $user_dn);
             
