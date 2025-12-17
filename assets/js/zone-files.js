@@ -962,6 +962,16 @@ async function setDomainForZone(zoneId) {
         if (zoneFileInput) {
             zoneFileInput.value = `${zone.name} (${zone.file_type})`;
         }
+        
+        // Store the selected zone ID (include or master) in zone-file-id
+        const zoneFileIdInput = document.getElementById('zone-file-id');
+        if (zoneFileIdInput) {
+            zoneFileIdInput.value = zoneId || '';
+        }
+        
+        // Update global state with selected zone ID
+        window.selectedZoneId = zoneId;
+        window.ZONES_SELECTED_ZONEFILE_ID = zoneId;
 
         // ALWAYS call populateZoneComboboxForDomain with masterId
         if (typeof populateZoneComboboxForDomain === 'function') {
@@ -2666,7 +2676,35 @@ async function renderZonesTable() {
 
     tbody.innerHTML = paginatedZones.map(zone => {
         const statusBadge = getStatusBadge(zone.status);
-        const parentDisplay = zone.parent_name ? escapeHtml(zone.parent_name) : '-';
+        
+        // Display parent name: try parent_name from API, then lookup in cache via parent_id
+        let parentDisplay = '-';
+        if (zone.parent_name) {
+            parentDisplay = escapeHtml(zone.parent_name);
+        } else if (zone.parent_id) {
+            // Look up parent in caches to get the name
+            const parentId = parseInt(zone.parent_id, 10);
+            if (!isNaN(parentId) && parentId > 0) {
+                const cachesToCheck = [
+                    window.ALL_ZONES,
+                    window.ZONES_ALL,
+                    window.CURRENT_ZONE_LIST,
+                    typeof allMasters !== 'undefined' ? allMasters : []
+                ];
+                
+                let parentZone = null;
+                for (const cache of cachesToCheck) {
+                    if (Array.isArray(cache) && cache.length > 0) {
+                        parentZone = cache.find(z => parseInt(z.id, 10) === parentId);
+                        if (parentZone) break;
+                    }
+                }
+                
+                if (parentZone && parentZone.name) {
+                    parentDisplay = escapeHtml(parentZone.name);
+                }
+            }
+        }
         
         // Always render action buttons
         const actionsHtml = `
