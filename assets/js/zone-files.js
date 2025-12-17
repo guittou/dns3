@@ -1233,15 +1233,23 @@ function attachPerPageHandler() {
     }
     select.dataset.perPageHandlerBound = 'true';
     
-    select.addEventListener('change', function(e) {
-        // Update global perPage variable
-        perPage = parseInt(e.target.value, 10);
+    select.addEventListener('change', async function(e) {
+        // Update global perPage variable with validation
+        const newPerPage = parseInt(e.target.value, 10);
+        
+        // Validate parsed value is a positive number
+        if (isNaN(newPerPage) || newPerPage <= 0) {
+            console.error('[attachPerPageHandler] Invalid perPage value:', e.target.value);
+            return;
+        }
+        
+        perPage = newPerPage;
         
         // Reset to page 1 when changing perPage
         currentPage = 1;
         
         // Re-render the table with new pagination
-        renderZonesTable();
+        await renderZonesTable();
         
         console.debug('[attachPerPageHandler] perPage changed to:', perPage);
     });
