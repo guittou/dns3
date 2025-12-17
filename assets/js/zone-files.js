@@ -2686,7 +2686,12 @@ async function renderZonesTable() {
     }
 
     tbody.innerHTML = paginatedZones.map(zone => {
-        const statusBadge = getStatusBadge(zone.status);
+        // Fallback for status: try status, then state, then default to empty string (never undefined)
+        const statusValue = zone.status || zone.state || '';
+        const statusBadge = getStatusBadge(statusValue);
+        
+        // Fallback for date: try updated_at, then modified_at, then created_at, then null
+        const dateValue = zone.updated_at || zone.modified_at || zone.created_at || null;
         
         // Display parent name: try parent_name from API, then parent_domain, then lookup in cache via parent_id
         // Handle string literals 'null', 'undefined', null, and undefined as missing values
@@ -2730,9 +2735,12 @@ async function renderZonesTable() {
                     // If name is not available, try domain
                     parentDisplay = escapeHtml(parentZone.domain);
                 }
-                // If still not found, show parent ID as fallback instead of undefined
+                // If still not found, fetch on-demand and show fallback meanwhile
                 else if (!parentZone) {
-                    parentDisplay = `<span class="parent-fallback" title="Parent ID: ${parentId}">Parent #${parentId}</span>`;
+                    // Store parent ID in data attribute for async fetch
+                    parentDisplay = `<span class="parent-fallback" data-parent-id="${parentId}" title="Chargement...">Parent #${parentId}</span>`;
+                    // Queue async fetch for this parent using microtask queue for predictable scheduling
+                    queueMicrotask(() => fetchAndDisplayParent(zone.id, parentId));
                 }
             }
         }
@@ -2751,11 +2759,11 @@ async function renderZonesTable() {
         
         return `
             <tr class="zone-row" data-zone-id="${zone.id}" data-file-type="${zone.file_type || 'include'}" data-parent-id="${zone.parent_id || ''}" onclick="handleZoneRowClick(${zone.id}, ${zone.parent_id || 'null'})" style="cursor: pointer;">
-                <td><strong>${escapeHtml(zone.name)}</strong></td>
-                <td><code>${escapeHtml(zone.filename)}</code></td>
-                <td>${parentDisplay}</td>
-                <td>${formatDate(zone.updated_at || zone.created_at)}</td>
-                <td>${statusBadge}</td>
+                <td class="col-name"><strong>${escapeHtml(zone.name)}</strong></td>
+                <td class="col-filename"><code>${escapeHtml(zone.filename)}</code></td>
+                <td class="col-parent">${parentDisplay}</td>
+                <td class="col-date">${formatDate(dateValue)}</td>
+                <td class="col-status">${statusBadge}</td>
                 ${actionsHtml}
             </tr>
         `;
@@ -2863,9 +2871,56 @@ function updateResultsInfo() {
 }
 
 /**
+ * Fetch parent zone on-demand and update display in table
+ * Used when parent is not in cache after search
+ * @param {number} zoneId - Zone ID whose parent cell needs updating
+ * @param {number} parentId - Parent zone ID to fetch
+ */
+async function fetchAndDisplayParent(zoneId, parentId) {
+    // Get parent cell once to avoid duplication
+    const row = document.querySelector(`tr.zone-row[data-zone-id="${zoneId}"]`);
+    if (!row) {
+        console.debug('[fetchAndDisplayParent] Row not found for zone:', zoneId);
+        return;
+    }
+    
+    const parentCell = row.querySelector('td.col-parent');
+    if (!parentCell) {
+        console.debug('[fetchAndDisplayParent] Parent cell not found for zone:', zoneId);
+        return;
+    }
+    
+    try {
+        // Fetch parent zone via API
+        const result = await zoneApiCall('get_zone', { params: { id: parentId } });
+        if (result && result.data) {
+            const parentZone = result.data;
+            
+            // Merge into cache for future lookups
+            mergeZonesIntoCache([parentZone]);
+            
+            // Update the display in the table row
+            const parentName = parentZone.name || parentZone.domain || `Parent #${parentId}`;
+            parentCell.innerHTML = escapeHtml(parentName);
+            
+            console.debug('[fetchAndDisplayParent] Fetched and displayed parent:', parentZone.name || parentId);
+        }
+    } catch (e) {
+        console.warn('[fetchAndDisplayParent] Failed to fetch parent:', parentId, e);
+        // Update fallback display with error indication
+        parentCell.innerHTML = `<span class="parent-fallback" title="Parent introuvable">Parent #${parentId}</span>`;
+    }
+}
+
+/**
  * Get status badge HTML
  */
 function getStatusBadge(status) {
+    // Handle empty/falsy status gracefully
+    if (!status || status === '') {
+        return '<span class="badge badge-secondary">-</span>';
+    }
+    
     const badges = {
         'active': '<span class="badge badge-success">Actif</span>',
         'inactive': '<span class="badge badge-warning">Inactif</span>',
@@ -5083,6 +5138,7 @@ window.openCreateIncludeModal = openCreateIncludeModal;
 window.closeIncludeCreateModal = closeIncludeCreateModal;
 window.saveInclude = saveInclude;
 window.renderZonesTable = renderZonesTable;
+window.fetchAndDisplayParent = fetchAndDisplayParent;
 window.setZoneFileComboboxEnabled = setZoneFileComboboxEnabled;
 window.initZonesWhenReady = initZonesWhenReady; // Expose for manual testing and fallback retry
 

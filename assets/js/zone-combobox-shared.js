@@ -469,9 +469,30 @@
             console.debug('[serverSearchZones] Searching with query:', query, 'file_type:', fileType || 'all', 'limit:', limit);
             
             const result = await zoneApiCallShared('search_zones', params);
-            const zones = result.data || [];
+            let zones = result.data || [];
             
-            console.debug('[serverSearchZones] Found', zones.length, 'results');
+            // Enrich search results with cached data before returning/storing
+            // This prevents loss of metadata (status, updated_at, etc.) from existing cache
+            const cacheToCheck = window.ALL_ZONES || window.ZONES_ALL || [];
+            if (Array.isArray(cacheToCheck) && cacheToCheck.length > 0) {
+                zones = zones.map(searchResult => {
+                    const cached = cacheToCheck.find(c => parseInt(c.id, 10) === parseInt(searchResult.id, 10));
+                    if (cached) {
+                        // Merge: prefer search result fields (fresher data), fallback to cached for missing fields
+                        return {
+                            ...cached,           // Start with cached data (complete metadata)
+                            ...searchResult,     // Override with search result (may have updated parent info)
+                            // Explicitly preserve critical metadata from cache if missing in search result
+                            status: searchResult.status || cached.status || 'active',
+                            updated_at: searchResult.updated_at || cached.updated_at || cached.modified_at || cached.created_at,
+                            created_at: searchResult.created_at || cached.created_at
+                        };
+                    }
+                    return searchResult; // New zone not in cache, use as-is
+                });
+            }
+            
+            console.debug('[serverSearchZones] Found', zones.length, 'results (enriched with cache)');
             return zones;
         } catch (err) {
             console.warn('[serverSearchZones] Search failed:', err);

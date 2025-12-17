@@ -277,10 +277,8 @@ try {
 
             $zones = $zoneFile->search($filters, $limit, 0);
 
-            // Return data including parent information for proper display
-            // Include parent_id, parent_name, and parent_domain to support:
-            // 1. Parent column display in zones table
-            // 2. Master resolution for "Modifier domaine" button
+            // Return complete data including metadata to prevent loss during search
+            // Include parent information for proper display + status, dates, domain for table rendering
             $results = array_map(function($zone) {
                 return [
                     'id' => $zone['id'],
@@ -289,7 +287,14 @@ try {
                     'file_type' => $zone['file_type'],
                     'parent_id' => $zone['parent_id'] ?? null,
                     'parent_name' => $zone['parent_name'] ?? null,
-                    'parent_domain' => $zone['parent_domain'] ?? null
+                    'parent_domain' => $zone['parent_domain'] ?? null,
+                    // Include metadata fields to prevent loss in cache
+                    'status' => $zone['status'] ?? 'active',
+                    'state' => $zone['state'] ?? null,
+                    'updated_at' => $zone['updated_at'] ?? null,
+                    'modified_at' => $zone['modified_at'] ?? null,
+                    'created_at' => $zone['created_at'] ?? null,
+                    'domain' => $zone['domain'] ?? null
                 ];
             }, $zones);
 
