@@ -899,8 +899,8 @@ async function setDomainForZone(zoneId) {
             // For includes: try to get domain from master zone
             domainName = zone.parent_domain || '';
             
-            // If parent_domain is empty or we have a masterId, fetch domain from master
-            if (!domainName || masterId) {
+            // If parent_domain is empty and we have a masterId, fetch domain from master
+            if (!domainName && masterId) {
                 try {
                     // First, try to get master zone from cache
                     let masterZone = null;
