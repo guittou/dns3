@@ -2633,7 +2633,12 @@ async function renderZonesTable() {
     }
     
     // Helper: check whether a zone has `ancestorId` somewhere in its parent chain
-    const zonesAll = Array.isArray(window.ZONES_ALL) ? window.ZONES_ALL : (Array.isArray(window.ALL_ZONES) ? window.ALL_ZONES : []);
+    // Use multiple caches with fallbacks for robustness
+    const zonesAll = Array.isArray(window.ZONES_ALL) && window.ZONES_ALL.length > 0 
+        ? window.ZONES_ALL 
+        : (Array.isArray(window.ALL_ZONES) && window.ALL_ZONES.length > 0
+            ? window.ALL_ZONES 
+            : (Array.isArray(window.CURRENT_ZONE_LIST) ? window.CURRENT_ZONE_LIST : []));
     function hasAncestor(zone, ancestorId) {
         if (!zone || !ancestorId) return false;
         let currentZone = zone;
