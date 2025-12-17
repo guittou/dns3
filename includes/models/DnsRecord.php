@@ -174,6 +174,73 @@ class DnsRecord {
     }
 
     /**
+     * Count total DNS records matching filters (without pagination)
+     * 
+     * @param array $filters Optional filters (name, type, status, domain_id, zone_file_id, zone_file_ids)
+     * @return int Total count of records matching filters
+     */
+    public function searchCount($filters = []) {
+        $sql = "SELECT COUNT(DISTINCT dr.id) as total
+                FROM dns_records dr
+                LEFT JOIN zone_files zf ON dr.zone_file_id = zf.id
+                LEFT JOIN zone_file_includes zfi ON zf.id = zfi.include_id
+                LEFT JOIN zone_files p ON zfi.parent_id = p.id
+                WHERE 1=1";
+        
+        $params = [];
+        
+        // Handle zone_file_ids filter (ACL-based filtering for non-admin users)
+        if (isset($filters['zone_file_ids']) && is_array($filters['zone_file_ids']) && !empty($filters['zone_file_ids'])) {
+            $placeholders = implode(',', array_fill(0, count($filters['zone_file_ids']), '?'));
+            $sql .= " AND dr.zone_file_id IN ($placeholders)";
+            $params = array_merge($params, $filters['zone_file_ids']);
+        }
+        // Handle zone_file_id filter (exact match) - takes priority over domain_id
+        elseif (isset($filters['zone_file_id']) && $filters['zone_file_id'] > 0) {
+            $sql .= " AND dr.zone_file_id = ?";
+            $params[] = $filters['zone_file_id'];
+        }
+        // Handle domain_id filter by finding all allowed zone_file_ids
+        elseif (isset($filters['domain_id']) && $filters['domain_id'] > 0) {
+            $allowedZoneFileIds = $this->getZoneFileIdsForDomain($filters['domain_id']);
+            if (empty($allowedZoneFileIds)) {
+                // No zone files for this domain, return 0
+                return 0;
+            }
+            
+            $placeholders = implode(',', array_fill(0, count($allowedZoneFileIds), '?'));
+            $sql .= " AND dr.zone_file_id IN ($placeholders)";
+            $params = array_merge($params, $allowedZoneFileIds);
+        }
+        
+        if (isset($filters['name']) && $filters['name'] !== '') {
+            $sql .= " AND (dr.name LIKE ? OR dr.value LIKE ?)";
+            $params[] = '%' . $filters['name'] . '%';
+            $params[] = '%' . $filters['name'] . '%';
+        }
+        
+        if (isset($filters['type']) && $filters['type'] !== '') {
+            $sql .= " AND dr.record_type = ?";
+            $params[] = $filters['type'];
+        }
+        
+        if (isset($filters['status']) && $filters['status'] !== '') {
+            $sql .= " AND dr.status = ?";
+            $params[] = $filters['status'];
+        }
+        
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $result = $stmt->fetch();
+            return (int)($result['total'] ?? 0);
+        } catch (Exception $e) {
+            error_log("DNS Record count error: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
      * Get a DNS record by ID
      * 
      * @param int $id Record ID

@@ -121,6 +121,11 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
         <button id="dns-create-btn" class="btn-create" disabled>+ Ajouter un enregistrement</button>
     </div>
 
+    <!-- Results Info -->
+    <div class="results-info" style="margin-bottom: 10px;">
+        <span id="dns-results-count">Chargement...</span>
+    </div>
+
     <div class="dns-table-container">
         <table class="dns-table">
             <thead>
@@ -144,6 +149,28 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
                 </tr>
             </tbody>
         </table>
+    </div>
+
+    <!-- Pagination Controls -->
+    <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; gap: 20px;">
+        <div>
+            <select id="dns-per-page" class="form-control" style="width: auto; display: inline-block;">
+                <option value="25">25 par page</option>
+                <option value="50">50 par page</option>
+                <option value="100">100 par page</option>
+            </select>
+        </div>
+        <div id="dns-pagination-info" class="page-info">
+            Page <span id="dns-current-page">1</span> sur <span id="dns-total-pages">1</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button id="dns-prev-page" class="btn btn-secondary" disabled>
+                <i class="fas fa-chevron-left"></i> Précédent
+            </button>
+            <button id="dns-next-page" class="btn btn-secondary" disabled>
+                Suivant <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
     </div>
 </div>
 

@@ -215,6 +215,9 @@ try {
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
             $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
+            // Get total count without pagination
+            $totalCount = $dnsRecord->searchCount($filters);
+
             $records = $dnsRecord->search($filters, $limit, $offset);
 
             // Ensure all records have zone_file_id, zone_name, zone_file_name
@@ -267,7 +270,7 @@ try {
             echo json_encode([
                 'success' => true,
                 'data' => $records,
-                'count' => count($records)
+                'count' => $totalCount  // Total count matching filters, not just current page
             ]);
             break;
 
