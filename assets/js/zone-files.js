@@ -2433,9 +2433,22 @@ function clearZoneFileSelection() {
  * Reset domain selection
  */
 async function resetZoneDomainSelection() {
+    // Clear search input and global search query
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    searchQuery = '';
+    
+    // Clear domain and zone selection
     await onZoneDomainSelected(null);
     clearZoneFileSelection();
+    
+    // Reset pagination to page 1
     currentPage = 1;
+    
+    // Reload full table data and render
+    await loadZonesData();
     await renderZonesTable();
 }
 
