@@ -2683,13 +2683,13 @@ async function renderZonesTable() {
             parentDisplay = escapeHtml(zone.parent_name);
         } else if (zone.parent_id) {
             // Look up parent in caches to get the name
-            const parentId = parseInt(zone.parent_id, 10);
-            if (!isNaN(parentId) && parentId > 0) {
+            const parentId = parseValidZoneId(zone.parent_id);
+            if (parentId) {
                 const cachesToCheck = [
                     window.ALL_ZONES,
                     window.ZONES_ALL,
                     window.CURRENT_ZONE_LIST,
-                    typeof allMasters !== 'undefined' ? allMasters : []
+                    (typeof allMasters !== 'undefined' && allMasters) ? allMasters : []
                 ];
                 
                 let parentZone = null;
