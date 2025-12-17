@@ -1216,6 +1216,39 @@ function attachFilterStatusHandler() {
     console.debug('[attachFilterStatusHandler] Filter status handler attached to #filterStatus');
 }
 
+/**
+ * Attach change handler to #perPageSelect select
+ * Updates the global perPage variable and re-renders the table
+ */
+function attachPerPageHandler() {
+    const select = document.getElementById('perPageSelect');
+    if (!select) {
+        console.log('[attachPerPageHandler] #perPageSelect not found on this page');
+        return;
+    }
+    
+    // Check if already bound to prevent duplicate handlers (using data attribute for consistency)
+    if (select.dataset.perPageHandlerBound === 'true') {
+        return;
+    }
+    select.dataset.perPageHandlerBound = 'true';
+    
+    select.addEventListener('change', function(e) {
+        // Update global perPage variable
+        perPage = parseInt(e.target.value, 10);
+        
+        // Reset to page 1 when changing perPage
+        currentPage = 1;
+        
+        // Re-render the table with new pagination
+        renderZonesTable();
+        
+        console.debug('[attachPerPageHandler] perPage changed to:', perPage);
+    });
+    
+    console.debug('[attachPerPageHandler] perPage handler attached to #perPageSelect');
+}
+
 // Expose search functions globally
 window.buildApiPath = buildApiPath;
 window.attachZoneSearchInput = attachZoneSearchInput;
@@ -1298,6 +1331,9 @@ function ensureZoneFilesInit() {
         
         // Attach filter status handler for status dropdown
         attachFilterStatusHandler();
+        
+        // Attach perPage handler for pagination
+        attachPerPageHandler();
     } catch (error) {
         // Log warning but don't break initialization
         console.warn('ensureZoneFilesInit: Failed to bind event handlers:', error);
@@ -2900,6 +2936,12 @@ function updatePaginationControls() {
     
     prevBtn.disabled = currentPage <= 1;
     nextBtn.disabled = currentPage >= totalPages;
+    
+    // Sync the perPage select value with the current perPage variable
+    const perPageSelect = document.getElementById('perPageSelect');
+    if (perPageSelect && perPageSelect.value !== String(perPage)) {
+        perPageSelect.value = String(perPage);
+    }
 }
 
 /**
