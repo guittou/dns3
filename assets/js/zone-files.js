@@ -801,40 +801,27 @@ async function setDomainForZone(zoneId) {
 
         // Calculate master ID based on zone type
         // For master: use zone.id
-        // For include: use zone.master_id, parent_zone_id, or parent_id, with fallback to getTopMasterId
+        // For include: always use getTopMasterId to traverse the entire parent chain
         let masterId;
         if (zone.file_type === 'master') {
             masterId = zone.id;
         } else {
-            // Try multiple fields that may contain the master ID
-            // Fields checked: master_id, parent_zone_id, parent_id (in order of preference)
-            // Use explicit checks to avoid accepting falsy values like 0 or empty string as valid IDs
-            masterId = zone.master_id || zone.parent_zone_id || zone.parent_id;
-            // Validate that masterId is a positive integer if found
-            if (masterId) {
-                const masterIdNum = parseInt(masterId, 10);
-                if (isNaN(masterIdNum) || masterIdNum <= 0) {
-                    masterId = null; // Invalid ID, will trigger fallback to getTopMasterId
-                }
-            }
-            
-            // Fallback: recursively find top master if parent fields are not set
-            if (!masterId) {
-                try {
-                    masterId = await getTopMasterId(zone.id);
-                    if (!masterId) {
-                        console.error('setDomainForZone: Cannot determine master ID for include zone:', zone.id);
-                        // For includes, we cannot use zone.id as fallback since it would be wrong
-                        // Clear the state and disable the edit button
-                        updateEditDomainButton(null);
-                        return;
-                    }
-                } catch (fallbackError) {
-                    console.error('setDomainForZone: getTopMasterId failed for include zone:', zone.id, fallbackError);
+            // For includes (including nested includes), always use getTopMasterId
+            // to ensure we find the top-level master, not just the immediate parent
+            try {
+                masterId = await getTopMasterId(zone.id);
+                if (!masterId) {
+                    console.error('setDomainForZone: Cannot determine master ID for include zone:', zone.id);
                     // For includes, we cannot use zone.id as fallback since it would be wrong
+                    // Clear the state and disable the edit button
                     updateEditDomainButton(null);
                     return;
                 }
+            } catch (fallbackError) {
+                console.error('setDomainForZone: getTopMasterId failed for include zone:', zone.id, fallbackError);
+                // For includes, we cannot use zone.id as fallback since it would be wrong
+                updateEditDomainButton(null);
+                return;
             }
         }
 
