@@ -186,6 +186,8 @@ class Auth {
             ldap_set_option($ldap, LDAP_OPT_REFERRALS, 0);
             
             // Set timeouts for network operations (3 seconds)
+            // @ suppression is intentional - these options may not be available in all PHP/LDAP versions
+            // If they fail, authentication will continue but without the timeout benefit
             @ldap_set_option($ldap, LDAP_OPT_NETWORK_TIMEOUT, 3);
             @ldap_set_option($ldap, LDAP_OPT_TIMELIMIT, 3);
 
@@ -281,6 +283,8 @@ class Auth {
             ldap_set_option($ldap, LDAP_OPT_PROTOCOL_VERSION, 3);
             
             // Set timeouts for network operations (3 seconds)
+            // @ suppression is intentional - these options may not be available in all PHP/LDAP versions
+            // If they fail, authentication will continue but without the timeout benefit
             @ldap_set_option($ldap, LDAP_OPT_NETWORK_TIMEOUT, 3);
             @ldap_set_option($ldap, LDAP_OPT_TIMELIMIT, 3);
 
