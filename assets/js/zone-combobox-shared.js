@@ -297,12 +297,12 @@
                     if (typeof window.serverSearchZones === 'function') {
                         serverResults = await window.serverSearchZones(query, { 
                             file_type: fileType,
-                            limit: 100 
+                            limit: 1000 
                         });
                     } else {
                         // Fallback: call zoneApiCallShared directly
                         console.debug('[initZoneComboboxShared] serverSearchZones not found, using zoneApiCallShared');
-                        const params = { q: query, limit: 100 };
+                        const params = { q: query, limit: 1000 };
                         if (fileType) params.file_type = fileType;
                         const response = await zoneApiCallShared('search_zones', params);
                         serverResults = response.data || [];
@@ -458,7 +458,7 @@
      */
     async function serverSearchZones(query, options = {}) {
         const fileType = options.file_type || ''; // Empty = search all types
-        const limit = options.limit || 100; // Default limit
+        const limit = options.limit || 1000; // Default limit
         
         try {
             const params = { q: query, limit: limit };
@@ -643,7 +643,7 @@
                     // Use serverSearchZones function
                     const serverResults = await serverSearchZones(query, { 
                         file_type: fileType,
-                        limit: 100 
+                        limit: 1000 
                     });
                     
                     // Filter server results by selected domain if one is selected
