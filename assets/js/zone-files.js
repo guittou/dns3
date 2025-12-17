@@ -840,12 +840,14 @@ async function setDomainForZone(zoneId) {
                             window.ZONES_ALL, 
                             window.ALL_ZONES, 
                             window.CURRENT_ZONE_LIST, 
-                            typeof allMasters !== 'undefined' ? allMasters : []
+                            (typeof allMasters !== 'undefined' && allMasters) ? allMasters : []
                         ];
                         let parentZone = null;
+                        // Optimize: compare as strings to avoid repeated parseInt in find()
+                        const parentIdStr = String(parentId);
                         for (const cache of cachesToCheck) {
-                            if (Array.isArray(cache)) {
-                                parentZone = cache.find(z => parseInt(z.id, 10) === parentId);
+                            if (Array.isArray(cache) && cache.length > 0) {
+                                parentZone = cache.find(z => String(z.id) === parentIdStr);
                                 if (parentZone) break;
                             }
                         }
