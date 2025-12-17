@@ -903,11 +903,12 @@ async function setDomainForZone(zoneId) {
             if (!domainName && masterId) {
                 try {
                     // First, try to get master zone from cache
+                    // Use same order as getTopMasterId for consistency
                     let masterZone = null;
                     const cachesToCheck = [
-                        window.ZONES_ALL, 
-                        window.ALL_ZONES, 
-                        window.CURRENT_ZONE_LIST, 
+                        window.CURRENT_ZONE_LIST,
+                        window.ALL_ZONES,
+                        window.ZONES_ALL,
                         (typeof allMasters !== 'undefined' && allMasters) ? allMasters : []
                     ];
                     const masterIdStr = String(masterId);
@@ -919,7 +920,7 @@ async function setDomainForZone(zoneId) {
                     }
                     
                     // If not in cache, fetch from API
-                    if (!masterZone && masterId) {
+                    if (!masterZone) {
                         try {
                             const masterRes = await zoneApiCall('get_zone', { params: { id: masterId } });
                             masterZone = masterRes && masterRes.data ? masterRes.data : null;
@@ -932,7 +933,7 @@ async function setDomainForZone(zoneId) {
                     if (masterZone && masterZone.domain) {
                         domainName = masterZone.domain;
                         console.debug('[setDomainForZone] Using domain from master zone:', domainName);
-                    } else if (!domainName) {
+                    } else {
                         // Final fallback: call get_domain_for_zone endpoint
                         const fallbackRes = await apiCall('get_domain_for_zone', { zone_id: zoneId });
                         if (fallbackRes && fallbackRes.success && fallbackRes.data && fallbackRes.data.domain) {
