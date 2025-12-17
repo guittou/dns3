@@ -571,7 +571,12 @@ async function getTopMasterId(zoneId) {
         
         if (!zone) return null;
         
-        // Check if this is a top master (no parent)
+        // Check if this is a master zone (check file_type first, then parent_id as fallback)
+        if (zone.file_type === 'master') {
+            return currentZoneId;
+        }
+        
+        // Fallback: check if no parent (for cases where file_type might not be set correctly)
         if (!zone.parent_id || zone.parent_id === null || zone.parent_id === 0) {
             return currentZoneId;
         }
@@ -891,17 +896,51 @@ async function setDomainForZone(zoneId) {
         if (zone.file_type === 'master') {
             domainName = zone.domain || '';
         } else {
+            // For includes: try to get domain from master zone
             domainName = zone.parent_domain || '';
             
-            // Fallback: if parent_domain is empty, call get_domain_for_zone endpoint
-            if (!domainName) {
+            // If parent_domain is empty or we have a masterId, fetch domain from master
+            if (!domainName || masterId) {
                 try {
-                    const fallbackRes = await apiCall('get_domain_for_zone', { zone_id: zoneId });
-                    if (fallbackRes && fallbackRes.success && fallbackRes.data && fallbackRes.data.domain) {
-                        domainName = fallbackRes.data.domain;
+                    // First, try to get master zone from cache
+                    let masterZone = null;
+                    const cachesToCheck = [
+                        window.ZONES_ALL, 
+                        window.ALL_ZONES, 
+                        window.CURRENT_ZONE_LIST, 
+                        (typeof allMasters !== 'undefined' && allMasters) ? allMasters : []
+                    ];
+                    const masterIdStr = String(masterId);
+                    for (const cache of cachesToCheck) {
+                        if (Array.isArray(cache) && cache.length > 0) {
+                            masterZone = cache.find(z => String(z.id) === masterIdStr);
+                            if (masterZone) break;
+                        }
+                    }
+                    
+                    // If not in cache, fetch from API
+                    if (!masterZone && masterId) {
+                        try {
+                            const masterRes = await zoneApiCall('get_zone', { params: { id: masterId } });
+                            masterZone = masterRes && masterRes.data ? masterRes.data : null;
+                        } catch (apiError) {
+                            console.warn('[setDomainForZone] Failed to fetch master zone:', apiError);
+                        }
+                    }
+                    
+                    // Use master's domain if available
+                    if (masterZone && masterZone.domain) {
+                        domainName = masterZone.domain;
+                        console.debug('[setDomainForZone] Using domain from master zone:', domainName);
+                    } else if (!domainName) {
+                        // Final fallback: call get_domain_for_zone endpoint
+                        const fallbackRes = await apiCall('get_domain_for_zone', { zone_id: zoneId });
+                        if (fallbackRes && fallbackRes.success && fallbackRes.data && fallbackRes.data.domain) {
+                            domainName = fallbackRes.data.domain;
+                        }
                     }
                 } catch (fallbackError) {
-                    console.warn('Fallback get_domain_for_zone failed:', fallbackError);
+                    console.warn('Failed to get domain from master zone:', fallbackError);
                 }
             }
         }
