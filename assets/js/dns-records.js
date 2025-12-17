@@ -9,6 +9,14 @@
     let currentRecords = [];
     
     /**
+     * Pagination state
+     */
+    let dnsPerPage = 25;
+    let dnsCurrentPage = 1;
+    let dnsTotalCount = 0;
+    let dnsTotalPages = 1;
+    
+    /**
      * Constants
      */
     const COMBOBOX_BLUR_DELAY = 200; // Delay in ms before hiding combobox list on blur
@@ -885,6 +893,9 @@
         // Update create button state
         updateCreateBtnState();
         
+        // Reset pagination to page 1
+        dnsCurrentPage = 1;
+        
         // Reload table with domain filter
         loadDnsTable();
     }
@@ -908,6 +919,9 @@
         
         // When zone is selected, auto-select the associated domain
         await setDomainForZone(zoneId);
+        
+        // Reset pagination to page 1
+        dnsCurrentPage = 1;
         
         // Reload table with zone filter
         loadDnsTable();
@@ -1535,6 +1549,9 @@
         
         // Disable create button
         updateCreateBtnState();
+        
+        // Reset pagination to page 1
+        dnsCurrentPage = 1;
         
         // Reload table with no filters
         loadDnsTable();
@@ -2373,8 +2390,14 @@
                 filters.domain_id = selectedDomainId;
             }
 
+            // Add pagination parameters
+            filters.limit = dnsPerPage;
+            filters.offset = (dnsCurrentPage - 1) * dnsPerPage;
+
             const result = await apiCall('list', filters);
             currentRecords = result.data || [];
+            dnsTotalCount = result.count || 0;
+            dnsTotalPages = Math.ceil(dnsTotalCount / dnsPerPage);
 
             const tbody = document.getElementById('dns-table-body');
             if (!tbody) return;
@@ -2517,9 +2540,73 @@
 
                 tbody.appendChild(row);
             });
+
+            // Update pagination controls
+            updateDnsPaginationControls();
+            updateDnsResultsInfo();
         } catch (error) {
             console.error('Error loading DNS table:', error);
             showMessage('Erreur lors du chargement des enregistrements: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Update pagination controls (enable/disable buttons, sync select)
+     */
+    function updateDnsPaginationControls() {
+        // Update page display
+        const currentPageEl = document.getElementById('dns-current-page');
+        const totalPagesEl = document.getElementById('dns-total-pages');
+        if (currentPageEl) currentPageEl.textContent = dnsCurrentPage;
+        if (totalPagesEl) totalPagesEl.textContent = dnsTotalPages;
+
+        // Enable/disable navigation buttons
+        const prevBtn = document.getElementById('dns-prev-page');
+        const nextBtn = document.getElementById('dns-next-page');
+        if (prevBtn) prevBtn.disabled = dnsCurrentPage <= 1;
+        if (nextBtn) nextBtn.disabled = dnsCurrentPage >= dnsTotalPages;
+
+        // Sync the per-page select with current value
+        const perPageSelect = document.getElementById('dns-per-page');
+        if (perPageSelect && perPageSelect.value !== String(dnsPerPage)) {
+            perPageSelect.value = String(dnsPerPage);
+        }
+    }
+
+    /**
+     * Update results info text (e.g., "Affichage 1-25 sur 306 Enregistrement(s)")
+     */
+    function updateDnsResultsInfo() {
+        const resultsCountEl = document.getElementById('dns-results-count');
+        if (!resultsCountEl) return;
+
+        if (dnsTotalCount === 0) {
+            resultsCountEl.textContent = 'Aucun enregistrement';
+            return;
+        }
+
+        const start = (dnsCurrentPage - 1) * dnsPerPage + 1;
+        const end = Math.min(dnsCurrentPage * dnsPerPage, dnsTotalCount);
+        resultsCountEl.textContent = `Affichage ${start}-${end} sur ${dnsTotalCount} Enregistrement(s)`;
+    }
+
+    /**
+     * Handle next page button click
+     */
+    function dnsNextPage() {
+        if (dnsCurrentPage < dnsTotalPages) {
+            dnsCurrentPage++;
+            loadDnsTable();
+        }
+    }
+
+    /**
+     * Handle previous page button click
+     */
+    function dnsPrevPage() {
+        if (dnsCurrentPage > 1) {
+            dnsCurrentPage--;
+            loadDnsTable();
         }
     }
 
@@ -4022,6 +4109,7 @@
         const searchInput = document.getElementById('dns-search');
         if (searchInput) {
             searchInput.addEventListener('input', debounce(() => {
+                dnsCurrentPage = 1; // Reset to page 1 when searching
                 loadDnsTable();
             }, 300));
         }
@@ -4029,13 +4117,19 @@
         // Type filter
         const typeFilter = document.getElementById('dns-type-filter');
         if (typeFilter) {
-            typeFilter.addEventListener('change', () => loadDnsTable());
+            typeFilter.addEventListener('change', () => {
+                dnsCurrentPage = 1; // Reset to page 1 when filtering
+                loadDnsTable();
+            });
         }
 
         // Status filter
         const statusFilter = document.getElementById('dns-status-filter');
         if (statusFilter) {
-            statusFilter.addEventListener('change', () => loadDnsTable());
+            statusFilter.addEventListener('change', () => {
+                dnsCurrentPage = 1; // Reset to page 1 when filtering
+                loadDnsTable();
+            });
         }
 
         // Create button - use prefilled version
@@ -4050,6 +4144,29 @@
         const resetBtn = document.getElementById('dns-reset-filters-btn');
         if (resetBtn) {
             resetBtn.addEventListener('click', resetDomainZoneFilters);
+        }
+
+        // Pagination controls
+        const perPageSelect = document.getElementById('dns-per-page');
+        if (perPageSelect) {
+            perPageSelect.addEventListener('change', (e) => {
+                const newPerPage = parseInt(e.target.value, 10);
+                if (!isNaN(newPerPage) && newPerPage > 0) {
+                    dnsPerPage = newPerPage;
+                    dnsCurrentPage = 1; // Reset to page 1 when changing per-page
+                    loadDnsTable();
+                }
+            });
+        }
+
+        const prevPageBtn = document.getElementById('dns-prev-page');
+        if (prevPageBtn) {
+            prevPageBtn.addEventListener('click', dnsPrevPage);
+        }
+
+        const nextPageBtn = document.getElementById('dns-next-page');
+        if (nextPageBtn) {
+            nextPageBtn.addEventListener('click', dnsNextPage);
         }
 
         // Form submit
