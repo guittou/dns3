@@ -114,7 +114,7 @@ if (!$auth->isAdmin()) {
         <div class="info-box">
             <p><strong>Mappings AD/LDAP</strong> permettent d'attribuer automatiquement des rôles aux utilisateurs lors de l'authentification.</p>
             <p><strong>AD:</strong> DN complet du groupe <code>CN=DNSAdmins,OU=Groups,DC=example,DC=com</code> ou login <code>sAMAccountName:j.bon</code></p>
-            <p><strong>LDAP:</strong> <code>uid:jean.bon</code> ou entité <code>departmentNumber:ORGANISME/MON/SERVICE</code></p>
+            <p><strong>LDAP:</strong> Login <code>uid:jean.bon</code> ou département <code>departmentNumber:ORGANISME/MON/SERVICE</code></p>
         </div>
         
         <div class="table-container">
@@ -255,7 +255,14 @@ if (!$auth->isAdmin()) {
                 </div>
                 
                 <div class="form-group">
-                    <label for="mapping-dn-or-group" id="mapping-dn-or-group-label">DN/Groupe *</label>
+                    <label for="mapping-type">Type *</label>
+                    <select id="mapping-type" name="mapping_type" required>
+                        <!-- Will be populated dynamically based on source -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="mapping-dn-or-group" id="mapping-dn-or-group-label">Valeur *</label>
                     <input type="text" id="mapping-dn-or-group" name="dn_or_group" required 
                            placeholder="Ex: CN=DNSAdmins,OU=Groups,DC=example,DC=com">
                     <small class="form-hint" id="mapping-dn-or-group-hint">
