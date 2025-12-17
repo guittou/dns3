@@ -242,7 +242,7 @@ try {
             requireAuth();
 
             $q = isset($_GET['q']) ? trim($_GET['q']) : '';
-            $limit = isset($_GET['limit']) ? min(100, max(1, (int)$_GET['limit'])) : 20;
+            $limit = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 20;
             $file_type = isset($_GET['file_type']) ? $_GET['file_type'] : '';
 
             $filters = [];
