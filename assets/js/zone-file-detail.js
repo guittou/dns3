@@ -125,14 +125,23 @@ function displayZoneDetails(zone) {
     // Show/hide DNSSEC fields based on file_type
     const dnssecKskGroup = document.getElementById('dnssecKskGroup');
     const dnssecZskGroup = document.getElementById('dnssecZskGroup');
+    const applicationGroup = document.getElementById('applicationGroup');
+    const trigrammeGroup = document.getElementById('trigrammeGroup');
+    
     if (zone.file_type === 'master') {
         dnssecKskGroup.style.display = 'block';
         dnssecZskGroup.style.display = 'block';
         document.getElementById('detailDnssecKsk').value = zone.dnssec_include_ksk || '';
         document.getElementById('detailDnssecZsk').value = zone.dnssec_include_zsk || '';
+        applicationGroup.style.display = 'none';
+        trigrammeGroup.style.display = 'none';
     } else {
         dnssecKskGroup.style.display = 'none';
         dnssecZskGroup.style.display = 'none';
+        applicationGroup.style.display = 'block';
+        trigrammeGroup.style.display = 'block';
+        document.getElementById('detailApplication').value = zone.application || '';
+        document.getElementById('detailTrigramme').value = zone.trigramme || '';
     }
 
     document.getElementById('detailCreatedBy').textContent = zone.created_by_username || 'N/A';
@@ -140,15 +149,19 @@ function displayZoneDetails(zone) {
     document.getElementById('detailUpdatedBy').textContent = zone.updated_by_username || 'N/A';
     document.getElementById('detailUpdatedAt').textContent = formatDate(zone.updated_at);
     
-    // Add event listener to file_type select to show/hide DNSSEC fields
+    // Add event listener to file_type select to show/hide DNSSEC and metadata fields
     const fileTypeSelect = document.getElementById('detailFileType');
     fileTypeSelect.addEventListener('change', function() {
         if (this.value === 'master') {
             dnssecKskGroup.style.display = 'block';
             dnssecZskGroup.style.display = 'block';
+            applicationGroup.style.display = 'none';
+            trigrammeGroup.style.display = 'none';
         } else {
             dnssecKskGroup.style.display = 'none';
             dnssecZskGroup.style.display = 'none';
+            applicationGroup.style.display = 'block';
+            trigrammeGroup.style.display = 'block';
         }
     });
 }
@@ -170,6 +183,14 @@ async function saveZoneDetails() {
             const zskValue = document.getElementById('detailDnssecZsk').value.trim();
             data.dnssec_include_ksk = kskValue !== '' ? kskValue : null;
             data.dnssec_include_zsk = zskValue !== '' ? zskValue : null;
+        }
+        
+        // Include metadata fields if this is an include zone
+        if (data.file_type === 'include') {
+            const applicationValue = document.getElementById('detailApplication').value.trim();
+            const trigrammeValue = document.getElementById('detailTrigramme').value.trim();
+            data.application = applicationValue !== '' ? applicationValue : null;
+            data.trigramme = trigrammeValue !== '' ? trigrammeValue : null;
         }
 
         // Check if status changed

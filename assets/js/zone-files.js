@@ -3154,6 +3154,18 @@ async function openZoneModal(zoneId) {
         if (zoneDnssecKskEl) zoneDnssecKskEl.value = zone.dnssec_include_ksk || '';
         const zoneDnssecZskEl = document.getElementById('zoneDnssecZsk');
         if (zoneDnssecZskEl) zoneDnssecZskEl.value = zone.dnssec_include_zsk || '';
+        
+        // Populate Metadata fields (only visible for include zones)
+        const zoneMetadataFieldset = document.getElementById('zoneMetadataFieldset');
+        if (zoneMetadataFieldset) {
+            zoneMetadataFieldset.style.display = (zone.file_type === 'include') ? 'block' : 'none';
+        }
+        
+        // Set Metadata field values
+        const zoneApplicationEl = document.getElementById('zoneApplication');
+        if (zoneApplicationEl) zoneApplicationEl.value = zone.application || '';
+        const zoneTrigrammeEl = document.getElementById('zoneTrigramme');
+        if (zoneTrigrammeEl) zoneTrigrammeEl.value = zone.trigramme || '';
 
         if (typeof populateZoneIncludes === 'function') try { await populateZoneIncludes(zone.id); } catch (e) {}
         
@@ -3546,6 +3558,15 @@ async function saveZone() {
             data.soa_minimum = soaMinimum || null;
             data.dnssec_include_ksk = dnssecKsk || null;
             data.dnssec_include_zsk = dnssecZsk || null;
+        }
+        
+        // Add metadata fields only for include zones
+        if (currentZone.file_type === 'include') {
+            const application = document.getElementById('zoneApplication')?.value?.trim();
+            const trigramme = document.getElementById('zoneTrigramme')?.value?.trim();
+            
+            data.application = application || null;
+            data.trigramme = trigramme || null;
         }
         
         // Handle status change separately if needed
@@ -4169,12 +4190,18 @@ async function saveInclude() {
             return;
         }
         
+        // Get metadata fields
+        const application = document.getElementById('include-application')?.value?.trim() || null;
+        const trigramme = document.getElementById('include-trigramme')?.value?.trim() || null;
+        
         // Create the include zone
         const data = {
             name: name,
             filename: filename,
             file_type: 'include',
             directory: directory,
+            application: application,
+            trigramme: trigramme,
             content: '' // Empty content for new include
         };
         
