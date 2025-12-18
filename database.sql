@@ -488,6 +488,8 @@ CREATE TABLE `zone_files` (
   `soa_minimum` int(11) DEFAULT 3600 COMMENT 'SOA minimum/negative caching TTL (seconds)',
   `soa_rname` varchar(255) DEFAULT NULL COMMENT 'SOA RNAME - contact email for zone (e.g., admin.example.com or admin@example.com)',
   `mname` varchar(255) DEFAULT NULL COMMENT 'SOA MNAME - primary master nameserver for zone (e.g., ns1.example.com.)',
+  `dnssec_include_ksk` varchar(255) DEFAULT NULL COMMENT 'Path to DNSSEC KSK include file (e.g., /etc/bind/keys/domain.ksk.key)',
+  `dnssec_include_zsk` varchar(255) DEFAULT NULL COMMENT 'Path to DNSSEC ZSK include file (e.g., /etc/bind/keys/domain.zsk.key)',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
   KEY `updated_by` (`updated_by`),
