@@ -478,6 +478,26 @@ try {
                 }
             }
 
+            // Validate application and trigramme fields (only for include zones)
+            if ($fileType === 'include') {
+                if (isset($input['application']) && $input['application'] !== null && $input['application'] !== '') {
+                    $application = trim($input['application']);
+                    if (strlen($application) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Application field too long (max 255 characters)']);
+                        exit;
+                    }
+                }
+                if (isset($input['trigramme']) && $input['trigramme'] !== null && $input['trigramme'] !== '') {
+                    $trigramme = trim($input['trigramme']);
+                    if (strlen($trigramme) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Trigramme field too long (max 255 characters)']);
+                        exit;
+                    }
+                }
+            }
+
             $user = $auth->getCurrentUser();
             
             try {
@@ -638,6 +658,26 @@ try {
                 }
                 if (isset($input['dnssec_include_zsk']) && $input['dnssec_include_zsk'] !== null && $input['dnssec_include_zsk'] !== '') {
                     validateDnssecIncludePath(trim($input['dnssec_include_zsk']), 'ZSK');
+                }
+            }
+
+            // Validate application and trigramme fields (only for include zones)
+            if ($fileType === 'include') {
+                if (isset($input['application']) && $input['application'] !== null && $input['application'] !== '') {
+                    $application = trim($input['application']);
+                    if (strlen($application) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Application field too long (max 255 characters)']);
+                        exit;
+                    }
+                }
+                if (isset($input['trigramme']) && $input['trigramme'] !== null && $input['trigramme'] !== '') {
+                    $trigramme = trim($input['trigramme']);
+                    if (strlen($trigramme) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Trigramme field too long (max 255 characters)']);
+                        exit;
+                    }
                 }
             }
 
