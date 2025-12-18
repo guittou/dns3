@@ -64,6 +64,7 @@ L'importeur Python (`scripts/import_bind_zones.py`) est l'outil recommandé pour
 - **Support de $ORIGIN** : Gère correctement les directives $ORIGIN
 - **Extraction SOA** : Extrait les champs d'enregistrement SOA (MNAME, RNAME, timers) et les stocke dans les métadonnées de zone
 - **Traitement de $INCLUDE** : Détecte les directives $INCLUDE (nécessite le flag `--create-includes`)
+- **Gestion des clés DNSSEC** : Détecte automatiquement les includes de clés DNSSEC (`*.ksk.key`, `*.zsk.key`) et les mappe sur les champs de la zone maître au lieu de créer des zone_files séparées
 - **Deux modes de fonctionnement** :
   - **Mode API** (par défaut) : Utilise les endpoints HTTP (zone_api.php, dns_api.php) - méthode préférée
   - **Mode DB** : Insertion MySQL directe avec introspection du schéma
@@ -195,6 +196,47 @@ python3 scripts/import_bind_zones.py \
 | **Autre** | | |
 | `--user-id ID` | ID utilisateur pour le champ created_by | 1 |
 | `--create-includes` | Créer des entrées pour les directives $INCLUDE | Désactivé |
+| `--allow-abs-include` | Autoriser les chemins absolus dans les directives $INCLUDE | Désactivé |
+| `--include-search-paths` | Chemins de recherche supplémentaires pour les fichiers $INCLUDE (séparés par : ou ,) | Aucun |
+
+### Gestion des clés DNSSEC
+
+Les importeurs détectent automatiquement les directives `$INCLUDE` pointant vers des fichiers de clés DNSSEC (fichiers se terminant par `.ksk.key` ou `.zsk.key`, insensible à la casse) et les traitent différemment des includes normaux :
+
+**Comportement spécial pour les clés DNSSEC :**
+- Les fichiers `*.ksk.key` et `*.zsk.key` ne créent **PAS** d'entrées zone_file séparées
+- Au lieu de cela, leurs chemins sont stockés dans les champs `dnssec_include_ksk` et `dnssec_include_zsk` de la zone maître
+- Aucune relation zone_file_includes n'est créée pour ces fichiers
+- Les chemins relatifs sont résolus en chemins absolus lorsque cela est possible
+
+**Recommandations :**
+- **Utilisez des chemins absolus** pour les clés DNSSEC (par exemple, `/etc/bind/keys/domain.ksk.key`)
+- Les chemins relatifs sont supportés mais peuvent nécessiter des options de résolution (`--include-search-paths`)
+- Les chemins absolus ne nécessitent pas le flag `--allow-abs-include` pour les clés DNSSEC (mais un avertissement est affiché)
+
+**Exemple de zone avec clés DNSSEC :**
+
+```bind
+$TTL 3600
+$ORIGIN example.com.
+
+@ IN SOA ns1.example.com. admin.example.com. (...)
+
+; Clés DNSSEC - mappées sur les champs de la zone maître
+$INCLUDE "/etc/bind/keys/example.com.ksk.key"
+$INCLUDE "/etc/bind/keys/example.com.zsk.key"
+
+; Includes normaux - créent des entrées zone_file séparées
+$INCLUDE "includes/hosts.include"
+
+; Records...
+```
+
+**Résultat de l'importation :**
+- La zone maître aura `dnssec_include_ksk = "/etc/bind/keys/example.com.ksk.key"`
+- La zone maître aura `dnssec_include_zsk = "/etc/bind/keys/example.com.zsk.key"`
+- Une zone_file de type "include" sera créée pour `includes/hosts.include`
+- Une relation zone_file_includes sera créée entre la zone maître et l'include hosts
 
 ---
 
@@ -209,6 +251,8 @@ L'importeur Bash (`scripts/import_bind_zones.sh`) est une alternative légère p
 - **Détection du schéma** : Introspection du schéma de base de données via information_schema
 - **Support dry-run** : Mode prévisualisation pour les tests
 - **Protection contre l'injection SQL** : Valide les identifiants et échappe les valeurs
+- **Support des directives $INCLUDE** : Avec le flag `--create-includes`, traite les directives $INCLUDE (crée des zone_files séparées)
+- **Gestion des clés DNSSEC** : Détecte automatiquement les includes de clés DNSSEC (`*.ksk.key`, `*.zsk.key`) et les mappe sur les champs de la zone maître
 
 ### Limitations
 
@@ -216,8 +260,8 @@ L'importeur Bash (`scripts/import_bind_zones.sh`) est une alternative légère p
 
 - **Analyseur heuristique** : Peut ne pas gérer correctement les enregistrements complexes ou multi-lignes
 - **Types d'enregistrement limités** : Prend en charge uniquement A, AAAA, CNAME, MX, NS, PTR, TXT, SRV, CAA
-- **Pas de support $INCLUDE** : Ne peut pas traiter les directives $INCLUDE
-- **Pas de DNSSEC** : Ne prend pas en charge les enregistrements DNSSEC (DNSKEY, RRSIG, etc.)
+- **Support $INCLUDE limité** : Nécessite le flag `--create-includes` et peut ne pas gérer les includes complexes ou imbriqués
+- **Pas d'analyse DNSSEC** : Ne parse pas les enregistrements DNSSEC (DNSKEY, RRSIG, etc.) mais détecte et mappe les fichiers de clés DNSSEC
 - **SOA simple** : L'analyse SOA de base peut échouer avec un formatage non standard
 - **Pas de validation** : Ne valide pas la syntaxe de zone avant l'importation
 
@@ -278,10 +322,11 @@ Utilisez l'importeur Bash uniquement pour :
 | **Mode API** | ✅ Oui | ❌ Non |
 | **Mode DB** | ✅ Oui | ✅ Oui |
 | **Support $ORIGIN** | ✅ Oui | ⚠️ Basique |
-| **Support $INCLUDE** | ✅ Oui (avec flag) | ❌ Non |
+| **Support $INCLUDE** | ✅ Oui (avec flag) | ✅ Oui (avec flag) |
+| **Gestion clés DNSSEC** | ✅ Oui (mapping auto) | ✅ Oui (mapping auto) |
 | **Analyse SOA** | ✅ Complète | ⚠️ Basique |
 | **Types d'enregistrement** | ✅ Tous types | ⚠️ Types courants uniquement |
-| **Support DNSSEC** | ✅ Oui | ❌ Non |
+| **Analyse DNSSEC records** | ✅ Oui (DNSKEY, RRSIG, etc.) | ❌ Non |
 | **Enregistrements multi-lignes** | ✅ Oui | ❌ Non |
 | **Gestion des erreurs** | ✅ Complète | ⚠️ Basique |
 | **Performance** | Moyenne | Rapide |
