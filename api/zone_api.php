@@ -898,7 +898,7 @@ try {
             if ($trigger && $auth->isAdmin()) {
                 // Only admins can trigger validation
                 $user = $auth->getCurrentUser();
-                $sync = isset($_GET['sync']) && $_GET['sync'] === 'true';
+                $sync = isset($_GET['sync']) ? ($_GET['sync'] === 'true') : null; // null => laisse validateZoneFile utiliser ZONE_VALIDATE_SYNC
                 
                 $result = $zoneFile->validateZoneFile($id, $user['id'], $sync);
                 
