@@ -422,8 +422,8 @@ class ZoneFile {
         try {
             $this->db->beginTransaction();
             
-            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, default_ttl, soa_refresh, soa_retry, soa_expire, soa_minimum, soa_rname, mname, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, default_ttl, soa_refresh, soa_retry, soa_expire, soa_minimum, soa_rname, mname, dnssec_include_ksk, dnssec_include_zsk, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
             
             // Only set domain and SOA fields if file_type is 'master'
             $domain = null;
@@ -434,6 +434,8 @@ class ZoneFile {
             $soaMinimum = null;
             $soaRname = null;
             $mname = null;
+            $dnssecKsk = null;
+            $dnssecZsk = null;
             
             if (($data['file_type'] ?? 'master') === 'master') {
                 if (isset($data['domain'])) {
@@ -453,6 +455,13 @@ class ZoneFile {
                 if (isset($data['mname']) && trim($data['mname']) !== '') {
                     $mname = $this->normalizeFqdn(trim($data['mname']));
                 }
+                // DNSSEC include paths (only for master zones)
+                if (isset($data['dnssec_include_ksk']) && trim($data['dnssec_include_ksk']) !== '') {
+                    $dnssecKsk = trim($data['dnssec_include_ksk']);
+                }
+                if (isset($data['dnssec_include_zsk']) && trim($data['dnssec_include_zsk']) !== '') {
+                    $dnssecZsk = trim($data['dnssec_include_zsk']);
+                }
             }
             
             $stmt = $this->db->prepare($sql);
@@ -470,6 +479,8 @@ class ZoneFile {
                 $soaMinimum,
                 $soaRname,
                 $mname,
+                $dnssecKsk,
+                $dnssecZsk,
                 $user_id
             ]);
             
@@ -517,6 +528,7 @@ class ZoneFile {
             $sql = "UPDATE zone_files 
                     SET name = ?, filename = ?, directory = ?, content = ?, file_type = ?, domain = ?,
                         default_ttl = ?, soa_refresh = ?, soa_retry = ?, soa_expire = ?, soa_minimum = ?, soa_rname = ?, mname = ?,
+                        dnssec_include_ksk = ?, dnssec_include_zsk = ?,
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
             
@@ -531,6 +543,8 @@ class ZoneFile {
             $soaMinimum = $current['soa_minimum'] ?? null;
             $soaRname = $current['soa_rname'] ?? null;
             $mname = $current['mname'] ?? null;
+            $dnssecKsk = $current['dnssec_include_ksk'] ?? null;
+            $dnssecZsk = $current['dnssec_include_zsk'] ?? null;
             
             if ($fileType === 'master') {
                 if (isset($data['domain'])) {
@@ -562,6 +576,13 @@ class ZoneFile {
                 if (array_key_exists('mname', $data)) {
                     $mname = trim($data['mname']) !== '' ? $this->normalizeFqdn(trim($data['mname'])) : null;
                 }
+                // DNSSEC include paths (only for master zones)
+                if (array_key_exists('dnssec_include_ksk', $data)) {
+                    $dnssecKsk = trim($data['dnssec_include_ksk']) !== '' ? trim($data['dnssec_include_ksk']) : null;
+                }
+                if (array_key_exists('dnssec_include_zsk', $data)) {
+                    $dnssecZsk = trim($data['dnssec_include_zsk']) !== '' ? trim($data['dnssec_include_zsk']) : null;
+                }
             }
             
             $stmt = $this->db->prepare($sql);
@@ -579,6 +600,8 @@ class ZoneFile {
                 $soaMinimum,
                 $soaRname,
                 $mname,
+                $dnssecKsk,
+                $dnssecZsk,
                 $user_id,
                 $id
             ]);
@@ -992,6 +1015,10 @@ class ZoneFile {
                 $soaRecord = $this->generateSoaRecord($zone, $mname);
                 $content .= $soaRecord . "\n\n";
                 
+                // Add DNSSEC include references (not inlined - kept as $INCLUDE directives)
+                // These will be handled specially during validation to support absolute/relative paths
+                $content = $this->addDnssecIncludes($content, $zone, true);
+                
                 $this->logValidation("Added zone header ($TTL, $ORIGIN, SOA) for master zone ID $masterId");
             }
             
@@ -1302,6 +1329,10 @@ class ZoneFile {
                 $mname = !empty($zone['mname']) ? $zone['mname'] : null;
                 $soaRecord = $this->generateSoaRecord($zone, $mname);
                 $content .= $soaRecord . "\n\n";
+                
+                // Add DNSSEC include directives (KSK first, then ZSK)
+                // These are injected after SOA but before zone content and other includes
+                $content = $this->addDnssecIncludes($content, $zone, false);
             }
             
             // Add zone's own content
@@ -1347,6 +1378,36 @@ class ZoneFile {
             error_log("ZoneFile generateZoneFile error: " . $e->getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Add DNSSEC include directives to zone content
+     * 
+     * @param string $content Current zone content
+     * @param array $zone Zone data containing dnssec_include_ksk and dnssec_include_zsk
+     * @param bool $forValidation If true, logs validation messages
+     * @return string Content with DNSSEC includes added
+     */
+    private function addDnssecIncludes($content, $zone, $forValidation = false) {
+        // Add DNSSEC KSK include if specified
+        if (!empty($zone['dnssec_include_ksk'])) {
+            $content .= '; DNSSEC KSK Include' . "\n";
+            $content .= '$INCLUDE "' . $zone['dnssec_include_ksk'] . '"' . "\n\n";
+            if ($forValidation) {
+                $this->logValidation("Added DNSSEC KSK include reference: " . $zone['dnssec_include_ksk']);
+            }
+        }
+        
+        // Add DNSSEC ZSK include if specified
+        if (!empty($zone['dnssec_include_zsk'])) {
+            $content .= '; DNSSEC ZSK Include' . "\n";
+            $content .= '$INCLUDE "' . $zone['dnssec_include_zsk'] . '"' . "\n\n";
+            if ($forValidation) {
+                $this->logValidation("Added DNSSEC ZSK include reference: " . $zone['dnssec_include_zsk']);
+            }
+        }
+        
+        return $content;
     }
     
     /**
@@ -1796,6 +1857,62 @@ class ZoneFile {
     }
 
     /**
+     * Resolve DNSSEC include paths in zone content for validation
+     * - Absolute paths: left as-is (named-checkzone will read the actual files)
+     * - Relative paths: resolved using BIND_BASEDIR if configured, otherwise left as-is with warning
+     * 
+     * @param string $content Zone file content with $INCLUDE directives
+     * @param string $tmpDir Temporary directory path (used for logging context)
+     * @return string Content with resolved include paths
+     */
+    private function resolveDnssecIncludes($content, $tmpDir) {
+        // Pattern to match $INCLUDE directives with DNSSEC comments
+        // Matches: ; DNSSEC KSK Include\n$INCLUDE "path" or ; DNSSEC ZSK Include\n$INCLUDE "path"
+        $pattern = '/; DNSSEC (KSK|ZSK) Include\s*\n\$INCLUDE\s+"([^"]+)"/';
+        
+        $content = preg_replace_callback($pattern, function($matches) use ($tmpDir) {
+            $keyType = $matches[1]; // KSK or ZSK
+            $includePath = $matches[2];
+            
+            // Check if path is absolute (starts with /)
+            if (substr($includePath, 0, 1) === '/') {
+                // Absolute path - leave as-is, named-checkzone will read the actual file
+                $this->logValidation("DNSSEC $keyType include uses absolute path: $includePath (will be used as-is)");
+                
+                // Verify file exists and log warning if not
+                if (!file_exists($includePath)) {
+                    $this->logValidation("WARNING: DNSSEC $keyType include file not found: $includePath (validation may fail)");
+                }
+                
+                return $matches[0]; // Return original unchanged
+            } else {
+                // Relative path - resolve using BIND_BASEDIR if configured
+                $bindBasedir = defined('BIND_BASEDIR') ? BIND_BASEDIR : null;
+                
+                if ($bindBasedir !== null && $bindBasedir !== '') {
+                    // Resolve relative path using BIND_BASEDIR
+                    $resolvedPath = rtrim($bindBasedir, '/') . '/' . $includePath;
+                    $this->logValidation("DNSSEC $keyType include resolved: $includePath -> $resolvedPath (using BIND_BASEDIR)");
+                    
+                    // Verify resolved file exists and log warning if not
+                    if (!file_exists($resolvedPath)) {
+                        $this->logValidation("WARNING: Resolved DNSSEC $keyType include file not found: $resolvedPath (validation may fail)");
+                    }
+                    
+                    // Return updated include directive with resolved path
+                    return "; DNSSEC $keyType Include\n\$INCLUDE \"$resolvedPath\"";
+                } else {
+                    // BIND_BASEDIR not configured - leave relative path as-is and warn
+                    $this->logValidation("WARNING: DNSSEC $keyType include uses relative path ($includePath) but BIND_BASEDIR is not configured. Validation may fail if file doesn't exist in working directory.");
+                    return $matches[0]; // Return original unchanged
+                }
+            }
+        }, $content);
+        
+        return $content;
+    }
+
+    /**
      * Run named-checkzone command synchronously with flattened zone content
      * 
      * @param int $zoneId Zone file ID
@@ -1869,6 +1986,9 @@ class ZoneFile {
             }
             
             $this->logValidation("Content cleaned and ready to write for zone ID $zoneId (final size: " . strlen($flatContent) . " bytes)");
+            
+            // Process DNSSEC includes: resolve relative paths using BIND_BASEDIR if configured
+            $flatContent = $this->resolveDnssecIncludes($flatContent, $tmpDir);
             
             // Write flattened zone file to disk
             $tempFileName = 'zone_' . $zoneId . '_flat.db';

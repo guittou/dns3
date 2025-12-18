@@ -33,6 +33,14 @@ if (!defined('CONTACT_EMAIL')) define('CONTACT_EMAIL', 'moi@mondomaine.fr');
 define('ZONE_VALIDATE_SYNC', false); // Set to true to run named-checkzone synchronously
 define('NAMED_CHECKZONE_PATH', 'named-checkzone'); // Path to named-checkzone binary
 
+// BIND configuration
+// BIND_BASEDIR: Base directory for resolving relative include paths during validation
+// - If set, relative include paths will be resolved as BIND_BASEDIR/<path>
+// - If not set (null), relative includes will be left as-is (validation may fail if file doesn't exist)
+// - Absolute include paths are always used as-is, regardless of this setting
+// Example: define('BIND_BASEDIR', '/etc/bind');
+if (!defined('BIND_BASEDIR')) define('BIND_BASEDIR', null);
+
 // Session configuration
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_strict_mode', 1);

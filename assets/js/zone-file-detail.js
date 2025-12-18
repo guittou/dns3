@@ -122,10 +122,35 @@ function displayZoneDetails(zone) {
     document.getElementById('detailStatus').value = zone.status;
     document.getElementById('contentEditor').value = zone.content || '';
 
+    // Show/hide DNSSEC fields based on file_type
+    const dnssecKskGroup = document.getElementById('dnssecKskGroup');
+    const dnssecZskGroup = document.getElementById('dnssecZskGroup');
+    if (zone.file_type === 'master') {
+        dnssecKskGroup.style.display = 'block';
+        dnssecZskGroup.style.display = 'block';
+        document.getElementById('detailDnssecKsk').value = zone.dnssec_include_ksk || '';
+        document.getElementById('detailDnssecZsk').value = zone.dnssec_include_zsk || '';
+    } else {
+        dnssecKskGroup.style.display = 'none';
+        dnssecZskGroup.style.display = 'none';
+    }
+
     document.getElementById('detailCreatedBy').textContent = zone.created_by_username || 'N/A';
     document.getElementById('detailCreatedAt').textContent = formatDate(zone.created_at);
     document.getElementById('detailUpdatedBy').textContent = zone.updated_by_username || 'N/A';
     document.getElementById('detailUpdatedAt').textContent = formatDate(zone.updated_at);
+    
+    // Add event listener to file_type select to show/hide DNSSEC fields
+    const fileTypeSelect = document.getElementById('detailFileType');
+    fileTypeSelect.addEventListener('change', function() {
+        if (this.value === 'master') {
+            dnssecKskGroup.style.display = 'block';
+            dnssecZskGroup.style.display = 'block';
+        } else {
+            dnssecKskGroup.style.display = 'none';
+            dnssecZskGroup.style.display = 'none';
+        }
+    });
 }
 
 /**
@@ -138,6 +163,14 @@ async function saveZoneDetails() {
             filename: document.getElementById('detailFilename').value,
             file_type: document.getElementById('detailFileType').value
         };
+
+        // Include DNSSEC fields if this is a master zone
+        if (data.file_type === 'master') {
+            const kskValue = document.getElementById('detailDnssecKsk').value.trim();
+            const zskValue = document.getElementById('detailDnssecZsk').value.trim();
+            data.dnssec_include_ksk = kskValue !== '' ? kskValue : null;
+            data.dnssec_include_zsk = zskValue !== '' ? zskValue : null;
+        }
 
         // Check if status changed
         const newStatus = document.getElementById('detailStatus').value;

@@ -57,6 +57,27 @@ function requireAdmin() {
     }
 }
 
+/**
+ * Validate DNSSEC include path
+ * 
+ * @param string $path Path to validate
+ * @param string $type Type of key (KSK or ZSK) for error messages
+ * @return void Exits with error response if validation fails
+ */
+function validateDnssecIncludePath($path, $type) {
+    if (strlen($path) > 255) {
+        http_response_code(400);
+        echo json_encode(['error' => "DNSSEC $type include path too long (max 255 characters)"]);
+        exit;
+    }
+    // Basic path validation - no validation of existence since files may be on remote system
+    if (strpos($path, '..') !== false) {
+        http_response_code(400);
+        echo json_encode(['error' => "DNSSEC $type include path cannot contain \"..\""]);
+        exit;
+    }
+}
+
 // Get action from request
 $action = $_GET['action'] ?? '';
 
@@ -446,6 +467,17 @@ try {
                 }
             }
 
+            // Validate DNSSEC include fields (only for master zones)
+            $fileType = $input['file_type'] ?? 'master';
+            if ($fileType === 'master') {
+                if (isset($input['dnssec_include_ksk']) && $input['dnssec_include_ksk'] !== null && $input['dnssec_include_ksk'] !== '') {
+                    validateDnssecIncludePath(trim($input['dnssec_include_ksk']), 'KSK');
+                }
+                if (isset($input['dnssec_include_zsk']) && $input['dnssec_include_zsk'] !== null && $input['dnssec_include_zsk'] !== '') {
+                    validateDnssecIncludePath(trim($input['dnssec_include_zsk']), 'ZSK');
+                }
+            }
+
             $user = $auth->getCurrentUser();
             
             try {
@@ -585,6 +617,27 @@ try {
                 } else {
                     // Log warning if domain provided for non-master zone (but don't fail)
                     error_log("Warning: domain parameter ignored for non-master zone (file_type: {$fileType})");
+                }
+            }
+
+            // Validate DNSSEC include fields (only for master zones)
+            // Get current zone if we haven't already (for validation)
+            if (!isset($currentZone)) {
+                $currentZone = $zoneFile->getById($id);
+                if (!$currentZone) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'Zone file not found']);
+                    exit;
+                }
+            }
+            
+            $fileType = $input['file_type'] ?? $currentZone['file_type'];
+            if ($fileType === 'master') {
+                if (isset($input['dnssec_include_ksk']) && $input['dnssec_include_ksk'] !== null && $input['dnssec_include_ksk'] !== '') {
+                    validateDnssecIncludePath(trim($input['dnssec_include_ksk']), 'KSK');
+                }
+                if (isset($input['dnssec_include_zsk']) && $input['dnssec_include_zsk'] !== null && $input['dnssec_include_zsk'] !== '') {
+                    validateDnssecIncludePath(trim($input['dnssec_include_zsk']), 'ZSK');
                 }
             }
 
