@@ -30,7 +30,7 @@ if (!defined('CONTACT_LABEL')) define('CONTACT_LABEL', 'Mon/Organisme/a/moi');
 if (!defined('CONTACT_EMAIL')) define('CONTACT_EMAIL', 'moi@mondomaine.fr');
 
 // Zone validation configuration
-define('ZONE_VALIDATE_SYNC', false); // Set to true to run named-checkzone synchronously
+define('ZONE_VALIDATE_SYNC', true); // Set to true to run named-checkzone synchronously
 define('NAMED_CHECKZONE_PATH', 'named-checkzone'); // Path to named-checkzone binary
 
 // BIND configuration
