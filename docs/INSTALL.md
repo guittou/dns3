@@ -25,6 +25,39 @@ sudo a2enmod rewrite
 sudo systemctl restart apache2
 ```
 
+#### Validation de zones DNS (named-checkzone)
+
+DNS3 utilise l'outil `named-checkzone` (fourni par BIND) pour valider la syntaxe des fichiers de zone DNS. Cet outil est **obligatoire** pour la fonctionnalité de validation de zones.
+
+**Installation selon la distribution :**
+
+- **Debian/Ubuntu :**
+  ```bash
+  sudo apt-get install bind9-utils
+  ```
+
+- **RHEL/CentOS/AlmaLinux/Rocky Linux :**
+  ```bash
+  # Pour les versions plus anciennes avec yum
+  sudo yum install bind-utils
+  
+  # Pour les versions récentes avec dnf
+  sudo dnf install bind-utils
+  ```
+
+**Vérification de l'installation :**
+```bash
+which named-checkzone
+```
+
+Si la commande retourne un chemin (ex: `/usr/bin/named-checkzone`), l'outil est correctement installé.
+
+**Note importante :** Si vous activez le worker de validation en tâche CRON (voir `jobs/README.md`), assurez-vous que `named-checkzone` est présent dans le PATH du job CRON. Si nécessaire, vous pouvez spécifier le chemin complet dans `config.php` :
+
+```php
+define('NAMED_CHECKZONE_PATH', '/usr/bin/named-checkzone');
+```
+
 ### 2. Configuration de la base de données
 
 ```bash
