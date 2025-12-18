@@ -908,16 +908,19 @@ parse_zone_file() {
                             echo "  ⚠ Warning: Could not resolve DNSSEC key include '$include_file' (keeping original path)" >&2
                             resolved_path="$include_file"
                         fi
-                    elif [[ $ALLOW_ABS_INCLUDE -eq 0 ]]; then
-                        # Absolute path without --allow-abs-include - log but don't block
-                        echo "  ℹ Note: Absolute DNSSEC key include path '$include_file' (consider using --allow-abs-include)"
                     fi
                     
                     # Store the path based on key type
                     if [[ "$basename_lower" =~ \.ksk\.key$ ]]; then
+                        if [[ -n "$dnssec_ksk_path" ]]; then
+                            echo "  ⚠ Warning: Multiple KSK includes detected. Using last one: $resolved_path (previous: $dnssec_ksk_path)" >&2
+                        fi
                         dnssec_ksk_path="$resolved_path"
                         echo "  ✓ Detected DNSSEC KSK include at line $scan_line_num: $resolved_path"
                     elif [[ "$basename_lower" =~ \.zsk\.key$ ]]; then
+                        if [[ -n "$dnssec_zsk_path" ]]; then
+                            echo "  ⚠ Warning: Multiple ZSK includes detected. Using last one: $resolved_path (previous: $dnssec_zsk_path)" >&2
+                        fi
                         dnssec_zsk_path="$resolved_path"
                         echo "  ✓ Detected DNSSEC ZSK include at line $scan_line_num: $resolved_path"
                     fi

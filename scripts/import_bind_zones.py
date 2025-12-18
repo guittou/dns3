@@ -241,9 +241,11 @@ class ZoneImporter:
     def _create_zone_db(self, zone_data: Dict) -> Optional[int]:
         """Create zone via direct DB insertion"""
         columns = ['name', 'filename', 'file_type', 'status', 'created_by', 'domain']
-        optional_columns = ['directory', 'default_ttl', 'soa_refresh', 'soa_retry', 
-                          'soa_expire', 'soa_minimum', 'soa_rname', 'soa_serial', 'mname',
-                          'dnssec_include_ksk', 'dnssec_include_zsk']
+        optional_columns = [
+            'directory', 'default_ttl', 'soa_refresh', 'soa_retry', 
+            'soa_expire', 'soa_minimum', 'soa_rname', 'soa_serial', 'mname',
+            'dnssec_include_ksk', 'dnssec_include_zsk'
+        ]
         
         # Build column list based on what's available in schema
         available_columns = []
@@ -442,6 +444,9 @@ class ZoneImporter:
                     self.logger.warning(f"Could not resolve DNSSEC {key_type.upper()} include '{include_path}': {e} (keeping original path)")
                 
                 # Store the resolved (or original) path
+                # Warn if multiple keys of the same type
+                if dnssec_includes[key_type]:
+                    self.logger.warning(f"Multiple {key_type.upper()} includes detected. Using last one: {resolved_path} (previous: {dnssec_includes[key_type]})")
                 dnssec_includes[key_type] = resolved_path
         
         return dnssec_includes
