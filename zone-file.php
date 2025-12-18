@@ -117,6 +117,17 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
                             <option value="deleted">Supprimé</option>
                         </select>
                     </div>
+                    <!-- DNSSEC Include fields - only visible for master zones -->
+                    <div class="form-group full-width dnssec-field" id="dnssecKskGroup" style="display: none;">
+                        <label for="detailDnssecKsk">DNSSEC KSK Include:</label>
+                        <input type="text" id="detailDnssecKsk" class="form-control" placeholder="/etc/bind/keys/domain.ksk.key">
+                        <small class="form-text text-muted">Chemin vers le fichier de clé KSK DNSSEC (absolu ou relatif)</small>
+                    </div>
+                    <div class="form-group full-width dnssec-field" id="dnssecZskGroup" style="display: none;">
+                        <label for="detailDnssecZsk">DNSSEC ZSK Include:</label>
+                        <input type="text" id="detailDnssecZsk" class="form-control" placeholder="/etc/bind/keys/domain.zsk.key">
+                        <small class="form-text text-muted">Chemin vers le fichier de clé ZSK DNSSEC (absolu ou relatif)</small>
+                    </div>
                     <div class="form-group full-width">
                         <label>Créé par:</label>
                         <span id="detailCreatedBy" class="detail-value"></span>
