@@ -446,6 +446,39 @@ try {
                 }
             }
 
+            // Validate DNSSEC include fields (only for master zones)
+            $fileType = $input['file_type'] ?? 'master';
+            if ($fileType === 'master') {
+                if (isset($input['dnssec_include_ksk']) && $input['dnssec_include_ksk'] !== null && $input['dnssec_include_ksk'] !== '') {
+                    $kskPath = trim($input['dnssec_include_ksk']);
+                    if (strlen($kskPath) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC KSK include path too long (max 255 characters)']);
+                        exit;
+                    }
+                    // Basic path validation - no validation of existence since files may be on remote system
+                    if (strpos($kskPath, '..') !== false) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC KSK include path cannot contain ".."']);
+                        exit;
+                    }
+                }
+                if (isset($input['dnssec_include_zsk']) && $input['dnssec_include_zsk'] !== null && $input['dnssec_include_zsk'] !== '') {
+                    $zskPath = trim($input['dnssec_include_zsk']);
+                    if (strlen($zskPath) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC ZSK include path too long (max 255 characters)']);
+                        exit;
+                    }
+                    // Basic path validation - no validation of existence since files may be on remote system
+                    if (strpos($zskPath, '..') !== false) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC ZSK include path cannot contain ".."']);
+                        exit;
+                    }
+                }
+            }
+
             $user = $auth->getCurrentUser();
             
             try {
@@ -585,6 +618,49 @@ try {
                 } else {
                     // Log warning if domain provided for non-master zone (but don't fail)
                     error_log("Warning: domain parameter ignored for non-master zone (file_type: {$fileType})");
+                }
+            }
+
+            // Validate DNSSEC include fields (only for master zones)
+            // Get current zone if we haven't already (for validation)
+            if (!isset($currentZone)) {
+                $currentZone = $zoneFile->getById($id);
+                if (!$currentZone) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'Zone file not found']);
+                    exit;
+                }
+            }
+            
+            $fileType = $input['file_type'] ?? $currentZone['file_type'];
+            if ($fileType === 'master') {
+                if (isset($input['dnssec_include_ksk']) && $input['dnssec_include_ksk'] !== null && $input['dnssec_include_ksk'] !== '') {
+                    $kskPath = trim($input['dnssec_include_ksk']);
+                    if (strlen($kskPath) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC KSK include path too long (max 255 characters)']);
+                        exit;
+                    }
+                    // Basic path validation - no validation of existence since files may be on remote system
+                    if (strpos($kskPath, '..') !== false) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC KSK include path cannot contain ".."']);
+                        exit;
+                    }
+                }
+                if (isset($input['dnssec_include_zsk']) && $input['dnssec_include_zsk'] !== null && $input['dnssec_include_zsk'] !== '') {
+                    $zskPath = trim($input['dnssec_include_zsk']);
+                    if (strlen($zskPath) > 255) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC ZSK include path too long (max 255 characters)']);
+                        exit;
+                    }
+                    // Basic path validation - no validation of existence since files may be on remote system
+                    if (strpos($zskPath, '..') !== false) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'DNSSEC ZSK include path cannot contain ".."']);
+                        exit;
+                    }
                 }
             }
 
