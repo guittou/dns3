@@ -242,7 +242,8 @@ class ZoneImporter:
         """Create zone via direct DB insertion"""
         columns = ['name', 'filename', 'file_type', 'status', 'created_by', 'domain']
         optional_columns = ['directory', 'default_ttl', 'soa_refresh', 'soa_retry', 
-                          'soa_expire', 'soa_minimum', 'soa_rname', 'soa_serial', 'mname']
+                          'soa_expire', 'soa_minimum', 'soa_rname', 'soa_serial', 'mname',
+                          'dnssec_include_ksk', 'dnssec_include_zsk']
         
         # Build column list based on what's available in schema
         available_columns = []
@@ -365,6 +366,20 @@ class ZoneImporter:
             self.logger.warning(f"Failed to compute hash for {filepath}: {e}")
             return ""
     
+    def _is_dnssec_key_file(self, filepath: str) -> Optional[str]:
+        """
+        Check if a file is a DNSSEC key include (*.ksk.key or *.zsk.key)
+        Returns 'ksk' or 'zsk' if it matches, None otherwise
+        """
+        basename_lower = Path(filepath).name.lower()
+        
+        if basename_lower.endswith('.ksk.key'):
+            return 'ksk'
+        elif basename_lower.endswith('.zsk.key'):
+            return 'zsk'
+        else:
+            return None
+    
     def _find_include_directives(self, content: str, base_dir: Path) -> List[Tuple[str, str, int]]:
         """
         Find all $INCLUDE directives in zone file content
@@ -396,6 +411,40 @@ class ZoneImporter:
                 self.logger.debug(f"Found $INCLUDE directive at line {line_num}: {include_file} origin={include_origin}")
         
         return includes
+    
+    def _extract_dnssec_includes(self, include_directives: List[Tuple[str, str, int]], base_dir: Path) -> Dict[str, Optional[str]]:
+        """
+        Extract DNSSEC key includes from list of include directives.
+        Returns dict with 'ksk' and 'zsk' keys containing resolved paths or None.
+        """
+        dnssec_includes = {'ksk': None, 'zsk': None}
+        
+        for include_path, include_origin, line_num in include_directives:
+            key_type = self._is_dnssec_key_file(include_path)
+            
+            if key_type:
+                # This is a DNSSEC key file - try to resolve the path
+                resolved_path = None
+                
+                # Attempt resolution via existing path resolution logic
+                try:
+                    resolved = self._resolve_include_path(include_path, base_dir)
+                    if resolved:
+                        resolved_path = str(resolved)
+                        self.logger.info(f"Detected DNSSEC {key_type.upper()} include at line {line_num}: {resolved_path}")
+                    else:
+                        # Could not resolve - keep original path and warn
+                        resolved_path = include_path
+                        self.logger.warning(f"Could not resolve DNSSEC {key_type.upper()} include '{include_path}' (keeping original path)")
+                except Exception as e:
+                    # Resolution failed - keep original path and warn
+                    resolved_path = include_path
+                    self.logger.warning(f"Could not resolve DNSSEC {key_type.upper()} include '{include_path}': {e} (keeping original path)")
+                
+                # Store the resolved (or original) path
+                dnssec_includes[key_type] = resolved_path
+        
+        return dnssec_includes
     
     def _resolve_include_path(self, include_path: str, base_dir: Path) -> Optional[Path]:
         """
@@ -1791,6 +1840,11 @@ class ZoneImporter:
             # Extract SOA data
             soa_data = self._extract_soa_data(zone, origin)
             
+            # Extract DNSSEC key includes if --create-includes is enabled
+            dnssec_includes = {'ksk': None, 'zsk': None}
+            if self.args.create_includes and include_directives:
+                dnssec_includes = self._extract_dnssec_includes(include_directives, filepath.parent)
+            
             # Prepare zone data - content NOT stored, records will be in dns_records table
             zone_data = {
                 'name': zone_name,
@@ -1805,9 +1859,22 @@ class ZoneImporter:
                 **soa_data
             }
             
+            # Add DNSSEC include paths if present
+            if dnssec_includes['ksk']:
+                zone_data['dnssec_include_ksk'] = dnssec_includes['ksk']
+            if dnssec_includes['zsk']:
+                zone_data['dnssec_include_zsk'] = dnssec_includes['zsk']
+            
             # Dry-run mode
             if self.args.dry_run:
                 self.logger.info(f"[DRY-RUN] Would create master zone: {zone_name}")
+                
+                # Show DNSSEC includes if detected
+                if dnssec_includes['ksk']:
+                    self.logger.info(f"[DRY-RUN] Would set dnssec_include_ksk: {dnssec_includes['ksk']}")
+                if dnssec_includes['zsk']:
+                    self.logger.info(f"[DRY-RUN] Would set dnssec_include_zsk: {dnssec_includes['zsk']}")
+                
                 self.logger.debug(f"[DRY-RUN] Zone data: {zone_data}")
                 
                 # Extract and display records
@@ -1825,10 +1892,15 @@ class ZoneImporter:
                 for record in records[:5]:  # Show first 5
                     self.logger.debug(f"[DRY-RUN] Record: {record['name']} {record['record_type']} {record['value']}")
                 
-                # Process includes in dry-run
+                # Process includes in dry-run (skip DNSSEC key files)
                 include_count = 0
                 if self.args.create_includes and include_directives:
                     for include_path, include_origin, line_num in include_directives:
+                        # Skip DNSSEC key files - they're stored in master zone fields
+                        if self._is_dnssec_key_file(include_path):
+                            self.logger.debug(f"[DRY-RUN] Skipping DNSSEC key include (handled as master zone field): {include_path}")
+                            continue
+                        
                         resolved_path = self._resolve_include_path(include_path, filepath.parent)
                         if resolved_path:
                             include_id = self._process_include_file(
@@ -1863,10 +1935,15 @@ class ZoneImporter:
             self.stats['zones_created'] += 1
             self.logger.info(f"Master zone created (ID: {zone_id}), now processing includes...")
             
-            # Process $INCLUDE files after master zone is created
+            # Process $INCLUDE files after master zone is created (skip DNSSEC key files)
             include_zone_ids = []
             if self.args.create_includes and include_directives:
                 for include_path, include_origin, line_num in include_directives:
+                    # Skip DNSSEC key files - they're stored in master zone fields
+                    if self._is_dnssec_key_file(include_path):
+                        self.logger.info(f"Skipping DNSSEC key include (handled as master zone field): {include_path}")
+                        continue
+                    
                     resolved_path = self._resolve_include_path(include_path, filepath.parent)
                     if resolved_path:
                         include_id = self._process_include_file(
