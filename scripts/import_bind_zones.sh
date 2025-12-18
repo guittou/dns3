@@ -242,6 +242,18 @@ mysql_escape() {
 # Note: Requires Bash 4.0+ for associative arrays
 declare -A PROCESSED_INCLUDES
 
+# Check if a file is a DNSSEC key include (*.ksk.key or *.zsk.key)
+is_dnssec_key_file() {
+    local filename="$1"
+    local basename_lower=$(basename "$filename" | tr '[:upper:]' '[:lower:]')
+    
+    if [[ "$basename_lower" =~ \.ksk\.key$ ]] || [[ "$basename_lower" =~ \.zsk\.key$ ]]; then
+        return 0  # True - is DNSSEC key file
+    else
+        return 1  # False - not DNSSEC key file
+    fi
+}
+
 # Compute SHA256 hash of file
 compute_file_hash() {
     local file="$1"
@@ -861,6 +873,62 @@ parse_zone_file() {
         fi
     fi
     
+    # Scan for DNSSEC key includes before building the INSERT
+    local dnssec_ksk_path=""
+    local dnssec_zsk_path=""
+    
+    if [[ $CREATE_INCLUDES -eq 1 ]]; then
+        local scan_line_num=0
+        while IFS= read -r line; do
+            ((scan_line_num++))
+            
+            # Find $INCLUDE directives
+            if [[ "$line" =~ ^\$INCLUDE[[:space:]]+([^[:space:]]+) ]]; then
+                local include_file="${BASH_REMATCH[1]}"
+                
+                # Remove quotes
+                include_file="${include_file//\"/}"
+                include_file="${include_file//\'/}"
+                
+                # Check if this is a DNSSEC key file
+                if is_dnssec_key_file "$include_file"; then
+                    local basename_lower=$(basename "$include_file" | tr '[:upper:]' '[:lower:]')
+                    
+                    # Attempt resolution if relative path, otherwise keep as-is
+                    local resolved_path="$include_file"
+                    if [[ "$include_file" != /* ]]; then
+                        # Relative path - try to resolve
+                        local resolve_exit_code=0
+                        local attempted_resolution=$(resolve_include_path "$include_file" "$(dirname "$file")") || resolve_exit_code=$?
+                        
+                        if [[ $resolve_exit_code -eq 0 ]] && [[ -n "$attempted_resolution" ]]; then
+                            resolved_path="$attempted_resolution"
+                        else
+                            # Could not resolve - keep original and warn
+                            echo "  ⚠ Warning: Could not resolve DNSSEC key include '$include_file' (keeping original path)" >&2
+                            resolved_path="$include_file"
+                        fi
+                    fi
+                    
+                    # Store the path based on key type
+                    if [[ "$basename_lower" =~ \.ksk\.key$ ]]; then
+                        if [[ -n "$dnssec_ksk_path" ]]; then
+                            echo "  ⚠ Warning: Multiple KSK includes detected. Using last one: $resolved_path (previous: $dnssec_ksk_path)" >&2
+                        fi
+                        dnssec_ksk_path="$resolved_path"
+                        echo "  ✓ Detected DNSSEC KSK include at line $scan_line_num: $resolved_path"
+                    elif [[ "$basename_lower" =~ \.zsk\.key$ ]]; then
+                        if [[ -n "$dnssec_zsk_path" ]]; then
+                            echo "  ⚠ Warning: Multiple ZSK includes detected. Using last one: $resolved_path (previous: $dnssec_zsk_path)" >&2
+                        fi
+                        dnssec_zsk_path="$resolved_path"
+                        echo "  ✓ Detected DNSSEC ZSK include at line $scan_line_num: $resolved_path"
+                    fi
+                fi
+            fi
+        done < "$file"
+    fi
+    
     # Build INSERT statement for zone
     local zone_insert="INSERT INTO zone_files (name, filename, file_type, status, created_by, domain"
     local zone_values="VALUES ('$(mysql_escape "$zone_name")', '$(mysql_escape "$filename")', 'master', 'active', $USER_ID, '$(mysql_escape "$zone_name")'"
@@ -906,6 +974,17 @@ parse_zone_file() {
         zone_values+=", $soa_minimum"
     fi
     
+    # Add DNSSEC include paths if available and columns exist
+    if has_column "zone_files" "dnssec_include_ksk" && [[ -n "$dnssec_ksk_path" ]]; then
+        zone_insert+=", dnssec_include_ksk"
+        zone_values+=", '$(mysql_escape "$dnssec_ksk_path")'"
+    fi
+    
+    if has_column "zone_files" "dnssec_include_zsk" && [[ -n "$dnssec_zsk_path" ]]; then
+        zone_insert+=", dnssec_include_zsk"
+        zone_values+=", '$(mysql_escape "$dnssec_zsk_path")'"
+    fi
+    
     # Content NOT stored - SOA/TTL in columns, records in dns_records table
     # if has_column "zone_files" "content"; then
     #     local file_content=$(cat "$file")
@@ -928,6 +1007,15 @@ parse_zone_file() {
     
     if [[ $DRY_RUN -eq 1 ]]; then
         echo "  [DRY-RUN] Would create master zone: $zone_name"
+        
+        # Show DNSSEC includes if detected
+        if [[ -n "$dnssec_ksk_path" ]]; then
+            echo "  [DRY-RUN] Would set dnssec_include_ksk: $dnssec_ksk_path"
+        fi
+        if [[ -n "$dnssec_zsk_path" ]]; then
+            echo "  [DRY-RUN] Would set dnssec_include_zsk: $dnssec_zsk_path"
+        fi
+        
         echo "  [DRY-RUN] SQL: $zone_insert"
         
         # Process $INCLUDE directives in dry-run
@@ -955,6 +1043,12 @@ parse_zone_file() {
                     # Remove quotes
                     include_file="${include_file//\"/}"
                     include_file="${include_file//\'/}"
+                    
+                    # Skip DNSSEC key files - they're stored in master zone fields
+                    if is_dnssec_key_file "$include_file"; then
+                        echo "    [DRY-RUN] Skipping DNSSEC key include (handled as master zone field): $include_file"
+                        continue
+                    fi
                     
                     echo "    [DRY-RUN] Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
                     
@@ -1023,6 +1117,12 @@ parse_zone_file() {
                     # Remove quotes
                     include_file="${include_file//\"/}"
                     include_file="${include_file//\'/}"
+                    
+                    # Skip DNSSEC key files - they're stored in master zone fields
+                    if is_dnssec_key_file "$include_file"; then
+                        echo "    ℹ Skipping DNSSEC key include (handled as master zone field): $include_file"
+                        continue
+                    fi
                     
                     echo "    Found \$INCLUDE at line $line_num: $include_file (origin: $include_origin)"
                     
