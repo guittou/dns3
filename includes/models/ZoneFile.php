@@ -422,8 +422,8 @@ class ZoneFile {
         try {
             $this->db->beginTransaction();
             
-            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, default_ttl, soa_refresh, soa_retry, soa_expire, soa_minimum, soa_rname, mname, dnssec_include_ksk, dnssec_include_zsk, status, created_by, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
+            $sql = "INSERT INTO zone_files (name, filename, directory, content, file_type, domain, default_ttl, soa_refresh, soa_retry, soa_expire, soa_minimum, soa_rname, mname, dnssec_include_ksk, dnssec_include_zsk, application, trigramme, status, created_by, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, NOW())";
             
             // Only set domain and SOA fields if file_type is 'master'
             $domain = null;
@@ -437,7 +437,13 @@ class ZoneFile {
             $dnssecKsk = null;
             $dnssecZsk = null;
             
-            if (($data['file_type'] ?? 'master') === 'master') {
+            // Only set application and trigramme if file_type is 'include'
+            $application = null;
+            $trigramme = null;
+            
+            $fileType = $data['file_type'] ?? 'master';
+            
+            if ($fileType === 'master') {
                 if (isset($data['domain'])) {
                     $domain = trim($data['domain']);
                     if ($domain === '') {
@@ -462,6 +468,20 @@ class ZoneFile {
                 if (isset($data['dnssec_include_zsk']) && trim($data['dnssec_include_zsk']) !== '') {
                     $dnssecZsk = trim($data['dnssec_include_zsk']);
                 }
+            } else {
+                // For include files, handle application and trigramme
+                if (isset($data['application'])) {
+                    $application = trim($data['application']);
+                    if ($application === '') {
+                        $application = null;
+                    }
+                }
+                if (isset($data['trigramme'])) {
+                    $trigramme = trim($data['trigramme']);
+                    if ($trigramme === '') {
+                        $trigramme = null;
+                    }
+                }
             }
             
             $stmt = $this->db->prepare($sql);
@@ -470,7 +490,7 @@ class ZoneFile {
                 $data['filename'],
                 $data['directory'] ?? null,
                 $data['content'] ?? null,
-                $data['file_type'] ?? 'master',
+                $fileType,
                 $domain,
                 $defaultTtl,
                 $soaRefresh,
@@ -481,6 +501,8 @@ class ZoneFile {
                 $mname,
                 $dnssecKsk,
                 $dnssecZsk,
+                $application,
+                $trigramme,
                 $user_id
             ]);
             
@@ -528,7 +550,7 @@ class ZoneFile {
             $sql = "UPDATE zone_files 
                     SET name = ?, filename = ?, directory = ?, content = ?, file_type = ?, domain = ?,
                         default_ttl = ?, soa_refresh = ?, soa_retry = ?, soa_expire = ?, soa_minimum = ?, soa_rname = ?, mname = ?,
-                        dnssec_include_ksk = ?, dnssec_include_zsk = ?,
+                        dnssec_include_ksk = ?, dnssec_include_zsk = ?, application = ?, trigramme = ?,
                         updated_by = ?, updated_at = NOW()
                     WHERE id = ? AND status != 'deleted'";
             
@@ -545,6 +567,10 @@ class ZoneFile {
             $mname = $current['mname'] ?? null;
             $dnssecKsk = $current['dnssec_include_ksk'] ?? null;
             $dnssecZsk = $current['dnssec_include_zsk'] ?? null;
+            
+            // Only allow application and trigramme for include zones
+            $application = $current['application'] ?? null;
+            $trigramme = $current['trigramme'] ?? null;
             
             if ($fileType === 'master') {
                 if (isset($data['domain'])) {
@@ -583,6 +609,20 @@ class ZoneFile {
                 if (array_key_exists('dnssec_include_zsk', $data)) {
                     $dnssecZsk = trim($data['dnssec_include_zsk']) !== '' ? trim($data['dnssec_include_zsk']) : null;
                 }
+            } else {
+                // For include files, handle application and trigramme
+                if (array_key_exists('application', $data)) {
+                    $application = trim($data['application']);
+                    if ($application === '') {
+                        $application = null;
+                    }
+                }
+                if (array_key_exists('trigramme', $data)) {
+                    $trigramme = trim($data['trigramme']);
+                    if ($trigramme === '') {
+                        $trigramme = null;
+                    }
+                }
             }
             
             $stmt = $this->db->prepare($sql);
@@ -602,6 +642,8 @@ class ZoneFile {
                 $mname,
                 $dnssecKsk,
                 $dnssecZsk,
+                $application,
+                $trigramme,
                 $user_id,
                 $id
             ]);

@@ -8,6 +8,7 @@ DNS3 est une application web PHP pour la gestion de fichiers de zone DNS et d'en
 - **Gestion des enregistrements DNS** : CRUD complet pour les enregistrements A, AAAA, CNAME, MX, TXT, NS, SOA, PTR et SRV
 - **Validation de zone** : Intégration avec `named-checkzone` pour la validation de syntaxe
 - **Support `$INCLUDE`** : Générer des fichiers de zone avec des inclusions imbriquées
+- **Métadonnées pour les fichiers d'inclusion** : Champs Application et Trigramme pour organiser et catégoriser les includes
 - **Historique des modifications** : Suivre toutes les modifications apportées aux zones et enregistrements
 - **Authentification multi-sources** : Support de la base de données, Active Directory et OpenLDAP
 - **Contrôle d'accès basé sur les rôles** : Permissions granulaires via des entrées ACL
@@ -111,6 +112,7 @@ Tous les paramètres sont dans `config.php` :
 ## Notes d'utilisation
 
 - **Comportement du TTL** : Si le TTL d'un enregistrement est NULL, le TTL par défaut de la zone est utilisé lors de la génération du fichier.
+- **Métadonnées des fichiers d'inclusion** : Les champs `application` et `trigramme` sont disponibles uniquement pour les fichiers de type `include`. Ils permettent d'ajouter des informations organisationnelles optionnelles. Ces champs ne sont pas utilisés pour les fichiers de zone maîtres. Pour ajouter ces champs à une installation existante, exécutez la migration : `mysql -u user -p dns3_db < docs/migrations/add_application_trigramme.sql`
 - **Sauvegardes** : Utilisez `mysqldump -u user -p dns3_db > backup.sql` avant les modifications importantes.
 - **Configuration de la base de données** : Pour les nouvelles installations, importez `database.sql` pour initialiser la base de données. Le schéma a été exporté pour la dernière fois le **2025-12-04** depuis `structure_ok_dns3_db.sql`. Pour une documentation détaillée du schéma, consultez [docs/DB_SCHEMA.md](docs/DB_SCHEMA.md).
 - **Validation de zone** : Exécute `named-checkzone` et stocke les résultats dans la table `zone_file_validation`.

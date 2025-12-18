@@ -490,6 +490,8 @@ CREATE TABLE `zone_files` (
   `mname` varchar(255) DEFAULT NULL COMMENT 'SOA MNAME - primary master nameserver for zone (e.g., ns1.example.com.)',
   `dnssec_include_ksk` varchar(255) DEFAULT NULL COMMENT 'Path to DNSSEC KSK include file (e.g., /etc/bind/keys/domain.ksk.key)',
   `dnssec_include_zsk` varchar(255) DEFAULT NULL COMMENT 'Path to DNSSEC ZSK include file (e.g., /etc/bind/keys/domain.zsk.key)',
+  `application` varchar(255) DEFAULT NULL COMMENT 'Application metadata for include files (optional)',
+  `trigramme` varchar(255) DEFAULT NULL COMMENT 'Trigramme metadata for include files (optional)',
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
   KEY `updated_by` (`updated_by`),
