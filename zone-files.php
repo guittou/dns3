@@ -405,7 +405,7 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                         
                         <!-- Metadata Section (Application / Trigramme - only for include zones) -->
                         <fieldset id="zoneMetadataFieldset" style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px; display: none;">
-                            <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Métadonnées</legend>
+                            <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Application</legend>
                             
                             <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                                 <div class="form-group">
@@ -594,7 +594,7 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                 
                 <!-- Metadata Section (Application / Trigramme) -->
                 <fieldset style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px;">
-                    <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Métadonnées</legend>
+                    <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Application</legend>
                     
                     <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                         <div class="form-group">
