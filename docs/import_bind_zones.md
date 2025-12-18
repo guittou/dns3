@@ -83,7 +83,7 @@ L'importeur Python nécessite :
 
 ### Installation
 
-**Option 1 : Installation avec les paquets système Debian 12 / Ubuntu (recommandée) :**
+**Option 1 : Installation avec les paquets système Debian / Ubuntu (recommandée) :**
 
 ```bash
 sudo apt install -y \

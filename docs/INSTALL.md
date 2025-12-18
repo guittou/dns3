@@ -62,7 +62,7 @@ define('NAMED_CHECKZONE_PATH', '/usr/bin/named-checkzone');
 
 Si vous prévoyez d'utiliser les scripts d'import de zones BIND (`scripts/import_bind_zones.py`), vous aurez besoin des dépendances Python suivantes.
 
-**Installation sur Debian 12 / Ubuntu (paquets système) :**
+**Installation sur Debian / Ubuntu (paquets système) :**
 
 ```bash
 sudo apt install -y \
