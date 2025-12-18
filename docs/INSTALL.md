@@ -58,6 +58,29 @@ Si la commande retourne un chemin (ex: `/usr/bin/named-checkzone`), l'outil est 
 define('NAMED_CHECKZONE_PATH', '/usr/bin/named-checkzone');
 ```
 
+#### Dépendances pour les scripts d'import (Python)
+
+Si vous prévoyez d'utiliser les scripts d'import de zones BIND (`scripts/import_bind_zones.py`), vous aurez besoin des dépendances Python suivantes.
+
+**Installation sur Debian 12 / Ubuntu (paquets système) :**
+
+```bash
+sudo apt install -y \
+  python3-dnspython \
+  python3-requests \
+  python3-pymysql
+```
+
+**Alternative avec pip (si les paquets système ne sont pas disponibles) :**
+
+```bash
+pip3 install dnspython requests pymysql
+```
+
+Ces dépendances permettent au script Python d'analyser correctement les fichiers de zone BIND (dnspython), de communiquer avec l'API REST (requests) et d'accéder directement à la base de données si nécessaire (pymysql).
+
+Pour plus de détails sur l'utilisation des scripts d'import, consultez `docs/import_bind_zones.md`.
+
 ### 2. Configuration de la base de données
 
 ```bash

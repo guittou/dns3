@@ -83,7 +83,16 @@ L'importeur Python nécessite :
 
 ### Installation
 
-Installez les paquets Python requis :
+**Option 1 : Installation avec les paquets système Debian 12 / Ubuntu (recommandée) :**
+
+```bash
+sudo apt install -y \
+  python3-dnspython \
+  python3-requests \
+  python3-pymysql
+```
+
+**Option 2 : Installation avec pip :**
 
 ```bash
 # Install all dependencies
