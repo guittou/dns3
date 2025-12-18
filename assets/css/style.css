@@ -1424,3 +1424,11 @@ body {
   box-sizing: border-box;
   margin-top: 4px;
 }
+
+/* ===== MODAL BORDER RADIUS FIX ===== */
+/* More specific rule to ensure rounded corners on all modals */
+/* This rule overrides any less specific rules that may apply 8px radius */
+.dns-modal .dns-modal-content {
+  border-radius: 12px;
+  overflow: hidden;
+}
