@@ -3142,6 +3142,18 @@ async function openZoneModal(zoneId) {
         if (zoneSoaExpireEl) zoneSoaExpireEl.value = zone.soa_expire || '';
         const zoneSoaMinimumEl = document.getElementById('zoneSoaMinimum');
         if (zoneSoaMinimumEl) zoneSoaMinimumEl.value = zone.soa_minimum || '';
+        
+        // Populate DNSSEC fields (only visible for master zones)
+        const zoneDnssecFieldset = document.getElementById('zoneDnssecFieldset');
+        if (zoneDnssecFieldset) {
+            zoneDnssecFieldset.style.display = ((zone.file_type || 'master') === 'master') ? 'block' : 'none';
+        }
+        
+        // Set DNSSEC field values
+        const zoneDnssecKskEl = document.getElementById('zoneDnssecKsk');
+        if (zoneDnssecKskEl) zoneDnssecKskEl.value = zone.dnssec_include_ksk || '';
+        const zoneDnssecZskEl = document.getElementById('zoneDnssecZsk');
+        if (zoneDnssecZskEl) zoneDnssecZskEl.value = zone.dnssec_include_zsk || '';
 
         if (typeof populateZoneIncludes === 'function') try { await populateZoneIncludes(zone.id); } catch (e) {}
         
@@ -3503,6 +3515,10 @@ async function saveZone() {
             const soaExpire = document.getElementById('zoneSoaExpire')?.value?.trim();
             const soaMinimum = document.getElementById('zoneSoaMinimum')?.value?.trim();
             
+            // Get DNSSEC fields
+            const dnssecKsk = document.getElementById('zoneDnssecKsk')?.value?.trim();
+            const dnssecZsk = document.getElementById('zoneDnssecZsk')?.value?.trim();
+            
             // Validate SOA/TTL numeric fields using helper function
             const soaFields = [
                 { value: defaultTtl, name: 'Le $TTL par défaut' },
@@ -3528,6 +3544,8 @@ async function saveZone() {
             data.soa_retry = soaRetry || null;
             data.soa_expire = soaExpire || null;
             data.soa_minimum = soaMinimum || null;
+            data.dnssec_include_ksk = dnssecKsk || null;
+            data.dnssec_include_zsk = dnssecZsk || null;
         }
         
         // Handle status change separately if needed
@@ -4254,6 +4272,10 @@ async function createZone() {
         const soaExpire = document.getElementById('master-soa-expire').value?.trim() || '';
         const soaMinimum = document.getElementById('master-soa-minimum').value?.trim() || '';
         
+        // Get DNSSEC fields
+        const dnssecKsk = document.getElementById('master-dnssec-ksk').value?.trim() || '';
+        const dnssecZsk = document.getElementById('master-dnssec-zsk').value?.trim() || '';
+        
         // Validate zone name as FQDN for master zones
         const nameValidation = validateMasterZoneName(name);
         if (!nameValidation.valid) {
@@ -4310,7 +4332,9 @@ async function createZone() {
             soa_refresh: soaRefresh || null,
             soa_retry: soaRetry || null,
             soa_expire: soaExpire || null,
-            soa_minimum: soaMinimum || null
+            soa_minimum: soaMinimum || null,
+            dnssec_include_ksk: dnssecKsk || null,
+            dnssec_include_zsk: dnssecZsk || null
         };
 
         const response = await zoneApiCall('create_zone', {

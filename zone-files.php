@@ -237,6 +237,24 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                     </div>
                 </fieldset>
                 
+                <!-- DNSSEC Configuration Section -->
+                <fieldset style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px;">
+                    <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Configuration DNSSEC</legend>
+                    
+                    <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                        <div class="form-group">
+                            <label for="master-dnssec-ksk">DNSSEC KSK Include</label>
+                            <input id="master-dnssec-ksk" class="form-control" type="text" placeholder="/etc/bind/keys/domain.ksk.key">
+                            <small class="form-text text-muted">Chemin vers le fichier de clé KSK (absolu ou relatif)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="master-dnssec-zsk">DNSSEC ZSK Include</label>
+                            <input id="master-dnssec-zsk" class="form-control" type="text" placeholder="/etc/bind/keys/domain.zsk.key">
+                            <small class="form-text text-muted">Chemin vers le fichier de clé ZSK (absolu ou relatif)</small>
+                        </div>
+                    </div>
+                </fieldset>
+                
                 <div class="dns-modal-footer">
                     <div class="modal-action-bar">
                         <button type="button" id="master-save-btn" class="btn-success modal-action-button" onclick="createZone()">Créer</button>
@@ -363,6 +381,24 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                                     <label for="zoneSoaMinimum">Minimum (secondes)</label>
                                     <input id="zoneSoaMinimum" class="form-control" type="number" min="1" placeholder="3600">
                                     <small class="form-text text-muted">Défaut: 3600 (1h)</small>
+                                </div>
+                            </div>
+                        </fieldset>
+                        
+                        <!-- DNSSEC Configuration (only for master zones) -->
+                        <fieldset id="zoneDnssecFieldset" style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px; display: none;">
+                            <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Configuration DNSSEC</legend>
+                            
+                            <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                                <div class="form-group">
+                                    <label for="zoneDnssecKsk">DNSSEC KSK Include</label>
+                                    <input id="zoneDnssecKsk" class="form-control" type="text" placeholder="/etc/bind/keys/domain.ksk.key">
+                                    <small class="form-text text-muted">Chemin vers le fichier de clé KSK (absolu ou relatif)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoneDnssecZsk">DNSSEC ZSK Include</label>
+                                    <input id="zoneDnssecZsk" class="form-control" type="text" placeholder="/etc/bind/keys/domain.zsk.key">
+                                    <small class="form-text text-muted">Chemin vers le fichier de clé ZSK (absolu ou relatif)</small>
                                 </div>
                             </div>
                         </fieldset>
