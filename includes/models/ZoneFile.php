@@ -1017,16 +1017,7 @@ class ZoneFile {
                 
                 // Add DNSSEC include references (not inlined - kept as $INCLUDE directives)
                 // These will be handled specially during validation to support absolute/relative paths
-                if (!empty($zone['dnssec_include_ksk'])) {
-                    $content .= '; DNSSEC KSK Include' . "\n";
-                    $content .= '$INCLUDE "' . $zone['dnssec_include_ksk'] . '"' . "\n\n";
-                    $this->logValidation("Added DNSSEC KSK include reference: " . $zone['dnssec_include_ksk']);
-                }
-                if (!empty($zone['dnssec_include_zsk'])) {
-                    $content .= '; DNSSEC ZSK Include' . "\n";
-                    $content .= '$INCLUDE "' . $zone['dnssec_include_zsk'] . '"' . "\n\n";
-                    $this->logValidation("Added DNSSEC ZSK include reference: " . $zone['dnssec_include_zsk']);
-                }
+                $content = $this->addDnssecIncludes($content, $zone, true);
                 
                 $this->logValidation("Added zone header ($TTL, $ORIGIN, SOA) for master zone ID $masterId");
             }
@@ -1341,14 +1332,7 @@ class ZoneFile {
                 
                 // Add DNSSEC include directives (KSK first, then ZSK)
                 // These are injected after SOA but before zone content and other includes
-                if (!empty($zone['dnssec_include_ksk'])) {
-                    $content .= '; DNSSEC KSK Include' . "\n";
-                    $content .= '$INCLUDE "' . $zone['dnssec_include_ksk'] . '"' . "\n\n";
-                }
-                if (!empty($zone['dnssec_include_zsk'])) {
-                    $content .= '; DNSSEC ZSK Include' . "\n";
-                    $content .= '$INCLUDE "' . $zone['dnssec_include_zsk'] . '"' . "\n\n";
-                }
+                $content = $this->addDnssecIncludes($content, $zone, false);
             }
             
             // Add zone's own content
@@ -1394,6 +1378,36 @@ class ZoneFile {
             error_log("ZoneFile generateZoneFile error: " . $e->getMessage());
             return null;
         }
+    }
+    
+    /**
+     * Add DNSSEC include directives to zone content
+     * 
+     * @param string $content Current zone content
+     * @param array $zone Zone data containing dnssec_include_ksk and dnssec_include_zsk
+     * @param bool $forValidation If true, logs validation messages
+     * @return string Content with DNSSEC includes added
+     */
+    private function addDnssecIncludes($content, $zone, $forValidation = false) {
+        // Add DNSSEC KSK include if specified
+        if (!empty($zone['dnssec_include_ksk'])) {
+            $content .= '; DNSSEC KSK Include' . "\n";
+            $content .= '$INCLUDE "' . $zone['dnssec_include_ksk'] . '"' . "\n\n";
+            if ($forValidation) {
+                $this->logValidation("Added DNSSEC KSK include reference: " . $zone['dnssec_include_ksk']);
+            }
+        }
+        
+        // Add DNSSEC ZSK include if specified
+        if (!empty($zone['dnssec_include_zsk'])) {
+            $content .= '; DNSSEC ZSK Include' . "\n";
+            $content .= '$INCLUDE "' . $zone['dnssec_include_zsk'] . '"' . "\n\n";
+            if ($forValidation) {
+                $this->logValidation("Added DNSSEC ZSK include reference: " . $zone['dnssec_include_zsk']);
+            }
+        }
+        
+        return $content;
     }
     
     /**
