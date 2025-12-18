@@ -128,6 +128,17 @@ window.IS_ADMIN = <?php echo $isAdmin ? 'true' : 'false'; ?>;
                         <input type="text" id="detailDnssecZsk" class="form-control" placeholder="/etc/bind/keys/domain.zsk.key">
                         <small class="form-text text-muted">Chemin vers le fichier de clé ZSK DNSSEC (absolu ou relatif)</small>
                     </div>
+                    <!-- Metadata fields - only visible for include zones -->
+                    <div class="form-group full-width metadata-field" id="applicationGroup" style="display: none;">
+                        <label for="detailApplication">Application:</label>
+                        <input type="text" id="detailApplication" class="form-control" placeholder="Nom de l'application">
+                        <small class="form-text text-muted">Application associée (optionnel)</small>
+                    </div>
+                    <div class="form-group full-width metadata-field" id="trigrammeGroup" style="display: none;">
+                        <label for="detailTrigramme">Trigramme:</label>
+                        <input type="text" id="detailTrigramme" class="form-control" placeholder="Code trigramme">
+                        <small class="form-text text-muted">Code trigramme (optionnel)</small>
+                    </div>
                     <div class="form-group full-width">
                         <label>Créé par:</label>
                         <span id="detailCreatedBy" class="detail-value"></span>

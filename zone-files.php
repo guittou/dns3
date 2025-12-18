@@ -402,6 +402,24 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                                 </div>
                             </div>
                         </fieldset>
+                        
+                        <!-- Metadata Section (Application / Trigramme - only for include zones) -->
+                        <fieldset id="zoneMetadataFieldset" style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px; display: none;">
+                            <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Métadonnées</legend>
+                            
+                            <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                                <div class="form-group">
+                                    <label for="zoneApplication">Application</label>
+                                    <input id="zoneApplication" class="form-control" type="text" placeholder="Nom de l'application">
+                                    <small class="form-text text-muted">Application associée (optionnel)</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoneTrigramme">Trigramme</label>
+                                    <input id="zoneTrigramme" class="form-control" type="text" placeholder="Code trigramme">
+                                    <small class="form-text text-muted">Code trigramme (optionnel)</small>
+                                </div>
+                            </div>
+                        </fieldset>
                     </form>
                 </div>
                 
@@ -573,6 +591,24 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                     <input id="include-directory" class="form-control" type="text" placeholder="/etc/bind/zones">
                     <small class="form-text text-muted">Répertoire pour les directives $INCLUDE (optionnel)</small>
                 </div>
+                
+                <!-- Metadata Section (Application / Trigramme) -->
+                <fieldset style="border: 1px solid #ddd; padding: 15px; margin-top: 15px; border-radius: 4px;">
+                    <legend style="font-weight: bold; padding: 0 10px; width: auto; font-size: 1rem;">Métadonnées</legend>
+                    
+                    <div class="form-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div class="form-group">
+                            <label for="include-application">Application</label>
+                            <input id="include-application" class="form-control" type="text" placeholder="Nom de l'application">
+                            <small class="form-text text-muted">Application associée (optionnel)</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="include-trigramme">Trigramme</label>
+                            <input id="include-trigramme" class="form-control" type="text" placeholder="Code trigramme">
+                            <small class="form-text text-muted">Code trigramme (optionnel)</small>
+                        </div>
+                    </div>
+                </fieldset>
 
                 <div class="dns-modal-footer">
                     <div class="modal-action-bar">
