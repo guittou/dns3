@@ -81,15 +81,16 @@ body {
   align-items: center;
   gap: 12px;
 }
-.bandeau_logo_img {
-  height: var(--logo-height);
+.bandeau_logo_img,
+.bandeau_logo_img_secondary {
   display: block;
   object-fit: contain;
 }
+.bandeau_logo_img {
+  height: var(--logo-height);
+}
 .bandeau_logo_img_secondary {
   height: var(--logo-secondary-height);
-  display: block;
-  object-fit: contain;
 }
 
 /* RIGHT: auth area absolute right:0 */
