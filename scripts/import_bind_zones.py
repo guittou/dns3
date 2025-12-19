@@ -526,7 +526,8 @@ class ZoneImporter:
             attempted_paths.append(f"{strategy} -> {candidate}")
             
             # Security check: ensure resolved path is within import_root
-            if not self.args.allow_abs_include and import_root:
+            # Exception: search paths are explicitly allowed by the user
+            if not self.args.allow_abs_include and import_root and not strategy.startswith("search_path:"):
                 try:
                     candidate.relative_to(import_root)
                 except ValueError:
@@ -2174,7 +2175,10 @@ ftp     IN      CNAME   www.example.com.
         # Setup based on mode
         if self.args.db_mode:
             self.logger.info("Using DB mode (direct database insertion)")
-            self._connect_db()
+            if not self.args.dry_run:
+                self._connect_db()
+            else:
+                self.logger.info("DRY-RUN mode: Skipping database connection")
         else:
             self.logger.info("Using API mode (HTTP requests)")
             if not self.args.api_url:
