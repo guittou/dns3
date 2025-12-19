@@ -289,12 +289,7 @@ compute_directory_to_store() {
         local search_path_str="${resolution_strategy#search_path:}"
         
         # Normalize search path
-        local search_path=""
-        if command -v realpath >/dev/null 2>&1; then
-            search_path="$(cd "$search_path_str" 2>/dev/null && pwd)"
-        else
-            search_path="$(cd "$search_path_str" 2>/dev/null && pwd)"
-        fi
+        local search_path="$(cd "$search_path_str" 2>/dev/null && pwd)"
         
         if [[ -n "$search_path" ]] && [[ "$resolved_dir" == "$search_path"* ]]; then
             # Compute relative path from search path
@@ -530,7 +525,8 @@ resolve_include_path() {
         local strategy="${strategies[$i]}"
         
         # Security check: ensure resolved path is within import_root (unless allow_abs_include)
-        if [[ $ALLOW_ABS_INCLUDE -eq 0 ]] && [[ -n "$import_root" ]]; then
+        # Exception: search paths are explicitly allowed by the user
+        if [[ $ALLOW_ABS_INCLUDE -eq 0 ]] && [[ -n "$import_root" ]] && [[ "$strategy" != search_path:* ]]; then
             if [[ "$candidate" != "$import_root"* ]]; then
                 # Skip candidates outside import_root
                 continue
