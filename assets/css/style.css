@@ -75,10 +75,18 @@ body {
   padding-left: var(--edge-offset);
   z-index: 1010;
 }
+.bandeau_logo_container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .bandeau_logo_img {
   height: var(--logo-height);
   display: block;
   object-fit: contain;
+}
+.bandeau_logo_secondary {
+  /* Secondary logo styling if needed */
 }
 
 /* RIGHT: auth area absolute right:0 */

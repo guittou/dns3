@@ -35,9 +35,12 @@ if ($basePath === '') {
     <div class="bandeau_full" role="presentation">
       <!-- LOGO: collé à l'extrême gauche du viewport (avec offset via CSS --edge-offset) -->
       <div class="bandeau_logo" aria-hidden="false">
-        <a href="<?php echo $basePath; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
-          <img src="<?php echo $basePath; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
-        </a>
+        <div class="bandeau_logo_container">
+          <a href="<?php echo $basePath; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
+            <img src="<?php echo $basePath; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
+          </a>
+          <img src="<?php echo $basePath; ?>assets/images/logo-cnmo-i.png" alt="CNMO" class="bandeau_logo_img bandeau_logo_secondary" onerror="this.style.display='none';">
+        </div>
       </div>
 
       <!-- CONTENU CENTRÉ : titre au sommet (top) de la zone du bandeau -->
