@@ -4,8 +4,9 @@
  * Provides lightweight logging with configurable output path
  * 
  * Features:
- * - Log levels: INFO, WARN, ERROR
+ * - Log levels: DEBUG, INFO, WARN, ERROR
  * - Configurable log file path via APP_LOG_PATH config
+ * - Configurable log level via APP_LOG_LEVEL (DEBUG or INFO)
  * - Falls back to PHP error_log if APP_LOG_PATH is not set
  * - JSON context serialization for structured data
  * - Consistent log format: [dns3][LEVEL][module] message {context}
