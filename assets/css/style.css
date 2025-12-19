@@ -75,6 +75,11 @@ body {
   padding-left: var(--edge-offset);
   z-index: 1010;
 }
+.bandeau_logo_container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .bandeau_logo_img {
   height: var(--logo-height);
   display: block;
