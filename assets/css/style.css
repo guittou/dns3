@@ -7,9 +7,6 @@
   --logo-secondary-height: 100px;
   --header-height: 120px;
   --footer-height: 56px;
-  
-  /* spacing */
-  --actions-gap: 6px;
 
   /* separator / tabs */
   --separator-height: 6px;
@@ -107,14 +104,6 @@ body {
   align-items: center;
   gap: 12px;
   z-index: 1010;
-}
-
-/* Actions container for stacked buttons */
-.bandeau_actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--actions-gap);
-  align-items: stretch;
 }
 
 /* CENTRE (contenu aligné and centered) - title at top */
@@ -309,16 +298,6 @@ body {
 }
 .btn-login { background: #3498db; }
 .btn-logout { background: #e74c3c; }
-.btn-publish { 
-  background: #27ae60; 
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
-}
-.btn-publish:hover {
-  background: #229954;
-}
 
 /* ---------------------------------------------------------
    Styles spécifiques à la page de login (login-container)
