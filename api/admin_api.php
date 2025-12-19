@@ -25,6 +25,7 @@
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/models/User.php';
+require_once __DIR__ . '/../includes/lib/Logger.php';
 
 // Set JSON header with UTF-8 charset
 header('Content-Type: application/json; charset=utf-8');
@@ -543,6 +544,13 @@ try {
             );
             
             if (!$acl_id) {
+                Logger::error('acl_api', 'Failed to create ACL entry', [
+                    'zone_id' => $zone_id,
+                    'subject_type' => $subject_type,
+                    'subject_identifier' => $subject_identifier,
+                    'permission' => $permission,
+                    'created_by' => $currentUser['id']
+                ]);
                 http_response_code(500);
                 echo json_encode([
                     'error' => "Échec de la création de l'entrée ACL. Vérifiez les logs pour plus de détails.",
@@ -595,6 +603,12 @@ try {
             $result = $zoneAcl->removeEntry($acl_id);
             
             if (!$result) {
+                Logger::error('acl_api', 'Failed to delete ACL entry', [
+                    'acl_id' => $acl_id,
+                    'zone_id' => $existing['zone_file_id'] ?? null,
+                    'subject_type' => $existing['subject_type'] ?? null,
+                    'subject_identifier' => $existing['subject_identifier'] ?? null
+                ]);
                 http_response_code(500);
                 echo json_encode(['error' => 'Failed to delete ACL entry']);
                 exit;
