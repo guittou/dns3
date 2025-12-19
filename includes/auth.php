@@ -204,7 +204,7 @@ class Auth {
                     // Determine storedUsername: prefer CN, fallback to sAMAccountName
                     // Normalize to lowercase for consistency
                     $storedUsername = mb_strtolower(
-                        $entries[0]['cn'][0] ?? $entries[0]['samaccountname'][0] ?? $username
+                        $entries[0]['samaccountname'][0] ?? $entries[0]['cn'][0] ?? $username
                     );
                     
                     // Get user groups
