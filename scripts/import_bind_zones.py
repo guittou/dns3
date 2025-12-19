@@ -430,8 +430,9 @@ class ZoneImporter:
                 
                 # Attempt resolution via existing path resolution logic
                 try:
-                    resolved = self._resolve_include_path(include_path, base_dir)
-                    if resolved:
+                    result = self._resolve_include_path(include_path, base_dir)
+                    if result:
+                        resolved, _ = result  # Unpack tuple (path, strategy)
                         resolved_path = str(resolved)
                         self.logger.info(f"Detected DNSSEC {key_type.upper()} include at line {line_num}: {resolved_path}")
                     else:
@@ -451,7 +452,7 @@ class ZoneImporter:
         
         return dnssec_includes
     
-    def _resolve_include_path(self, include_path: str, base_dir: Path) -> Optional[Path]:
+    def _resolve_include_path(self, include_path: str, base_dir: Path) -> Optional[Tuple[Path, Optional[str]]]:
         """
         Resolve include path to absolute path using multiple strategies.
         
@@ -465,7 +466,8 @@ class ZoneImporter:
         For absolute paths: respects --allow-abs-include security setting.
         
         Returns:
-            Resolved Path object if file found, None otherwise
+            Tuple of (Resolved Path object, resolution strategy string) if file found, None otherwise
+            Strategy string examples: "base_dir", "import_root", "search_path:/var/named/includes"
         """
         include_file = Path(include_path)
         attempted_paths = []
@@ -489,7 +491,7 @@ class ZoneImporter:
             
             if resolved.exists():
                 self.logger.debug(f"Resolved absolute include path: {resolved}")
-                return resolved
+                return (resolved, "absolute")
             else:
                 self.logger.error(f"Absolute include file not found: {resolved}")
                 return None
@@ -534,7 +536,7 @@ class ZoneImporter:
             # Check if file exists
             if candidate.exists() and candidate.is_file():
                 self.logger.debug(f"Resolved include via {strategy}: {candidate}")
-                return candidate
+                return (candidate, strategy)
         
         # Strategy 5: If include_path is a basename (no directory separators), 
         # do recursive search under import_root
@@ -557,7 +559,7 @@ class ZoneImporter:
                     resolved = matches[0].resolve()
                     attempted_paths.append(f"recursive_search -> {resolved}")
                     self.logger.debug(f"Resolved include via recursive search: {resolved}")
-                    return resolved
+                    return (resolved, "recursive_search")
                 else:
                     attempted_paths.append(f"recursive_search under {import_root} -> no matches")
             except Exception as e:
@@ -574,6 +576,56 @@ class ZoneImporter:
             self.logger.error(f"Tried {len(attempted_paths)} location(s). Use --verbose to see all attempted paths.")
         
         return None
+    
+    def _compute_directory_to_store(self, resolved_path: Path, resolution_strategy: Optional[str] = None) -> str:
+        """
+        Compute the directory path to store in the database based on priority logic.
+        
+        Priority:
+        1. If resolved path is under a search path used for resolution, store relative to that search path
+        2. Else if under --dir (import root), store relative to --dir
+        3. Else store absolute path
+        
+        Args:
+            resolved_path: The resolved absolute path to the include file
+            resolution_strategy: Optional strategy string from _resolve_include_path (e.g., "search_path:/var/named/includes")
+        
+        Returns:
+            Directory path to store (either relative or absolute)
+        """
+        import_root = Path(self.args.dir).resolve() if self.args.dir else None
+        resolved_dir = resolved_path.parent.resolve()
+        
+        # Priority 1: Check if resolved via a search path
+        if resolution_strategy and resolution_strategy.startswith("search_path:"):
+            # Extract the search path from the strategy string
+            search_path_str = resolution_strategy.split(":", 1)[1]
+            search_path = Path(search_path_str).resolve()
+            
+            try:
+                relative_to_search = resolved_dir.relative_to(search_path)
+                result = str(relative_to_search)
+                self.logger.debug(f"Storing directory relative to search path {search_path}: {result}")
+                return result if result != '.' else ''
+            except ValueError:
+                # Not under this search path, continue to next priority
+                pass
+        
+        # Priority 2: Check if under import_root (--dir)
+        if import_root:
+            try:
+                relative_to_import = resolved_dir.relative_to(import_root)
+                result = str(relative_to_import)
+                self.logger.debug(f"Storing directory relative to import root: {result}")
+                return result if result != '.' else ''
+            except ValueError:
+                # Not under import_root, use absolute
+                pass
+        
+        # Priority 3: Store absolute path
+        result = str(resolved_dir)
+        self.logger.debug(f"Storing absolute directory path: {result}")
+        return result
     
     def _create_zone_file_include_relationship(self, parent_id: int, include_id: int, position: int) -> bool:
         """Create a relationship between parent zone and include zone"""
@@ -623,7 +675,7 @@ class ZoneImporter:
                 self.logger.error(f"Failed to create relationship via API: {e}")
                 return False
     
-    def _process_include_file(self, include_path: Path, origin: Optional[str], base_dir: Path, parent_zone_name: str, master_ttl: Optional[int] = None) -> Optional[int]:
+    def _process_include_file(self, include_path: Path, origin: Optional[str], base_dir: Path, parent_zone_name: str, master_ttl: Optional[int] = None, resolution_strategy: Optional[str] = None) -> Optional[int]:
         """
         Process an include file and create zone_file entry with dns_records
         Returns zone_id of the created/existing include, or None on error
@@ -634,6 +686,7 @@ class ZoneImporter:
             base_dir: Base directory for resolving relative paths
             parent_zone_name: Name of the parent zone
             master_ttl: Default TTL from the master zone (used if include has no $TTL)
+            resolution_strategy: Optional resolution strategy string from _resolve_include_path
         """
         # Check include depth
         self.include_depth += 1
@@ -774,6 +827,10 @@ class ZoneImporter:
             # Use filename stem (without extension) as name to avoid conflicts with master zone
             include_zone_name = effective_origin.rstrip('.')
             include_file_stem = include_path.stem  # e.g., "logiciel1" from "logiciel1.db"
+            
+            # Compute directory to store based on resolution strategy
+            directory_to_store = self._compute_directory_to_store(include_path, resolution_strategy)
+            
             zone_data = {
                 'name': include_file_stem,
                 'filename': include_path.name,
@@ -783,17 +840,17 @@ class ZoneImporter:
                 'domain': include_zone_name,
                 'default_ttl': default_ttl,
                 # 'content': NOT stored - records extracted to dns_records table
-                'directory': str(include_path.parent)
+                'directory': directory_to_store
             }
             
             # Check if include zone already exists
             if self.args.skip_existing:
-                # Check by filename and path or hash
+                # Check by filename and directory (using the computed directory)
                 if self.args.db_mode:
                     with self.db_conn.cursor() as cursor:
                         cursor.execute(
                             "SELECT id FROM zone_files WHERE filename = %s AND file_type = 'include' AND directory = %s",
-                            (include_path.name, str(include_path.parent))
+                            (include_path.name, directory_to_store)
                         )
                         existing = cursor.fetchone()
                         if existing:
@@ -833,9 +890,10 @@ class ZoneImporter:
             nested_include_ids = []
             for nested_include_path, nested_origin, _ in nested_includes:
                 if self.args.create_includes:
-                    resolved_nested = self._resolve_include_path(nested_include_path, include_path.parent)
-                    if resolved_nested:
-                        nested_id = self._process_include_file(resolved_nested, nested_origin, include_path.parent, include_zone_name, master_ttl)
+                    result = self._resolve_include_path(nested_include_path, include_path.parent)
+                    if result:
+                        resolved_nested, nested_strategy = result
+                        nested_id = self._process_include_file(resolved_nested, nested_origin, include_path.parent, include_zone_name, master_ttl, nested_strategy)
                         if nested_id:
                             nested_include_ids.append(nested_id)
                             # Create relationship for nested include
@@ -1851,6 +1909,9 @@ class ZoneImporter:
                 dnssec_includes = self._extract_dnssec_includes(include_directives, filepath.parent)
             
             # Prepare zone data - content NOT stored, records will be in dns_records table
+            # Compute directory to store for master zone (no resolution strategy, will use --dir relative or absolute)
+            master_directory_to_store = self._compute_directory_to_store(filepath)
+            
             zone_data = {
                 'name': zone_name,
                 'filename': filepath.name,
@@ -1860,7 +1921,7 @@ class ZoneImporter:
                 'domain': zone_name,
                 'default_ttl': default_ttl,
                 # 'content': NOT stored - SOA/TTL in columns, records in dns_records table
-                'directory': str(filepath.parent),
+                'directory': master_directory_to_store,
                 **soa_data
             }
             
@@ -1906,14 +1967,16 @@ class ZoneImporter:
                             self.logger.debug(f"[DRY-RUN] Skipping DNSSEC key include (handled as master zone field): {include_path}")
                             continue
                         
-                        resolved_path = self._resolve_include_path(include_path, filepath.parent)
-                        if resolved_path:
+                        result = self._resolve_include_path(include_path, filepath.parent)
+                        if result:
+                            resolved_path, resolution_strategy = result
                             include_id = self._process_include_file(
                                 resolved_path, 
                                 include_origin, 
                                 filepath.parent,
                                 zone_name,
-                                default_ttl
+                                default_ttl,
+                                resolution_strategy
                             )
                             if include_id:
                                 include_count += 1
@@ -1949,14 +2012,16 @@ class ZoneImporter:
                         self.logger.info(f"Skipping DNSSEC key include (handled as master zone field): {include_path}")
                         continue
                     
-                    resolved_path = self._resolve_include_path(include_path, filepath.parent)
-                    if resolved_path:
+                    result = self._resolve_include_path(include_path, filepath.parent)
+                    if result:
+                        resolved_path, resolution_strategy = result
                         include_id = self._process_include_file(
                             resolved_path, 
                             include_origin, 
                             filepath.parent,
                             zone_name,
-                            default_ttl  # Pass master's TTL to include
+                            default_ttl,  # Pass master's TTL to include
+                            resolution_strategy
                         )
                         if include_id:
                             include_zone_ids.append((include_id, line_num))

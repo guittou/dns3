@@ -264,6 +264,73 @@ compute_file_hash() {
     fi
 }
 
+# Global variable to store the last resolution strategy used
+LAST_RESOLUTION_STRATEGY=""
+
+# Compute directory to store in database based on priority logic
+# Priority:
+# 1. If resolved path is under a search path used for resolution, store relative to that search path
+# 2. Else if under --dir (import root), store relative to --dir
+# 3. Else store absolute path
+compute_directory_to_store() {
+    local resolved_path="$1"
+    local resolution_strategy="${2:-$LAST_RESOLUTION_STRATEGY}"
+    local resolved_dir="$(dirname "$resolved_path")"
+    local import_root=""
+    
+    # Normalize import_root
+    if [[ -n "$ZONE_DIR" ]]; then
+        import_root="$(cd "$ZONE_DIR" && pwd)"
+    fi
+    
+    # Priority 1: Check if resolved via a search path
+    if [[ "$resolution_strategy" == search_path:* ]]; then
+        # Extract the search path from the strategy string
+        local search_path_str="${resolution_strategy#search_path:}"
+        
+        # Normalize search path
+        local search_path=""
+        if command -v realpath >/dev/null 2>&1; then
+            search_path="$(cd "$search_path_str" 2>/dev/null && pwd)"
+        else
+            search_path="$(cd "$search_path_str" 2>/dev/null && pwd)"
+        fi
+        
+        if [[ -n "$search_path" ]] && [[ "$resolved_dir" == "$search_path"* ]]; then
+            # Compute relative path from search path
+            local relative_path="${resolved_dir#$search_path}"
+            relative_path="${relative_path#/}"  # Remove leading slash
+            
+            if [[ -z "$relative_path" || "$relative_path" == "." ]]; then
+                echo ""
+            else
+                echo "$relative_path"
+            fi
+            return 0
+        fi
+    fi
+    
+    # Priority 2: Check if under import_root (--dir)
+    if [[ -n "$import_root" ]]; then
+        if [[ "$resolved_dir" == "$import_root"* ]]; then
+            # Compute relative path from import root
+            local relative_path="${resolved_dir#$import_root}"
+            relative_path="${relative_path#/}"  # Remove leading slash
+            
+            if [[ -z "$relative_path" || "$relative_path" == "." ]]; then
+                echo ""
+            else
+                echo "$relative_path"
+            fi
+            return 0
+        fi
+    fi
+    
+    # Priority 3: Store absolute path
+    echo "$resolved_dir"
+    return 0
+}
+
 # Convert BIND time unit to seconds
 # Supports: s (seconds), m (minutes), h (hours), d (days), w (weeks)
 # Also supports decimal values: 1.5h, 0.5d, 2.25m
@@ -351,6 +418,7 @@ resolve_include_path() {
         fi
         
         if [[ -f "$resolved" ]]; then
+            LAST_RESOLUTION_STRATEGY="absolute"
             echo "$resolved"
             return 0
         else
@@ -471,6 +539,7 @@ resolve_include_path() {
         
         # Check if file exists
         if [[ -f "$candidate" ]]; then
+            LAST_RESOLUTION_STRATEGY="$strategy"
             echo "$candidate"
             return 0
         fi
@@ -498,6 +567,7 @@ resolve_include_path() {
                 done
             fi
             
+            LAST_RESOLUTION_STRATEGY="recursive_search"
             echo "${matches[0]}"
             return 0
         fi
@@ -572,7 +642,9 @@ process_include_file() {
     # Read include content
     local include_content=$(cat "$include_path")
     local filename=$(basename "$include_path")
-    local directory=$(dirname "$include_path")
+    
+    # Compute directory to store using the resolution strategy
+    local directory=$(compute_directory_to_store "$include_path")
     
     # Determine effective origin
     local effective_origin="$include_origin"
@@ -992,10 +1064,13 @@ parse_zone_file() {
     #     zone_values+=", '$(mysql_escape "$file_content")'"
     # fi
     
-    # Store directory path
+    # Store directory path (compute relative path based on priority logic)
+    # For master zones, no resolution strategy (LAST_RESOLUTION_STRATEGY not set for master)
+    # Will use --dir relative or absolute
     if has_column "zone_files" "directory"; then
+        local master_directory=$(compute_directory_to_store "$file" "")
         zone_insert+=", directory"
-        zone_values+=", '$(mysql_escape "$(dirname "$file")")'"
+        zone_values+=", '$(mysql_escape "$master_directory")'"
     fi
     
     if has_column "zone_files" "created_at"; then
