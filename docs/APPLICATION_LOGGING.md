@@ -4,7 +4,7 @@ DNS3 includes a comprehensive application logging system to help diagnose issues
 
 ## Configuration
 
-In `config.php`, set `APP_LOG_PATH` to enable logging to a custom file:
+In `config.php`, configure logging path and level:
 
 ```php
 // Enable logging to a custom file
@@ -12,9 +12,16 @@ define('APP_LOG_PATH', '/var/log/dns3/app.log');
 
 // Or use null/omit to fall back to PHP's error_log
 define('APP_LOG_PATH', null);
+
+// Set log level: DEBUG logs all ACL checks, INFO logs auth/errors only
+// Use INFO for production to avoid high log volume
+define('APP_LOG_LEVEL', 'INFO');  // Options: DEBUG, INFO (default)
 ```
 
-**Important**: Ensure the web server has write permissions to the log file path.
+**Important**: 
+- Ensure the web server has write permissions to the log file path
+- Use `INFO` level in production environments to avoid performance impact
+- Use `DEBUG` level only for troubleshooting specific issues
 
 ## Log Format
 
@@ -25,10 +32,17 @@ TIMESTAMP [dns3][LEVEL][module] message {context_json}
 ```
 
 - **TIMESTAMP**: ISO 8601 format (YYYY-MM-DD HH:MM:SS)
-- **LEVEL**: INFO, WARN, or ERROR
+- **LEVEL**: DEBUG, INFO, WARN, or ERROR
 - **module**: Component that generated the log (auth, acl, acl_api)
 - **message**: Human-readable description
 - **context_json**: Structured data in JSON format
+
+### Log Levels
+
+- **DEBUG**: Verbose logging including all ACL checks (high volume, use only for troubleshooting)
+- **INFO**: Authentication events and system operations (recommended for production)
+- **WARN**: Warning conditions that don't prevent operation (e.g., failed login, insufficient permissions)
+- **ERROR**: Error conditions that prevent operation (e.g., connection failures, exceptions)
 
 ## Logged Events
 
@@ -66,12 +80,14 @@ TIMESTAMP [dns3][LEVEL][module] message {context_json}
 
 ### ACL Check Events
 
-**Successful ACL Matches**
+**Successful ACL Matches** (DEBUG level only)
 ```
-2025-12-19 14:31:00 [dns3][INFO][acl] ACL match by user {"zone_id":123,"user_id":42,"permission":"write"}
-2025-12-19 14:31:01 [dns3][INFO][acl] ACL match by role {"zone_id":123,"user_id":42,"role":"zone_editor","permission":"write"}
-2025-12-19 14:31:02 [dns3][INFO][acl] ACL match by ad_group (exact) {"zone_id":123,"user_id":42,"user_group":"CN=DNSAdmins,OU=Groups,DC=example,DC=com","acl_group":"CN=DNSAdmins,OU=Groups,DC=example,DC=com","permission":"admin"}
+2025-12-19 14:31:00 [dns3][DEBUG][acl] ACL match by user {"zone_id":123,"user_id":42,"permission":"write"}
+2025-12-19 14:31:01 [dns3][DEBUG][acl] ACL match by role {"zone_id":123,"user_id":42,"role":"zone_editor","permission":"write"}
+2025-12-19 14:31:02 [dns3][DEBUG][acl] ACL match by ad_group (exact) {"zone_id":123,"user_id":42,"user_group":"CN=DNSAdmins,OU=Groups,DC=example,DC=com","acl_group":"CN=DNSAdmins,OU=Groups,DC=example,DC=com","permission":"admin"}
 ```
+
+Note: Successful ACL matches are only logged at DEBUG level to avoid excessive log volume in production.
 
 **Failed ACL Checks**
 ```
@@ -198,12 +214,45 @@ For production environments, configure log rotation using `logrotate`:
 
 ## Performance Considerations
 
-- Log entries are written synchronously (blocking)
-- Each log entry involves file I/O operations
-- In high-traffic environments, consider:
-  - Using a dedicated log partition
-  - Implementing log aggregation (e.g., syslog)
-  - Setting `APP_LOG_PATH` to `null` and using PHP's error_log with syslog
+### Log Level Impact
+
+- **DEBUG level**: Logs every ACL check, can generate hundreds of entries per page load
+- **INFO level**: Logs authentication and API operations only, minimal overhead
+- **Recommendation**: Use INFO in production, DEBUG only for troubleshooting
+
+### I/O Characteristics
+
+- Log entries are written synchronously with file locking (`LOCK_EX`)
+- Each log entry involves disk I/O (unless buffered by OS)
+- File locking ensures log integrity but can become a bottleneck under high concurrency
+
+### Optimization Strategies
+
+For high-traffic production environments:
+
+1. **Use INFO level** to reduce log volume
+2. **Dedicated log partition** to isolate I/O from application data
+3. **RAM disk** for log files (with periodic sync to permanent storage)
+4. **Syslog integration**: Set `APP_LOG_PATH` to `null` and configure PHP error_log to use syslog
+5. **External log aggregation**: Forward logs to centralized system (ELK, Splunk, etc.)
+6. **Asynchronous logging**: Consider implementing a message queue for log entries
+
+### Example: Syslog Integration
+
+```php
+// In config.php
+define('APP_LOG_PATH', null);  // Use PHP error_log
+
+// In php.ini or .htaccess
+error_log = syslog
+```
+
+Then configure rsyslog to handle application logs separately:
+```
+# /etc/rsyslog.d/dns3.conf
+if $programname == 'php' and $msg contains '[dns3]' then /var/log/dns3/app.log
+& stop
+```
 
 ## Integration with External Systems
 

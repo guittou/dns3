@@ -114,7 +114,7 @@ Tous les paramètres sont dans `config.php` :
 
 DNS3 inclut un système de journalisation applicative qui enregistre les événements importants pour faciliter le diagnostic et le débogage.
 
-**Configuration** : Dans `config.php`, définissez `APP_LOG_PATH` pour activer la journalisation dans un fichier personnalisé :
+**Configuration** : Dans `config.php`, définissez `APP_LOG_PATH` et `APP_LOG_LEVEL` :
 
 ```php
 // Exemple: Journaliser dans /var/log/dns3/app.log
@@ -122,6 +122,9 @@ define('APP_LOG_PATH', '/var/log/dns3/app.log');
 
 // Si non défini ou défini à null, les logs utilisent error_log() de PHP
 define('APP_LOG_PATH', null);
+
+// Niveau de log : DEBUG (verbeux) ou INFO (production, par défaut)
+define('APP_LOG_LEVEL', 'INFO');
 ```
 
 **Événements journalisés** :
@@ -129,8 +132,13 @@ define('APP_LOG_PATH', null);
 - **ACL** : Vérifications d'accès aux zones (correspondances/non-correspondances, comparaisons de groupes AD)
 - **API** : Erreurs lors de la création/suppression d'entrées ACL
 
+**Niveaux de log** :
+- **DEBUG** : Inclut toutes les vérifications ACL (volume élevé, pour diagnostic uniquement)
+- **INFO** : Authentification et opérations système (recommandé pour production)
+- **WARN** : Conditions d'avertissement (échecs de connexion, permissions insuffisantes)
+- **ERROR** : Conditions d'erreur (échecs de connexion, exceptions)
+
 **Format des logs** : `[dns3][LEVEL][module] message {context_json}`
-- Niveaux : INFO, WARN, ERROR
 - Modules : auth, acl, acl_api
 - Contexte : Données structurées en JSON (les données sensibles comme les mots de passe sont automatiquement supprimées)
 
@@ -140,6 +148,8 @@ define('APP_LOG_PATH', null);
 2025-12-19 14:30:16 [dns3][INFO][auth] AD groups fetched {"username":"john.doe","user_dn":"CN=John Doe,OU=Users,DC=example,DC=com","group_count":3}
 2025-12-19 14:30:16 [dns3][INFO][auth] AD authentication successful {"username":"john.doe","user_id":42,"group_count":3,"matched_role_count":1,"has_acl":true}
 ```
+
+Pour plus de détails, consultez [docs/APPLICATION_LOGGING.md](docs/APPLICATION_LOGGING.md).
 
 ## Notes d'utilisation
 

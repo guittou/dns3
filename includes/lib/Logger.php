@@ -13,9 +13,30 @@
  */
 
 class Logger {
+    private const LEVEL_DEBUG = 'DEBUG';
     private const LEVEL_INFO = 'INFO';
     private const LEVEL_WARN = 'WARN';
     private const LEVEL_ERROR = 'ERROR';
+    
+    // Level hierarchy (higher number = more important)
+    private const LEVEL_PRIORITY = [
+        'DEBUG' => 1,
+        'INFO' => 2,
+        'WARN' => 3,
+        'ERROR' => 4
+    ];
+    
+    /**
+     * Log a debug message (only logged if APP_LOG_LEVEL is DEBUG)
+     * Use for verbose logging that may generate high volume
+     * 
+     * @param string $module Module name (e.g., 'auth', 'acl', 'api')
+     * @param string $message Log message
+     * @param array $context Additional context data (will be JSON encoded)
+     */
+    public static function debug($module, $message, $context = []) {
+        self::log(self::LEVEL_DEBUG, $module, $message, $context);
+    }
     
     /**
      * Log an info message
@@ -53,12 +74,22 @@ class Logger {
     /**
      * Core logging method
      * 
-     * @param string $level Log level (INFO, WARN, ERROR)
+     * @param string $level Log level (DEBUG, INFO, WARN, ERROR)
      * @param string $module Module name
      * @param string $message Log message
      * @param array $context Additional context data
      */
     private static function log($level, $module, $message, $context = []) {
+        // Check if this log level should be recorded
+        $configLevel = defined('APP_LOG_LEVEL') ? APP_LOG_LEVEL : 'INFO';
+        $configPriority = self::LEVEL_PRIORITY[$configLevel] ?? self::LEVEL_PRIORITY['INFO'];
+        $messagePriority = self::LEVEL_PRIORITY[$level] ?? self::LEVEL_PRIORITY['INFO'];
+        
+        // Skip if message priority is lower than configured level
+        if ($messagePriority < $configPriority) {
+            return;
+        }
+        
         // Build log entry
         $timestamp = date('Y-m-d H:i:s');
         $prefix = "[dns3][$level][$module]";

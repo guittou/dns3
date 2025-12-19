@@ -334,7 +334,7 @@ class ZoneAcl {
                         // Direct user match
                         if ((int)$entry['subject_identifier'] === (int)$userId) {
                             $matches = true;
-                            Logger::info('acl', 'ACL match by user', [
+                            Logger::debug('acl', 'ACL match by user', [
                                 'zone_id' => $zone_id,
                                 'user_id' => $userId,
                                 'permission' => $entry['permission']
@@ -346,7 +346,7 @@ class ZoneAcl {
                         // Role match - check if user has this role
                         if (in_array($entry['subject_identifier'], $userRoles)) {
                             $matches = true;
-                            Logger::info('acl', 'ACL match by role', [
+                            Logger::debug('acl', 'ACL match by role', [
                                 'zone_id' => $zone_id,
                                 'user_id' => $userId,
                                 'role' => $entry['subject_identifier'],
@@ -361,7 +361,7 @@ class ZoneAcl {
                             // Case-insensitive comparison
                             if (strcasecmp($group, $entry['subject_identifier']) === 0) {
                                 $matches = true;
-                                Logger::info('acl', 'ACL match by ad_group (exact)', [
+                                Logger::debug('acl', 'ACL match by ad_group (exact)', [
                                     'zone_id' => $zone_id,
                                     'user_id' => $userId,
                                     'user_group' => $group,
@@ -373,7 +373,7 @@ class ZoneAcl {
                             // Also check if entry is a substring of group DN (for OU matching)
                             if (stripos($group, $entry['subject_identifier']) !== false) {
                                 $matches = true;
-                                Logger::info('acl', 'ACL match by ad_group (substring)', [
+                                Logger::debug('acl', 'ACL match by ad_group (substring)', [
                                     'zone_id' => $zone_id,
                                     'user_id' => $userId,
                                     'user_group' => $group,
