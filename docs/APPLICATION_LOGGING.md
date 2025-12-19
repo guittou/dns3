@@ -55,7 +55,12 @@ TIMESTAMP [dns3][LEVEL][module] message {context_json}
 
 **AD Group Fetching**
 ```
-2025-12-19 14:30:16 [dns3][INFO][auth] AD groups fetched {"username":"john.doe","user_dn":"CN=John Doe,OU=Users,DC=example,DC=com","group_count":3}
+2025-12-19 14:30:16 [dns3][INFO][auth] AD groups fetched {"username":"john.doe","user_dn":"CN=John Doe,OU=Users,DC=example,DC=com","group_count":3,"ad_groups":["CN=DNSAdmins,OU=Groups,DC=example,DC=com","CN=ITStaff,OU=Groups,DC=example,DC=com","CN=Developers,OU=Groups,DC=example,DC=com"]}
+```
+
+When a user has more than 10 AD groups, the log will show the first 10 groups and include truncation indicators:
+```
+2025-12-19 14:30:16 [dns3][INFO][auth] AD groups fetched {"username":"jane.smith","user_dn":"CN=Jane Smith,OU=Users,DC=example,DC=com","group_count":15,"ad_groups":["CN=Group1,OU=Groups,DC=example,DC=com",...,"CN=Group10,OU=Groups,DC=example,DC=com"],"groups_truncated":true,"total_groups":15}
 ```
 
 **Successful Authentication**
@@ -85,9 +90,24 @@ TIMESTAMP [dns3][LEVEL][module] message {context_json}
 2025-12-19 14:31:00 [dns3][DEBUG][acl] ACL match by user {"zone_id":123,"user_id":42,"permission":"write"}
 2025-12-19 14:31:01 [dns3][DEBUG][acl] ACL match by role {"zone_id":123,"user_id":42,"role":"zone_editor","permission":"write"}
 2025-12-19 14:31:02 [dns3][DEBUG][acl] ACL match by ad_group (exact) {"zone_id":123,"user_id":42,"user_group":"CN=DNSAdmins,OU=Groups,DC=example,DC=com","acl_group":"CN=DNSAdmins,OU=Groups,DC=example,DC=com","permission":"admin"}
+2025-12-19 14:31:03 [dns3][DEBUG][acl] ACL match by ad_group (substring) {"zone_id":123,"user_id":42,"user_group":"CN=John Doe,OU=IT,OU=Users,DC=example,DC=com","acl_group":"OU=IT,OU=Users,DC=example,DC=com","permission":"write"}
 ```
 
 Note: Successful ACL matches are only logged at DEBUG level to avoid excessive log volume in production.
+
+**Failed AD Group Comparisons** (DEBUG level only)
+
+When an ACL entry with `subject_type='ad_group'` is being evaluated but doesn't match any of the user's groups, a diagnostic log is generated:
+```
+2025-12-19 14:31:05 [dns3][DEBUG][acl] ACL ad_group comparison failed {"zone_id":456,"user_id":42,"acl_group":"CN=SpecialAdmins,OU=Groups,DC=example,DC=com","user_groups_count":3,"user_groups_sample":["CN=DNSAdmins,OU=Groups,DC=example,DC=com","CN=ITStaff,OU=Groups,DC=example,DC=com","CN=Developers,OU=Groups,DC=example,DC=com"]}
+```
+
+This helps diagnose ACL configuration issues by showing:
+- The AD group identifier (`acl_group`) that the ACL entry is looking for
+- The total count of user's AD groups (`user_groups_count`)
+- A sample of the first 3 user groups (`user_groups_sample`) for comparison
+
+Note: Failed ad_group comparisons are logged at DEBUG level. Set `APP_LOG_LEVEL` to `DEBUG` in `config.php` to see these diagnostic messages.
 
 **Failed ACL Checks**
 ```
@@ -157,12 +177,17 @@ The logger automatically redacts sensitive information:
 
 **Scenario**: User has AD group but cannot access zone
 
-1. Find ACL checks for the zone:
+1. Enable DEBUG logging in `config.php`:
+   ```php
+   define('APP_LOG_LEVEL', 'DEBUG');
+   ```
+
+2. Find ACL checks for the zone:
    ```bash
    grep "zone_id\":123" /var/log/dns3/app.log
    ```
 
-2. Look for ACL match attempts:
+3. Look for ACL match attempts:
    - Check if ad_group comparison was attempted
    - Verify the user's groups vs ACL groups
    - Check permission level required vs granted
@@ -172,6 +197,38 @@ The logger automatically redacts sensitive information:
 2025-12-19 14:31:10 [dns3][WARN][acl] ACL check failed - insufficient permission {"zone_id":123,"user_id":42,"required":"admin","max_permission":"read","user_roles":["zone_editor"],"user_groups_count":3}
 ```
 → **Diagnosis**: User has 'read' permission but 'admin' is required.
+
+### Diagnosing AD Group-Based ACL Mismatches
+
+**Scenario**: User authenticated via AD but ACL entry with AD group doesn't grant access
+
+1. Enable DEBUG logging to see detailed AD group comparisons:
+   ```php
+   define('APP_LOG_LEVEL', 'DEBUG');
+   ```
+
+2. Search for the user's login to see their AD groups:
+   ```bash
+   grep "AD groups fetched" /var/log/dns3/app.log | grep "john.doe"
+   ```
+
+3. Look for failed ad_group comparisons:
+   ```bash
+   grep "ACL ad_group comparison failed" /var/log/dns3/app.log | grep "zone_id\":123"
+   ```
+
+**Example troubleshooting sequence**:
+```
+2025-12-19 14:30:16 [dns3][INFO][auth] AD groups fetched {"username":"john.doe","user_dn":"CN=John Doe,OU=IT,DC=example,DC=com","group_count":3,"ad_groups":["CN=ITStaff,OU=Groups,DC=example,DC=com","CN=Developers,OU=Groups,DC=example,DC=com","CN=Users,OU=Groups,DC=example,DC=com"]}
+2025-12-19 14:31:05 [dns3][DEBUG][acl] ACL ad_group comparison failed {"zone_id":123,"user_id":42,"acl_group":"CN=DNSAdmins,OU=Groups,DC=example,DC=com","user_groups_count":3,"user_groups_sample":["CN=ITStaff,OU=Groups,DC=example,DC=com","CN=Developers,OU=Groups,DC=example,DC=com","CN=Users,OU=Groups,DC=example,DC=com"]}
+```
+
+→ **Diagnosis**: The ACL entry requires `CN=DNSAdmins,OU=Groups,DC=example,DC=com` but the user is not a member of this group. The user's groups are `ITStaff`, `Developers`, and `Users`.
+
+**Solution**: Either:
+- Add the user to the `DNSAdmins` AD group
+- Or update the ACL entry to match one of the user's existing groups
+- Or add a new ACL entry for one of the user's groups
 
 ### Analyzing Log Patterns
 
@@ -185,6 +242,16 @@ grep "[WARN][auth] Login failed" /var/log/dns3/app.log
 grep "[WARN][acl] ACL check failed" /var/log/dns3/app.log
 ```
 
+**Get all failed AD group comparisons** (requires DEBUG level):
+```bash
+grep "ACL ad_group comparison failed" /var/log/dns3/app.log
+```
+
+**View AD groups for a specific user**:
+```bash
+grep "AD groups fetched" /var/log/dns3/app.log | grep "username\":\"john.doe\""
+```
+
 **Get all errors**:
 ```bash
 grep "[ERROR]" /var/log/dns3/app.log
@@ -193,6 +260,11 @@ grep "[ERROR]" /var/log/dns3/app.log
 **Count logins by method**:
 ```bash
 grep "authentication successful" /var/log/dns3/app.log | grep -o '"method":"[^"]*"' | sort | uniq -c
+```
+
+**Find all AD group-based ACL matches for a zone** (requires DEBUG level):
+```bash
+grep "ACL match by ad_group" /var/log/dns3/app.log | grep "zone_id\":123"
 ```
 
 ## Log Rotation

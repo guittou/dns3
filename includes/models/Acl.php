@@ -12,6 +12,7 @@
  */
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../lib/Logger.php';
 
 class Acl {
     private $db;
@@ -236,16 +237,44 @@ class Acl {
 
                         case 'ad_group':
                             // AD group match
+                            $matchFound = false;
                             foreach ($userGroups as $group) {
                                 if (strcasecmp($group, $entry['subject_identifier']) === 0) {
                                     $matches = true;
+                                    $matchFound = true;
+                                    Logger::debug('acl', 'ACL match by ad_group (exact)', [
+                                        'zone_file_id' => $zone_file_id,
+                                        'username' => $normalizedUsername,
+                                        'user_group' => $group,
+                                        'acl_group' => $entry['subject_identifier'],
+                                        'permission' => $entry['permission']
+                                    ]);
                                     break;
                                 }
                                 // Also check if entry is a substring of group DN (for OU matching)
                                 if (stripos($group, $entry['subject_identifier']) !== false) {
                                     $matches = true;
+                                    $matchFound = true;
+                                    Logger::debug('acl', 'ACL match by ad_group (substring)', [
+                                        'zone_file_id' => $zone_file_id,
+                                        'username' => $normalizedUsername,
+                                        'user_group' => $group,
+                                        'acl_group' => $entry['subject_identifier'],
+                                        'permission' => $entry['permission']
+                                    ]);
                                     break;
                                 }
+                            }
+                            
+                            // Log failed ad_group comparison at DEBUG level for diagnostics
+                            if (!$matchFound && count($userGroups) > 0) {
+                                Logger::debug('acl', 'ACL ad_group comparison failed', [
+                                    'zone_file_id' => $zone_file_id,
+                                    'username' => $normalizedUsername,
+                                    'acl_group' => $entry['subject_identifier'],
+                                    'user_groups_count' => count($userGroups),
+                                    'user_groups_sample' => array_slice($userGroups, 0, 3) // Log first 3 groups as sample
+                                ]);
                             }
                             break;
                     }
