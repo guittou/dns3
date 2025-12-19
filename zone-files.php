@@ -464,7 +464,7 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                                 <select id="aclSubjectIdentifierSelect" class="form-control" style="display: none;">
                                     <option value="">Sélectionner...</option>
                                 </select>
-                                <input type="text" id="aclSubjectIdentifierInput" class="form-control" placeholder="CN ou UID de l'utilisateur (ex: jdupont, john.doe)" style="display: block;">
+                                <input type="text" id="aclSubjectIdentifierInput" class="form-control" placeholder="sAMAccountName (AD) ou uid (LDAP) — ex: jdupont" style="display: block;">
                             </div>
                             <div class="form-group" style="flex: 1; min-width: 120px;">
                                 <label for="aclPermission">Permission</label>
@@ -484,7 +484,7 @@ window.USER_GROUPS = <?php echo json_encode($userGroups, JSON_HEX_TAG | JSON_HEX
                             <strong>Lecture:</strong> Voir la zone | 
                             <strong>Écriture:</strong> Modifier la zone | 
                             <strong>Admin:</strong> Toutes les permissions (pour cette zone)<br>
-                            <em>Note: Pour les utilisateurs, vous pouvez saisir un CN/UID même si le compte n'existe pas encore (pré-autorisation).</em>
+                            <em>Note: Pour les utilisateurs, vous pouvez saisir un sAMAccountName (AD) ou uid (LDAP) même si le compte n'existe pas encore (pré-autorisation).</em>
                         </small>
                     </div>
                     
