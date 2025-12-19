@@ -27,13 +27,6 @@ if ($basePath === '') {
     // Expose BASE_URL for JavaScript to construct proper URLs
     window.BASE_URL = '<?php echo $basePath; ?>';
     window.API_BASE = window.BASE_URL + 'api/';
-    
-    // Placeholder function for publish action
-    // TODO: Implement CSRF token validation when wiring to the publish API endpoint
-    function triggerPublish() {
-      // TODO: Wire this to the publish API endpoint
-      alert('Publication functionality will be implemented here.');
-    }
   </script>
   <script src="<?php echo $basePath; ?>assets/js/modal-utils.js" defer></script>
 </head>
@@ -63,12 +56,7 @@ if ($basePath === '') {
       <div class="bandeau_droite" aria-hidden="false">
         <?php if ($auth->isLoggedIn() && $user): ?>
           <span class="bandeau_user"><?php echo htmlspecialchars($user['username']); ?></span>
-          <div class="bandeau_actions">
-            <a href="<?php echo $basePath; ?>logout.php" class="btn btn-logout">Déconnexion</a>
-            <?php if ($auth->isAdmin()): ?>
-              <button type="button" class="btn btn-publish" onclick="triggerPublish()">Publier</button>
-            <?php endif; ?>
-          </div>
+          <a href="<?php echo $basePath; ?>logout.php" class="btn btn-logout">Déconnexion</a>
         <?php else: ?>
           <a href="<?php echo $basePath; ?>login.php" class="btn btn-login">Se connecter</a>
         <?php endif; ?>
