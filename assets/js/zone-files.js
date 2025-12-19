@@ -5045,8 +5045,8 @@ function renderAclList(entries) {
                         <td style="padding: 0.75rem;">${escapeHtml(entry.created_by_username || 'N/A')}</td>
                         <td style="padding: 0.75rem;">${formatDate(entry.created_at)}</td>
                         <td style="padding: 0.75rem; text-align: center;">
-                            <button class="btn btn-danger btn-sm" onclick="deleteAclEntry(${entry.id})" title="Supprimer">
-                                <i class="fas fa-trash"></i>
+                            <button class="btn-small btn-delete" onclick="deleteAclEntry(${entry.id})" title="Supprimer">
+                                <i class="fas fa-trash"></i> Supprimer
                             </button>
                         </td>
                     </tr>
