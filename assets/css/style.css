@@ -106,6 +106,14 @@ body {
   z-index: 1010;
 }
 
+/* Actions container for stacked buttons */
+.bandeau_actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+}
+
 /* CENTRE (contenu aligné and centered) - title at top */
 .bandeau_content {
   max-width: var(--content-max-width);
@@ -298,6 +306,16 @@ body {
 }
 .btn-login { background: #3498db; }
 .btn-logout { background: #e74c3c; }
+.btn-publish { 
+  background: #27ae60; 
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
+.btn-publish:hover {
+  background: #229954;
+}
 
 /* ---------------------------------------------------------
    Styles spécifiques à la page de login (login-container)
