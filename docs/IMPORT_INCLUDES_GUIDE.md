@@ -151,7 +151,9 @@ python3 scripts/import_bind_zones.py \
 - Append mode (doesn't overwrite existing logs)
 - Log directory created automatically if needed
 
-## Include Path Resolution
+## Include Path Resolution and Storage
+
+### Resolution Process
 
 When the scripts encounter a `$INCLUDE` directive with a relative path, they try to resolve it using the following strategies in order:
 
@@ -160,6 +162,27 @@ When the scripts encounter a `$INCLUDE` directive with a relative path, they try
 3. **Relative to current working directory** (CWD): When running from a specific location
 4. **Search paths** (--include-search-paths): Additional directories to search
 5. **Recursive search** (basename only): If include is just a filename without path separators, recursively search under import_root
+
+### Directory Path Storage
+
+After resolving an include file, the scripts store the **directory path** in the `zone_files.directory` column using the following priority logic:
+
+1. **If resolved via `--include-search-paths`**: Store path **relative to the matched search path**
+   - Example: Include resolved to `/var/named/includes/common/hosts.inc` via search path `/var/named/includes`
+   - Stored as: `common` (relative to the search path)
+
+2. **Else if under `--dir` (import root)**: Store path **relative to `--dir`**
+   - Example: Include resolved to `/var/named/zones/includes/hosts.inc` with `--dir /var/named/zones`
+   - Stored as: `includes` (relative to import root)
+
+3. **Else**: Store **absolute path**
+   - Example: Include resolved to `/etc/shared/includes/hosts.inc` (outside both bases)
+   - Stored as: `/etc/shared/includes` (absolute)
+
+This approach provides:
+- **Portability**: Zones can be moved as long as relative structure is maintained
+- **Flexibility**: Search paths can be changed without updating database
+- **Compatibility**: Absolute paths work for includes outside managed directories
 
 ### Using --include-search-paths
 
@@ -188,22 +211,42 @@ python3 scripts/import_bind_zones.py \
   --db-pass secret
 ```
 
-### Resolution Examples
+### Resolution and Storage Examples
 
-Given this zone file in `/var/named/zones/example.com.zone`:
-```bind
-$ORIGIN example.com.
-$INCLUDE common/hosts.inc
-```
+**Example 1: Include resolved via search path**
 
-The scripts will try:
-1. `/var/named/zones/common/hosts.inc` (relative to zone file)
-2. `/var/named/zones/common/hosts.inc` (relative to --dir, same in this case)
-3. `$(pwd)/common/hosts.inc` (relative to CWD)
-4. `/var/named/includes/common/hosts.inc` (if in search paths)
-5. `/etc/bind/includes/common/hosts.inc` (if in search paths)
+Given:
+- Zone file: `/var/named/zones/example.com.zone`
+- Directive: `$INCLUDE common/hosts.inc`
+- Command: `--dir /var/named/zones --include-search-paths "/var/named/includes"`
+- Resolved to: `/var/named/includes/common/hosts.inc`
 
-If the include is just a basename like `$INCLUDE hosts.inc`, the script will recursively search under the import root directory.
+Stored in database:
+- `filename`: `hosts.inc`
+- `directory`: `common` (relative to `/var/named/includes`)
+
+**Example 2: Include under import root**
+
+Given:
+- Zone file: `/var/named/zones/example.com.zone`
+- Directive: `$INCLUDE shared/common.inc`
+- Command: `--dir /var/named/zones`
+- Resolved to: `/var/named/zones/shared/common.inc`
+
+Stored in database:
+- `filename`: `common.inc`
+- `directory`: `shared` (relative to `/var/named/zones`)
+
+**Example 3: Include outside managed directories**
+
+Given:
+- Zone file: `/var/named/zones/example.com.zone`
+- Directive: `$INCLUDE /etc/shared/global.inc` (with `--allow-abs-include`)
+- Resolved to: `/etc/shared/global.inc`
+
+Stored in database:
+- `filename`: `global.inc`
+- `directory`: `/etc/shared` (absolute path)
 
 ### Verbose Logging
 
