@@ -29,6 +29,7 @@ if ($basePath === '') {
     window.API_BASE = window.BASE_URL + 'api/';
     
     // Placeholder function for publish action
+    // TODO: Implement CSRF token validation when wiring to the publish API endpoint
     function triggerPublish() {
       // TODO: Wire this to the publish API endpoint
       alert('Publication functionality will be implemented here.');

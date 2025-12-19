@@ -7,6 +7,9 @@
   --logo-secondary-height: 100px;
   --header-height: 120px;
   --footer-height: 56px;
+  
+  /* spacing */
+  --actions-gap: 6px;
 
   /* separator / tabs */
   --separator-height: 6px;
@@ -110,7 +113,7 @@ body {
 .bandeau_actions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--actions-gap);
   align-items: stretch;
 }
 
