@@ -290,7 +290,6 @@ body {
   max-width: var(--content-max-width);
   margin: 0 auto;
   padding-top: 6px;
-  text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
