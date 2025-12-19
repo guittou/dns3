@@ -278,28 +278,36 @@ body {
   box-sizing: border-box;
 }
 
-/* Footer container with flex layout for centered text and right-aligned button */
-.footer-container {
-  max-width: var(--content-max-width);
+/* Footer content: full-width container (like .bandeau_full in header) */
+.footer_content {
+  position: relative;
   width: 100%;
+  min-height: var(--footer-height);
+}
+
+/* Footer center: centered text content (like .bandeau_content in header) */
+.footer_center {
+  max-width: var(--content-max-width);
   margin: 0 auto;
   padding-top: 6px;
-  position: relative;
+  text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: var(--footer-height);
 }
 
-/* Footer content (text) - centered */
-.footer-content {
-  text-align: center;
-  flex: 1;
-}
-
-/* Footer publish button container - positioned to the right */
-.footer-publish {
+/* Footer right: button aligned to right edge (like .bandeau_droite in header) */
+.footer_right {
   position: absolute;
-  right: var(--edge-offset);
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding-right: var(--edge-offset);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1010;
 }
 
 /* Publish button styles */
