@@ -24,6 +24,17 @@ define('LDAP_BIND_PASS', 'your_ldap_password');
 define('SITE_NAME', 'DNS3');
 define('BASE_URL', '/dns3/');
 
+// Application logging configuration
+// Set APP_LOG_PATH to a writable file path to enable application logging
+// If null or not set, logging falls back to PHP's error_log
+// Example: define('APP_LOG_PATH', '/var/log/dns3/app.log');
+if (!defined('APP_LOG_PATH')) define('APP_LOG_PATH', null);
+
+// Log level: DEBUG logs all ACL checks, INFO logs authentication and errors only
+// DEBUG can generate high volume in busy systems - use INFO for production
+// Levels: DEBUG, INFO (default if not set)
+if (!defined('APP_LOG_LEVEL')) define('APP_LOG_LEVEL', 'INFO');
+
 // Application version and contact information
 if (!defined('APP_VERSION')) define('APP_VERSION', '1.0.0');
 if (!defined('CONTACT_LABEL')) define('CONTACT_LABEL', 'Mon/Organisme/a/moi');

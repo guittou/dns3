@@ -4,6 +4,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/models/Acl.php';
 require_once __DIR__ . '/models/ApiToken.php';
+require_once __DIR__ . '/lib/Logger.php';
 
 class Auth {
     private $db;
@@ -113,6 +114,12 @@ class Auth {
         // Reset error at the beginning
         $this->lastError = null;
         
+        Logger::info('auth', 'Login attempt', [
+            'username' => $username,
+            'method' => $method,
+            'source' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+        ]);
+        
         // Try database authentication first if auto or database
         if ($method === 'auto' || $method === 'database') {
             if ($this->authenticateDatabase($username, $password)) {
@@ -140,6 +147,13 @@ class Auth {
             $this->lastError = 'invalid_credentials';
         }
         
+        Logger::warn('auth', 'Login failed', [
+            'username' => $username,
+            'method' => $method,
+            'error' => $this->lastError,
+            'source' => $_SERVER['REMOTE_ADDR'] ?? 'unknown'
+        ]);
+        
         return false;
     }
 
@@ -155,12 +169,20 @@ class Auth {
             if ($user && password_verify($password, $user['password'])) {
                 $this->createSession($user);
                 $this->updateLastLogin($user['id']);
+                Logger::info('auth', 'Database authentication successful', [
+                    'username' => $username,
+                    'user_id' => $user['id']
+                ]);
                 return true;
             }
             
             // User not found or invalid password
             $this->lastError = 'invalid_credentials';
         } catch (Exception $e) {
+            Logger::error('auth', 'Database authentication error', [
+                'username' => $username,
+                'error' => $e->getMessage()
+            ]);
             error_log("Database auth error: " . $e->getMessage());
             $this->lastError = 'invalid_credentials';
         }
@@ -172,6 +194,9 @@ class Auth {
      */
     private function authenticateActiveDirectory($username, $password) {
         if (!function_exists('ldap_connect')) {
+            Logger::warn('auth', 'AD authentication unavailable - LDAP extension not loaded', [
+                'username' => $username
+            ]);
             return false;
         }
 
@@ -179,6 +204,11 @@ class Auth {
             $ldap = ldap_connect(AD_SERVER, AD_PORT);
             if (!$ldap) {
                 $this->lastError = 'server_unreachable';
+                Logger::error('auth', 'AD connection failed', [
+                    'username' => $username,
+                    'server' => AD_SERVER,
+                    'port' => AD_PORT
+                ]);
                 return false;
             }
 
@@ -215,6 +245,12 @@ class Auth {
                         }
                     }
                     
+                    Logger::info('auth', 'AD groups fetched', [
+                        'username' => $storedUsername,
+                        'user_dn' => $user_dn,
+                        'group_count' => count($groups)
+                    ]);
+                    
                     // Build list of comparable values for mapping matching
                     $comparableValues = $groups; // Start with AD groups
                     
@@ -236,6 +272,11 @@ class Auth {
                         // No mapping and no ACL - refuse connection and disable existing user
                         $this->findAndDisableExistingUser($storedUsername, 'ad');
                         $this->lastError = 'no_access';
+                        Logger::warn('auth', 'AD authentication denied - no mappings or ACL', [
+                            'username' => $storedUsername,
+                            'user_dn' => $user_dn,
+                            'group_count' => count($groups)
+                        ]);
                         ldap_close($ldap);
                         return false;
                     }
@@ -255,18 +296,36 @@ class Auth {
                         }
                     }
                     
+                    Logger::info('auth', 'AD authentication successful', [
+                        'username' => $storedUsername,
+                        'user_id' => $user_id,
+                        'group_count' => count($groups),
+                        'matched_role_count' => count($matchedRoleIds),
+                        'has_acl' => $hasAcl
+                    ]);
+                    
                     ldap_close($ldap);
                     return true;
                 }
                 
                 // User not found in search results
                 $this->lastError = 'invalid_credentials';
+                Logger::warn('auth', 'AD user not found in search results', [
+                    'username' => $username
+                ]);
             } else {
                 // User bind failed - invalid credentials
                 $this->lastError = 'invalid_credentials';
+                Logger::warn('auth', 'AD bind failed - invalid credentials', [
+                    'username' => $username
+                ]);
             }
             ldap_close($ldap);
         } catch (Exception $e) {
+            Logger::error('auth', 'AD authentication exception', [
+                'username' => $username,
+                'error' => $e->getMessage()
+            ]);
             error_log("AD auth error: " . $e->getMessage());
             $this->lastError = 'server_unreachable';
         }
@@ -278,6 +337,9 @@ class Auth {
      */
     private function authenticateLDAP($username, $password) {
         if (!function_exists('ldap_connect')) {
+            Logger::warn('auth', 'LDAP authentication unavailable - LDAP extension not loaded', [
+                'username' => $username
+            ]);
             return false;
         }
 
@@ -285,6 +347,11 @@ class Auth {
             $ldap = ldap_connect(LDAP_SERVER, LDAP_PORT);
             if (!$ldap) {
                 $this->lastError = 'server_unreachable';
+                Logger::error('auth', 'LDAP connection failed', [
+                    'username' => $username,
+                    'server' => LDAP_SERVER,
+                    'port' => LDAP_PORT
+                ]);
                 return false;
             }
 
@@ -311,6 +378,11 @@ class Auth {
                     $storedUsername = mb_strtolower(
                         $entries[0]['uid'][0] ?? $username
                     );
+
+                    Logger::info('auth', 'LDAP user found', [
+                        'username' => $storedUsername,
+                        'user_dn' => $user_dn
+                    ]);
 
                     // Try to bind with user credentials
                     if (@ldap_bind($ldap, $user_dn, $password)) {
@@ -344,6 +416,10 @@ class Auth {
                             // No mapping and no ACL - refuse connection and disable existing user
                             $this->findAndDisableExistingUser($storedUsername, 'ldap');
                             $this->lastError = 'no_access';
+                            Logger::warn('auth', 'LDAP authentication denied - no mappings or ACL', [
+                                'username' => $storedUsername,
+                                'user_dn' => $user_dn
+                            ]);
                             ldap_close($ldap);
                             return false;
                         }
@@ -363,22 +439,44 @@ class Auth {
                             }
                         }
                         
+                        Logger::info('auth', 'LDAP authentication successful', [
+                            'username' => $storedUsername,
+                            'user_id' => $user_id,
+                            'matched_role_count' => count($matchedRoleIds),
+                            'has_acl' => $hasAcl
+                        ]);
+                        
                         ldap_close($ldap);
                         return true;
                     } else {
                         // User bind failed - invalid password
                         $this->lastError = 'invalid_credentials';
+                        Logger::warn('auth', 'LDAP user bind failed - invalid credentials', [
+                            'username' => $storedUsername,
+                            'user_dn' => $user_dn
+                        ]);
                     }
                 } else {
                     // User not found in LDAP search
                     $this->lastError = 'invalid_credentials';
+                    Logger::warn('auth', 'LDAP user not found in search', [
+                        'username' => $username
+                    ]);
                 }
             } else {
                 // Service bind failed - LDAP server or credentials issue
                 $this->lastError = 'ldap_bind_failed';
+                Logger::error('auth', 'LDAP service bind failed', [
+                    'username' => $username,
+                    'bind_dn' => LDAP_BIND_DN
+                ]);
             }
             ldap_close($ldap);
         } catch (Exception $e) {
+            Logger::error('auth', 'LDAP authentication exception', [
+                'username' => $username,
+                'error' => $e->getMessage()
+            ]);
             error_log("LDAP auth error: " . $e->getMessage());
             $this->lastError = 'server_unreachable';
         }

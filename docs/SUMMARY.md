@@ -23,6 +23,7 @@ Bienvenue dans la documentation du projet DNS3, une application web PHP pour la 
 - [Référence rapide admin](ADMIN_QUICK_REFERENCE.md) - Référence rapide pour les tâches courantes
 - [Notes de version admin](ADMIN_RELEASE_NOTES.md) - Historique des versions et changements
 - [Modifications de l'authentification admin](ADMIN_AUTH_CHANGES.md) - Changements dans le système d'authentification
+- [Journalisation Applicative](APPLICATION_LOGGING.md) - Configuration et utilisation du système de logs
 
 ---
 

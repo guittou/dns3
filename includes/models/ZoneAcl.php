@@ -6,6 +6,7 @@
  */
 
 require_once __DIR__ . '/../db.php';
+require_once __DIR__ . '/../lib/Logger.php';
 
 class ZoneAcl {
     private $db;
@@ -183,7 +184,18 @@ class ZoneAcl {
                 $created_by
             ]);
             
-            return $this->db->lastInsertId();
+            $entryId = $this->db->lastInsertId();
+            
+            Logger::info('acl', 'ACL entry created', [
+                'acl_id' => $entryId,
+                'zone_id' => $zone_id,
+                'subject_type' => $subject_type,
+                'subject_identifier' => $normalizedIdentifier,
+                'permission' => $permission,
+                'created_by' => $created_by
+            ]);
+            
+            return $entryId;
         } catch (PDOException $e) {
             // Log detailed SQL error for debugging with full context
             $errorInfo = $e->errorInfo ?? [];
@@ -216,10 +228,35 @@ class ZoneAcl {
      */
     public function removeEntry($id) {
         try {
+            // Get entry details before deletion for logging (only if logging is enabled)
+            // This avoids extra DB query when APP_LOG_PATH is not configured
+            $entry = null;
+            $logPath = defined('APP_LOG_PATH') ? APP_LOG_PATH : null;
+            if ($logPath && is_string($logPath) && $logPath !== '') {
+                $entry = $this->getById($id);
+            }
+            
             $sql = "DELETE FROM zone_acl_entries WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$id]);
-            return $stmt->rowCount() > 0;
+            $success = $stmt->rowCount() > 0;
+            
+            if ($success) {
+                if ($entry) {
+                    Logger::info('acl', 'ACL entry deleted', [
+                        'acl_id' => $id,
+                        'zone_id' => $entry['zone_file_id'],
+                        'subject_type' => $entry['subject_type'],
+                        'subject_identifier' => $entry['subject_identifier'],
+                        'permission' => $entry['permission']
+                    ]);
+                } else if ($logPath) {
+                    // Log with just the ID if we skipped the lookup
+                    Logger::info('acl', 'ACL entry deleted', ['acl_id' => $id]);
+                }
+            }
+            
+            return $success;
         } catch (PDOException $e) {
             $errorInfo = $e->errorInfo ?? [];
             $sqlState = $errorInfo[0] ?? 'HY000';
@@ -296,6 +333,7 @@ class ZoneAcl {
             $entries = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $maxPermissionLevel = 0;
+            $matchedEntry = null;
 
             foreach ($entries as $entry) {
                 $matches = false;
@@ -306,6 +344,11 @@ class ZoneAcl {
                         // Direct user match
                         if ((int)$entry['subject_identifier'] === (int)$userId) {
                             $matches = true;
+                            Logger::debug('acl', 'ACL match by user', [
+                                'zone_id' => $zone_id,
+                                'user_id' => $userId,
+                                'permission' => $entry['permission']
+                            ]);
                         }
                         break;
 
@@ -313,6 +356,12 @@ class ZoneAcl {
                         // Role match - check if user has this role
                         if (in_array($entry['subject_identifier'], $userRoles)) {
                             $matches = true;
+                            Logger::debug('acl', 'ACL match by role', [
+                                'zone_id' => $zone_id,
+                                'user_id' => $userId,
+                                'role' => $entry['subject_identifier'],
+                                'permission' => $entry['permission']
+                            ]);
                         }
                         break;
 
@@ -322,11 +371,25 @@ class ZoneAcl {
                             // Case-insensitive comparison
                             if (strcasecmp($group, $entry['subject_identifier']) === 0) {
                                 $matches = true;
+                                Logger::debug('acl', 'ACL match by ad_group (exact)', [
+                                    'zone_id' => $zone_id,
+                                    'user_id' => $userId,
+                                    'user_group' => $group,
+                                    'acl_group' => $entry['subject_identifier'],
+                                    'permission' => $entry['permission']
+                                ]);
                                 break;
                             }
                             // Also check if entry is a substring of group DN (for OU matching)
                             if (stripos($group, $entry['subject_identifier']) !== false) {
                                 $matches = true;
+                                Logger::debug('acl', 'ACL match by ad_group (substring)', [
+                                    'zone_id' => $zone_id,
+                                    'user_id' => $userId,
+                                    'user_group' => $group,
+                                    'acl_group' => $entry['subject_identifier'],
+                                    'permission' => $entry['permission']
+                                ]);
                                 break;
                             }
                         }
@@ -335,11 +398,30 @@ class ZoneAcl {
 
                 if ($matches && $permissionLevel > $maxPermissionLevel) {
                     $maxPermissionLevel = $permissionLevel;
+                    $matchedEntry = $entry;
                 }
             }
 
-            return $maxPermissionLevel >= $requiredLevel;
+            $allowed = $maxPermissionLevel >= $requiredLevel;
+            
+            if (!$allowed) {
+                Logger::warn('acl', 'ACL check failed - insufficient permission', [
+                    'zone_id' => $zone_id,
+                    'user_id' => $userId,
+                    'required' => $required,
+                    'max_permission' => $matchedEntry['permission'] ?? 'none',
+                    'user_roles' => $userRoles,
+                    'user_groups_count' => count($userGroups)
+                ]);
+            }
+
+            return $allowed;
         } catch (Exception $e) {
+            Logger::error('acl', 'ACL check exception', [
+                'zone_id' => $zone_id,
+                'user_id' => $userId ?? null,
+                'error' => $e->getMessage()
+            ]);
             error_log("ZoneAcl isAllowed error: " . $e->getMessage());
             return false;
         }
