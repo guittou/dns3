@@ -245,11 +245,25 @@ class Auth {
                         }
                     }
                     
-                    Logger::info('auth', 'AD groups fetched', [
+                    // Log AD groups with truncation for long lists
+                    $logContext = [
                         'username' => $storedUsername,
                         'user_dn' => $user_dn,
                         'group_count' => count($groups)
-                    ]);
+                    ];
+                    
+                    // Include up to 10 groups in logs, truncate if more
+                    if (count($groups) > 0) {
+                        $logContext['ad_groups'] = array_slice($groups, 0, 10);
+                        if (count($groups) > 10) {
+                            $logContext['groups_truncated'] = true;
+                            $logContext['total_groups'] = count($groups);
+                        }
+                    } else {
+                        $logContext['ad_groups'] = [];
+                    }
+                    
+                    Logger::info('auth', 'AD groups fetched', $logContext);
                     
                     // Build list of comparable values for mapping matching
                     $comparableValues = $groups; // Start with AD groups

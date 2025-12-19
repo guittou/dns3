@@ -367,10 +367,12 @@ class ZoneAcl {
 
                     case 'ad_group':
                         // AD group match - check memberOf or DN substring
+                        $matchFound = false;
                         foreach ($userGroups as $group) {
                             // Case-insensitive comparison
                             if (strcasecmp($group, $entry['subject_identifier']) === 0) {
                                 $matches = true;
+                                $matchFound = true;
                                 Logger::debug('acl', 'ACL match by ad_group (exact)', [
                                     'zone_id' => $zone_id,
                                     'user_id' => $userId,
@@ -383,6 +385,7 @@ class ZoneAcl {
                             // Also check if entry is a substring of group DN (for OU matching)
                             if (stripos($group, $entry['subject_identifier']) !== false) {
                                 $matches = true;
+                                $matchFound = true;
                                 Logger::debug('acl', 'ACL match by ad_group (substring)', [
                                     'zone_id' => $zone_id,
                                     'user_id' => $userId,
@@ -392,6 +395,17 @@ class ZoneAcl {
                                 ]);
                                 break;
                             }
+                        }
+                        
+                        // Log failed ad_group comparison at DEBUG level for diagnostics
+                        if (!$matchFound && count($userGroups) > 0) {
+                            Logger::debug('acl', 'ACL ad_group comparison failed', [
+                                'zone_id' => $zone_id,
+                                'user_id' => $userId,
+                                'acl_group' => $entry['subject_identifier'],
+                                'user_groups_count' => count($userGroups),
+                                'user_groups_sample' => array_slice($userGroups, 0, 3) // Log first 3 groups as sample
+                            ]);
                         }
                         break;
                 }
