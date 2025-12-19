@@ -278,13 +278,49 @@ body {
   box-sizing: border-box;
 }
 
-/* Footer container centered */
+/* Footer container with flex layout for centered text and right-aligned button */
 .footer-container {
   max-width: var(--content-max-width);
   width: 100%;
   margin: 0 auto;
-  text-align: center;
   padding-top: 6px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Footer content (text) - centered */
+.footer-content {
+  text-align: center;
+  flex: 1;
+}
+
+/* Footer publish button container - positioned to the right */
+.footer-publish {
+  position: absolute;
+  right: var(--edge-offset);
+}
+
+/* Publish button styles */
+.btn-publish {
+  padding: 8px 16px;
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-publish:hover {
+  background: #2980b9;
+}
+
+.btn-publish:active {
+  background: #21618c;
 }
 
 /* Buttons */
