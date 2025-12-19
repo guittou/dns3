@@ -27,6 +27,12 @@ if ($basePath === '') {
     // Expose BASE_URL for JavaScript to construct proper URLs
     window.BASE_URL = '<?php echo $basePath; ?>';
     window.API_BASE = window.BASE_URL + 'api/';
+    
+    // Placeholder function for publish button
+    function triggerPublish() {
+      console.log('Publier button clicked - placeholder functionality');
+      alert('Fonction de publication à implémenter');
+    }
   </script>
   <script src="<?php echo $basePath; ?>assets/js/modal-utils.js" defer></script>
 </head>
@@ -84,6 +90,9 @@ if ($basePath === '') {
             <?php endif; ?>
           <?php endif; ?>
         </ul>
+        <?php if ($auth->isLoggedIn() && $auth->isAdmin()): ?>
+        <button class="btn-publier" onclick="triggerPublish()" aria-label="Publier les modifications">Publier</button>
+        <?php endif; ?>
       </div>
 
       <!-- SEPARATOR: ligne de séparation full-width (en bas du bandeau) -->
