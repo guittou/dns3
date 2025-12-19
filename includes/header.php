@@ -39,7 +39,7 @@ if ($basePath === '') {
           <a href="<?php echo $basePath; ?>" class="logo-link" aria-label="<?php echo SITE_NAME; ?>">
             <img src="<?php echo $basePath; ?>assets/images/logo_cnd_transparent.png" alt="<?php echo SITE_NAME; ?>" class="bandeau_logo_img" onerror="this.style.display='none';">
           </a>
-          <img src="<?php echo $basePath; ?>assets/images/logo-cnmo-i.png" alt="CNMO" class="bandeau_logo_img" onerror="this.style.display='none';">
+          <img src="<?php echo $basePath; ?>assets/images/logo-cnmo-i-2.png" alt="CNMO" class="bandeau_logo_img_secondary" onerror="this.style.display='none';">
         </div>
       </div>
 

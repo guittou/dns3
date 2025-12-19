@@ -4,6 +4,7 @@
   --content-max-width: 1100px;
   --edge-offset: 12px;
   --logo-height: 70px;
+  --logo-secondary-height: 60px;
   --header-height: 120px;
   --footer-height: 56px;
 
@@ -80,10 +81,16 @@ body {
   align-items: center;
   gap: 12px;
 }
-.bandeau_logo_img {
-  height: var(--logo-height);
+.bandeau_logo_img,
+.bandeau_logo_img_secondary {
   display: block;
   object-fit: contain;
+}
+.bandeau_logo_img {
+  height: var(--logo-height);
+}
+.bandeau_logo_img_secondary {
+  height: var(--logo-secondary-height);
 }
 
 /* RIGHT: auth area absolute right:0 */
