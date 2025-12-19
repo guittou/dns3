@@ -85,9 +85,6 @@ body {
   display: block;
   object-fit: contain;
 }
-.bandeau_logo_secondary {
-  /* Secondary logo styling if needed */
-}
 
 /* RIGHT: auth area absolute right:0 */
 .bandeau_droite {
