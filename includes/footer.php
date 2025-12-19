@@ -8,8 +8,9 @@
   <footer class="footer" role="contentinfo">
     <div class="footer_separator" aria-hidden="true"></div>
 
-    <div class="footer-container">
-      <div class="footer-content">
+    <div class="footer_content">
+      <!-- Center: text content (version, contact) -->
+      <div class="footer_center">
         <?php
           $version = htmlspecialchars(defined('APP_VERSION') ? APP_VERSION : '1.0.0', ENT_QUOTES, 'UTF-8');
           $label = htmlspecialchars(defined('CONTACT_LABEL') ? CONTACT_LABEL : 'Mon/Organisme/a/moi', ENT_QUOTES, 'UTF-8');
@@ -17,11 +18,13 @@
           echo "<strong>Version:</strong> {$version} - {$label} &nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp; <strong>Contacts:</strong> <a href=\"mailto:{$email}\">{$email}</a>";
         ?>
       </div>
+
+      <!-- Right: Publier button (admin only) - aligned right like header -->
       <?php
         // Display "Publier" button only for admin users
         if (isset($auth) && $auth->isAdmin()):
       ?>
-      <div class="footer-publish">
+      <div class="footer_right" aria-hidden="false">
         <button class="btn-publish" onclick="triggerPublish()">Publier</button>
       </div>
       <?php endif; ?>
