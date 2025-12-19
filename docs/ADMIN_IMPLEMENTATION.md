@@ -655,13 +655,15 @@ mysql -u dns3_user -p dns3_db < database.sql
 
 #### Types de sujets ACL
 
-| Type       | Description                                    |
-|------------|------------------------------------------------|
-| `user`     | Nom d'utilisateur (normalisé en minuscules)    |
-| `role`     | Nom du rôle (ex : `zone_editor`)               |
-| `ad_group` | DN ou nom du groupe Active Directory           |
+| Type       | Identifiant                                      | Description                                           |
+|------------|--------------------------------------------------|-------------------------------------------------------|
+| `user`     | sAMAccountName (AD) ou uid (LDAP)                | Identifiant utilisateur normalisé en minuscules       |
+| `role`     | Nom du rôle                                      | Nom du rôle système (ex : `zone_editor`)              |
+| `ad_group` | DN du groupe Active Directory                    | DN complet accepté tel quel (sans normalisation)      |
 
-**Note :** Pour le type `user`, le `subject_identifier` peut être un nom d'utilisateur même si l'utilisateur n'existe pas encore en base de données. Cela permet de pré-autoriser des utilisateurs externes (AD/LDAP) avant leur première connexion.
+**Note :** Pour le type `user`, le `subject_identifier` est le sAMAccountName (Active Directory) ou uid (LDAP) de l'utilisateur, normalisé en minuscules. L'identifiant peut être spécifié même si l'utilisateur n'existe pas encore en base de données. Cela permet de pré-autoriser des utilisateurs externes (AD/LDAP) avant leur première connexion.
+
+**Note :** Pour le type `ad_group`, le `subject_identifier` est le Distinguished Name (DN) complet du groupe Active Directory (ex : `CN=DNSAdmins,OU=Groups,DC=example,DC=com`), accepté tel quel sans normalisation.
 
 #### Bypass Admin
 

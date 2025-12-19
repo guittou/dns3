@@ -308,13 +308,13 @@ Si aucune condition n'est remplie : connexion refusée + compte désactivé.
 | admin   | Toutes les permissions pour la zone |
 
 ### Types de Sujets
-| Type      | Exemple                                      |
-|-----------|----------------------------------------------|
-| user      | Username (ex: john.doe) - normalisé en minuscules |
-| role      | Nom du rôle (ex: zone_editor)                |
-| ad_group  | DN du groupe AD (ex: CN=DNS,OU=Groups,DC=...) |
+| Type      | Identifiant                                  | Exemple                                      |
+|-----------|----------------------------------------------|----------------------------------------------|
+| user      | sAMAccountName (AD) ou uid (LDAP) - normalisé en minuscules | jdupont, john.doe |
+| role      | Nom du rôle                                  | zone_editor                                  |
+| ad_group  | DN du groupe AD (accepté tel quel)           | CN=DNSAdmins,OU=Groups,DC=example,DC=com     |
 
-**Note :** Le type `user` accepte un username même si l'utilisateur n'existe pas encore (pré-autorisation).
+**Note :** Le type `user` accepte un identifiant (sAMAccountName/uid) même si l'utilisateur n'existe pas encore en base (pré-autorisation).
 
 ### Interface
 ```

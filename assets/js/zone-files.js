@@ -5058,9 +5058,9 @@ function renderAclList(entries) {
 
 /**
  * Update subject identifier options based on selected type
- * For 'user' type: show text input for free CN/UID entry (pre-authorization support)
+ * For 'user' type: show text input for sAMAccountName (AD) or uid (LDAP) entry (pre-authorization support)
  * For 'role' type: show select with existing roles
- * For 'ad_group' type: show text input for AD group DN
+ * For 'ad_group' type: show text input for AD group DN (Distinguished Name)
  */
 async function updateAclSubjectOptions() {
     const typeSelect = document.getElementById('aclSubjectType');
@@ -5072,11 +5072,11 @@ async function updateAclSubjectOptions() {
     const type = typeSelect.value;
     
     if (type === 'user') {
-        // Show text input for free CN/UID entry (allows pre-authorization of users not yet in DB)
+        // Show text input for free sAMAccountName/uid entry (allows pre-authorization of users not yet in DB)
         selectEl.style.display = 'none';
         inputEl.style.display = 'block';
         inputEl.value = '';
-        inputEl.placeholder = 'CN ou UID de l\'utilisateur (ex: jdupont, john.doe)';
+        inputEl.placeholder = 'sAMAccountName (AD) ou uid (LDAP) — ex: jdupont';
     } else if (type === 'role') {
         // Show select with roles list
         selectEl.style.display = 'block';
