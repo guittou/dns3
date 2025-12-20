@@ -183,9 +183,9 @@ try {
                         continue;
                     }
                     
-                    // For master zones, validate with named-checkzone before writing
-                    // For include files, we validate them individually
+                    // Validate zone files before writing
                     if ($currentFileType === 'master') {
+                        // Master zones: validate with named-checkzone (includes all $INCLUDE directives)
                         $validation = $zoneFileModel->validateZoneFile($currentZoneId, $userId, true);
                         
                         if (!$validation || $validation['status'] !== 'passed') {
@@ -200,6 +200,23 @@ try {
                                 'zone_name' => $currentZoneName,
                                 'user_id' => $userId,
                                 'validation_output' => substr($validation['output'] ?? '', 0, 500)
+                            ]);
+                            continue;
+                        }
+                    } else {
+                        // Include files: perform basic sanity check (content exists and is not empty)
+                        // Note: Include files cannot be validated standalone with named-checkzone
+                        // as they are zone fragments. They are validated as part of the master zone.
+                        if (empty(trim($content))) {
+                            $result['status'] = 'failed';
+                            $result['error'] = 'Include file has no content';
+                            $failureCount++;
+                            $results[] = $result;
+                            
+                            Logger::warn('publish', 'Include file validation failed: empty content', [
+                                'zone_id' => $currentZoneId,
+                                'zone_name' => $currentZoneName,
+                                'user_id' => $userId
                             ]);
                             continue;
                         }

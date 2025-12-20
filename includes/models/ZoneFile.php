@@ -2591,9 +2591,23 @@ class ZoneFile {
     /**
      * Recursively collect all include files for a zone (with cycle detection)
      * 
-     * @param int $zoneId Zone file ID
-     * @param array $visited Array of already visited zone IDs (for cycle detection)
-     * @return array Array of include zone file data arrays
+     * This method traverses the include hierarchy starting from a given zone,
+     * collecting all direct and nested includes. It prevents infinite loops
+     * by tracking visited zones.
+     * 
+     * @param int $zoneId Zone file ID to start collecting from
+     * @param array $visited Reference to array of visited zone IDs (used internally for cycle detection).
+     *                       This parameter is modified during recursion to track visited zones.
+     *                       Callers should pass an empty array or leave it unspecified.
+     * @return array Array of include zone file data arrays, in depth-first order
+     * 
+     * @example
+     * // Collect all includes for a master zone
+     * $visited = [];
+     * $includes = $zoneFileModel->collectAllIncludes($masterZoneId, $visited);
+     * foreach ($includes as $include) {
+     *     echo "Include: {$include['name']}\n";
+     * }
      */
     public function collectAllIncludes($zoneId, &$visited = []) {
         // Cycle detection
