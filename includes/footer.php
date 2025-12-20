@@ -117,24 +117,35 @@
       
       // Set summary class and content
       summary.className = 'publish-summary';
+      summaryText.textContent = ''; // Clear previous content
+      
       if (isError) {
         summary.classList.add('error');
         summaryIcon.textContent = '✗';
-        summaryText.innerHTML = '<strong>Erreur lors de la publication</strong><br>';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Erreur lors de la publication';
+        summaryText.appendChild(strong);
+        summaryText.appendChild(document.createElement('br'));
         const errorSpan = document.createElement('span');
         errorSpan.textContent = result.error || 'Erreur inconnue';
         summaryText.appendChild(errorSpan);
       } else if (isSuccess) {
         summary.classList.add('success');
         summaryIcon.textContent = '✓';
-        summaryText.innerHTML = '<strong>Publication réussie !</strong><br>';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Publication réussie !';
+        summaryText.appendChild(strong);
+        summaryText.appendChild(document.createElement('br'));
         const countSpan = document.createElement('span');
         countSpan.textContent = `${result.success_count} zone(s) publiée(s) avec succès.`;
         summaryText.appendChild(countSpan);
       } else {
         summary.classList.add('partial');
         summaryIcon.textContent = '⚠';
-        summaryText.innerHTML = '<strong>Publication partielle</strong><br>';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Publication partielle';
+        summaryText.appendChild(strong);
+        summaryText.appendChild(document.createElement('br'));
         const countSpan = document.createElement('span');
         countSpan.textContent = `${result.success_count} zone(s) publiée(s), ${result.failure_count} zone(s) en échec.`;
         summaryText.appendChild(countSpan);
@@ -191,6 +202,9 @@
     
     async function triggerPublish() {
       const button = document.querySelector('.btn-publish');
+      
+      // Guard: button should exist if this function is called
+      if (!button) return;
       
       // Disable button to prevent double-clicks
       button.disabled = true;
