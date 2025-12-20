@@ -113,7 +113,7 @@
       // Determine status
       let isSuccess = result.success;
       let isError = !response.ok;
-      let isPartial = !isSuccess && !isError;
+      let isPartial = response.ok && !isSuccess;
       
       // Set summary class and content
       summary.className = 'publish-summary';
