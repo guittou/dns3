@@ -14,7 +14,7 @@
      * @param {string} type - The type of alert: 'info', 'success', or 'error' (default: 'info')
      * @param {string} title - Optional custom title (default based on type)
      */
-    window.showAlert = function(message, type = 'info', title = null) {
+    window.showAlert = window.showAlert || function(message, type = 'info', title = null) {
         // Remove any existing alert popup
         const existingPopup = document.getElementById('common-alert-popup');
         if (existingPopup) {
@@ -108,7 +108,7 @@
      *   - {string} cancelText - Text for cancel button (default: 'Annuler')
      *   - {string} type - Type of confirmation: 'danger', 'warning', 'info' (default: 'warning')
      */
-    window.showConfirm = function(message, onConfirm, onCancel = null, options = {}) {
+    window.showConfirm = window.showConfirm || function(message, onConfirm, onCancel = null, options = {}) {
         // Remove any existing confirm popup
         const existingPopup = document.getElementById('common-confirm-popup');
         if (existingPopup) {

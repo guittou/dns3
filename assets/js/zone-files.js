@@ -2972,7 +2972,7 @@ async function deleteZone(zoneId) {
                 renderZonesTable();
             } catch (error) {
                 console.error('Failed to delete zone:', error);
-                showError(`Échec de la suppression: ${error.message}`);
+                showError('Échec de la suppression: ' + error.message);
             }
         },
         null,
