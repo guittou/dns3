@@ -114,107 +114,191 @@ try {
         exit;
     }
     
-    // Process each zone
+    // Process each zone and collect all files to publish (masters + includes)
     $results = [];
     $successCount = 0;
     $failureCount = 0;
+    $processedZoneIds = []; // Track processed zones to avoid duplicates (key => true for O(1) lookup)
     
     foreach ($activeZones as $zone) {
         $zoneId = $zone['id'];
         $zoneName = $zone['name'];
         
-        $result = [
-            'id' => $zoneId,
-            'name' => $zoneName,
-            'status' => 'pending'
-        ];
-        
         try {
-            // Generate zone file content
-            $content = $zoneFileModel->generateZoneFile($zoneId);
+            // Collect all zone files to publish: master + all its includes recursively
+            $zonesToPublish = [];
             
-            if ($content === null || trim($content) === '') {
-                $result['status'] = 'failed';
-                $result['error'] = 'Failed to generate zone file content';
-                $failureCount++;
-                $results[] = $result;
-                
-                Logger::warn('publish', 'Zone content generation failed', [
-                    'zone_id' => $zoneId,
-                    'zone_name' => $zoneName,
-                    'user_id' => $userId
-                ]);
-                continue;
+            // Add the master zone itself
+            $zonesToPublish[] = [
+                'id' => $zoneId,
+                'name' => $zoneName,
+                'file_type' => $zone['file_type']
+            ];
+            
+            // Collect all includes recursively
+            $visited = [];
+            $includes = $zoneFileModel->collectAllIncludes($zoneId, $visited);
+            foreach ($includes as $include) {
+                $zonesToPublish[] = [
+                    'id' => $include['id'],
+                    'name' => $include['name'],
+                    'file_type' => $include['file_type']
+                ];
             }
             
-            // Validate with named-checkzone before writing
-            $validation = $zoneFileModel->validateZoneFile($zoneId, $userId, true);
-            
-            if (!$validation || $validation['status'] !== 'passed') {
-                $result['status'] = 'failed';
-                $result['error'] = 'Zone validation failed';
-                $result['validation_output'] = $validation['output'] ?? 'No validation output available';
-                $failureCount++;
+            // Process each zone file (master + includes)
+            foreach ($zonesToPublish as $zoneToPublish) {
+                $currentZoneId = $zoneToPublish['id'];
+                $currentZoneName = $zoneToPublish['name'];
+                $currentFileType = $zoneToPublish['file_type'];
+                
+                // Skip if already processed (avoid duplicates when includes are shared)
+                if (isset($processedZoneIds[$currentZoneId])) {
+                    continue;
+                }
+                
+                $result = [
+                    'id' => $currentZoneId,
+                    'name' => $currentZoneName,
+                    'file_type' => $currentFileType,
+                    'status' => 'pending'
+                ];
+                
+                try {
+                    // Generate zone file content
+                    $content = $zoneFileModel->generateZoneFile($currentZoneId);
+                    
+                    if ($content === null || trim($content) === '') {
+                        $result['status'] = 'failed';
+                        $result['error'] = 'Failed to generate zone file content';
+                        $failureCount++;
+                        $results[] = $result;
+                        
+                        Logger::warn('publish', 'Zone content generation failed', [
+                            'zone_id' => $currentZoneId,
+                            'zone_name' => $currentZoneName,
+                            'file_type' => $currentFileType,
+                            'user_id' => $userId
+                        ]);
+                        continue;
+                    }
+                    
+                    // Validate zone files before writing
+                    if ($currentFileType === 'master') {
+                        // Master zones: validate with named-checkzone (includes all $INCLUDE directives)
+                        $validation = $zoneFileModel->validateZoneFile($currentZoneId, $userId, true);
+                        
+                        if (!$validation || $validation['status'] !== 'passed') {
+                            $result['status'] = 'failed';
+                            $result['error'] = 'Zone validation failed';
+                            $result['validation_output'] = $validation['output'] ?? 'No validation output available';
+                            $failureCount++;
+                            $results[] = $result;
+                            
+                            Logger::warn('publish', 'Zone validation failed', [
+                                'zone_id' => $currentZoneId,
+                                'zone_name' => $currentZoneName,
+                                'user_id' => $userId,
+                                'validation_output' => substr($validation['output'] ?? '', 0, 500)
+                            ]);
+                            continue;
+                        }
+                    } else {
+                        // Include files: perform basic sanity check (content exists and is not empty)
+                        // Note: Include files cannot be validated standalone with named-checkzone
+                        // as they are zone fragments. They are validated as part of the master zone.
+                        if (empty(trim($content))) {
+                            $result['status'] = 'failed';
+                            $result['error'] = 'Include file has no content';
+                            $failureCount++;
+                            $results[] = $result;
+                            
+                            Logger::warn('publish', 'Include file validation failed: empty content', [
+                                'zone_id' => $currentZoneId,
+                                'zone_name' => $currentZoneName,
+                                'user_id' => $userId
+                            ]);
+                            continue;
+                        }
+                    }
+                    
+                    // Write to disk
+                    $writeResult = $zoneFileModel->writeZoneFileToDisk($currentZoneId, $bindBasedir);
+                    
+                    if ($writeResult['success']) {
+                        $result['status'] = 'success';
+                        $result['file_path'] = $writeResult['file_path'];
+                        $successCount++;
+                        $processedZoneIds[$currentZoneId] = true; // Mark as processed
+                        
+                        Logger::info('publish', 'Zone file published successfully', [
+                            'zone_id' => $currentZoneId,
+                            'zone_name' => $currentZoneName,
+                            'file_type' => $currentFileType,
+                            'file_path' => $writeResult['file_path'],
+                            'user_id' => $userId
+                        ]);
+                    } else {
+                        $result['status'] = 'failed';
+                        $result['error'] = $writeResult['error'] ?? 'Failed to write zone file to disk';
+                        $failureCount++;
+                        
+                        Logger::error('publish', 'Zone file write failed', [
+                            'zone_id' => $currentZoneId,
+                            'zone_name' => $currentZoneName,
+                            'file_type' => $currentFileType,
+                            'error' => $writeResult['error'] ?? 'unknown',
+                            'user_id' => $userId
+                        ]);
+                    }
+                    
+                } catch (Exception $e) {
+                    $result['status'] = 'failed';
+                    $result['error'] = 'Exception: ' . $e->getMessage();
+                    $failureCount++;
+                    
+                    Logger::error('publish', 'Zone file publication exception', [
+                        'zone_id' => $currentZoneId,
+                        'zone_name' => $currentZoneName,
+                        'file_type' => $currentFileType,
+                        'error' => $e->getMessage(),
+                        'user_id' => $userId
+                    ]);
+                }
+                
                 $results[] = $result;
-                
-                Logger::warn('publish', 'Zone validation failed', [
-                    'zone_id' => $zoneId,
-                    'zone_name' => $zoneName,
-                    'user_id' => $userId,
-                    'validation_output' => substr($validation['output'] ?? '', 0, 500)
-                ]);
-                continue;
-            }
-            
-            // Validation passed - write to disk
-            $writeResult = $zoneFileModel->writeZoneFileToDisk($zoneId, $bindBasedir);
-            
-            if ($writeResult['success']) {
-                $result['status'] = 'success';
-                $result['file_path'] = $writeResult['file_path'];
-                $successCount++;
-                
-                Logger::info('publish', 'Zone published successfully', [
-                    'zone_id' => $zoneId,
-                    'zone_name' => $zoneName,
-                    'file_path' => $writeResult['file_path'],
-                    'user_id' => $userId
-                ]);
-            } else {
-                $result['status'] = 'failed';
-                $result['error'] = $writeResult['error'] ?? 'Failed to write zone file to disk';
-                $failureCount++;
-                
-                Logger::error('publish', 'Zone file write failed', [
-                    'zone_id' => $zoneId,
-                    'zone_name' => $zoneName,
-                    'error' => $writeResult['error'] ?? 'unknown',
-                    'user_id' => $userId
-                ]);
             }
             
         } catch (Exception $e) {
-            $result['status'] = 'failed';
-            $result['error'] = 'Exception: ' . $e->getMessage();
+            $result = [
+                'id' => $zoneId,
+                'name' => $zoneName,
+                'status' => 'failed',
+                'error' => 'Exception while collecting includes: ' . $e->getMessage()
+            ];
             $failureCount++;
+            $results[] = $result;
             
-            Logger::error('publish', 'Zone publication exception', [
+            Logger::error('publish', 'Zone collection exception', [
                 'zone_id' => $zoneId,
                 'zone_name' => $zoneName,
                 'error' => $e->getMessage(),
                 'user_id' => $userId
             ]);
         }
-        
-        $results[] = $result;
     }
     
     // Determine overall success
     $overallSuccess = $failureCount === 0;
     
+    // Count distinct masters processed
+    $totalMasters = count($activeZones);
+    $totalFilesPublished = count($results);
+    
     Logger::info('publish', 'Zone publication completed', [
         'user_id' => $userId,
-        'total_zones' => count($activeZones),
+        'total_master_zones' => $totalMasters,
+        'total_files_published' => $totalFilesPublished,
         'success_count' => $successCount,
         'failure_count' => $failureCount,
         'overall_success' => $overallSuccess
@@ -224,9 +308,10 @@ try {
     $response = [
         'success' => $overallSuccess,
         'message' => $overallSuccess 
-            ? "All $successCount zones published successfully" 
-            : "$successCount zones published, $failureCount failed",
-        'total' => count($activeZones),
+            ? "All $successCount zone files published successfully (from $totalMasters master zones)" 
+            : "$successCount zone files published, $failureCount failed (from $totalMasters master zones)",
+        'total_master_zones' => $totalMasters,
+        'total_files' => $totalFilesPublished,
         'success_count' => $successCount,
         'failure_count' => $failureCount,
         'zones' => $results

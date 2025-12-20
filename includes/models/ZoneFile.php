@@ -2589,6 +2589,51 @@ class ZoneFile {
     }
     
     /**
+     * Recursively collect all include files for a zone (with cycle detection)
+     * 
+     * This method traverses the include hierarchy starting from a given zone,
+     * collecting all direct and nested includes. It prevents infinite loops
+     * by tracking visited zones.
+     * 
+     * @param int $zoneId Zone file ID to start collecting from
+     * @param array $visited Reference to array of visited zone IDs (used internally for cycle detection).
+     *                       This parameter is modified during recursion to track visited zones.
+     *                       Callers should pass an empty array or leave it unspecified.
+     * @return array Array of include zone file data arrays, in depth-first order
+     * 
+     * @example
+     * // Collect all includes for a master zone
+     * $visited = [];
+     * $includes = $zoneFileModel->collectAllIncludes($masterZoneId, $visited);
+     * foreach ($includes as $include) {
+     *     echo "Include: {$include['name']}\n";
+     * }
+     */
+    public function collectAllIncludes($zoneId, &$visited = []) {
+        // Cycle detection
+        if (in_array($zoneId, $visited)) {
+            return [];
+        }
+        $visited[] = $zoneId;
+        
+        $allIncludes = [];
+        
+        // Get direct includes for this zone
+        $includes = $this->getIncludes($zoneId);
+        
+        foreach ($includes as $include) {
+            // Add this include
+            $allIncludes[] = $include;
+            
+            // Recursively get includes of this include
+            $subIncludes = $this->collectAllIncludes($include['id'], $visited);
+            $allIncludes = array_merge($allIncludes, $subIncludes);
+        }
+        
+        return $allIncludes;
+    }
+    
+    /**
      * Write zone file to disk under BIND_BASEDIR
      * Creates necessary directory structure and sets appropriate permissions
      * 

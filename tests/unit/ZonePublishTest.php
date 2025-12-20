@@ -223,6 +223,120 @@ class ZonePublishTest extends TestCase
     }
     
     /**
+     * Test collectAllIncludes method with nested includes
+     */
+    public function testCollectAllIncludes()
+    {
+        // Create test user
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE username = 'test_publish_user' LIMIT 1");
+        $stmt->execute();
+        $user = $stmt->fetch();
+        $userId = $user['id'];
+        
+        // Create include files
+        $include1Data = [
+            'name' => 'test-include-1-' . uniqid(),
+            'filename' => 'include1.db',
+            'directory' => 'includes',
+            'file_type' => 'include',
+            'content' => '; Include 1 content'
+        ];
+        $include1Id = $this->zoneFile->create($include1Data, $userId);
+        
+        $include2Data = [
+            'name' => 'test-include-2-' . uniqid(),
+            'filename' => 'include2.db',
+            'directory' => 'includes/nested',
+            'file_type' => 'include',
+            'content' => '; Include 2 content (nested)'
+        ];
+        $include2Id = $this->zoneFile->create($include2Data, $userId);
+        
+        try {
+            // Link include1 to master zone
+            $stmt = $this->db->prepare("INSERT INTO zone_file_includes (parent_id, include_id, position) VALUES (?, ?, ?)");
+            $stmt->execute([$this->testZoneId, $include1Id, 1]);
+            
+            // Link include2 to include1 (nested)
+            $stmt->execute([$include1Id, $include2Id, 1]);
+            
+            // Test collectAllIncludes
+            $visited = [];
+            $includes = $this->zoneFile->collectAllIncludes($this->testZoneId, $visited);
+            
+            // Should return both include1 and include2 (recursively)
+            $this->assertCount(2, $includes, 'Should collect 2 includes (1 direct + 1 nested)');
+            
+            // Verify include IDs are present
+            $includeIds = array_column($includes, 'id');
+            $this->assertContains($include1Id, $includeIds, 'Should contain include1');
+            $this->assertContains($include2Id, $includeIds, 'Should contain include2 (nested)');
+            
+        } finally {
+            // Clean up test includes
+            $stmt = $this->db->prepare("DELETE FROM zone_file_includes WHERE parent_id = ? OR include_id IN (?, ?)");
+            $stmt->execute([$this->testZoneId, $include1Id, $include2Id]);
+            
+            $stmt = $this->db->prepare("DELETE FROM zone_files WHERE id IN (?, ?)");
+            $stmt->execute([$include1Id, $include2Id]);
+        }
+    }
+    
+    /**
+     * Test collectAllIncludes with circular dependency detection
+     */
+    public function testCollectAllIncludesWithCircularDependency()
+    {
+        // Create test user
+        $stmt = $this->db->prepare("SELECT id FROM users WHERE username = 'test_publish_user' LIMIT 1");
+        $stmt->execute();
+        $user = $stmt->fetch();
+        $userId = $user['id'];
+        
+        // Create two include files
+        $include1Data = [
+            'name' => 'test-circular-1-' . uniqid(),
+            'filename' => 'circular1.db',
+            'directory' => 'includes',
+            'file_type' => 'include',
+            'content' => '; Circular include 1'
+        ];
+        $include1Id = $this->zoneFile->create($include1Data, $userId);
+        
+        $include2Data = [
+            'name' => 'test-circular-2-' . uniqid(),
+            'filename' => 'circular2.db',
+            'directory' => 'includes',
+            'file_type' => 'include',
+            'content' => '; Circular include 2'
+        ];
+        $include2Id = $this->zoneFile->create($include2Data, $userId);
+        
+        try {
+            // Create circular dependency: include1 -> include2 -> include1
+            $stmt = $this->db->prepare("INSERT INTO zone_file_includes (parent_id, include_id, position) VALUES (?, ?, ?)");
+            $stmt->execute([$include1Id, $include2Id, 1]);
+            $stmt->execute([$include2Id, $include1Id, 1]);
+            
+            // Test collectAllIncludes - should handle circular dependency gracefully
+            $visited = [];
+            $includes = $this->zoneFile->collectAllIncludes($include1Id, $visited);
+            
+            // Should return only include2 once (circular reference detected)
+            $this->assertCount(1, $includes, 'Should collect only 1 include (circular dependency detected)');
+            $this->assertEquals($include2Id, $includes[0]['id'], 'Should contain include2');
+            
+        } finally {
+            // Clean up test includes
+            $stmt = $this->db->prepare("DELETE FROM zone_file_includes WHERE include_id IN (?, ?) OR parent_id IN (?, ?)");
+            $stmt->execute([$include1Id, $include2Id, $include1Id, $include2Id]);
+            
+            $stmt = $this->db->prepare("DELETE FROM zone_files WHERE id IN (?, ?)");
+            $stmt->execute([$include1Id, $include2Id]);
+        }
+    }
+    
+    /**
      * Recursively remove directory
      */
     private function rmdirRecursive($dir)
