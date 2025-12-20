@@ -23,6 +23,7 @@ if ($basePath === '') {
   <title><?php echo SITE_NAME; ?></title>
   <link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/style.css">
   <link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/modal-utils.css">
+  <link rel="stylesheet" href="<?php echo $basePath; ?>assets/css/publish-popup.css">
   <script>
     // Expose BASE_URL for JavaScript to construct proper URLs
     window.BASE_URL = '<?php echo $basePath; ?>';
