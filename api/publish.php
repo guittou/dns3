@@ -232,7 +232,7 @@ try {
         'zones' => $results
     ];
     
-    echo json_encode($response, JSON_PRETTY_PRINT);
+    echo json_encode($response);
     
 } catch (Exception $e) {
     Logger::error('publish', 'Publication fatal error', [

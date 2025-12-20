@@ -2617,14 +2617,12 @@ class ZoneFile {
             }
             
             // Clean content: remove BOM, ensure UTF-8, ensure final newline
+            // Zone files should be UTF-8 encoded. Remove BOM if present.
             $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
             
-            if (!mb_check_encoding($content, 'UTF-8')) {
-                $detectedEncoding = mb_detect_encoding($content, mb_detect_order(), true);
-                if ($detectedEncoding && $detectedEncoding !== 'UTF-8') {
-                    $content = mb_convert_encoding($content, 'UTF-8', $detectedEncoding);
-                }
-            }
+            // Note: We expect zone files to be UTF-8 encoded from the database.
+            // If encoding issues occur, they should be fixed at the source (database input validation)
+            // rather than attempted conversion here which may cause data corruption.
             
             if (!empty($content) && substr($content, -1) !== "\n") {
                 $content .= "\n";
