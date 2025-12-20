@@ -3872,36 +3872,42 @@
      * Delete record (soft delete)
      */
     async function deleteRecord(recordId) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer cet enregistrement ?')) {
-            return;
-        }
-
-        try {
-            await apiCall('set_status', { id: recordId, status: 'deleted' });
-            showMessage('Enregistrement supprimé', 'success');
-            await loadDnsTable();
-        } catch (error) {
-            console.error('Error deleting record:', error);
-            showMessage('Erreur lors de la suppression: ' + error.message, 'error');
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir supprimer cet enregistrement ?',
+            async () => {
+                try {
+                    await apiCall('set_status', { id: recordId, status: 'deleted' });
+                    showMessage('Enregistrement supprimé', 'success');
+                    await loadDnsTable();
+                } catch (error) {
+                    console.error('Error deleting record:', error);
+                    showMessage('Erreur lors de la suppression: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+        );
     }
 
     /**
      * Restore a deleted record
      */
     async function restoreRecord(recordId) {
-        if (!confirm('Êtes-vous sûr de vouloir restaurer cet enregistrement ?')) {
-            return;
-        }
-
-        try {
-            await apiCall('set_status', { id: recordId, status: 'active' });
-            showMessage('Enregistrement restauré', 'success');
-            await loadDnsTable();
-        } catch (error) {
-            console.error('Error restoring record:', error);
-            showMessage('Erreur lors de la restauration: ' + error.message, 'error');
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir restaurer cet enregistrement ?',
+            async () => {
+                try {
+                    await apiCall('set_status', { id: recordId, status: 'active' });
+                    showMessage('Enregistrement restauré', 'success');
+                    await loadDnsTable();
+                } catch (error) {
+                    console.error('Error restoring record:', error);
+                    showMessage('Erreur lors de la restauration: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'info', confirmText: 'Restaurer', cancelText: 'Annuler' }
+        );
     }
 
     /**
@@ -3910,7 +3916,8 @@
     function showMessage(message, type = 'info') {
         const messageContainer = document.getElementById('dns-message');
         if (!messageContainer) {
-            alert(message);
+            // Use custom popup instead of native alert
+            showAlert(message, type === 'error' ? 'error' : type === 'success' ? 'success' : 'info');
             return;
         }
 

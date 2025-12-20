@@ -2959,20 +2959,26 @@ async function handleZoneRowClick(zoneId, parentId) {
  * Delete zone - wrapper for confirmDeleteZone
  */
 async function deleteZone(zoneId) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette zone?')) {
-        return;
-    }
-    
-    try {
-        await zoneApiCall('set_status_zone', {
-            params: { id: zoneId, status: 'deleted' }
-        });
-        
-        showSuccess('Zone supprimée avec succès');
-        await loadZonesData();
-        renderZonesTable();
-    } catch (error) {
-        console.error('Failed to delete zone:', error);
+    showConfirm(
+        'Êtes-vous sûr de vouloir supprimer cette zone?',
+        async () => {
+            try {
+                await zoneApiCall('set_status_zone', {
+                    params: { id: zoneId, status: 'deleted' }
+                });
+                
+                showSuccess('Zone supprimée avec succès');
+                await loadZonesData();
+                renderZonesTable();
+            } catch (error) {
+                console.error('Failed to delete zone:', error);
+                showError(`Échec de la suppression: ${error.message}`);
+            }
+        },
+        null,
+        { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+    );
+}
         showError('Erreur lors de la suppression: ' + error.message);
     }
 }
@@ -3230,19 +3236,31 @@ async function openZoneModal(zoneId) {
  */
 function closeZoneModal() {
     if (hasUnsavedChanges) {
-        if (!confirm('Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir fermer?')) {
-            return;
-        }
+        showConfirm(
+            'Vous avez des modifications non enregistrées. Êtes-vous sûr de vouloir fermer?',
+            () => {
+                // Remove height lock to restore clean state for next open
+                unlockZoneModalHeight();
+                
+                document.getElementById('zoneModal').classList.remove('open');
+                document.getElementById('zoneModal').style.display = 'none';
+                currentZone = null;
+                currentZoneId = null;
+                hasUnsavedChanges = false;
+            },
+            null,
+            { type: 'warning', confirmText: 'Fermer sans enregistrer', cancelText: 'Annuler' }
+        );
+    } else {
+        // Remove height lock to restore clean state for next open
+        unlockZoneModalHeight();
+        
+        document.getElementById('zoneModal').classList.remove('open');
+        document.getElementById('zoneModal').style.display = 'none';
+        currentZone = null;
+        currentZoneId = null;
+        hasUnsavedChanges = false;
     }
-    
-    // Remove height lock to restore clean state for next open
-    unlockZoneModalHeight();
-    
-    document.getElementById('zoneModal').classList.remove('open');
-    document.getElementById('zoneModal').style.display = 'none';
-    currentZone = null;
-    currentZoneId = null;
-    hasUnsavedChanges = false;
 }
 
 /**
@@ -3623,25 +3641,28 @@ async function saveZone() {
  * Delete zone (soft delete)
  */
 async function deleteZone() {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette zone? Cette action peut être annulée en restaurant la zone.')) {
-        return;
-    }
-    
-    try {
-        const zoneId = document.getElementById('zoneId').value;
-        
-        await zoneApiCall('set_status_zone', {
-            params: { id: zoneId, status: 'deleted' }
-        });
-        
-        showSuccess('Zone supprimée avec succès');
-        closeZoneModal();
-        await loadZonesData();
-        await renderZonesTable();
-    } catch (error) {
-        console.error('Failed to delete zone:', error);
-        showError('Erreur lors de la suppression: ' + error.message);
-    }
+    showConfirm(
+        'Êtes-vous sûr de vouloir supprimer cette zone? Cette action peut être annulée en restaurant la zone.',
+        async () => {
+            try {
+                const zoneId = document.getElementById('zoneId').value;
+                
+                await zoneApiCall('set_status_zone', {
+                    params: { id: zoneId, status: 'deleted' }
+                });
+                
+                showSuccess('Zone supprimée avec succès');
+                closeZoneModal();
+                await loadZonesData();
+                await renderZonesTable();
+            } catch (error) {
+                console.error('Failed to delete zone:', error);
+                showError('Erreur lors de la suppression: ' + error.message);
+            }
+        },
+        null,
+        { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+    );
 }
 
 /**
@@ -3673,26 +3694,29 @@ async function submitCreateInclude() {
  * Remove include from zone
  */
 async function removeIncludeFromZone(includeId) {
-    if (!confirm('Êtes-vous sûr de vouloir retirer cet include de cette zone?')) {
-        return;
-    }
-    
-    try {
-        await zoneApiCall('remove_include', {
-            params: {
-                parent_id: currentZone.id,
-                include_id: includeId
+    showConfirm(
+        'Êtes-vous sûr de vouloir retirer cet include de cette zone?',
+        async () => {
+            try {
+                await zoneApiCall('remove_include', {
+                    params: {
+                        parent_id: currentZone.id,
+                        include_id: includeId
+                    }
+                });
+                
+                showSuccess('Include retiré avec succès');
+                
+                // Reload zone data
+                await openZoneModal(currentZone.id);
+            } catch (error) {
+                console.error('Failed to remove include:', error);
+                showError('Erreur lors du retrait de l\'include: ' + error.message);
             }
-        });
-        
-        showSuccess('Include retiré avec succès');
-        
-        // Reload zone data
-        await openZoneModal(currentZone.id);
-    } catch (error) {
-        console.error('Failed to remove include:', error);
-        showError('Erreur lors du retrait de l\'include: ' + error.message);
-    }
+        },
+        null,
+        { type: 'danger', confirmText: 'Retirer', cancelText: 'Annuler' }
+    );
 }
 
 /**
@@ -4451,13 +4475,11 @@ function formatDate(dateString) {
 }
 
 function showSuccess(message) {
-    // Simple alert for now - can be enhanced with toast notifications
-    alert(message);
+    showAlert(message, 'success');
 }
 
 function showError(message) {
-    // Simple alert for now - can be enhanced with toast notifications
-    alert('Erreur: ' + message);
+    showAlert(message, 'error');
 }
 
 /**
@@ -5268,43 +5290,46 @@ async function addAclEntry() {
  * Delete ACL entry
  */
 async function deleteAclEntry(aclId) {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette entrée ACL ?')) {
-        return;
-    }
-    
-    const zoneId = document.getElementById('zoneId')?.value;
-    
-    try {
-        const apiBase = window.API_BASE || '/api/';
-        const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
-        const url = new URL(normalizedBase + 'admin_api.php', window.location.origin);
-        url.searchParams.append('action', 'delete_acl');
-        url.searchParams.append('id', aclId);
-        
-        const response = await fetch(url.toString(), {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json'
-            },
-            credentials: 'same-origin'
-        });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.error || 'Failed to delete ACL entry');
-        }
-        
-        showSuccess('Entrée ACL supprimée avec succès');
-        
-        // Reload ACL list
-        if (zoneId) {
-            await loadAclForZone(zoneId);
-        }
-    } catch (error) {
-        console.error('Failed to delete ACL entry:', error);
-        showError('Erreur lors de la suppression de l\'entrée ACL: ' + error.message);
-    }
+    showConfirm(
+        'Êtes-vous sûr de vouloir supprimer cette entrée ACL ?',
+        async () => {
+            const zoneId = document.getElementById('zoneId')?.value;
+            
+            try {
+                const apiBase = window.API_BASE || '/api/';
+                const normalizedBase = apiBase.endsWith('/') ? apiBase : apiBase + '/';
+                const url = new URL(normalizedBase + 'admin_api.php', window.location.origin);
+                url.searchParams.append('action', 'delete_acl');
+                url.searchParams.append('id', aclId);
+                
+                const response = await fetch(url.toString(), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to delete ACL entry');
+                }
+                
+                showSuccess('Entrée ACL supprimée avec succès');
+                
+                // Reload ACL list
+                if (zoneId) {
+                    await loadAclForZone(zoneId);
+                }
+            } catch (error) {
+                console.error('Failed to delete ACL entry:', error);
+                showError('Erreur lors de la suppression de l\'entrée ACL: ' + error.message);
+            }
+        },
+        null,
+        { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+    );
 }
 
 // Expose ACL functions globally

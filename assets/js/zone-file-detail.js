@@ -241,25 +241,28 @@ async function saveContent() {
  * Delete zone
  */
 async function deleteZone() {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette zone?')) {
-        return;
-    }
+    showConfirm(
+        'Êtes-vous sûr de vouloir supprimer cette zone?',
+        async () => {
+            try {
+                await zoneApiCall('set_status_zone', {
+                    method: 'GET',
+                    params: { id: window.currentZoneId, status: 'deleted' }
+                });
 
-    try {
-        await zoneApiCall('set_status_zone', {
-            method: 'GET',
-            params: { id: window.currentZoneId, status: 'deleted' }
-        });
-
-        showSuccess('Zone supprimée avec succès');
-        // Redirect to list after deletion
-        setTimeout(() => {
-            window.location.href = window.BASE_URL + 'zone-files.php';
-        }, 1000);
-    } catch (error) {
-        console.error('Failed to delete zone:', error);
-        showError('Erreur lors de la suppression: ' + error.message);
-    }
+                showSuccess('Zone supprimée avec succès');
+                // Redirect to list after deletion
+                setTimeout(() => {
+                    window.location.href = window.BASE_URL + 'zone-files.php';
+                }, 1000);
+            } catch (error) {
+                console.error('Failed to delete zone:', error);
+                showError('Erreur lors de la suppression: ' + error.message);
+            }
+        },
+        null,
+        { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+    );
 }
 
 /**
@@ -369,21 +372,24 @@ function renderIncludeTree(node, isRoot = false) {
  * Remove include from zone
  */
 async function removeInclude(parentId, includeId) {
-    if (!confirm('Supprimer cet include?')) {
-        return;
-    }
+    showConfirm(
+        'Supprimer cet include?',
+        async () => {
+            try {
+                await zoneApiCall('remove_include', {
+                    params: { parent_id: parentId, include_id: includeId }
+                });
 
-    try {
-        await zoneApiCall('remove_include', {
-            params: { parent_id: parentId, include_id: includeId }
-        });
-
-        showSuccess('Include supprimé avec succès');
-        loadIncludeTree(window.currentZoneId);
-    } catch (error) {
-        console.error('Failed to remove include:', error);
-        showError('Erreur lors de la suppression: ' + error.message);
-    }
+                showSuccess('Include supprimé avec succès');
+                loadIncludeTree(window.currentZoneId);
+            } catch (error) {
+                console.error('Failed to remove include:', error);
+                showError('Erreur lors de la suppression: ' + error.message);
+            }
+        },
+        null,
+        { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+    );
 }
 
 /**
@@ -661,9 +667,9 @@ function formatDate(dateString) {
 }
 
 function showSuccess(message) {
-    alert(message);
+    showAlert(message, 'success');
 }
 
 function showError(message) {
-    alert('Erreur: ' + message);
+    showAlert(message, 'error');
 }
