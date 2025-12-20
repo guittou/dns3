@@ -2587,5 +2587,112 @@ class ZoneFile {
         $logLine = "[$timestamp] [ZoneFile] $message\n";
         file_put_contents($logFile, $logLine, FILE_APPEND);
     }
+    
+    /**
+     * Write zone file to disk under BIND_BASEDIR
+     * Creates necessary directory structure and sets appropriate permissions
+     * 
+     * @param int $zoneId Zone file ID
+     * @param string $bindBasedir Base directory for BIND zone files
+     * @return array Result array with 'success' boolean, 'file_path' on success, or 'error' on failure
+     */
+    public function writeZoneFileToDisk($zoneId, $bindBasedir) {
+        try {
+            // Get zone file information
+            $zone = $this->getById($zoneId);
+            if (!$zone) {
+                return [
+                    'success' => false,
+                    'error' => "Zone file not found: ID $zoneId"
+                ];
+            }
+            
+            // Generate zone file content
+            $content = $this->generateZoneFile($zoneId);
+            if ($content === null || trim($content) === '') {
+                return [
+                    'success' => false,
+                    'error' => "Failed to generate zone file content for zone ID $zoneId"
+                ];
+            }
+            
+            // Clean content: remove BOM, ensure UTF-8, ensure final newline
+            // Zone files should be UTF-8 encoded. Remove BOM if present.
+            $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+            
+            // Note: We expect zone files to be UTF-8 encoded from the database.
+            // If encoding issues occur, they should be fixed at the source (database input validation)
+            // rather than attempted conversion here which may cause data corruption.
+            
+            if (!empty($content) && substr($content, -1) !== "\n") {
+                $content .= "\n";
+            }
+            
+            // Determine target directory path
+            $targetDir = rtrim($bindBasedir, '/');
+            
+            // If zone has a directory specified, append it to base
+            if (!empty($zone['directory'])) {
+                $targetDir .= '/' . trim($zone['directory'], '/');
+            }
+            
+            // Create directory if it doesn't exist
+            if (!is_dir($targetDir)) {
+                if (!mkdir($targetDir, 0755, true)) {
+                    return [
+                        'success' => false,
+                        'error' => "Failed to create directory: $targetDir"
+                    ];
+                }
+            }
+            
+            // Verify directory is writable
+            if (!is_writable($targetDir)) {
+                return [
+                    'success' => false,
+                    'error' => "Directory is not writable: $targetDir"
+                ];
+            }
+            
+            // Determine filename
+            $filename = $zone['filename'];
+            if (empty($filename)) {
+                // Fallback to zone name if filename is not set
+                $filename = $zone['name'] . '.db';
+            }
+            
+            // Build full file path
+            $filePath = $targetDir . '/' . $filename;
+            
+            // Write content to file (overwrite if exists)
+            $bytesWritten = file_put_contents($filePath, $content);
+            
+            if ($bytesWritten === false) {
+                return [
+                    'success' => false,
+                    'error' => "Failed to write file: $filePath"
+                ];
+            }
+            
+            // Set file permissions to 0644 (readable by all, writable by owner)
+            if (!chmod($filePath, 0644)) {
+                // Log warning but don't fail the operation
+                error_log("Warning: Failed to set permissions on zone file: $filePath");
+            }
+            
+            return [
+                'success' => true,
+                'file_path' => $filePath,
+                'bytes_written' => $bytesWritten
+            ];
+            
+        } catch (Exception $e) {
+            error_log("ZoneFile writeZoneFileToDisk error: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => "Exception: " . $e->getMessage()
+            ];
+        }
+    }
 }
 ?>
