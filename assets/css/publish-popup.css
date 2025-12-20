@@ -1,0 +1,308 @@
+/**
+ * Publish Popup CSS
+ * Custom popup for publication results (replacing alert/confirm)
+ * Matches DNS3 UI design (blue/green/red colors, rounded corners)
+ */
+
+/* Overlay */
+#publish-popup {
+  display: none;
+  position: fixed;
+  z-index: 3000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  align-items: center;
+  justify-content: center;
+}
+
+#publish-popup.show {
+  display: flex !important;
+}
+
+/* Popup container */
+.publish-popup-content {
+  background-color: #fff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+/* Header */
+.publish-popup-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.publish-popup-header h3 {
+  margin: 0;
+  color: #1F2E3B;
+  font-size: 1.5rem;
+  text-align: center;
+}
+
+.publish-popup-close {
+  font-size: 28px;
+  font-weight: 700;
+  color: #aaa;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s;
+  position: absolute;
+  right: 1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.publish-popup-close:hover {
+  color: #000;
+}
+
+/* Body */
+.publish-popup-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Loading state */
+.publish-loading {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.publish-spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.publish-loading p {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+/* Results display */
+.publish-results {
+  display: none;
+}
+
+.publish-results.show {
+  display: block;
+}
+
+.publish-summary {
+  padding: 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.publish-summary.success {
+  background: #e9f7ef;
+  color: #1a7f3b;
+  border: 1px solid #c6eccf;
+}
+
+.publish-summary.partial {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.publish-summary.error {
+  background: #ffecec;
+  color: #b00020;
+  border: 1px solid #f1c0c0;
+}
+
+.publish-summary-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.publish-summary-text {
+  flex: 1;
+}
+
+/* Details list */
+.publish-details {
+  margin-top: 1rem;
+}
+
+.publish-details h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #333;
+}
+
+.publish-zone-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+}
+
+.publish-zone-item {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.publish-zone-item:last-child {
+  border-bottom: none;
+}
+
+.publish-zone-item.success {
+  background: #fafafa;
+}
+
+.publish-zone-item.failed {
+  background: #fff5f5;
+}
+
+.publish-zone-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.publish-zone-icon.success {
+  color: #27ae60;
+}
+
+.publish-zone-icon.failed {
+  color: #e74c3c;
+}
+
+.publish-zone-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.publish-zone-name {
+  font-weight: 600;
+  color: #1F2E3B;
+  word-break: break-word;
+  margin-bottom: 0.25rem;
+}
+
+.publish-zone-path,
+.publish-zone-error {
+  font-size: 0.85rem;
+  color: #666;
+  word-break: break-word;
+}
+
+.publish-zone-error {
+  color: #b00020;
+  margin-top: 0.25rem;
+}
+
+/* Footer */
+.publish-popup-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.publish-close-btn {
+  min-width: 120px;
+  padding: 10px 16px;
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.publish-close-btn:hover {
+  background: #2980b9;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .publish-popup-content {
+    width: 95%;
+    max-height: calc(100vh - 40px);
+  }
+
+  .publish-popup-header,
+  .publish-popup-body,
+  .publish-popup-footer {
+    padding: 1rem;
+  }
+
+  .publish-popup-header h3 {
+    font-size: 1.2rem;
+  }
+
+  .publish-zone-list {
+    max-height: 250px;
+  }
+}
+
+@media (max-width: 520px) {
+  .publish-popup-content {
+    width: 100%;
+  }
+
+  .publish-summary {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .publish-zone-item {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .publish-zone-name {
+    font-size: 0.9rem;
+  }
+
+  .publish-zone-path,
+  .publish-zone-error {
+    font-size: 0.8rem;
+  }
+}
