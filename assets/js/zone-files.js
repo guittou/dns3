@@ -2979,9 +2979,6 @@ async function deleteZone(zoneId) {
         { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
     );
 }
-        showError('Erreur lors de la suppression: ' + error.message);
-    }
-}
 
 /**
  * Update pagination controls
