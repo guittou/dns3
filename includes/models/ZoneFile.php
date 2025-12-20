@@ -2589,6 +2589,37 @@ class ZoneFile {
     }
     
     /**
+     * Recursively collect all include files for a zone (with cycle detection)
+     * 
+     * @param int $zoneId Zone file ID
+     * @param array $visited Array of already visited zone IDs (for cycle detection)
+     * @return array Array of include zone file data arrays
+     */
+    public function collectAllIncludes($zoneId, &$visited = []) {
+        // Cycle detection
+        if (in_array($zoneId, $visited)) {
+            return [];
+        }
+        $visited[] = $zoneId;
+        
+        $allIncludes = [];
+        
+        // Get direct includes for this zone
+        $includes = $this->getIncludes($zoneId);
+        
+        foreach ($includes as $include) {
+            // Add this include
+            $allIncludes[] = $include;
+            
+            // Recursively get includes of this include
+            $subIncludes = $this->collectAllIncludes($include['id'], $visited);
+            $allIncludes = array_merge($allIncludes, $subIncludes);
+        }
+        
+        return $allIncludes;
+    }
+    
+    /**
      * Write zone file to disk under BIND_BASEDIR
      * Creates necessary directory structure and sets appropriate permissions
      * 
