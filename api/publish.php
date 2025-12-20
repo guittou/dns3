@@ -118,7 +118,7 @@ try {
     $results = [];
     $successCount = 0;
     $failureCount = 0;
-    $processedZoneIds = []; // Track processed zones to avoid duplicates
+    $processedZoneIds = []; // Track processed zones to avoid duplicates (key => true for O(1) lookup)
     
     foreach ($activeZones as $zone) {
         $zoneId = $zone['id'];
@@ -153,7 +153,7 @@ try {
                 $currentFileType = $zoneToPublish['file_type'];
                 
                 // Skip if already processed (avoid duplicates when includes are shared)
-                if (in_array($currentZoneId, $processedZoneIds)) {
+                if (isset($processedZoneIds[$currentZoneId])) {
                     continue;
                 }
                 
@@ -229,7 +229,7 @@ try {
                         $result['status'] = 'success';
                         $result['file_path'] = $writeResult['file_path'];
                         $successCount++;
-                        $processedZoneIds[] = $currentZoneId;
+                        $processedZoneIds[$currentZoneId] = true; // Mark as processed
                         
                         Logger::info('publish', 'Zone file published successfully', [
                             'zone_id' => $currentZoneId,
