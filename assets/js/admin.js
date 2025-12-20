@@ -762,34 +762,40 @@
      * Delete mapping
      */
     window.deleteMapping = async function(mappingId) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce mapping ?')) {
-            return;
-        }
-        
-        try {
-            await apiCall('delete_mapping', { id: mappingId }, 'POST');
-            showAlert('Mapping supprimé avec succès', 'success');
-            loadMappings();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir supprimer ce mapping ?',
+            async () => {
+                try {
+                    await apiCall('delete_mapping', { id: mappingId }, 'POST');
+                    showAlert('Mapping supprimé avec succès', 'success');
+                    loadMappings();
+                } catch (error) {
+                    showAlert('Erreur: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+        );
     };
 
     /**
      * Deactivate user (from table button)
      */
     window.deactivateUser = async function(userId, username) {
-        if (!confirm('Êtes-vous sûr de vouloir désactiver l\'utilisateur "' + username + '" ?\n\nCette action désactivera le compte (l\'utilisateur ne pourra plus se connecter) mais conservera l\'historique.')) {
-            return;
-        }
-        
-        try {
-            await apiCall('deactivate_user', { id: userId }, 'POST');
-            showAlert('Utilisateur "' + username + '" désactivé avec succès', 'success');
-            loadUsers();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir désactiver l\'utilisateur "' + username + '" ?\n\nCette action désactivera le compte (l\'utilisateur ne pourra plus se connecter) mais conservera l\'historique.',
+            async () => {
+                try {
+                    await apiCall('deactivate_user', { id: userId }, 'POST');
+                    showAlert('Utilisateur "' + username + '" désactivé avec succès', 'success');
+                    loadUsers();
+                } catch (error) {
+                    showAlert('Erreur: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Désactiver', cancelText: 'Annuler' }
+        );
     };
 
     /**
@@ -803,18 +809,21 @@
         
         const username = document.getElementById('user-username').value;
         
-        if (!confirm('Êtes-vous sûr de vouloir désactiver l\'utilisateur "' + username + '" ?\n\nCette action désactivera le compte (l\'utilisateur ne pourra plus se connecter) mais conservera l\'historique.')) {
-            return;
-        }
-        
-        try {
-            await apiCall('deactivate_user', { id: currentEditUserId }, 'POST');
-            showAlert('Utilisateur "' + username + '" désactivé avec succès', 'success');
-            closeUserModal();
-            loadUsers();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir désactiver l\'utilisateur "' + username + '" ?\n\nCette action désactivera le compte (l\'utilisateur ne pourra plus se connecter) mais conservera l\'historique.',
+            async () => {
+                try {
+                    await apiCall('deactivate_user', { id: currentEditUserId }, 'POST');
+                    showAlert('Utilisateur "' + username + '" désactivé avec succès', 'success');
+                    closeUserModal();
+                    loadUsers();
+                } catch (error) {
+                    showAlert('Erreur: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Désactiver', cancelText: 'Annuler' }
+        );
     };
 
     /**
@@ -996,34 +1005,40 @@
      * Revoke token
      */
     window.revokeToken = async function(tokenId, tokenName) {
-        if (!confirm('Êtes-vous sûr de vouloir révoquer le token "' + tokenName + '" ?\n\nCette action est irréversible.')) {
-            return;
-        }
-        
-        try {
-            await apiCall('revoke_token', { id: tokenId }, 'POST');
-            showAlert('Token "' + tokenName + '" révoqué avec succès', 'success');
-            loadTokens();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir révoquer le token "' + tokenName + '" ?\n\nCette action est irréversible.',
+            async () => {
+                try {
+                    await apiCall('revoke_token', { id: tokenId }, 'POST');
+                    showAlert('Token "' + tokenName + '" révoqué avec succès', 'success');
+                    loadTokens();
+                } catch (error) {
+                    showAlert('Erreur: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Révoquer', cancelText: 'Annuler' }
+        );
     };
 
     /**
      * Delete token
      */
     window.deleteToken = async function(tokenId, tokenName) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer définitivement le token "' + tokenName + '" ?\n\nCette action est irréversible.')) {
-            return;
-        }
-        
-        try {
-            await apiCall('delete_token', { id: tokenId }, 'POST');
-            showAlert('Token "' + tokenName + '" supprimé avec succès', 'success');
-            loadTokens();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir supprimer définitivement le token "' + tokenName + '" ?\n\nCette action est irréversible.',
+            async () => {
+                try {
+                    await apiCall('delete_token', { id: tokenId }, 'POST');
+                    showAlert('Token "' + tokenName + '" supprimé avec succès', 'success');
+                    loadTokens();
+                } catch (error) {
+                    showAlert('Erreur: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+        );
     };
 
     /**
@@ -1310,32 +1325,35 @@
      * Delete domain (set status to deleted)
      */
     window.deleteDomain = async function(domainId) {
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce domaine ?')) {
-            return;
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir supprimer ce domaine ?',
+            async () => {
+                try {
+                    const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
+                    url.searchParams.append('action', 'set_status');
+                    url.searchParams.append('id', domainId);
+                    url.searchParams.append('status', 'deleted');
 
-        try {
-            const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
-            url.searchParams.append('action', 'set_status');
-            url.searchParams.append('id', domainId);
-            url.searchParams.append('status', 'deleted');
+                    const response = await fetch(url.toString(), {
+                        method: 'GET',
+                        credentials: 'same-origin'
+                    });
 
-            const response = await fetch(url.toString(), {
-                method: 'GET',
-                credentials: 'same-origin'
-            });
+                    const data = await response.json();
 
-            const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to delete domain');
+                    }
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to delete domain');
-            }
-
-            showAlert('Domaine supprimé avec succès', 'success');
-            loadDomains();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
+                    showAlert('Domaine supprimé avec succès', 'success');
+                    loadDomains();
+                } catch (error) {
+                    showAlert('Erreur: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+        );
     };
 
     /**
@@ -1348,33 +1366,36 @@
             return;
         }
         
-        if (!confirm('Êtes-vous sûr de vouloir supprimer ce domaine ?')) {
-            return;
-        }
+        showConfirm(
+            'Êtes-vous sûr de vouloir supprimer ce domaine ?',
+            async () => {
+                try {
+                    const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
+                    url.searchParams.append('action', 'set_status');
+                    url.searchParams.append('id', domainId);
+                    url.searchParams.append('status', 'deleted');
 
-        try {
-            const url = new URL(window.API_BASE + 'domain_api.php', window.location.origin);
-            url.searchParams.append('action', 'set_status');
-            url.searchParams.append('id', domainId);
-            url.searchParams.append('status', 'deleted');
+                    const response = await fetch(url.toString(), {
+                        method: 'GET',
+                        credentials: 'same-origin'
+                    });
 
-            const response = await fetch(url.toString(), {
-                method: 'GET',
-                credentials: 'same-origin'
-            });
+                    const data = await response.json();
 
-            const data = await response.json();
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to delete domain');
+                    }
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to delete domain');
-            }
-
-            showAlert('Domaine supprimé avec succès', 'success');
-            closeDomainModal();
-            loadDomains();
-        } catch (error) {
-            showAlert('Erreur: ' + error.message, 'error');
-        }
+                    showAlert('Domaine supprimé avec succès', 'success');
+                    closeDomainModal();
+                    loadDomains();
+                } catch (error) {
+                    showAlert('Erreur: ' + error.message, 'error');
+                }
+            },
+            null,
+            { type: 'danger', confirmText: 'Supprimer', cancelText: 'Annuler' }
+        );
     };
 
     /**
